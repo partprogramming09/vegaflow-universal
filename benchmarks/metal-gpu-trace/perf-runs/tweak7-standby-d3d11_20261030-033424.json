@@ -1,0 +1,117 @@
+{
+  "label": "tweak7-standby-d3d11",
+  "trace": "tweak7-standby-d3d11_20261030-033424.trace",
+  "process": {
+    "name": "drawstress.exe",
+    "pid": 20396,
+    "arguments": "drawstress.exe --d3d11",
+    "termination-reason": "exit"
+  },
+  "device": {
+    "platform": "Windows",
+    "model": "AMD64 Family 23 Model 96 Stepping 1, AuthenticAMD",
+    "memory-size": "16555692032",
+    "os-version": "10.0.26300"
+  },
+  "template": "Windows Native Trace",
+  "duration_s": 5.047,
+  "missing_tables": [
+    "metal-current-allocated-size",
+    "metal-application-encoders-list",
+    "gpu-performance-state-intervals"
+  ],
+  "gpu": {
+    "intervals": 1183,
+    "frames": 1183,
+    "frame_gpu_ms": {
+      "count": 1183,
+      "mean": 3.385,
+      "p50": 3.249,
+      "p95": 3.852,
+      "max": 3.852
+    },
+    "per_channel_ms": {
+      "draw": {
+        "count": 1183,
+        "mean": 3.385,
+        "p50": 3.249,
+        "p95": 3.852,
+        "max": 3.852
+      }
+    },
+    "frame_interval_ms": {
+      "count": 1182,
+      "mean": 3.385,
+      "p50": 3.249,
+      "p95": 3.852,
+      "max": 3.852
+    },
+    "fps_estimate": 307.8
+  },
+  "encoders": {
+    "per_frame": {
+      "count": 1183,
+      "mean": 1.0,
+      "p50": 1,
+      "p95": 1,
+      "max": 1
+    },
+    "command_buffers_per_frame": {
+      "count": 1183,
+      "mean": 1.0,
+      "p50": 1,
+      "p95": 1,
+      "max": 1
+    },
+    "encoder_us": {
+      "count": 1183,
+      "mean": 3385.395,
+      "p50": 3249.0,
+      "p95": 3852.0,
+      "max": 3852.0
+    },
+    "short_share": {
+      "10": 0.0,
+      "25": 0.0,
+      "50": 0.0,
+      "100": 0.0,
+      "250": 0.0,
+      "500": 0.0,
+      "1000": 0.0
+    },
+    "by_label": [
+      {
+        "label": "draw",
+        "per_frame": 1.0,
+        "total_ms": 4004.922,
+        "mean_us": 3385.4,
+        "stdev_us": 301.9
+      }
+    ]
+  },
+  "gpu_idle": {
+    "idle_ms_per_frame": {
+      "count": 1183,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p95": 0.0,
+      "max": 0.0
+    },
+    "gaps_over_1ms": 0,
+    "idle_share": 0.0
+  },
+  "metal_memory_mib": {
+    "samples": 0
+  },
+  "process_rss_mib": {
+    "count": 6,
+    "mean": 124.38,
+    "p50": 149.004,
+    "p95": 150.98,
+    "max": 150.98
+  },
+  "layer": {
+    "none": "native Metal, no translation layer",
+    "program_env": "DRAWSTRESS_DIM=20"
+  }
+}

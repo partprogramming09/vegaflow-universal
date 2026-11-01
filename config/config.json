@@ -1,0 +1,14 @@
+{
+  "poll_interval_ms": 1500,
+  "timer_resolution_ns100": 5000,
+  "fsr_sharpness": 0.10,
+  "fsr_mode": 0,
+  "timer_forced_manual": true,
+  "memory": {
+    "min_free_ram_mb": 1200,
+    "min_standby_mb": 1500,
+    "cooldown_seconds": 90,
+    "max_game_disk_read_mb_s": 15
+  },
+  "custom_game_exes": []
+}

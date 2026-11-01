@@ -1,0 +1,119 @@
+{
+  "label": "godot3d-d3d12",
+  "trace": "godot3d-d3d12_20261030-194042.trace",
+  "process": {
+    "name": "godot.exe",
+    "pid": 19412,
+    "arguments": "godot.exe --path bench3d --rendering-driver d3d12",
+    "termination-reason": "exit"
+  },
+  "device": {
+    "platform": "Windows",
+    "model": "AMD64 Family 23 Model 96 Stepping 1, AuthenticAMD",
+    "memory-size": "16555692032",
+    "os-version": "10.0.26300",
+    "cpu_architecture": "Zen 2 Renoir 7nm",
+    "gpu_architecture": "Vega 6 / GCN 5.0, bus dual-channel 128-bit"
+  },
+  "template": "Windows Native Trace",
+  "duration_s": 5.187,
+  "missing_tables": [
+    "metal-current-allocated-size",
+    "metal-application-encoders-list",
+    "gpu-performance-state-intervals"
+  ],
+  "gpu": {
+    "intervals": 675,
+    "frames": 675,
+    "frame_gpu_ms": {
+      "count": 675,
+      "mean": 5.933,
+      "p50": 5.555,
+      "p95": 6.06,
+      "max": 50.86
+    },
+    "per_channel_ms": {
+      "draw": {
+        "count": 675,
+        "mean": 5.933,
+        "p50": 5.555,
+        "p95": 6.06,
+        "max": 50.86
+      }
+    },
+    "frame_interval_ms": {
+      "count": 674,
+      "mean": 5.933,
+      "p50": 5.555,
+      "p95": 6.06,
+      "max": 50.86
+    },
+    "fps_estimate": 180.0
+  },
+  "encoders": {
+    "per_frame": {
+      "count": 675,
+      "mean": 1.0,
+      "p50": 1,
+      "p95": 1,
+      "max": 1
+    },
+    "command_buffers_per_frame": {
+      "count": 675,
+      "mean": 1.0,
+      "p50": 1,
+      "p95": 1,
+      "max": 1
+    },
+    "encoder_us": {
+      "count": 675,
+      "mean": 5932.684,
+      "p50": 5555.0,
+      "p95": 6060.0,
+      "max": 50860.0
+    },
+    "short_share": {
+      "10": 0.0,
+      "25": 0.0,
+      "50": 0.0,
+      "100": 0.0,
+      "250": 0.0,
+      "500": 0.0,
+      "1000": 0.0
+    },
+    "by_label": [
+      {
+        "label": "draw",
+        "per_frame": 1.0,
+        "total_ms": 4004.562,
+        "mean_us": 5932.7,
+        "stdev_us": 2254.6
+      }
+    ]
+  },
+  "gpu_idle": {
+    "idle_ms_per_frame": {
+      "count": 675,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p95": 0.0,
+      "max": 0.0
+    },
+    "gaps_over_1ms": 0,
+    "idle_share": 0.0
+  },
+  "metal_memory_mib": {
+    "samples": 0
+  },
+  "process_rss_mib": {
+    "count": 6,
+    "mean": 223.727,
+    "p50": 275.914,
+    "p95": 275.914,
+    "max": 275.914
+  },
+  "layer": {
+    "none": "native Metal, no translation layer",
+    "program_env": ""
+  }
+}

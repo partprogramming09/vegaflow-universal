@@ -1,0 +1,43 @@
+# Build artifacts and compiled binaries
+build/
+build/*.o
+build/*.obj
+build/*.old*
+build/*.prev*
+build/*.running.exe
+build/*.log
+build/test_session_report.log
+
+# CMake artifacts
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+*.cmake
+
+# IDE and Editor directories
+.vs/
+.vscode/
+.idea/
+out/
+bin/
+
+# Temporary and Scratch files
+scratch/
+*.tmp
+*.temp
+
+# Benchmark caches and generated artifacts
+benchmarks/**/cache/
+
+# Log files
+logs/*.log
+*.log
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# OS generated files
+Thumbs.db
+Desktop.ini
