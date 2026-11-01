@@ -11,8 +11,12 @@ import time
 TOOLS = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(TOOLS))
 
+import pytest
+
 import perf_record_windows as prw
 import metal_trace_mcp as mcp
+
+pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="needs Windows (ctypes.windll, DWM)")
 
 
 def test_attach_nonexistent_process(tmp_path):

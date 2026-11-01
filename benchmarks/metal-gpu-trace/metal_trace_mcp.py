@@ -30,8 +30,8 @@ if sys.platform == "win32":
 
 OUT = pathlib.Path(os.environ.get("METAL_TRACE_OUT", "perf-runs")).resolve()
 READ = [OUT] + [pathlib.Path(p).resolve() for p in os.environ.get("METAL_TRACE_READ", "").split(os.pathsep) if p]
-FAMILIES = json.loads((TOOLS_DIR / "data" / "apple-gpu-families.json").read_text())
-WORKLOADS = json.loads((TOOLS_DIR / "data" / "workloads.json").read_text())["workloads"]
+FAMILIES = json.loads((TOOLS_DIR / "data" / "apple-gpu-families.json").read_text(encoding="utf-8"))
+WORKLOADS = json.loads((TOOLS_DIR / "data" / "workloads.json").read_text(encoding="utf-8"))["workloads"]
 if os.environ.get("METAL_TRACE_CACHE"):
     CACHE = pathlib.Path(os.environ["METAL_TRACE_CACHE"]).resolve()
 elif (TOOLS_DIR / "cache").is_dir():
@@ -127,7 +127,7 @@ def tool_perf_record(label, program=None, seconds=20, wine=None, prefix=None, wo
         raise ToolError(f"no program at {program.name}")
     workdir = pathlib.Path(workdir).expanduser() if workdir else program.parent
     prefix = pathlib.Path(prefix or os.environ.get("WINEPREFIX", "~/.wine")).expanduser()
-    return record(label, seconds, wine, prefix, workdir, [str(program.resolve()), *shlex.split(args)], program_env)
+    return record(label, seconds, wine, prefix, workdir, [str(program.resolve()), *shlex.split(args, posix=sys.platform != "win32")], program_env)
 
 
 def workload_entry(name):
@@ -399,9 +399,9 @@ def record(label, seconds, wine, prefix, workdir, command, program_env=""):
     if proc.returncode or not new:
         reason = (stderr.strip().splitlines() or ["no summary was written"])[-1]
         raise ToolError(f"recording failed (exit {proc.returncode}): {reason}")
-    summary = json.loads(new[-1].read_text())
+    summary = json.loads(new[-1].read_text(encoding="utf-8"))
     summary["layer"] = layer
-    new[-1].write_text(json.dumps(summary, indent=2, ensure_ascii=False) + "\n")
+    new[-1].write_text(json.dumps(summary, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     return summary
 
 
@@ -413,7 +413,7 @@ def tool_perf_runs(offset=0, limit=50):
         if path.name == BASELINES.name:
             continue
         try:
-            s = json.loads(path.read_text())
+            s = json.loads(path.read_text(encoding="utf-8"))
         except ValueError:  # a summary still being written
             continue
         gpu = s.get("gpu", {})
@@ -433,7 +433,7 @@ def tool_perf_compare(a, b, short_us=25):
     count and GPU ms per frame, largest change first. layer says whether both ran on the same translation layer:
     with different layers it compares layers, not one change. Recordings with under 100 frames are flagged: too
     short to compare."""
-    sa, sb = (json.loads(run_path(r).read_text()) for r in (a, b))
+    sa, sb = (json.loads(run_path(r).read_text(encoding="utf-8")) for r in (a, b))
     return compare_summaries(sa, sb, a, b, short_us)
 
 
@@ -492,7 +492,7 @@ CHECKED = {
 
 def load_baselines():
     """Returns the saved references, by name."""
-    return json.loads(BASELINES.read_text()) if BASELINES.exists() else {}
+    return json.loads(BASELINES.read_text(encoding="utf-8")) if BASELINES.exists() else {}
 
 
 def tool_perf_baseline(name=None, runs=None):
@@ -509,10 +509,10 @@ def tool_perf_baseline(name=None, runs=None):
             raise ToolError("runs need a name for the reference")
         if isinstance(runs, str):
             runs = [runs]
-        summaries = [json.loads(run_path(r).read_text()) for r in runs]
+        summaries = [json.loads(run_path(r).read_text(encoding="utf-8")) for r in runs]
         baselines[name] = {"runs": list(runs), "set": time.strftime("%Y-%m-%d"), "summaries": summaries}
         OUT.mkdir(parents=True, exist_ok=True)
-        BASELINES.write_text(json.dumps(baselines))
+        BASELINES.write_text(json.dumps(baselines), encoding="utf-8")
     if name is not None:
         if name not in baselines:
             raise ToolError(f"no reference {name}; perf_baseline with no arguments lists them")
@@ -546,7 +546,7 @@ def tool_perf_check(run, baseline, margin_pct=3):
     if baseline not in baselines:
         raise ToolError(f"no reference {baseline}; perf_baseline with no arguments lists them")
     ref = baselines[baseline]
-    s = json.loads(run_path(run).read_text())
+    s = json.loads(run_path(run).read_text(encoding="utf-8"))
     span = ranges(ref["summaries"])
     worse, better, unchecked = [], [], []
     for metric, (get, higher_is_worse) in CHECKED.items():
@@ -619,7 +619,7 @@ def tool_perf_diagnose(run, min_encoders=4, short_us=25, short_share=0.25):
     share of short encoders, the labels with the most GPU time and the GPU's idle time. Analyzes overall system
     bottlenecks (GPU_BOUND, CPU_SUBMISSION_BOUND, MEMORY_BANDWIDTH_PRESSURE, BALANCED), micro-stutter rate, and
     provides actionable technical optimization recommendations."""
-    s = json.loads(run_path(run).read_text())
+    s = json.loads(run_path(run).read_text(encoding="utf-8"))
     encoders = s.get("encoders")
     if not encoders:
         raise ToolError(f"{run} was summarized before version 0.4.0 and has no encoder numbers; record it again")
@@ -1050,6 +1050,8 @@ def main():
     if sys.argv[1:] == ["--version"]:
         print(f"metal-gpu-trace {__version__}")
         return
+    sys.stdin.reconfigure(encoding="utf-8")
+    sys.stdout.reconfigure(encoding="utf-8")
     for line in sys.stdin:
         if not line.strip():
             continue
