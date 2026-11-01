@@ -1,5 +1,7 @@
 # CLAUDE.md — VegaFlow Universal Developer & Architecture Guide
 
+> **Antes de cualquier cambio lee [`COORDINACION.md`](COORDINACION.md):** hay una instancia de Claude en Mac y otra en Windows, y se coordinan solo por issues y PR de GitHub.
+
 > **Guía Maestra de Arquitectura, Ingeniería de Sistemas y Estándares de Desarrollo**  
 > *VegaFlow Universal — High-Performance APU & Gaming Optimization Framework*
 
