@@ -147,8 +147,8 @@ A continuación se detalla **absolutamente todo lo que existe en el código**, v
 ## 3. Herramientas y Diagnósticos Externos del Proyecto
 
 1. **`metal-gpu-trace` (MCP de Telemetría Real de Windows):**
-   * *Código:* [`metal-gpu-trace/perf_record_windows.py`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/metal-gpu-trace/perf_record_windows.py)
-   * Enganche directo al DWM Compositor (`DwmGetCompositionTimingInfo` + QPC). Mide los fotogramas directamente de la pantalla de Windows sin números inventados.
+   * *Código:* repo externo [`partprogramming09/metal-gpu-trace`](https://github.com/partprogramming09/metal-gpu-trace), archivo `perf_record_windows.py` (soporte de Windows en el PR #1).
+   * Fotogramas y tiempo de GPU por `Present()` con Intel PresentMon (`PRESENTMON_EXE`). Sin PresentMon cae a intervalos de composición de DWM (`gpu.source = "dwm-composition"`), que no miden juegos en pantalla completa exclusiva. Sin datos, la grabación falla: no se inventan fotogramas.
 2. **`apply_optimizations_2b.exe`:**
    * Binario compilado en C++20 que permite consultar (`--status`) y aplicar de forma directa todas las mejoras del Grupo 2B.
 3. **`vegaflow_tests.exe`:**

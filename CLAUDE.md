@@ -328,9 +328,6 @@ direct/
 │   └── config.json               # Configuración persistente del daemon y lista de juegos
 ├── assets/
 │   └── dxvk/dxvk-2.5.3/          # Binarios originales DXVK-GPLAsync (x32 y x64)
-├── benchmarks/                   # Trazas de rendimiento y telemetría de GPU/D3D
-│   ├── perf-runs/
-│   └── metal-gpu-trace/
 ├── scripts/
 │   └── build.ps1                 # Script automatizado de compilación y pruebas PowerShell
 ├── include/
