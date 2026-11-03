@@ -23,6 +23,7 @@ $sys = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProf
 $games = "$sys\Tasks\Games"
 $prio = 'HKLM:\SYSTEM\CurrentControlSet\Control\PriorityControl'
 $tcp = 'HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters'
+$amd0 = 'HKLM:\SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}\0000'
 
 # Path, Name, Stock (valor de fabrica; $null = no existe), Restorable (seguro de restaurar)
 $entries = @(
@@ -39,8 +40,10 @@ $entries = @(
     @($games, 'Clock Rate', 10000, $true),
     @($tcp, 'TcpAckFrequency', $null, $true),
     @($tcp, 'TCPNoDelay', $null, $true),
-    @('HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem', 'NtfsMemoryUsage', $null, $false),
-    @('HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem', 'NtfsDisableLastAccessUpdate', $null, $false)
+    @('HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem', 'NtfsMemoryUsage', $null, $true),
+    @('HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem', 'NtfsDisableLastAccessUpdate', 2147483650, $false),
+    @($amd0, 'KMD_EnableSAM', $null, $true),
+    @($amd0, 'LargePageSupport', $null, $true)
 )
 
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole('Administrator')
@@ -79,7 +82,7 @@ foreach ($sub in '0000', '0001', '0002', '0003') {
     $k = Get-ItemProperty -Path "$amd\$sub" -ErrorAction SilentlyContinue
     if ($null -eq $k -or $null -eq $k.DriverDesc) { continue }
     "AMD/GPU $sub : $($k.DriverDesc)"
-    foreach ($n in 'EnableUlps', 'KMD_EnableSAM', 'LargePageSupport', 'ShaderCache') {
+    foreach ($n in 'EnableUlps', 'ShaderCache') {
         $v = $k.$n
         if ($null -ne $v) { "  $n = $v (solo informe)" }
     }
