@@ -78,7 +78,7 @@ if ($FromCsv) {
     $csv = Join-Path ([IO.Path]::GetTempPath()) "vegaflow-bench-$stamp.csv"
     $prevEap = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
-    & $PresentMon --process_name $Process --output_file $csv --timed $Seconds --terminate_after_timed --no_console_stats 2>&1 | Out-Null
+    & $PresentMon --process_name $Process --output_file $csv --timed $Seconds --terminate_after_timed --no_console_stats --session_name vegaflow-bench --stop_existing_session 2>&1 | Out-Null
     $ErrorActionPreference = $prevEap
     if ($LASTEXITCODE -ne 0) { throw "PresentMon termino con codigo $LASTEXITCODE." }
     if (-not (Test-Path $csv)) { throw "PresentMon no genero datos. El proceso '$Process' debe estar en ejecucion y, si es de sistema, la consola debe ser administrador." }
