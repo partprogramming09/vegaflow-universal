@@ -77,6 +77,16 @@ También activos (sin valor de fábrica confirmado, solo informe): `EnableUlps=0
 Varios de estos tweaks ya no existen en el código, así que el daemon actual no los revierte.
 `scripts/tweaks_state.ps1 -Restore` simula la restauración (12 cambios); con `-Apply` la ejecuta y requiere consola de administrador. Algunos valores (DWM, paginación del kernel) solo se releen tras reiniciar sesión o reiniciar.
 
+## Restauración a valores de fábrica
+
+2026-11-03 00:43: la tarea `VegaFlow-Restore` (elevada, `C:\ProgramData\VegaFlow`) aplicó 12 cambios con código de salida 0. Una lectura posterior con `scripts/tweaks_state.ps1` mostró los 16 valores controlados en su valor de fábrica.
+
+Pendiente tras la restauración: reiniciar Windows para que DWM y la paginación del kernel relean sus valores, y medir una línea base de Windows limpio. Las mediciones anteriores de esta página se hicieron antes de la restauración.
+
+Detalle del mecanismo: la primera ejecución falló con código 1 porque `IsInRole('Administrator')` busca el nombre en inglés y en Windows en español el grupo es "Administradores"; el script lo tomó por no administrador y no escribió nada. Se corrigió usando `WindowsBuiltInRole::Administrator`.
+
+Siguen sin tocarse (sin valor de fábrica confirmado): `EnableUlps`, `ShaderCache`, `UMD\*`, `UserGpuPreferences`, perfil de energía APU, compresión de memoria.
+
 ## Observaciones
 
 - El juego se presenta en `Legacy Flip`, no en borderless. Los tweaks de DirectFlip y MPO apuntan a otro modo de presentación y no se pueden evaluar con este juego tal como está configurado.
