@@ -31,24 +31,15 @@ struct SystemGraphicsTweaksState {
     bool amd_shader_cache_forced = false; // ShaderCache == 32 00 en Class\{4d36e968-e325-11ce-bfc1-08002be10318}
     bool memory_compression_enabled = false; // Proceso del kernel "MemCompression" activo
     bool mmcss_gaming_optimized = false; // Tasks\Games -> GPU Priority == 8 && SystemResponsiveness <= 10
-    bool amd_dx11_uma_boost = false;     // SurfaceFormatReplacements == 0x3100 / EnableUlps == 0
+    bool amd_dx11_uma_boost = false;     // SurfaceFormatReplacements == 0x3100
     bool gamedvr_disabled = false;       // GameDVR_Enabled == 0 && AppCaptureEnabled == 0
     bool apu_power_optimized = false;    // Plan de energía APU (Boost Eficiente + PCIe ASPM Off)
     uint32_t win32_priority_separation = 2; // HKLM\SYSTEM\CurrentControlSet\Control\PriorityControl -> Win32PrioritySeparation
     bool kernel_paging_shield_active = false; // HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management -> DisablePagingExecutive == 1
-    bool amd_sam_rebar_active = false;       // KMD_EnableSAM == 1 en adaptador AMD
     uint32_t amd_tessellation_max = 0;       // Límite de teselación detectado (ej. 16, 8, 64)
-    bool tcp_nodelay_active = false;         // TCPNoDelay == 1 y TcpAckFrequency == 1 en Tcpip\Parameters e interfaces
-    uint32_t network_throttling_index = 10;  // NetworkThrottlingIndex (0xffffffff = deshabilitado, 10 = default Windows)
-    bool ntfs_last_access_disabled = false;  // NtfsDisableLastAccessUpdate == 1 en FileSystem
-    uint32_t system_responsiveness = 20;     // SystemResponsiveness (0 = 100% CPU para juegos, 20 = default Windows)
     std::string mmcss_scheduling_category = "";
     std::string mmcss_sfio_priority = "";
     uint32_t mmcss_clock_rate = 10000;
-    uint32_t ntfs_memory_usage = 1;
-    bool bypass_io_compatible = false;
-    std::string wasapi_audio_scheduling_category = "";
-    uint32_t wasapi_audio_priority = 2;
     uint32_t amd_vram_reported_mb = 0;
     bool amd_vram_override_active = false;
 };
@@ -77,7 +68,6 @@ public:
     static bool SetDynamicPrioritySeparation(uint32_t value, bool dry_run = false);
     static bool SetKernelMemoryPagingShield(bool enable, bool dry_run = false);
     static bool QueryKernelMemoryPagingShield();
-    static bool QueryAmdSamRebarActive();
     static uint32_t QueryAmdTessellationCap();
 
     // Sobrescritura de Presupuesto VRAM UMA (Windows & DirectX & Driver AMD)
@@ -85,32 +75,11 @@ public:
     static bool RestoreAmdVramReporting(bool dry_run = false);
     static bool QueryAmdVramReporting(uint32_t& out_driver_mb, uint64_t& out_dxgi_bytes);
 
-    // TCP/IP Low Latency Stack & Network Throttling Optimization (Ronda 2)
-    static bool ApplyTcpLatencyTweaks(bool dryRun = false);
-    static bool ApplyTcpGamingTweaks(bool dryRun = false) { return ApplyTcpLatencyTweaks(dryRun); }
-    static bool RestoreTcpLatencyTweaks(bool dryRun = false);
-    static bool QueryTcpLatencyTweaks(bool& tcpNoDelayActive, uint32_t& networkThrottlingIndex);
-
-    // I/O Metadata Shield & Storage Streaming (Ronda 2 - Riesgo 2)
-    static bool ApplyIoStorageTweaks(bool dryRun = false);
-    static bool RestoreIoStorageTweaks(bool dryRun = false);
-    static bool QueryIoStorageTweaks(bool& ntfsLastAccessDisabled, uint32_t& systemResponsiveness);
-
     // MMCSS Audio & Gaming Priority Shield (Ronda 2 - Riesgo 2)
     static bool ApplyMmcssTaskTweaks(bool dryRun = false);
     static bool ApplyMmcssTweaks(bool dryRun = false) { return ApplyMmcssTaskTweaks(dryRun); }
     static bool RestoreMmcssTaskTweaks(bool dryRun = false);
     static bool QueryMmcssTaskTweaks(std::string& schedulingCategory, std::string& sfioPriority, uint32_t& clockRate);
-
-    // DirectStorage 1.2 & BypassIO Storage Acceleration (Mejora 5 - Riesgo 2)
-    static bool ApplyBypassIoTweaks(bool dryRun = false);
-    static bool RestoreBypassIoTweaks(bool dryRun = false);
-    static bool QueryBypassIoTweaks(uint32_t& ntfsMemoryUsage, bool& bypassIoCompatible);
-
-    // WASAPI Pro Audio Low-Latency & Glitch-Resilience Shield (Mejora 6 - Riesgo 1)
-    static bool ApplyWasapiAudioTweaks(bool dryRun = false);
-    static bool RestoreWasapiAudioTweaks(bool dryRun = false);
-    static bool QueryWasapiAudioTweaks(std::string& audioSchedulingCategory, uint32_t& audioPriority);
 
     // Desactiva GameDVR / AppCapture en segundo plano (ahorra ancho de banda UMA en todos los juegos DX11/DX12)
     // y fuerza Fullscreen Optimizations de latencia cero (FSEBehaviorMode = 2)

@@ -115,7 +115,7 @@ void RenderTabDashboard(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* st
     DrawTextAt(hdcMem, rcK4.left + 12, rcK4.top + 28, ramBuf, CLR_ACCENT_PURPLE, state->hFontMetric);
 
     // -------------------------------------------------------------------------
-    // 3. Rejilla de Estado de Optimizaciones (8 Tarjetas 2x4)
+    // 3. Rejilla de Estado de Optimizaciones (4 Tarjetas 2x2)
     // -------------------------------------------------------------------------
     int gridY = kpiY + kpiH + 12;
     int rowH = 50;
@@ -133,18 +133,14 @@ void RenderTabDashboard(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* st
     std::wstring csmSubtitle = L"Cascadas CSM (2 Splits) | DX12 AsyncCompute: " +
         std::wstring(state->data.system_info.apu_guard.dx12_async_compute_allowed ? L"ON" : L"OFF");
 
-    const OptCardDef optCards[8] = {
-        { L"DirectStorage / BypassIO", L"Streaming directo NVMe sin sobrecarga NT", state->data.directstorage_active, !state->data.is_elevated },
+    const OptCardDef optCards[4] = {
         { L"MMCSS Prioridad GPU=8", L"Máxima prioridad en cola WDDM para el juego", (state->data.mmcss_task_active || state->data.mmcss_gaming_optimized), !state->data.is_elevated },
         { L"Temporizador 0.500 ms", L"Quantum de kernel a 0.5ms para latencia mínima", timerActive, false },
-        { L"Red Gaming TCPNoDelay", L"Desactiva Nagle y throttling de red en gaming", state->data.tcp_gaming_active, !state->data.is_elevated },
-        { L"Audio WASAPI Pro", L"Audio de baja latencia sin cortes ni glitches", state->data.wasapi_audio_active, !state->data.is_elevated },
-        { L"I/O Storage Streaming", L"Desactiva sellos NTFS y prioriza I/O en juego", state->data.io_streaming_active, !state->data.is_elevated },
         { L"Perfil Sombras APU", csmSubtitle.c_str(), state->data.apu_shadows_active, false },
         { L"Blindaje Kernel NT", L"DisablePagingExecutive activo en memoria física", state->data.kernel_paging_shield_active, !state->data.is_elevated }
     };
 
-    for (int i = 0; i < 8; ++i) {
+    for (int i = 0; i < 4; ++i) {
         int row = i / 2;
         int col = i % 2;
         int cX = contentLeft + col * (colW + colGutter);
@@ -168,7 +164,7 @@ void RenderTabDashboard(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* st
     // -------------------------------------------------------------------------
     // 4. Barra de Acciones Rápidas (Botones 1-Clic con Hit-Test)
     // -------------------------------------------------------------------------
-    int actY = gridY + 4 * (rowH + rowGutter) + 4;
+    int actY = gridY + 2 * (rowH + rowGutter) + 4;
     int actH = 38;
     int btnGutter = 10;
     int btnW = (contentW - 3 * btnGutter) / 4;

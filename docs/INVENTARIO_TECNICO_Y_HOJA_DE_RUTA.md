@@ -91,12 +91,9 @@ A continuación se detalla **absolutamente todo lo que existe en el código**, v
 * **Módulo 14: Límite de Teselación Geométrica 16x (Anti-Overdraw)**  
   * *Registro:* Directiva de driver AMD `Tessellation_Max = 16`  
   * *Detalle:* Limita la teselación extrema (que en 64x no ofrece diferencia visual en una pantalla de laptop pero satura los 6 CUs de la Vega 6), ahorrando hasta un 25% de ancho de banda DDR4.
-* **Módulo 15: AMD SAM / ReBAR en Bus UMA**  
-  * *Registro:* `KMD_EnableSAM = 1`  
-  * *Detalle:* Habilita el acceso directo de la CPU a toda la memoria compartida de la GPU sin particionarla en ventanas pequeñas de 256 MB.
 * **Módulo 16: Boost Driver AMD DX11 / UMA**  
-  * *Registro:* `SurfaceFormatReplacements = 0x3100`, `EnableUlps = 0`  
-  * *Detalle:* Desactiva el estado Ultra-Low Power State (ULPS) del bus PCIe/UMA y optimiza el formato de superficies DX11.
+  * *Registro:* `SurfaceFormatReplacements = 0x3100`  
+  * *Detalle:* Optimiza el formato de superficies DX11.
 * **Módulo 17: Control Térmico y Energético APU (Modo GPU-Priority Sustained)**  
   * *Configuración:* `PowerCfg` Boost Mode 4 (Efficient Aggressive, límite 3.4 GHz) + `ASPM = 0` (PCIe siempre despierto)  
   * *Detalle:* Mantiene la CPU Zen 2 a 12–14W dentro del presupuesto STAPM de 35W–45W, cediendo ~20W continuos para sostener la Vega 6 a 1500 MHz estables sin estrangulamiento térmico.
@@ -112,16 +109,7 @@ A continuación se detalla **absolutamente todo lo que existe en el código**, v
 
 ---
 
-### Grupo D: Almacenamiento, Red, Audio y Escalado
-* **Módulo 21: DirectStorage 1.2 & BypassIO (`NtfsMemoryUsage = 2`)**  
-  * *Registro:* `HKLM\SYSTEM\CurrentControlSet\Control\FileSystem -> NtfsMemoryUsage = 2`  
-  * *Detalle:* Duplica la memoria del búfer de metadatos NTFS en el kernel. Acelera la descompresión y lectura de paquetes masivos de texturas hacia la RAM de la APU.
-* **Módulo 22: Red de Baja Latencia TCP/IP (`TCPNoDelay`)**  
-  * *Registro:* `HKLM\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces\{GUID} -> TCPNoDelay = 1, TcpAckFrequency = 1` y `NetworkThrottlingIndex = 0xFFFFFFFF`  
-  * *Detalle:* Desactiva el empaquetado retrasado de paquetes de red de Nagle y suprime el estrangulamiento de red en Windows.
-* **Módulo 23: Audio WASAPI Pro de Baja Latencia**  
-  * *Registro:* `HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile\Tasks\Pro Audio` y `Audio -> Priority = 6, Scheduling Category = "High"`  
-  * *Detalle:* Evita que el subsistema de audio se quede sin búfer y produzca chasquidos o micro-tirones durante cargas pesadas de renderizado 3D.
+### Grupo D: Sombras y Escalado
 * **Módulo 24: Optimizador de Sombras APU y Cascadas CSM**  
   * *Archivo:* [`src/steam_engine_optimizer.cpp`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/src/steam_engine_optimizer.cpp) (`ApplyApuShadowConfig`)  
   * *Variables:* `r.Shadow.CSM.MaxCascades = 2`, `r.Shadow.DistanceScale = 0.7`, `r.Shadow.RadiusThreshold = 0.04`, `r.AOHalfRes = 1`, `r.VolumetricFog = 0`.  
