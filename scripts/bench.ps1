@@ -16,6 +16,8 @@
     Segundos iniciales que se descartan. Por defecto 5.
 .PARAMETER PresentMon
     Ruta a PresentMon.exe (2.x). Por defecto busca la variable PRESENTMON_EXE y luego el PATH.
+.PARAMETER FromCsv
+    Analiza un CSV de PresentMon ya capturado en vez de ejecutar PresentMon.
 .PARAMETER Compare
     Dos archivos JSON de resultados: imprime la diferencia entre el segundo y el primero.
 .EXAMPLE
@@ -30,6 +32,7 @@ param(
     [Parameter(ParameterSetName = 'Run')][int]$Seconds = 60,
     [Parameter(ParameterSetName = 'Run')][int]$WarmupSeconds = 5,
     [Parameter(ParameterSetName = 'Run')][string]$PresentMon = $env:PRESENTMON_EXE,
+    [Parameter(ParameterSetName = 'Run')][string]$FromCsv,
     [Parameter(ParameterSetName = 'Compare', Mandatory)][string[]]$Compare
 )
 
@@ -58,24 +61,28 @@ if ($PSCmdlet.ParameterSetName -eq 'Compare') {
     return
 }
 
-if (-not $PresentMon) {
-    $cmd = Get-Command 'PresentMon*.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
-    if ($cmd) { $PresentMon = $cmd.Source }
-}
-if (-not $PresentMon -or -not (Test-Path $PresentMon)) {
-    throw 'PresentMon.exe no encontrado. Pasa -PresentMon <ruta> o define PRESENTMON_EXE.'
-}
-
 New-Item -ItemType Directory -Force -Path $ResultsDir | Out-Null
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
-$csv = Join-Path ([IO.Path]::GetTempPath()) "vegaflow-bench-$stamp.csv"
 
-& $PresentMon --process_name $Process --output_file $csv --timed $Seconds --terminate_after_timed --no_console_stats
-if ($LASTEXITCODE -ne 0) { throw "PresentMon terminó con código $LASTEXITCODE." }
-if (-not (Test-Path $csv)) { throw "PresentMon no generó datos. ¿Está '$Process' en ejecución?" }
+if ($FromCsv) {
+    $csv = (Resolve-Path $FromCsv).Path
+} else {
+    if (-not $PresentMon) {
+        $cmd = Get-Command 'PresentMon*.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($cmd) { $PresentMon = $cmd.Source }
+    }
+    if (-not $PresentMon -or -not (Test-Path $PresentMon)) {
+        throw 'PresentMon.exe no encontrado. Pasa -PresentMon <ruta> o define PRESENTMON_EXE.'
+    }
+
+    $csv = Join-Path ([IO.Path]::GetTempPath()) "vegaflow-bench-$stamp.csv"
+    & $PresentMon --process_name $Process --output_file $csv --timed $Seconds --terminate_after_timed --no_console_stats
+    if ($LASTEXITCODE -ne 0) { throw "PresentMon termino con codigo $LASTEXITCODE." }
+    if (-not (Test-Path $csv)) { throw "PresentMon no genero datos. El proceso '$Process' debe estar en ejecucion y, si es de sistema, la consola debe ser administrador." }
+}
 
 $rows = Import-Csv $csv | Where-Object { [double]$_.TimeInSeconds -ge $WarmupSeconds }
-if ($rows.Count -lt 100) { throw "Solo $($rows.Count) cuadros tras el calentamiento: medición inválida." }
+if ($rows.Count -lt 100) { throw "Solo $($rows.Count) cuadros tras el calentamiento: medicion invalida." }
 
 $frametimes = [double[]]($rows | ForEach-Object { [double]$_.MsBetweenPresents } | Where-Object { $_ -gt 0 })
 $sorted = $frametimes | Sort-Object
@@ -100,7 +107,7 @@ $result = [ordered]@{
 
 $out = Join-Path $ResultsDir "$Label-$stamp.json"
 $result | ConvertTo-Json | Set-Content -Path $out -Encoding UTF8
-Remove-Item $csv -ErrorAction SilentlyContinue
+if (-not $FromCsv) { Remove-Item $csv -ErrorAction SilentlyContinue }
 
 $result | ConvertTo-Json
 "Guardado en $out"
