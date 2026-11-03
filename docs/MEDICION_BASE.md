@@ -31,6 +31,26 @@ Con una ventana de escritorio delante del juego, o con cambios de ventana durant
 
 El FPS medio casi no cambia, pero los lows se destruyen. Cualquier ventana propia (GUI, overlay) delante de un juego en `Legacy Flip` hay que medirla como una variable más.
 
+## Temporizador NT a 0.5 ms (proceso aparte)
+
+Condición: `scripts/hold_timer.ps1` pidió 5000 (0.5 ms) en un proceso separado durante las 3 corridas. El propio proceso leyó `current_after=5000` (mínimo 156250, máximo 5000). Mismas condiciones y escena que la línea base.
+
+| Corrida | FPS medio | 1% Low | 0.1% Low | Desv. (ms) |
+| --- | --- | --- | --- | --- |
+| timer-1 | 43.18 | 38.54 | 36.97 | 0.671 |
+| timer-2 | 43.19 | 38.56 | 35.90 | 0.658 |
+| timer-3 | 43.16 | 38.75 | 37.59 | 0.621 |
+| media timer | 43.18 | 38.62 | 36.82 | 0.650 |
+| media base | 43.21 | 38.20 | 36.10 | 0.679 |
+
+Diferencia (timer menos base): FPS medio -0.07%, 1% Low +1.1%, 0.1% Low +2.0%, desviación -4%.
+Todas dentro del ruido entre corridas de la línea base (1.6% en 1% Low, 4.7% en 0.1% Low). No hay efecto demostrable.
+
+Límites de esta prueba:
+- Una sola escena, limitada por GPU (99%); un temporizador fino solo debería importar en escenas limitadas por CPU o con muchos `Sleep` cortos.
+- Solo 3 corridas por condición, y las del temporizador se midieron después de las de base (deriva térmica no controlada).
+- No se verificó que el proceso del juego reciba la resolución; solo que el proceso solicitante la ve.
+
 ## Observaciones
 
 - El juego se presenta en `Legacy Flip`, no en borderless. Los tweaks de DirectFlip y MPO apuntan a otro modo de presentación y no se pueden evaluar con este juego tal como está configurado.
