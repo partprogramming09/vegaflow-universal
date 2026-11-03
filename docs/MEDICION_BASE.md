@@ -130,6 +130,22 @@ Límites:
 - Una sola escena, limitada por GPU, y un solo juego.
 - No se puede atribuir la diferencia a un tweak concreto; es el conjunto de 12 valores contra ninguno.
 
+## Temporizador NT: ¿lo hereda otro proceso?
+
+Prueba sin administrador y sin el juego (2026-11-03 09:36 a 09:38). `scripts/sleep_probe.ps1` mide 1000 `Sleep(1)` en un proceso; `scripts/hold_timer.ps1` pide 0.5 ms desde otro proceso. Tres rondas alternadas, sin y con el temporizador. En las tres rondas "con", el proceso externo registró `set_status=0` y `current_after=5000`.
+
+| Ronda | Sin temporizador (media) | Con temporizador externo (media) |
+| --- | --- | --- |
+| 1 | 15.487 ms | 15.376 ms |
+| 2 | 15.501 ms | 15.385 ms |
+| 3 | 15.499 ms | 15.389 ms |
+
+p99 de 16.0 a 16.5 ms en ambos casos.
+
+Resultado: `Sleep(1)` sigue en ~15.4 ms con la resolución pedida por otro proceso. La diferencia de 0.11 ms es constante pero irrelevante frente a los ~15.6 ms de la granularidad por defecto; no se acerca a 1 ms ni a 0.5 ms. Una resolución de temporizador pedida por el daemon no cambia la planificación de otro proceso en esta máquina (Windows 11), así que no puede mejorar el juego. Esto complementa la medición de FPS, que ya no mostraba efecto.
+
+Límite: solo se probó un proceso que no es el juego; no se midió el `Sleep` dentro del propio juego.
+
 ## Observaciones
 
 - El juego se presenta en `Legacy Flip`, no en borderless. Los tweaks de DirectFlip y MPO apuntan a otro modo de presentación y no se pueden evaluar con este juego tal como está configurado.
