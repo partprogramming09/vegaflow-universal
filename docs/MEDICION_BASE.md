@@ -77,6 +77,59 @@ También activos (sin valor de fábrica confirmado, solo informe): `EnableUlps=0
 Varios de estos tweaks ya no existen en el código, así que el daemon actual no los revierte.
 `scripts/tweaks_state.ps1 -Restore` simula la restauración (12 cambios); con `-Apply` la ejecuta y requiere consola de administrador. Algunos valores (DWM, paginación del kernel) solo se releen tras reiniciar sesión o reiniciar.
 
+## Restauración a valores de fábrica
+
+2026-11-03 00:43: la tarea `VegaFlow-Restore` (elevada, `C:\ProgramData\VegaFlow`) aplicó 12 cambios con código de salida 0. Una lectura posterior con `scripts/tweaks_state.ps1` mostró los 16 valores controlados en su valor de fábrica.
+
+Pendiente tras la restauración: reiniciar Windows para que DWM y la paginación del kernel relean sus valores, y medir una línea base de Windows limpio. Las mediciones anteriores de esta página se hicieron antes de la restauración.
+
+Detalle del mecanismo: la primera ejecución falló con código 1 porque `IsInRole('Administrator')` busca el nombre en inglés y en Windows en español el grupo es "Administradores"; el script lo tomó por no administrador y no escribió nada. Se corrigió usando `WindowsBuiltInRole::Administrator`.
+
+Siguen sin tocarse (sin valor de fábrica confirmado): `EnableUlps`, `ShaderCache`, `UMD\*`, `UserGpuPreferences`, perfil de energía APU, compresión de memoria.
+
+## Windows limpio tras restaurar y reiniciar
+
+2026-11-03 00:51, laptop reiniciada con los 16 valores en fábrica (lectura posterior al reinicio: 0 diferencias). Misma escena y protocolo manos libres. La app de EA arrancó con la sesión y se minimizó antes de medir.
+
+| Corrida | FPS medio | 1% Low | 0.1% Low | Desv. (ms) |
+| --- | --- | --- | --- | --- |
+| stock-1 | 43.30 | 28.04 | 17.86 | 1.843 |
+| stock-2 | 43.17 | 36.33 | 33.43 | 0.858 |
+| stock-3 | 43.42 | 38.74 | 32.31 | 0.661 |
+
+Comparado con la línea base anterior (tweaks viejos aplicados):
+
+- FPS medio: 43.30 contra 43.21. Sin diferencia.
+- 1% Low: media 34.4 (rango 10.7) contra 38.2 (rango 0.6). Sin `stock-1`: 37.5, dentro del ruido de la línea anterior.
+- 0.1% Low: media 27.9 (rango 15.6) contra 36.1 (rango 1.7). Sin `stock-1`: 32.9.
+
+No se puede concluir que los tweaks viejos mejoren los lows. La dispersión de las corridas limpias es unas 10 veces mayor que la de la línea anterior, y `stock-1` (la primera tras el arranque) es un valor atípico. Causa no verificada: actividad de fondo posterior al arranque (EA, indexado, shaders) o la propia restauración. Antes de comparar hay que repetir la medición con la máquina asentada y más corridas.
+
+## Windows limpio, máquina asentada (corridas 4 a 8)
+
+Cinco corridas más, 00:57 a 01:05, sin tocar la laptop. Todas con el 100% de los cuadros en `Hardware: Legacy Flip`.
+
+| Corrida | FPS medio | 1% Low | 0.1% Low | Desv. (ms) |
+| --- | --- | --- | --- | --- |
+| stock-4 | 43.49 | 39.44 | 37.37 | 0.641 |
+| stock-5 | 43.55 | 40.03 | 37.23 | 0.564 |
+| stock-6 | 43.52 | 39.75 | 36.07 | 0.582 |
+| stock-7 | 43.52 | 39.25 | 36.30 | 0.598 |
+| stock-8 | 43.56 | 39.83 | 37.05 | 0.566 |
+| media | 43.53 | 39.66 | 36.80 | 0.590 |
+| media con tweaks viejos | 43.21 | 38.20 | 36.10 | 0.679 |
+
+Diferencia (limpio menos tweaks viejos): FPS medio +0.7%, 1% Low +3.8%, 0.1% Low +1.9%, desviación -13%.
+
+Las primeras tres corridas tras el reinicio (`stock-1` a `stock-3`) fueron peores y más dispersas, y se estabilizaron a partir de la cuarta, unos 6 minutos después. Una medición justa necesita descartar los primeros minutos tras arrancar.
+
+Lectura: sin los tweaks viejos, el resultado no es peor y puede ser algo mejor. El 1% Low supera el rango entre corridas de la línea anterior (1.6%) y el de estas cinco (2%); el resto está dentro del ruido.
+
+Límites:
+- Las dos series no se intercalaron: la anterior se midió con la máquina encendida desde hacía horas y esta tras un reinicio. Deriva térmica y estado del sistema no controlados.
+- Una sola escena, limitada por GPU, y un solo juego.
+- No se puede atribuir la diferencia a un tweak concreto; es el conjunto de 12 valores contra ninguno.
+
 ## Observaciones
 
 - El juego se presenta en `Legacy Flip`, no en borderless. Los tweaks de DirectFlip y MPO apuntan a otro modo de presentación y no se pueden evaluar con este juego tal como está configurado.

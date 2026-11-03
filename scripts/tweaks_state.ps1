@@ -46,7 +46,7 @@ $entries = @(
     @($amd0, 'LargePageSupport', $null, $true)
 )
 
-$isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole('Administrator')
+$isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if ($Restore -and $Apply -and -not $isAdmin) { throw 'Restaurar con -Apply requiere una consola de administrador.' }
 
 function Get-Current($path, $name) {
@@ -100,4 +100,6 @@ if ($ugp) {
     $names = $ugp.PSObject.Properties | Where-Object { $_.Name -notlike 'PS*' }
     "UserGpuPreferences: $(@($names).Count) entradas (solo informe)"
 }
+$integrity = (whoami /groups | Select-String 'Mandatory Label') -replace '\s+', ' '
+"integridad=$integrity"
 "admin=$isAdmin  modo=$(if ($Restore) { if ($Apply) { 'restaurar' } else { 'simulacion' } } else { 'lectura' })"
