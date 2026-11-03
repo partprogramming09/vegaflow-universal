@@ -51,6 +51,32 @@ Límites de esta prueba:
 - Solo 3 corridas por condición, y las del temporizador se midieron después de las de base (deriva térmica no controlada).
 - No se verificó que el proceso del juego reciba la resolución; solo que el proceso solicitante la ve.
 
+## Estado del sistema durante las mediciones
+
+Todas las corridas anteriores se midieron con tweaks de ejecuciones antiguas del daemon ya aplicados en la laptop (lectura con `scripts/tweaks_state.ps1`, 2026-11-03). La línea base no es un Windows de fábrica.
+
+Distintos del valor de fábrica:
+
+| Valor | Actual | Fábrica |
+| --- | --- | --- |
+| `OverlayTestMode` (MPO) | 5 | ausente |
+| `DisablePagingExecutive` | 1 | 0 |
+| `SystemResponsiveness` | 10 | 20 |
+| `NetworkThrottlingIndex` | 0xFFFFFFFF | 10 |
+| Tasks\Games `Priority` | 6 | 2 |
+| Tasks\Games `Scheduling Category` | High | Medium |
+| Tasks\Games `SFIO Priority` | High | Normal |
+| `TcpAckFrequency`, `TCPNoDelay` | 1 | ausente |
+| `NtfsMemoryUsage` | 2 | ausente |
+| `KMD_EnableSAM`, `LargePageSupport` | 1 | ausente |
+
+Sin diferencia con la fábrica (no hacen nada): `GPU Priority` 8, `Clock Rate` 10000, `Win32PrioritySeparation` 2, `LargeSystemCache` 0.
+
+También activos (sin valor de fábrica confirmado, solo informe): `EnableUlps=0`, `ShaderCache`, `UMD\Tessellation=16` y otros valores `UMD`, 13 entradas en `UserGpuPreferences`, perfil de energía APU.
+
+Varios de estos tweaks ya no existen en el código, así que el daemon actual no los revierte.
+`scripts/tweaks_state.ps1 -Restore` simula la restauración (12 cambios); con `-Apply` la ejecuta y requiere consola de administrador. Algunos valores (DWM, paginación del kernel) solo se releen tras reiniciar sesión o reiniciar.
+
 ## Observaciones
 
 - El juego se presenta en `Legacy Flip`, no en borderless. Los tweaks de DirectFlip y MPO apuntan a otro modo de presentación y no se pueden evaluar con este juego tal como está configurado.
