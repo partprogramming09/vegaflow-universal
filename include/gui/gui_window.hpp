@@ -104,14 +104,9 @@ struct GuiDashboardData {
     // Suite de Silicio APU & Blindaje de Memoria de Kernel NT
     bool kernel_paging_shield_active = false;
     uint32_t amd_tessellation_max = 16;
-    bool amd_sam_rebar_active = false;
 
     // Optimizaciones Ronda 2 y Grupo 2B
-    bool directstorage_active = false;      // NtfsMemoryUsage == 2
-    bool io_streaming_active = false;        // NtfsDisableLastAccessUpdate == 1 && SystemResponsiveness <= 10
     bool mmcss_task_active = false;          // Tasks\Games GPU Priority == 8 && Clock Rate == 10000
-    bool wasapi_audio_active = false;        // Tasks\Audio Priority == 6 && Scheduling Category == High
-    bool tcp_gaming_active = false;          // TCPNoDelay == 1 && NetworkThrottlingIndex == 0xFFFFFFFF
     bool apu_shadows_active = false;         // Perfil de sombras APU cargado
     bool amd_vram_override_active = false;   // Sobrescritura VRAM UMA (4 GB DXGI/AMD)
     uint32_t amd_vram_reported_mb = 0;       // Presupuesto reportado en MB (ej. 4096)

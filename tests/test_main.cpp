@@ -1077,7 +1077,7 @@ int main() {
     }
 
     // -------------------------------------------------------------------------
-    // TEST 20: APU Silicon & UMA Bus Optimization Suite (DisablePagingExecutive Kernel Shield, SAM/ReBAR UMA Directives & Smart Tessellation 16x)
+    // TEST 20: APU Silicon & UMA Bus Optimization Suite (DisablePagingExecutive Kernel Shield & Smart Tessellation 16x)
     // -------------------------------------------------------------------------
     {
         bool is_elevated = vegaflow::PrivilegeManager::IsProcessElevated();
@@ -1106,10 +1106,10 @@ int main() {
 
         bool paging_shield_ok = shield_dry_enable && shield_dry_disable && shield_real_ok;
 
-        // 2. Directivas AMD SAM / ReBAR UMA & Limitador Inteligente de Teselación
-        // 2a. Dry-run de flags SAM / ReBAR (KMD_EnableSAM=1, LargePageSupport=1)
-        bool sam_dry_enable = vegaflow::GraphicsOptimizer::SetAmdDx11UmaDriverBoost(true, true /* dry_run */);
-        bool sam_dry_disable = vegaflow::GraphicsOptimizer::SetAmdDx11UmaDriverBoost(false, true /* dry_run */);
+        // 2. Driver Boost AMD DX11/UMA & Limitador Inteligente de Teselación
+        // 2a. Dry-run del Driver Boost AMD DX11/UMA
+        bool boost_dry_enable = vegaflow::GraphicsOptimizer::SetAmdDx11UmaDriverBoost(true, true /* dry_run */);
+        bool boost_dry_disable = vegaflow::GraphicsOptimizer::SetAmdDx11UmaDriverBoost(false, true /* dry_run */);
 
         // 2b. Dry-run de limitador de teselación inteligente (16x para Vega 6 APU, 8x y 64x default)
         bool tess_16_dry = vegaflow::GraphicsOptimizer::SetAmdTessellationCap(16, true /* dry_run */);
@@ -1134,165 +1134,29 @@ int main() {
         // 3. Consulta e integración de estado en SystemGraphicsTweaksState
         auto tweaks = vegaflow::GraphicsOptimizer::QuerySystemGraphicsTweaks();
         bool tweaks_shield_synced = (tweaks.kernel_paging_shield_active == shield_query_val);
-        bool query_sam_flag = tweaks.amd_sam_rebar_active;
         uint32_t current_tess_max = tweaks.amd_tessellation_max;
         bool query_helpers_consistent = (vegaflow::GraphicsOptimizer::QueryKernelMemoryPagingShield() == tweaks.kernel_paging_shield_active) &&
-                                        (vegaflow::GraphicsOptimizer::QueryAmdSamRebarActive() == tweaks.amd_sam_rebar_active) &&
                                         (vegaflow::GraphicsOptimizer::QueryAmdTessellationCap() == tweaks.amd_tessellation_max);
 
         // 4. Restauración limpia de estados (Clean State Restoration)
-        bool restore_clean = shield_dry_disable && sam_dry_disable && tess_restore_dry;
+        bool restore_clean = shield_dry_disable && boost_dry_disable && tess_restore_dry;
 
-        bool t20_success = paging_shield_ok && sam_dry_enable && sam_dry_disable &&
+        bool t20_success = paging_shield_ok && boost_dry_enable && boost_dry_disable &&
                            tess_16_dry && tess_8_dry && tess_restore_dry && amd_real_ok &&
                            tweaks_shield_synced && query_helpers_consistent && restore_clean;
 
         std::string details = "Kernel Paging Shield (Dry/Exec): " + std::string((shield_dry_enable && shield_dry_disable) ? "PASS" : "FAIL")
             + "/" + (is_elevated ? (shield_real_ok ? "PASS" : "FAIL") : "RESTRICTED") + " (Query: " + (shield_query_val ? "ACTIVE" : "INACTIVE") + "), "
-            + "SAM/ReBAR UMA Directives: " + std::string((sam_dry_enable && sam_dry_disable) ? "PASS" : "FAIL") + " (Query: " + (query_sam_flag ? "1" : "0") + "), "
+            + "AMD DX11/UMA Driver Boost (Dry): " + std::string((boost_dry_enable && boost_dry_disable) ? "PASS" : "FAIL") + ", "
             + "Smart Tessellation (16x/8x/64x Dry): " + std::string((tess_16_dry && tess_8_dry && tess_restore_dry) ? "PASS" : "FAIL") + ", "
             + "Tweaks Integration: " + std::string(tweaks_shield_synced ? "PASS" : "FAIL") + " (TessMax: " + std::to_string(current_tess_max) + "x), "
             + "Clean Restoration: " + std::string(restore_clean ? "PASS" : "FAIL");
 
-        RecordResult(t20_success, "Test 20: APU Silicon & UMA Bus Optimization Suite (DisablePagingExecutive Kernel Shield, SAM/ReBAR UMA Directives & Smart Tessellation 16x)", details);
+        RecordResult(t20_success, "Test 20: APU Silicon & UMA Bus Optimization Suite (DisablePagingExecutive Kernel Shield & Smart Tessellation 16x)", details);
     }
 
     // -------------------------------------------------------------------------
-    // TEST 21: TCP/IP Gaming Stack & Network Throttling Optimization
-    // -------------------------------------------------------------------------
-    {
-        bool is_elevated = vegaflow::PrivilegeManager::IsProcessElevated();
-
-        // 1. Dry-run verification
-        bool dry_apply_ok = vegaflow::GraphicsOptimizer::ApplyTcpLatencyTweaks(true /* dry_run */);
-        bool dry_restore_ok = vegaflow::GraphicsOptimizer::RestoreTcpLatencyTweaks(true /* dry_run */);
-
-        // 2. Query registry state
-        bool tcp_nodelay_active = false;
-        uint32_t throttling_index = 0;
-        bool query_ok = vegaflow::GraphicsOptimizer::QueryTcpLatencyTweaks(tcp_nodelay_active, throttling_index);
-
-        // 3. Controlled execution and clean restoration
-        bool exec_ok = false;
-        bool restore_clean_ok = false;
-
-        if (is_elevated) {
-            bool prev_nodelay = tcp_nodelay_active;
-            uint32_t prev_index = throttling_index;
-
-            bool apply_real = vegaflow::GraphicsOptimizer::ApplyTcpLatencyTweaks(false /* dry_run */);
-            bool post_apply_active = false;
-            uint32_t post_apply_index = 0;
-            vegaflow::GraphicsOptimizer::QueryTcpLatencyTweaks(post_apply_active, post_apply_index);
-
-            bool restore_real = vegaflow::GraphicsOptimizer::RestoreTcpLatencyTweaks(false /* dry_run */);
-            bool post_restore_active = false;
-            uint32_t post_restore_index = 0;
-            vegaflow::GraphicsOptimizer::QueryTcpLatencyTweaks(post_restore_active, post_restore_index);
-
-            exec_ok = apply_real && post_apply_active && (post_apply_index == 0xFFFFFFFFUL);
-            restore_clean_ok = restore_real && (!post_restore_active) && (post_restore_index == 10);
-
-            // Re-aplicar estado original si correspondía
-            if (prev_nodelay || prev_index == 0xFFFFFFFFUL) {
-                vegaflow::GraphicsOptimizer::ApplyTcpLatencyTweaks(false);
-            }
-        } else {
-            // En modo usuario estándar, HKLM está protegido contra escritura
-            // Comprobamos manejo de permisos elegante: falla segura sin crasheos
-            bool apply_real = vegaflow::GraphicsOptimizer::ApplyTcpLatencyTweaks(false /* dry_run */);
-            bool restore_real = vegaflow::GraphicsOptimizer::RestoreTcpLatencyTweaks(false /* dry_run */);
-
-            exec_ok = (!apply_real); // Acceso a clave HKLM restringido sin elevación
-            restore_clean_ok = (!restore_real);
-        }
-
-        // 4. Integración con SystemGraphicsTweaksState
-        auto tweaks = vegaflow::GraphicsOptimizer::QuerySystemGraphicsTweaks();
-        bool tweaks_synced = (tweaks.tcp_nodelay_active == tcp_nodelay_active) &&
-                             (tweaks.network_throttling_index == throttling_index);
-
-        bool t21_success = dry_apply_ok && dry_restore_ok && query_ok &&
-                           exec_ok && restore_clean_ok && tweaks_synced;
-
-        std::string details = "Dry-Run (Apply/Restore): " + std::string((dry_apply_ok && dry_restore_ok) ? "PASS" : "FAIL") + ", "
-            + "Query: " + std::string(query_ok ? "PASS" : "FAIL") + " (Index: " + (throttling_index == 0xFFFFFFFFUL ? "0xFFFFFFFF" : std::to_string(throttling_index)) + ", TCPNoDelay: " + (tcp_nodelay_active ? "ACTIVE" : "INACTIVE") + "), "
-            + "Execution & Permissions: " + (is_elevated ? (exec_ok ? "PASS" : "FAIL") : "RESTRICTED (NT Isolation PASS)") + ", "
-            + "Clean Restoration: " + (is_elevated ? (restore_clean_ok ? "PASS" : "FAIL") : "RESTRICTED (NT Isolation PASS)") + ", "
-            + "Tweaks Integration: " + std::string(tweaks_synced ? "PASS" : "FAIL");
-
-        RecordResult(t21_success, "Test 21: TCP/IP Gaming Stack & Network Throttling Optimization", details);
-    }
-
-    // -------------------------------------------------------------------------
-    // TEST 22: I/O Metadata Shield & Storage Streaming
-    // -------------------------------------------------------------------------
-    {
-        bool is_elevated = vegaflow::PrivilegeManager::IsProcessElevated();
-
-        // 1. Dry-run verification
-        bool dry_apply_ok = vegaflow::GraphicsOptimizer::ApplyIoStorageTweaks(true /* dry_run */);
-        bool dry_restore_ok = vegaflow::GraphicsOptimizer::RestoreIoStorageTweaks(true /* dry_run */);
-
-        // 2. Query registry state
-        bool ntfs_disabled = false;
-        uint32_t responsiveness = 20;
-        bool query_ok = vegaflow::GraphicsOptimizer::QueryIoStorageTweaks(ntfs_disabled, responsiveness);
-
-        // 3. Controlled execution and clean restoration
-        bool exec_ok = false;
-        bool restore_clean_ok = false;
-
-        if (is_elevated) {
-            bool prev_ntfs = ntfs_disabled;
-            uint32_t prev_resp = responsiveness;
-
-            bool apply_real = vegaflow::GraphicsOptimizer::ApplyIoStorageTweaks(false /* dry_run */);
-            bool post_apply_ntfs = false;
-            uint32_t post_apply_resp = 20;
-            vegaflow::GraphicsOptimizer::QueryIoStorageTweaks(post_apply_ntfs, post_apply_resp);
-
-            bool restore_real = vegaflow::GraphicsOptimizer::RestoreIoStorageTweaks(false /* dry_run */);
-            bool post_restore_ntfs = false;
-            uint32_t post_restore_resp = 0;
-            vegaflow::GraphicsOptimizer::QueryIoStorageTweaks(post_restore_ntfs, post_restore_resp);
-
-            exec_ok = apply_real && post_apply_ntfs && (post_apply_resp == 0);
-            restore_clean_ok = restore_real && (!post_restore_ntfs) && (post_restore_resp == 20);
-
-            // Re-aplicar estado original si correspondía
-            if (prev_ntfs || prev_resp == 0) {
-                vegaflow::GraphicsOptimizer::ApplyIoStorageTweaks(false);
-            }
-        } else {
-            // En modo usuario estándar, HKLM está protegido contra escritura
-            // Comprobamos manejo de permisos elegante: falla segura sin crasheos
-            bool apply_real = vegaflow::GraphicsOptimizer::ApplyIoStorageTweaks(false /* dry_run */);
-            bool restore_real = vegaflow::GraphicsOptimizer::RestoreIoStorageTweaks(false /* dry_run */);
-
-            exec_ok = (!apply_real); // Acceso a clave HKLM restringido sin elevación
-            restore_clean_ok = (!restore_real);
-        }
-
-        // 4. Integración con SystemGraphicsTweaksState
-        auto tweaks = vegaflow::GraphicsOptimizer::QuerySystemGraphicsTweaks();
-        bool tweaks_synced = (tweaks.ntfs_last_access_disabled == ntfs_disabled) &&
-                             (tweaks.system_responsiveness == responsiveness);
-
-        bool t22_success = dry_apply_ok && dry_restore_ok && query_ok &&
-                           exec_ok && restore_clean_ok && tweaks_synced;
-
-        std::string details = "Dry-Run (Apply/Restore): " + std::string((dry_apply_ok && dry_restore_ok) ? "PASS" : "FAIL") + ", "
-            + "Query: " + std::string(query_ok ? "PASS" : "FAIL") + " (NtfsDisabled: " + (ntfs_disabled ? "YES" : "NO") + ", SystemResponsiveness: " + std::to_string(responsiveness) + "), "
-            + "Execution & Permissions: " + (is_elevated ? (exec_ok ? "PASS" : "FAIL") : "RESTRICTED (NT Isolation PASS)") + ", "
-            + "Clean Restoration: " + (is_elevated ? (restore_clean_ok ? "PASS" : "FAIL") : "RESTRICTED (NT Isolation PASS)") + ", "
-            + "Tweaks Integration: " + std::string(tweaks_synced ? "PASS" : "FAIL");
-
-        RecordResult(t22_success, "Test 22: I/O Metadata Shield & Storage Streaming", details);
-    }
-
-    // -------------------------------------------------------------------------
-    // TEST 23: MMCSS Audio & Gaming Priority Shield
+    // TEST 21: MMCSS Audio & Gaming Priority Shield
     // -------------------------------------------------------------------------
     {
         bool is_elevated = vegaflow::PrivilegeManager::IsProcessElevated();
@@ -1351,7 +1215,7 @@ int main() {
                              (tweaks.mmcss_sfio_priority == sfio_prio) &&
                              (tweaks.mmcss_clock_rate == clock_rate);
 
-        bool t23_success = dry_apply_ok && dry_restore_ok && query_ok &&
+        bool t21_success = dry_apply_ok && dry_restore_ok && query_ok &&
                            exec_ok && restore_clean_ok && tweaks_synced;
 
         std::string details = "Dry-Run (Apply/Restore): " + std::string((dry_apply_ok && dry_restore_ok) ? "PASS" : "FAIL") + ", "
@@ -1360,11 +1224,11 @@ int main() {
             + "Clean Restoration: " + (is_elevated ? (restore_clean_ok ? "PASS" : "FAIL") : "RESTRICTED (NT Isolation PASS)") + ", "
             + "Tweaks Integration: " + std::string(tweaks_synced ? "PASS" : "FAIL");
 
-        RecordResult(t23_success, "Test 23: MMCSS Audio & Gaming Priority Shield", details);
+        RecordResult(t21_success, "Test 21: MMCSS Audio & Gaming Priority Shield", details);
     }
 
     // -------------------------------------------------------------------------
-    // TEST 24: DXVK APU Profile Configuration & Shader Pipeline Pre-warming
+    // TEST 22: DXVK APU Profile Configuration & Shader Pipeline Pre-warming
     // -------------------------------------------------------------------------
     {
         std::error_code ec;
@@ -1476,7 +1340,7 @@ int main() {
         std::filesystem::remove_all(test_dir / "quarantine_zzz", ec);
         std::filesystem::remove_all(test_dir, ec);
 
-        bool t24_success = dry_ok && config_ok && conf_exists && directives_val_ok &&
+        bool t22_success = dry_ok && config_ok && conf_exists && directives_val_ok &&
                            file_directives_ok && reconfigure_ok && custom_preserved &&
                            anticheat_protection_ok && removal_ok;
 
@@ -1486,144 +1350,11 @@ int main() {
             + "Anti-Cheat Lockdown (Genshin/ZZZ): " + std::string(anticheat_protection_ok ? "PASS (Kernel Shield)" : "FAIL") + ", "
             + "Clean Removal: " + std::string(removal_ok ? "PASS" : "FAIL");
 
-        RecordResult(t24_success, "Test 24: DXVK APU Profile Configuration & Shader Pipeline Pre-warming", details);
+        RecordResult(t22_success, "Test 22: DXVK APU Profile Configuration & Shader Pipeline Pre-warming", details);
     }
 
     // -------------------------------------------------------------------------
-    // TEST 25: DirectStorage 1.2 & BypassIO Storage Acceleration
-    // -------------------------------------------------------------------------
-    {
-        bool is_elevated = vegaflow::PrivilegeManager::IsProcessElevated();
-
-        // 1. Dry-run verification
-        bool dry_apply_ok = vegaflow::GraphicsOptimizer::ApplyBypassIoTweaks(true /* dry_run */);
-        bool dry_restore_ok = vegaflow::GraphicsOptimizer::RestoreBypassIoTweaks(true /* dry_run */);
-
-        // 2. Query registry state & BypassIO compatibility
-        uint32_t ntfs_mem_usage = 1;
-        bool bypass_io_compat = false;
-        bool query_ok = vegaflow::GraphicsOptimizer::QueryBypassIoTweaks(ntfs_mem_usage, bypass_io_compat);
-
-        // 3. Controlled execution and clean restoration (NT permission isolation)
-        bool exec_ok = false;
-        bool restore_clean_ok = false;
-
-        if (is_elevated) {
-            uint32_t prev_usage = ntfs_mem_usage;
-
-            bool apply_real = vegaflow::GraphicsOptimizer::ApplyBypassIoTweaks(false /* dry_run */);
-            uint32_t post_apply_usage = 0;
-            bool post_apply_compat = false;
-            vegaflow::GraphicsOptimizer::QueryBypassIoTweaks(post_apply_usage, post_apply_compat);
-
-            bool restore_real = vegaflow::GraphicsOptimizer::RestoreBypassIoTweaks(false /* dry_run */);
-            uint32_t post_restore_usage = 0;
-            bool post_restore_compat = false;
-            vegaflow::GraphicsOptimizer::QueryBypassIoTweaks(post_restore_usage, post_restore_compat);
-
-            exec_ok = apply_real && (post_apply_usage == 2);
-            restore_clean_ok = restore_real && (post_restore_usage == 1);
-
-            // Re-aplicar estado previo si correspondía
-            if (prev_usage == 2) {
-                vegaflow::GraphicsOptimizer::ApplyBypassIoTweaks(false);
-            }
-        } else {
-            // En modo usuario estándar, HKLM está protegido contra escritura
-            // Comprobamos manejo de permisos elegante: falla segura sin crasheos
-            bool apply_real = vegaflow::GraphicsOptimizer::ApplyBypassIoTweaks(false /* dry_run */);
-            bool restore_real = vegaflow::GraphicsOptimizer::RestoreBypassIoTweaks(false /* dry_run */);
-
-            exec_ok = (!apply_real); // Acceso a clave HKLM restringido sin elevación
-            restore_clean_ok = (!restore_real);
-        }
-
-        // 4. Integración con SystemGraphicsTweaksState
-        auto tweaks = vegaflow::GraphicsOptimizer::QuerySystemGraphicsTweaks();
-        bool tweaks_synced = (tweaks.ntfs_memory_usage == ntfs_mem_usage) &&
-                             (tweaks.bypass_io_compatible == bypass_io_compat);
-
-        bool t25_success = dry_apply_ok && dry_restore_ok && query_ok &&
-                           exec_ok && restore_clean_ok && tweaks_synced;
-
-        std::string details = "Dry-Run (Apply/Restore): " + std::string((dry_apply_ok && dry_restore_ok) ? "PASS" : "FAIL") + ", "
-            + "Query: " + std::string(query_ok ? "PASS" : "FAIL") + " (NtfsMemoryUsage: " + std::to_string(ntfs_mem_usage) + ", BypassIO: " + (bypass_io_compat ? "COMPATIBLE" : "INCOMPATIBLE") + "), "
-            + "Execution & Permissions: " + (is_elevated ? (exec_ok ? "PASS" : "FAIL") : "RESTRICTED (NT Isolation PASS)") + ", "
-            + "Clean Restoration: " + (is_elevated ? (restore_clean_ok ? "PASS" : "FAIL") : "RESTRICTED (NT Isolation PASS)") + ", "
-            + "Tweaks Integration: " + std::string(tweaks_synced ? "PASS" : "FAIL");
-
-        RecordResult(t25_success, "Test 25: DirectStorage 1.2 & BypassIO Storage Acceleration", details);
-    }
-
-    // -------------------------------------------------------------------------
-    // TEST 26: WASAPI Pro Audio Low-Latency & Glitch-Resilience Shield
-    // -------------------------------------------------------------------------
-    {
-        bool is_elevated = vegaflow::PrivilegeManager::IsProcessElevated();
-
-        // 1. Dry-run verification
-        bool dry_apply_ok = vegaflow::GraphicsOptimizer::ApplyWasapiAudioTweaks(true /* dry_run */);
-        bool dry_restore_ok = vegaflow::GraphicsOptimizer::RestoreWasapiAudioTweaks(true /* dry_run */);
-
-        // 2. Query registry state
-        std::string audio_cat;
-        uint32_t audio_prio = 0;
-        bool query_ok = vegaflow::GraphicsOptimizer::QueryWasapiAudioTweaks(audio_cat, audio_prio);
-
-        // 3. Controlled execution and clean restoration (NT permission isolation)
-        bool exec_ok = false;
-        bool restore_clean_ok = false;
-
-        if (is_elevated) {
-            std::string prev_cat = audio_cat;
-            uint32_t prev_prio = audio_prio;
-
-            bool apply_real = vegaflow::GraphicsOptimizer::ApplyWasapiAudioTweaks(false /* dry_run */);
-            std::string post_apply_cat;
-            uint32_t post_apply_prio = 0;
-            vegaflow::GraphicsOptimizer::QueryWasapiAudioTweaks(post_apply_cat, post_apply_prio);
-
-            bool restore_real = vegaflow::GraphicsOptimizer::RestoreWasapiAudioTweaks(false /* dry_run */);
-            std::string post_restore_cat;
-            uint32_t post_restore_prio = 0;
-            vegaflow::GraphicsOptimizer::QueryWasapiAudioTweaks(post_restore_cat, post_restore_prio);
-
-            exec_ok = apply_real && (post_apply_cat == "High") && (post_apply_prio == 6);
-            restore_clean_ok = restore_real && (post_restore_cat == "Medium") && (post_restore_prio == 2);
-
-            // Re-aplicar estado previo si correspondía
-            if (prev_cat == "High" && prev_prio == 6) {
-                vegaflow::GraphicsOptimizer::ApplyWasapiAudioTweaks(false);
-            }
-        } else {
-            // En modo usuario estándar, HKLM está protegido contra escritura
-            // Comprobamos manejo de permisos elegante: falla segura sin crasheos
-            bool apply_real = vegaflow::GraphicsOptimizer::ApplyWasapiAudioTweaks(false /* dry_run */);
-            bool restore_real = vegaflow::GraphicsOptimizer::RestoreWasapiAudioTweaks(false /* dry_run */);
-
-            exec_ok = (!apply_real); // Acceso a clave HKLM restringido sin elevación
-            restore_clean_ok = (!restore_real);
-        }
-
-        // 4. Integración con SystemGraphicsTweaksState
-        auto tweaks = vegaflow::GraphicsOptimizer::QuerySystemGraphicsTweaks();
-        bool tweaks_synced = (tweaks.wasapi_audio_scheduling_category == audio_cat) &&
-                             (tweaks.wasapi_audio_priority == audio_prio);
-
-        bool t26_success = dry_apply_ok && dry_restore_ok && query_ok &&
-                           exec_ok && restore_clean_ok && tweaks_synced;
-
-        std::string details = "Dry-Run (Apply/Restore): " + std::string((dry_apply_ok && dry_restore_ok) ? "PASS" : "FAIL") + ", "
-            + "Query: " + std::string(query_ok ? "PASS" : "FAIL") + " (SchedCategory: " + audio_cat + ", Priority: " + std::to_string(audio_prio) + "), "
-            + "Execution & Permissions: " + (is_elevated ? (exec_ok ? "PASS" : "FAIL") : "RESTRICTED (NT Isolation PASS)") + ", "
-            + "Clean Restoration: " + (is_elevated ? (restore_clean_ok ? "PASS" : "FAIL") : "RESTRICTED (NT Isolation PASS)") + ", "
-            + "Tweaks Integration: " + std::string(tweaks_synced ? "PASS" : "FAIL");
-
-        RecordResult(t26_success, "Test 26: WASAPI Pro Audio Low-Latency & Glitch-Resilience Shield", details);
-    }
-
-    // -------------------------------------------------------------------------
-    // TEST 27: Memory Manager Standby List Purge & UMA Bus Prioritizer
+    // TEST 23: Memory Manager Standby List Purge & UMA Bus Prioritizer
     // -------------------------------------------------------------------------
     {
         bool is_elevated = vegaflow::PrivilegeManager::IsProcessElevated();
@@ -1645,18 +1376,18 @@ int main() {
         constexpr uint64_t k15MB = 15ULL * 1024 * 1024;
         bool kpi_ok = (ram_ws < k15MB);
 
-        bool t27_success = dry_ok && query_ok && perm_handled_ok && kpi_ok;
+        bool t23_success = dry_ok && query_ok && perm_handled_ok && kpi_ok;
 
         std::string details = "Dry-Run: " + std::string(dry_ok ? "PASS" : "FAIL") + ", "
             + "Query (Standby: " + std::to_string(standby_mib) + " MiB, Free: " + std::to_string(free_mib) + " MiB): " + std::string(query_ok ? "PASS" : "FAIL") + ", "
             + "Permissions: " + (is_elevated ? (real_purge ? "ELEVATED (Purge OK)" : "ELEVATED (Purge Failed)") : "RESTRICTED (NT Isolation PASS)") + ", "
             + "Footprint: " + std::to_string(ram_ws / 1024) + " KB (Zero-Overhead KPI < 15MB: " + (kpi_ok ? "PASS" : "FAIL") + ")";
 
-        RecordResult(t27_success, "Test 27: Memory Manager Standby List Purge & UMA Bus Prioritizer", details);
+        RecordResult(t23_success, "Test 23: Memory Manager Standby List Purge & UMA Bus Prioritizer", details);
     }
 
     // -------------------------------------------------------------------------
-    // TEST 28: APU Shadow & Cascades Optimizer (CSM 2-Splits & Half-Res AO)
+    // TEST 24: APU Shadow & Cascades Optimizer (CSM 2-Splits & Half-Res AO)
     // -------------------------------------------------------------------------
     {
         std::error_code ec;
@@ -1774,7 +1505,7 @@ int main() {
         std::filesystem::remove_all(test_dir, ec);
         std::filesystem::remove_all(ac_dir, ec);
 
-        bool t28_success = dry_apply_ok && dry_no_bak && dry_unchanged &&
+        bool t24_success = dry_apply_ok && dry_no_bak && dry_unchanged &&
                            apply_real_ok && bak_created && query_ok && values_match &&
                            preserved_other && ac_shield_ok && dry_restore_ok &&
                            bak_still_exists && restore_real_ok && bak_deleted &&
@@ -1785,11 +1516,11 @@ int main() {
             + "Kernel Anti-Cheat Shield (Genshin/HoYoKProtect): " + std::string(ac_shield_ok ? "PASS (Locked)" : "FAIL") + ", "
             + "Clean Restoration (.bak): " + std::string((restore_real_ok && bak_deleted && restored_clean) ? "PASS" : "FAIL");
 
-        RecordResult(t28_success, "Test 28: APU Shadow & Cascades Optimizer (CSM 2-Splits & Half-Res AO)", details);
+        RecordResult(t24_success, "Test 24: APU Shadow & Cascades Optimizer (CSM 2-Splits & Half-Res AO)", details);
     }
 
     // -------------------------------------------------------------------------
-    // TEST 29: Universal APU Tier Classification, DX11/DX12 Policy & Advanced APU Safety Guards
+    // TEST 25: Universal APU Tier Classification, DX11/DX12 Policy & Advanced APU Safety Guards
     // -------------------------------------------------------------------------
     {
         // ---------------------------------------------------------------------
@@ -1906,7 +1637,7 @@ int main() {
                          (sys_json.find("\"guard_mode\":") != std::string::npos) &&
                          (sys_json.find("\"dx12_async_compute_allowed\":") != std::string::npos);
 
-        bool t29_success = case_a_ok && case_b_ok && case_c_ok && case_d_ok && case_e_ok;
+        bool t25_success = case_a_ok && case_b_ok && case_c_ok && case_d_ok && case_e_ok;
 
         std::string details = "Tier 1 Survival Guard: " + std::string(case_a_ok ? "PASS" : "FAIL") + ", "
             + "Tier 2 Sweet-Spot: " + std::string(case_b_ok ? "PASS" : "FAIL") + ", "
@@ -1914,11 +1645,11 @@ int main() {
             + "Runtime DXGI Pressure Guard: " + std::string(case_d_ok ? "PASS" : "FAIL") + ", "
             + "JSON Serialization (apu_guard): " + std::string(case_e_ok ? "PASS" : "FAIL");
 
-        RecordResult(t29_success, "Test 29: Universal APU Tier Classification, DX11/DX12 Policy & Advanced APU Safety Guards", details);
+        RecordResult(t25_success, "Test 25: Universal APU Tier Classification, DX11/DX12 Policy & Advanced APU Safety Guards", details);
     }
 
     // -------------------------------------------------------------------------
-    // TEST 30: Live APU Guard Telemetry, Multi-CCX / Hybrid L3 Partitioning & Dynamic Pool Sync
+    // TEST 26: Live APU Guard Telemetry, Multi-CCX / Hybrid L3 Partitioning & Dynamic Pool Sync
     // -------------------------------------------------------------------------
     {
         // ---------------------------------------------------------------------
@@ -2064,14 +1795,14 @@ int main() {
         bool set_power_ok = vegaflow::GraphicsOptimizer::SetApuPowerMode(vegaflow::ApuPowerMode::GpuPrioritySustained, false);
         bool case_d_ok = (test_policy.cpu_stapm_cap_mhz == 0) && set_power_ok;
 
-        bool t30_success = case_a_ok && case_b_ok && case_c_ok && case_d_ok;
+        bool t26_success = case_a_ok && case_b_ok && case_c_ok && case_d_ok;
 
         std::string details = "Asymmetric Zen4/4c L3: " + std::string(case_a_ok ? "PASS" : "FAIL") + ", "
             + "Symmetric 4600H Multi-CCX: " + std::string(case_b_ok ? "PASS" : "FAIL") + ", "
             + "Live MemoryManager Telemetry: " + std::string(case_c_ok ? "PASS" : "FAIL") + ", "
             + "Smart Uncapped Boost (0 MHz / EPP 25): " + std::string(case_d_ok ? "PASS" : "FAIL");
 
-        RecordResult(t30_success, "Test 30: Live APU Guard Telemetry, Multi-CCX / Hybrid L3 Partitioning & Dynamic Pool Sync", details);
+        RecordResult(t26_success, "Test 26: Live APU Guard Telemetry, Multi-CCX / Hybrid L3 Partitioning & Dynamic Pool Sync", details);
     }
 
     // -------------------------------------------------------------------------

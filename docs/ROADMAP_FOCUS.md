@@ -1,7 +1,7 @@
 # Hoja de Ruta y Enfoque de Ingeniería — VegaFlow Universal
 
 **Fecha de Actualización:** 2026-11-01  
-**Estado General:** Base Universal Consolidada y Verificada (`29/29` Tests Pasados)  
+**Estado General:** Base Universal Consolidada y Verificada (`26/26` Tests Pasados)  
 **Documento Maestro:** Índice Estratégico y Hoja de Ruta Técnica
 
 ---
@@ -40,7 +40,7 @@ Especificado en [`docs/superpowers/specs/2026-11-01-apu-dx11-dx12-universal-guar
 ### 1.4. Runtime DXGI Pressure Guard y Blindaje Anti-Cheat
 - **Monitoreo en Tiempo Real (`EvaluateUmaPressureGuard`):** Sondaje del presupuesto DXGI 1.4 (`IDXGIAdapter3`). Si el consumo local alcanza el **85%** o la memoria física libre es inferior a **1536 MB**, mitiga proactivamente mediante recorte de conjuntos de trabajo secundarios sin pausas perceptibles.
 - **Zero-Trust Lockdown (`SandboxGuard`):** Aislamiento de rutas canónicas, whitelist estricta y bloqueo total ante firmas de kernel anti-cheat (HoYoKProtect, Vanguard, EAC, BattlEye, ACE).
-- **Cobertura de Pruebas:** **29 de 29 pruebas unitarias e integradas pasando en verde** (`TEST RESULTS: 29 PASSED, 0 FAILED`).
+- **Cobertura de Pruebas:** **26 de 26 pruebas unitarias e integradas pasando en verde** (`TEST RESULTS: 26 PASSED, 0 FAILED`).
 
 ---
 

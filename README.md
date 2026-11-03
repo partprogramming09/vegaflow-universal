@@ -4,7 +4,7 @@
 [![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011%20(x64)-0078D6.svg)](https://microsoft.com/windows)
 [![Hardware Target](https://img.shields.io/badge/Hardware-AMD%20Ryzen%20APU%20%2B%20Radeon%20Vega-ED1C24.svg)](https://amd.com)
 [![Footprint](https://img.shields.io/badge/RAM%20Footprint-%3C%2015%20MB-brightgreen.svg)]()
-[![Tests](https://img.shields.io/badge/Tests-29%20Passed%20%7C%200%20Failed-success.svg)]()
+[![Tests](https://img.shields.io/badge/Tests-25%20Passed%20%7C%200%20Failed-success.svg)]()
 [![Anti--Cheat Safety](https://img.shields.io/badge/Anti--Cheat%20Safe-100%25%20Non--Invasive-success.svg)]()
 
 > **VegaFlow Universal** es un framework nativo de optimización de sistemas y gráficos en C++20 diseñado para resolver de raíz los cuellos de botella de hardware y software en procesadores con gráficos integrados (**APUs AMD Ryzen con iGPUs Radeon Vega**).  
@@ -26,7 +26,7 @@
   - [Subsistema SystemInfo (Telemetría de Hardware & Exportación JSON)](#28-subsistema-systeminfo-telemetría-de-hardware--exportación-json)
   - [Rediseño Visual de la GUI (Clean Slate / Nordic Dark Mode)](#29-rediseño-visual-de-la-gui-clean-slate--nordic-dark-mode)
   - [Suite Moderna para Juegos 3D (EcoQoS, Jerarquía I/O NT y DirectFlip)](#210-suite-moderna-para-juegos-3d-ecoqos-jerarquía-io-nt-y-directflip)
-  - [Suite de Silicio APU & Blindaje de Memoria de Kernel NT (DisablePagingExecutive, SAM/ReBAR UMA & Smart Tessellation 16x)](#211-suite-de-silicio-apu--blindaje-de-memoria-de-kernel-nt-disablepagingexecutive-samrebar-uma--smart-tessellation-16x)
+  - [Suite de Silicio APU & Blindaje de Memoria de Kernel NT (DisablePagingExecutive & Smart Tessellation 16x)](#211-suite-de-silicio-apu--blindaje-de-memoria-de-kernel-nt-disablepagingexecutive--smart-tessellation-16x)
   - [ApuCapabilityGuard: Clasificación Universal de 4 Niveles y Safety Guards](#212-apucapabilityguard-clasificación-universal-de-4-niveles-y-safety-guards)
 - [3. Casos de Estudio Reales y Evidencia Empírica](#3-casos-de-estudio-reales-y-evidencia-empírica)
   - [Caso 1: Octopath Traveler II (Unreal Engine 4)](#caso-1-octopath-traveler-ii-unreal-engine-4--steam)
@@ -187,15 +187,12 @@ Integrada a bajo nivel para resolver de raíz las limitaciones de latencia, cont
    - **Explicación técnica:** En modos ventana o borderless tradicionales, el compositor del sistema (DWM) copia cada fotograma a una superficie intermedia, introduciendo entre 15 y 30 ms de retardo de entrada y micro-stutters periódicos.
    - **Inyección DXGI:** VegaFlow inyecta en `HKCU\Software\Microsoft\DirectX\UserGpuPreferences` las directivas `AutoFlipModel=1;DirectFlip=1;TurboSync=1;SwapEffectUpgradeEnable=1;GpuPreference=2;`. En Windows 11, esto permite la promoción directa al modo **DirectFlip**, evitando por completo la cola de copiado de DWM y alcanzando una **latencia de entrada de 0ms** en pantalla completa sin bordes.
 
-### 2.11. Suite de Silicio APU & Blindaje de Memoria de Kernel NT (DisablePagingExecutive, SAM/ReBAR UMA & Smart Tessellation 16x)
+### 2.11. Suite de Silicio APU & Blindaje de Memoria de Kernel NT (DisablePagingExecutive & Smart Tessellation 16x)
 Diseñada para mitigar las debilidades intrínsecas de las APUs Ryzen con arquitectura de memoria compartida (UMA) y unidades de cómputo compactas (Vega 6):
 1. **Blindaje de Memoria de Kernel NT (RAM Lock / DisablePagingExecutive=1):**
    - **Explicación técnica y física:** En sistemas con memoria unificada, Windows NT tiende a paginar al archivo `pagefile.sys` código ejecutable del kernel y controladores D3D/WDDM cuando detecta baja actividad inmediata en ciertas páginas. Cuando el motor del juego o la GPU integrada solicita repentinamente una rutina no residente, se produce un fallo de página duro (*hard page fault*) que congela el pipeline de render durante 50 a 200 ms hasta que el disco NVMe devuelve la página a la RAM.
    - **Mecanismo NT:** VegaFlow fija `DisablePagingExecutive = 1` y `LargeSystemCache = 0` en `HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management`. Esto bloquea de forma inmutable todos los drivers y componentes del executive del kernel en memoria RAM física, erradicando los micro-tirones por descarte a disco y asegurando latencia de interrupción submilisegundo constante.
-2. **Directivas AMD SAM / ReBAR UMA (KMD_EnableSAM=1 & LargePageSupport=1):**
-   - **Explicación técnica:** Smart Access Memory (SAM) / Resizable BAR permite a los núcleos Zen 2 direccionar la totalidad de la memoria de vídeo de la GPU en un espacio continuo y lineal. En la arquitectura APU UMA, la ausencia de estas directivas fragmenta la apertura de memoria en bloques de 256 MB.
-   - **Mecanismo Driver AMD:** En la clave del adaptador (`SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}`), VegaFlow inyecta `KMD_EnableSAM = 1` y `LargePageSupport = 1`. Esto habilita el direccionamiento plano y unificado de la memoria del sistema sin particionamiento artificial, permitiendo transferencias de geometría y texturas de ultrabaja latencia entre núcleos Zen 2 y la memoria compartida.
-3. **Limitador Inteligente de Teselación AMD (Smart Tessellation 16x / Anti-Overdraw):**
+2. **Limitador Inteligente de Teselación AMD (Smart Tessellation 16x / Anti-Overdraw):**
    - **Explicación técnica:** La Radeon RX Vega 6 cuenta con únicamente 6 Compute Units físicas (384 ALUs) y un solo Primitive Engine de hardware. Mallas y efectos 3D sobre-teselados (frecuentemente a 64x en motores DirectX 11) saturan el pipeline de geometría generando triángulos más pequeños que un píxel en pantalla (*sub-pixel overdraw*), colapsando el rendimiento sin añadir detalle visual perceptible.
    - **Mecanismo Driver AMD:** En la subclave `UMD` del adaptador, VegaFlow establece `Tessellation = "16"` y `Tessellation_Option = "1"`. Esto restringe la teselación máxima a **16x**, eliminando el sub-pixel overdraw, descongestionando los CUs de Vega 6 y estabilizando notablemente el frametime y los 1% Lows.
 
@@ -285,7 +282,7 @@ VegaFlow incluye el script modular [`scripts/build.ps1`](file:///C:/Users/testus
 # Compilar vegaflow_daemon.exe y vegaflow_tests.exe
 powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
 
-# Compilar y ejecutar automáticamente los 29 tests unitarios
+# Compilar y ejecutar automáticamente los 26 tests unitarios
 powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1 -RunTests
 ```
 
@@ -304,7 +301,7 @@ g++ -std=c++20 -O2 -Wall -Wextra -static -static-libgcc -static-libstdc++ \
     -o build/vegaflow_daemon.exe \
     -lntdll -ldxgi -ladvapi32 -lpsapi -luser32 -lole32 -lgdi32 -lshell32 -ldwmapi -ltdh
 
-# Compilar la Suite de Pruebas Integradas (29 tests)
+# Compilar la Suite de Pruebas Integradas (26 tests)
 g++ -std=c++20 -O2 -Wall -Wextra -static -static-libgcc -static-libstdc++ \
     -Iinclude -Iinclude/core -Iinclude/optimizers -Iinclude/security -Iinclude/gui \
     src/core/privileges.cpp src/core/hardware_profiler.cpp src/core/process_detector.cpp \
@@ -366,7 +363,7 @@ VegaFlow puede operar como servicio en segundo plano, como herramienta de consol
 [SYSTEM GRAPHICS TWEAKS]
   Multi-Plane Overlay (MPO)  : DISABLED (OverlayTestMode=5, Stutter-Free)
   AMD ShaderCache Mode       : FORCED ON (0x3200, Stutter Elimination)
-  AMD DX11/UMA Driver Boost  : ACTIVE (SurfaceFormat FP16 + FlipQueue=1 + ULPS Off)
+  AMD DX11/UMA Driver Boost  : ACTIVE (SurfaceFormat FP16 + FlipQueue=1)
   MMCSS WDDM Gaming Profile  : OPTIMIZED (GPU Priority=8, SystemResponsiveness=10%)
   GameDVR & FSE Bypass       : DEFAULT (Windows DVR Active)
   APU Laptop Power & Bus     : ACTIVE (Boost Efficient-Aggressive + PCIe ASPM Off)
@@ -374,7 +371,6 @@ VegaFlow puede operar como servicio en segundo plano, como herramienta de consol
   Windows Memory Compression : DISABLED (Zero CPU Spikes / Low Latency)
   Kernel Memory Paging Shield: ACTIVE (DisablePagingExecutive=1, RAM Lock)
   AMD Tessellation Limiter   : 16x (Over-Geometry Capped)
-  AMD SAM / ReBAR UMA Mode   : ACTIVE
   DirectFlip / AutoFlip Model: READY (AutoFlipModel=1 & DirectFlip=1 Injection on Launch)
   External FSR 1.0 Scaler    : READY (EASU + RCAS 2-Pass D3D11 | Hotkey: Alt+F11)
 ```
@@ -470,19 +466,16 @@ VegaFlow incluye una suite de pruebas automatizadas que certifica el correcto fu
 [PASS] Test 17: SandboxGuard Boundary Validation, Canonicalization, Anti-Cheat Lockdown & Safe I/O
 [PASS] Test 18: SystemInfo Telemetry, Hardware Specs Gathering & JSON Serialization
 [PASS] Test 19: Modern 3D Gaming Suite (EcoQoS Background Throttling, I/O Priority Hierarchy, DirectFlip & Low-Latency D3D11 Queues)
-[PASS] Test 20: APU Silicon & UMA Bus Optimization Suite (DisablePagingExecutive Kernel Shield, SAM/ReBAR UMA Directives & Smart Tessellation 16x)
-[PASS] Test 21: TCP/IP Gaming Stack & Network Throttling Optimization
-[PASS] Test 22: I/O Metadata Shield & Storage Streaming
-[PASS] Test 23: MMCSS Audio & Gaming Priority Shield
-[PASS] Test 24: DXVK APU Profile Configuration & Shader Pipeline Pre-warming
-[PASS] Test 25: DirectStorage 1.2 & BypassIO Storage Acceleration
-[PASS] Test 26: WASAPI Pro Audio Low-Latency & Glitch-Resilience Shield
-[PASS] Test 27: Memory Manager Standby List Purge & UMA Bus Prioritizer
-[PASS] Test 28: APU Shadow & Cascades Optimizer (CSM 2-Splits & Half-Res AO)
-[PASS] Test 29: Universal APU Tier Classification, DX11/DX12 Policy & Advanced APU Safety Guards
+[PASS] Test 20: APU Silicon & UMA Bus Optimization Suite (DisablePagingExecutive Kernel Shield & Smart Tessellation 16x)
+[PASS] Test 21: MMCSS Audio & Gaming Priority Shield
+[PASS] Test 22: DXVK APU Profile Configuration & Shader Pipeline Pre-warming
+[PASS] Test 23: Memory Manager Standby List Purge & UMA Bus Prioritizer
+[PASS] Test 24: APU Shadow & Cascades Optimizer (CSM 2-Splits & Half-Res AO)
+[PASS] Test 25: Universal APU Tier Classification, DX11/DX12 Policy & Advanced APU Safety Guards
+[PASS] Test 26: Live APU Guard Telemetry, Multi-CCX / Hybrid L3 Partitioning & Dynamic Pool Sync
 
 ================================================================================
-TEST RESULTS: 29 PASSED, 0 FAILED
+TEST RESULTS: 26 PASSED, 0 FAILED
 ================================================================================
 ```
 
@@ -503,7 +496,7 @@ TEST RESULTS: 29 PASSED, 0 FAILED
 
 El desarrollo activo de VegaFlow Universal se guía por el documento maestro [`docs/ROADMAP_FOCUS.md`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/docs/ROADMAP_FOCUS.md) y la especificación de diseño [`docs/superpowers/specs/2026-11-01-apu-dx11-dx12-universal-guards-design.md`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/docs/superpowers/specs/2026-11-01-apu-dx11-dx12-universal-guards-design.md).
 
-### Base Universal Consolidada (`29/29` Tests Pasados)
+### Base Universal Consolidada (`26/26` Tests Pasados)
 - **Arquitectura Modular Limpia:** Código fuente desacoplado en `core/`, `optimizers/`, `security/` y `gui/` con pipeline automatizado en [`scripts/build.ps1`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/scripts/build.ps1).
 - **Motor `ApuCapabilityGuard`:** Clasificación en 4 Tiers (*Survival Guard* $\le$ 8GB, *Sweet-Spot Guard* Ryzen Vega, *Do-No-Harm Guard* RDNA2/RDNA3/Intel Xe y *Pass-Through Guard* dGPU).
 - **Especialización Dual DX11/DX12:** Soporte adaptativo para DXVK-GPLAsync, teselación inteligente (8x/16x/32x) y protección de colas de cómputo asíncrono (`AsyncCompute`) en APUs avanzadas.

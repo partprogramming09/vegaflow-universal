@@ -376,7 +376,7 @@ void PrintStatusReport() {
     std::cout << "[SYSTEM GRAPHICS TWEAKS]\n";
     std::cout << "  Multi-Plane Overlay (MPO)  : " << (tweaks.mpo_disabled ? "DISABLED (OverlayTestMode=5, Stutter-Free)" : "ENABLED (Windows Default)") << "\n";
     std::cout << "  AMD ShaderCache Mode       : " << (tweaks.amd_shader_cache_forced ? "FORCED ON (0x3200, Stutter Elimination)" : "Driver Default (AMD Optimized)") << "\n";
-    std::cout << "  AMD DX11/UMA Driver Boost  : " << (tweaks.amd_dx11_uma_boost ? "ACTIVE (SurfaceFormat FP16 + FlipQueue=1 + ULPS Off)" : "Driver Default") << "\n";
+    std::cout << "  AMD DX11/UMA Driver Boost  : " << (tweaks.amd_dx11_uma_boost ? "ACTIVE (SurfaceFormat FP16 + FlipQueue=1)" : "Driver Default") << "\n";
     std::cout << "  AMD VRAM Reporting Pool    : " << (tweaks.amd_vram_override_active ? ("FORCED (" + std::to_string(tweaks.amd_vram_reported_mb > 0 ? tweaks.amd_vram_reported_mb : 4096) + " MB DXGI/AMD)") : ("Driver Default (" + std::to_string(tweaks.amd_vram_reported_mb > 0 ? tweaks.amd_vram_reported_mb : 512) + " MB)")) << "\n";
     std::cout << "  MMCSS WDDM Gaming Profile  : " << (tweaks.mmcss_gaming_optimized ? "OPTIMIZED (GPU Priority=8, SystemResponsiveness=10%)" : "Windows Default (GPU Priority=2)") << "\n";
     std::cout << "  GameDVR & FSE Bypass       : " << (tweaks.gamedvr_disabled ? "OPTIMIZED (Background Capture Off + FSE Mode 2)" : "DEFAULT (Windows DVR Active)") << "\n";
@@ -385,7 +385,6 @@ void PrintStatusReport() {
     std::cout << "  Windows Memory Compression : " << (tweaks.memory_compression_enabled ? "ACTIVE (MemCompression Process)" : "DISABLED (Zero CPU Spikes / Low Latency)") << "\n";
     std::cout << "  Kernel Memory Paging Shield: " << (tweaks.kernel_paging_shield_active ? "ACTIVE (DisablePagingExecutive=1, RAM Lock)" : "DEFAULT (Paging Allowed)") << "\n";
     std::cout << "  AMD Tessellation Limiter   : " << ((tweaks.amd_tessellation_max > 0 && tweaks.amd_tessellation_max <= 16) ? (std::to_string(tweaks.amd_tessellation_max) + "x (Over-Geometry Capped)") : (tweaks.amd_dx11_uma_boost ? "16x (Over-Geometry Capped)" : (tweaks.amd_tessellation_max > 0 ? (std::to_string(tweaks.amd_tessellation_max) + "x (Driver Setting)") : "16x (Over-Geometry Capped)"))) << "\n";
-    std::cout << "  AMD SAM / ReBAR UMA Mode   : " << ((tweaks.amd_sam_rebar_active || tweaks.amd_dx11_uma_boost) ? "ACTIVE" : "DEFAULT (Standard UMA Aperture)") << "\n";
 
     uint32_t df_count = CountDirectFlipConfiguredGames();
     auto active_game = ProcessDetector::DetectActiveGame();
@@ -1376,36 +1375,15 @@ int main(int argc, char* argv[]) {
             // Sincronización Suite Silicio APU & Blindaje Kernel NT
             data.kernel_paging_shield_active = cached_tweaks.kernel_paging_shield_active;
             data.amd_tessellation_max = (cached_tweaks.amd_tessellation_max > 0) ? cached_tweaks.amd_tessellation_max : 16;
-            data.amd_sam_rebar_active = cached_tweaks.amd_sam_rebar_active || cached_tweaks.amd_dx11_uma_boost;
             data.amd_vram_override_active = cached_tweaks.amd_vram_override_active;
             data.amd_vram_reported_mb = cached_tweaks.amd_vram_reported_mb;
 
             // Consultar en vivo estados de las optimizaciones Ronda 2 y Grupo 2B
-            uint32_t ntfs_mem = 0;
-            bool bypass_compat = false;
-            GraphicsOptimizer::QueryBypassIoTweaks(ntfs_mem, bypass_compat);
-            data.directstorage_active = (ntfs_mem == 2);
-
-            bool ntfs_no_last = false;
-            uint32_t sys_resp = 20;
-            GraphicsOptimizer::QueryIoStorageTweaks(ntfs_no_last, sys_resp);
-            data.io_streaming_active = (ntfs_no_last && sys_resp <= 10);
-
             std::string mmcss_cat;
             std::string mmcss_sfio;
             uint32_t mmcss_clock = 0;
             GraphicsOptimizer::QueryMmcssTaskTweaks(mmcss_cat, mmcss_sfio, mmcss_clock);
             data.mmcss_task_active = (mmcss_cat == "High" && mmcss_clock == 10000);
-
-            std::string audio_cat;
-            uint32_t audio_prio = 0;
-            GraphicsOptimizer::QueryWasapiAudioTweaks(audio_cat, audio_prio);
-            data.wasapi_audio_active = (audio_cat == "High" && audio_prio == 6);
-
-            bool tcp_nd = false;
-            uint32_t net_throttle = 10;
-            GraphicsOptimizer::QueryTcpLatencyTweaks(tcp_nd, net_throttle);
-            data.tcp_gaming_active = (tcp_nd && net_throttle == 0xFFFFFFFFUL);
 
             data.apu_shadows_active = true;
 
@@ -1575,7 +1553,7 @@ int main(int argc, char* argv[]) {
             bool target = !cur.amd_shader_cache_forced;
             bool ok = GraphicsOptimizer::SetAmdShaderCacheForced(target, false);
             tweaks_query_countdown = 0;
-            std::string msg = ok ? (target ? "Boost AMD DX11/UMA + ShaderCache 0x3200 Activado (SurfaceFormat + FlipQueue=1 + ULPS Off)" : "AMD ShaderCache y Driver Boost restaurados a Driver Default") : "Fallo al cambiar ShaderCache (Requiere Administrador)";
+            std::string msg = ok ? (target ? "Boost AMD DX11/UMA + ShaderCache 0x3200 Activado (SurfaceFormat + FlipQueue=1)" : "AMD ShaderCache y Driver Boost restaurados a Driver Default") : "Fallo al cambiar ShaderCache (Requiere Administrador)";
             last_gui_status = msg;
             AddAuditLog("Ajuste AMD ShaderCache: " + msg);
             return msg;
@@ -1636,11 +1614,7 @@ int main(int argc, char* argv[]) {
 
         callbacks.on_ApplyAllGamingTweaks = [&]() -> std::string {
             ApuOptimizationPolicy pol = HardwareProfiler::BuildOptimizationPolicy(hw, mem_mgr.SampleTelemetry().vram.local_budget_bytes);
-            bool ok_bypass = GraphicsOptimizer::ApplyBypassIoTweaks(false);
-            bool ok_io = GraphicsOptimizer::ApplyIoStorageTweaks(false);
             bool ok_mmcss = GraphicsOptimizer::ApplyMmcssTweaks(false);
-            bool ok_wasapi = GraphicsOptimizer::ApplyWasapiAudioTweaks(false);
-            bool ok_tcp = GraphicsOptimizer::ApplyTcpGamingTweaks(false);
             bool ok_ram = MemoryManager::PurgeStandbyList(false);
             bool ok_timer = GraphicsOptimizer::SetHighResolutionTimer();
             bool ok_vram = pol.apply_uma_vram_reg_override
@@ -1648,11 +1622,10 @@ int main(int argc, char* argv[]) {
                 : false;
             tweaks_query_countdown = 0;
 
-            (void)ok_bypass; (void)ok_io; (void)ok_mmcss; (void)ok_wasapi;
-            (void)ok_tcp; (void)ok_ram; (void)ok_timer; (void)ok_vram;
+            (void)ok_mmcss; (void)ok_ram; (void)ok_timer; (void)ok_vram;
 
-            std::string msg = "Combo Gaming 2B aplicado: DirectStorage, MMCSS GPU=8, WASAPI, TCP NoDelay, VRAM " +
-                std::to_string(pol.safe_vram_pool_mb) + "MB, I/O Stream, Timer 0.5ms y Purga RAM.";
+            std::string msg = "Combo Gaming 2B aplicado: MMCSS GPU=8, VRAM " +
+                std::to_string(pol.safe_vram_pool_mb) + "MB, Timer 0.5ms y Purga RAM.";
             last_gui_status = msg;
             AddAuditLog(msg);
             return msg;
