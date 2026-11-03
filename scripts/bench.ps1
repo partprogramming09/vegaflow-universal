@@ -18,6 +18,8 @@
     Ruta a PresentMon.exe (2.x). Por defecto busca la variable PRESENTMON_EXE y luego el PATH.
 .PARAMETER FromCsv
     Analiza un CSV de PresentMon ya capturado en vez de ejecutar PresentMon.
+.PARAMETER StartDelaySeconds
+    Espera antes de capturar, para dar tiempo a poner el juego en primer plano.
 .PARAMETER Compare
     Dos archivos JSON de resultados: imprime la diferencia entre el segundo y el primero.
 .EXAMPLE
@@ -33,6 +35,7 @@ param(
     [Parameter(ParameterSetName = 'Run')][int]$WarmupSeconds = 5,
     [Parameter(ParameterSetName = 'Run')][string]$PresentMon = $env:PRESENTMON_EXE,
     [Parameter(ParameterSetName = 'Run')][string]$FromCsv,
+    [Parameter(ParameterSetName = 'Run')][int]$StartDelaySeconds = 0,
     [Parameter(ParameterSetName = 'Compare', Mandatory)][string[]]$Compare
 )
 
@@ -57,7 +60,7 @@ if ($PSCmdlet.ParameterSetName -eq 'Compare') {
         $pct = if ($a.$m -ne 0) { 100.0 * $delta / $a.$m } else { 0 }
         '{0,-22} {1,10:N2} -> {2,10:N2}   {3,+8:N2} ({4,+6:N1}%)' -f $m, $a.$m, $b.$m, $delta, $pct
     }
-    "frames: $($a.frames) -> $($b.frames)   present_mode: $($a.present_mode) -> $($b.present_mode)"
+    "frames: $($a.frames) -> $($b.frames)   present_mode: $($a.present_mode) -> $($b.present_mode)   clean: $($a.clean) -> $($b.clean)"
     return
 }
 
@@ -76,6 +79,7 @@ if ($FromCsv) {
     }
 
     $csv = Join-Path ([IO.Path]::GetTempPath()) "vegaflow-bench-$stamp.csv"
+    if ($StartDelaySeconds -gt 0) { Start-Sleep -Seconds $StartDelaySeconds }
     $prevEap = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
     & $PresentMon --process_name $Process --output_file $csv --timed $Seconds --terminate_after_timed --no_console_stats --session_name vegaflow-bench --stop_existing_session 2>&1 | Out-Null
@@ -108,6 +112,8 @@ $result = [ordered]@{
     fps_0_1pct_low      = [Math]::Round((Get-Lows $sorted 0.999), 2)
     frametime_stddev_ms = [Math]::Round([Math]::Sqrt($variance), 3)
     present_mode        = $modes[0].Name
+    present_mode_share  = [Math]::Round($modes[0].Count / $rows.Count, 3)
+    clean               = (($modes[0].Count / $rows.Count) -ge 0.99)
     windows_build       = [Environment]::OSVersion.Version.ToString()
 }
 
