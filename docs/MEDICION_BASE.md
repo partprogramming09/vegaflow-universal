@@ -105,6 +105,31 @@ Comparado con la línea base anterior (tweaks viejos aplicados):
 
 No se puede concluir que los tweaks viejos mejoren los lows. La dispersión de las corridas limpias es unas 10 veces mayor que la de la línea anterior, y `stock-1` (la primera tras el arranque) es un valor atípico. Causa no verificada: actividad de fondo posterior al arranque (EA, indexado, shaders) o la propia restauración. Antes de comparar hay que repetir la medición con la máquina asentada y más corridas.
 
+## Windows limpio, máquina asentada (corridas 4 a 8)
+
+Cinco corridas más, 00:57 a 01:05, sin tocar la laptop. Todas con el 100% de los cuadros en `Hardware: Legacy Flip`.
+
+| Corrida | FPS medio | 1% Low | 0.1% Low | Desv. (ms) |
+| --- | --- | --- | --- | --- |
+| stock-4 | 43.49 | 39.44 | 37.37 | 0.641 |
+| stock-5 | 43.55 | 40.03 | 37.23 | 0.564 |
+| stock-6 | 43.52 | 39.75 | 36.07 | 0.582 |
+| stock-7 | 43.52 | 39.25 | 36.30 | 0.598 |
+| stock-8 | 43.56 | 39.83 | 37.05 | 0.566 |
+| media | 43.53 | 39.66 | 36.80 | 0.590 |
+| media con tweaks viejos | 43.21 | 38.20 | 36.10 | 0.679 |
+
+Diferencia (limpio menos tweaks viejos): FPS medio +0.7%, 1% Low +3.8%, 0.1% Low +1.9%, desviación -13%.
+
+Las primeras tres corridas tras el reinicio (`stock-1` a `stock-3`) fueron peores y más dispersas, y se estabilizaron a partir de la cuarta, unos 6 minutos después. Una medición justa necesita descartar los primeros minutos tras arrancar.
+
+Lectura: sin los tweaks viejos, el resultado no es peor y puede ser algo mejor. El 1% Low supera el rango entre corridas de la línea anterior (1.6%) y el de estas cinco (2%); el resto está dentro del ruido.
+
+Límites:
+- Las dos series no se intercalaron: la anterior se midió con la máquina encendida desde hacía horas y esta tras un reinicio. Deriva térmica y estado del sistema no controlados.
+- Una sola escena, limitada por GPU, y un solo juego.
+- No se puede atribuir la diferencia a un tweak concreto; es el conjunto de 12 valores contra ninguno.
+
 ## Observaciones
 
 - El juego se presenta en `Legacy Flip`, no en borderless. Los tweaks de DirectFlip y MPO apuntan a otro modo de presentación y no se pueden evaluar con este juego tal como está configurado.
