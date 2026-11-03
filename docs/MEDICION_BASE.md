@@ -87,6 +87,24 @@ Detalle del mecanismo: la primera ejecución falló con código 1 porque `IsInRo
 
 Siguen sin tocarse (sin valor de fábrica confirmado): `EnableUlps`, `ShaderCache`, `UMD\*`, `UserGpuPreferences`, perfil de energía APU, compresión de memoria.
 
+## Windows limpio tras restaurar y reiniciar
+
+2026-11-03 00:51, laptop reiniciada con los 16 valores en fábrica (lectura posterior al reinicio: 0 diferencias). Misma escena y protocolo manos libres. La app de EA arrancó con la sesión y se minimizó antes de medir.
+
+| Corrida | FPS medio | 1% Low | 0.1% Low | Desv. (ms) |
+| --- | --- | --- | --- | --- |
+| stock-1 | 43.30 | 28.04 | 17.86 | 1.843 |
+| stock-2 | 43.17 | 36.33 | 33.43 | 0.858 |
+| stock-3 | 43.42 | 38.74 | 32.31 | 0.661 |
+
+Comparado con la línea base anterior (tweaks viejos aplicados):
+
+- FPS medio: 43.30 contra 43.21. Sin diferencia.
+- 1% Low: media 34.4 (rango 10.7) contra 38.2 (rango 0.6). Sin `stock-1`: 37.5, dentro del ruido de la línea anterior.
+- 0.1% Low: media 27.9 (rango 15.6) contra 36.1 (rango 1.7). Sin `stock-1`: 32.9.
+
+No se puede concluir que los tweaks viejos mejoren los lows. La dispersión de las corridas limpias es unas 10 veces mayor que la de la línea anterior, y `stock-1` (la primera tras el arranque) es un valor atípico. Causa no verificada: actividad de fondo posterior al arranque (EA, indexado, shaders) o la propia restauración. Antes de comparar hay que repetir la medición con la máquina asentada y más corridas.
+
 ## Observaciones
 
 - El juego se presenta en `Legacy Flip`, no en borderless. Los tweaks de DirectFlip y MPO apuntan a otro modo de presentación y no se pueden evaluar con este juego tal como está configurado.
