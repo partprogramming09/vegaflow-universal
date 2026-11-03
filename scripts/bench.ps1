@@ -84,7 +84,10 @@ if ($FromCsv) {
     if (-not (Test-Path $csv)) { throw "PresentMon no genero datos. El proceso '$Process' debe estar en ejecucion y, si es de sistema, la consola debe ser administrador." }
 }
 
-$rows = Import-Csv $csv | Where-Object { [double]$_.TimeInSeconds -ge $WarmupSeconds }
+$rows = Import-Csv $csv | Where-Object {
+    $t = if ($null -ne $_.TimeInMs) { [double]$_.TimeInMs / 1000.0 } else { [double]$_.TimeInSeconds }
+    $t -ge $WarmupSeconds -and $_.MsBetweenPresents -ne 'NA'
+}
 if ($rows.Count -lt 100) { throw "Solo $($rows.Count) cuadros tras el calentamiento: medicion invalida." }
 
 $frametimes = [double[]]($rows | ForEach-Object { [double]$_.MsBetweenPresents } | Where-Object { $_ -gt 0 })
