@@ -1842,7 +1842,8 @@ int main(int argc, char* argv[]) {
     GraphicsOptimizer::SetGameDvrAndFseOptimized(true, false);
     GraphicsOptimizer::SetApuLaptopPowerProfile(true, false);
 
-    g_stop_event = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    // Named so an elevated script can request a clean shutdown (RestoreAll) without a console.
+    g_stop_event = CreateEventW(nullptr, TRUE, FALSE, L"Global\\VegaFlowStop");
     if (!SetConsoleCtrlHandler(ConsoleCtrlHandler, TRUE)) {
         std::cerr << "[WARN] Failed to set console control handler.\n";
     }
