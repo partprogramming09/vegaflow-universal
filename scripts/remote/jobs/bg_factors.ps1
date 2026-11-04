@@ -19,6 +19,9 @@
     Duracion de cada captura de PresentMon.
 .PARAMETER Workers
     Hilos que quema la carga de fondo (1 a 12).
+.PARAMETER Topo
+    Con -Mode sim simula un equipo con menos procesadores: el juego y la carga quedan limitados a 4 hilos (4c: un hilo en cada uno de 4 nucleos;
+    4t2c: 2 nucleos con SMT). Condiciones: base (carga en los 4 hilos), c1 (carga en 1 hilo) y c2 (carga en 2 hilos).
 .PARAMETER Duty
     Porcentaje de cada 100 ms que cada hilo de la carga quema CPU (5 a 100); fija la carga total en Workers x Duty / 100 procesadores logicos.
     Con -Mode confine solo se miden base y aff2 (para ver desde que carga conviene confinar).
@@ -28,7 +31,8 @@ param(
     [ValidateRange(10, 120)][int]$Seconds = 30,
     [ValidateRange(1, 12)][int]$Workers = 6,
     [ValidateRange(5, 100)][int]$Duty = 100,
-    [ValidateSet('factors', 'threads', 'confine')][string]$Mode = 'factors'
+    [ValidateSet('factors', 'threads', 'confine', 'sim')][string]$Mode = 'factors',
+    [ValidateSet('4c', '4t2c')][string]$Topo = '4c'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -63,7 +67,7 @@ function Set-Condition($cond) {
     $n = 0
     foreach ($p in Get-LoadProcesses) {
         try {
-            $mask = @{ aff = 0xC00; all = 0xC00; aff2 = 0xC00; aff4 = 0xF00; aff6 = 0xFC0; aff8 = 0xFF0 }[$cond]
+            $mask = if ($Mode -eq 'sim') { @{ base = $simMasks.all; c1 = $simMasks.c1; c2 = $simMasks.c2 }[$cond] } else { @{ aff = 0xC00; all = 0xC00; aff2 = 0xC00; aff4 = 0xF00; aff6 = 0xFC0; aff8 = 0xFF0 }[$cond] }
             if ($mask) { $p.ProcessorAffinity = [IntPtr]$mask }
             if ($cond -in 'eco', 'all') { [void][VF.Bg]::SetProcessInformation($p.Handle, 4, [uint32[]](1, 1, 1), 12) }
             if ($cond -in 'io', 'all') { $v = 0; [void][VF.Bg]::NtSetInformationProcess($p.Handle, 33, [ref]$v, 4) }
@@ -76,8 +80,10 @@ function Set-Condition($cond) {
 if (Get-Process vegaflow_daemon -ErrorAction SilentlyContinue) { throw 'El daemon esta corriendo; esta prueba es con el daemon apagado.' }
 if (-not (Get-Process drawstress -ErrorAction SilentlyContinue)) { throw 'drawstress no esta abierto.' }
 
-$names = switch ($Mode) { 'threads' { @('base', 'aff2', 'aff4', 'aff6', 'aff8') } 'confine' { @('base', 'aff2') } default { @('base', 'aff', 'eco', 'io', 'all') } }
-$prefix = switch ($Mode) { 'threads' { 'bgt' } 'confine' { 'bgc' } default { 'bgf' } }
+$simMasks = @{ '4c' = @{ all = 0x55; c1 = 0x40; c2 = 0x50 }; '4t2c' = @{ all = 0x0F; c1 = 0x08; c2 = 0x0C } }[$Topo]
+if ($Mode -eq 'sim') { (Get-Process drawstress | Select-Object -First 1).ProcessorAffinity = [IntPtr]$simMasks.all }
+$names = switch ($Mode) { 'threads' { @('base', 'aff2', 'aff4', 'aff6', 'aff8') } 'confine' { @('base', 'aff2') } 'sim' { @('base', 'c1', 'c2') } default { @('base', 'aff', 'eco', 'io', 'all') } }
+$prefix = switch ($Mode) { 'threads' { 'bgt' } 'confine' { 'bgc' } 'sim' { "bgs$Topo" } default { 'bgf' } }
 $dutyTag = if ($Duty -lt 100) { "-d$Duty" } else { '' }
 
 # Suma los segundos de CPU de los procesos de la carga de fondo cuyo id se pasa.
