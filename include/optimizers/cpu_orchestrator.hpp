@@ -9,6 +9,7 @@
 #include <windows.h>
 
 #include <cstdint>
+#include <unordered_map>
 #include <vector>
 
 namespace vegaflow {
@@ -52,8 +53,20 @@ public:
     uint32_t GetIsolatedBackgroundCount() const noexcept { return static_cast<uint32_t>(modified_background_pids_.size()); }
     uint32_t GetThrottledBackgroundCount() const noexcept { return static_cast<uint32_t>(modified_background_pids_.size()); }
 
+    // Indica si el fondo esta confinado a los CPU Sets de fondo (solo cuando su consumo de CPU lo justifica).
+    bool IsBackgroundConfined() const noexcept { return bg_confine_active_; }
+
 private:
+    // Mide el consumo de CPU del fondo desde la llamada anterior y actualiza bg_confine_active_ con histeresis.
+    // Devuelve true si el estado cambio.
+    bool UpdateBackgroundLoad(const std::vector<uint32_t>& background_pids, uint32_t game_pid);
+    // Aplica (sets no vacio) o quita (sets vacio) los CPU Sets de los procesos de fondo ya modificados.
+    void SetModifiedBackgroundCpuSets(const std::vector<ULONG>& sets);
+
     std::vector<uint32_t> modified_background_pids_;
+    std::unordered_map<uint32_t, ULONGLONG> bg_cpu_prev_;
+    ULONGLONG bg_prev_tick_ms_ = 0;
+    bool bg_confine_active_ = false;
     uint32_t last_optimized_game_pid_ = 0;
     uint32_t last_presenter_tid_ = 0;
     bool last_game_had_full_access_ = false;

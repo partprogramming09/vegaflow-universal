@@ -46,7 +46,62 @@ typedef NTSTATUS(NTAPI* PFN_NtSetInformationProcess)(
 #define PROCESS_POWER_THROTTLING_IGNORE_TIMER_RESOLUTION 0x4
 #endif
 
+// Consumo de CPU del fondo (en procesadores logicos) a partir del cual se confina, y por debajo del cual se libera.
+// shortcut: umbrales sin medir por separado (la ganancia medida existe desde 1 worker de fondo), ajustar con datos.
+constexpr double kConfineOnLogicalCpus = 0.5;
+constexpr double kConfineOffLogicalCpus = 0.25;
+constexpr ULONGLONG kMinSampleMs = 1000;
+
 } // anonymous namespace
+
+bool CpuOrchestrator::UpdateBackgroundLoad(const std::vector<uint32_t>& background_pids, uint32_t game_pid) {
+    const ULONGLONG now_ms = GetTickCount64();
+    const ULONGLONG elapsed_ms = now_ms - bg_prev_tick_ms_;
+    if (bg_prev_tick_ms_ != 0 && elapsed_ms < kMinSampleMs) {
+        return false;
+    }
+
+    std::unordered_map<uint32_t, ULONGLONG> current;
+    ULONGLONG delta_100ns = 0;
+    for (uint32_t pid : background_pids) {
+        if (pid == 0 || pid == game_pid) continue;
+        HANDLE h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+        if (!h) continue;
+        FILETIME created, exited, kernel, user;
+        if (GetProcessTimes(h, &created, &exited, &kernel, &user)) {
+            ULARGE_INTEGER k, u;
+            k.LowPart = kernel.dwLowDateTime; k.HighPart = kernel.dwHighDateTime;
+            u.LowPart = user.dwLowDateTime; u.HighPart = user.dwHighDateTime;
+            const ULONGLONG total = k.QuadPart + u.QuadPart;
+            current[pid] = total;
+            auto it = bg_cpu_prev_.find(pid);
+            if (it != bg_cpu_prev_.end() && total >= it->second) delta_100ns += total - it->second;
+        }
+        CloseHandle(h);
+    }
+
+    const bool had_baseline = bg_prev_tick_ms_ != 0;
+    bg_cpu_prev_ = std::move(current);
+    bg_prev_tick_ms_ = now_ms;
+    if (!had_baseline) {
+        return false;
+    }
+
+    const double logical_cpus = static_cast<double>(delta_100ns) / (static_cast<double>(elapsed_ms) * 10000.0);
+    const bool before = bg_confine_active_;
+    if (!bg_confine_active_ && logical_cpus >= kConfineOnLogicalCpus) bg_confine_active_ = true;
+    else if (bg_confine_active_ && logical_cpus < kConfineOffLogicalCpus) bg_confine_active_ = false;
+    return before != bg_confine_active_;
+}
+
+void CpuOrchestrator::SetModifiedBackgroundCpuSets(const std::vector<ULONG>& sets) {
+    for (uint32_t pid : modified_background_pids_) {
+        HANDLE h = OpenProcess(PROCESS_SET_LIMITED_INFORMATION, FALSE, pid);
+        if (!h) continue;
+        SetProcessDefaultCpuSets(h, sets.empty() ? nullptr : sets.data(), static_cast<ULONG>(sets.size()));
+        CloseHandle(h);
+    }
+}
 
 CpuOrchestrator::~CpuOrchestrator() {
     RestoreAll(false);
@@ -185,6 +240,12 @@ CpuOptimizationResult CpuOrchestrator::ApplyOptimizations(
 
     // 3. Background EcoQoS Throttling, I/O & Memory Priority Confinement, and CPU Sets
     if (!background_pids.empty()) {
+        // Fuera de simulacion el fondo solo se confina mientras consume CPU de forma apreciable.
+        static const std::vector<ULONG> no_sets;
+        if (!dry_run && !background_cpu_sets.empty() && UpdateBackgroundLoad(background_pids, game_pid)) {
+            SetModifiedBackgroundCpuSets(bg_confine_active_ ? background_cpu_sets : no_sets);
+        }
+        const std::vector<ULONG>& bg_sets = (dry_run || bg_confine_active_) ? background_cpu_sets : no_sets;
         uint32_t current_pid = GetCurrentProcessId();
         static auto pfnNtSetInformationProcess = reinterpret_cast<PFN_NtSetInformationProcess>(
             reinterpret_cast<void*>(GetProcAddress(GetModuleHandleW(L"ntdll.dll"), "NtSetInformationProcess")));
@@ -194,7 +255,7 @@ CpuOptimizationResult CpuOrchestrator::ApplyOptimizations(
                 continue;
             }
             if (std::find(modified_background_pids_.begin(), modified_background_pids_.end(), bg_pid) != modified_background_pids_.end()) {
-                if (!background_cpu_sets.empty()) {
+                if (!bg_sets.empty()) {
                     result.background_processes_isolated++;
                 }
                 result.background_processes_throttled++;
@@ -215,7 +276,7 @@ CpuOptimizationResult CpuOrchestrator::ApplyOptimizations(
                     result.background_processes_throttled++;
                     result.background_io_deprioritized = true;
                     result.background_memory_deprioritized = true;
-                    if (!background_cpu_sets.empty()) {
+                    if (!bg_sets.empty()) {
                         result.background_processes_isolated++;
                     }
                     CloseHandle(hBg);
@@ -270,11 +331,11 @@ CpuOptimizationResult CpuOrchestrator::ApplyOptimizations(
                 }
 
                 // 3.4. Confine to Background CPU Sets
-                if (!background_cpu_sets.empty()) {
+                if (!bg_sets.empty()) {
                     if (SetProcessDefaultCpuSets(
                             hBg,
-                            background_cpu_sets.data(),
-                            static_cast<ULONG>(background_cpu_sets.size()))) {
+                            bg_sets.data(),
+                            static_cast<ULONG>(bg_sets.size()))) {
                         result.background_processes_isolated++;
                         modified = true;
                     }
@@ -377,6 +438,9 @@ void CpuOrchestrator::RestoreAll(bool dry_run) {
             }
         }
         modified_background_pids_.clear();
+        bg_cpu_prev_.clear();
+        bg_prev_tick_ms_ = 0;
+        bg_confine_active_ = false;
     }
 }
 

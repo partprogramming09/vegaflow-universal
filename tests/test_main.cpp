@@ -1816,6 +1816,39 @@ int main() {
     }
 
     // -------------------------------------------------------------------------
+    // Test 27: la confinacion del fondo depende de su consumo de CPU
+    // -------------------------------------------------------------------------
+    {
+        // Lanza un proceso hijo, aplica dos muestras separadas y devuelve si el fondo quedo confinado.
+        auto confined_after_two_samples = [](const wchar_t* command) {
+            STARTUPINFOW si{};
+            si.cb = sizeof(si);
+            PROCESS_INFORMATION pi{};
+            std::wstring cmd = command;
+            if (!CreateProcessW(nullptr, cmd.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi)) {
+                return false;
+            }
+            vegaflow::CpuOrchestrator orchestrator;
+            const std::vector<uint32_t> bg{pi.dwProcessId};
+            orchestrator.ApplyOptimizations(0, 0, false, {}, {2}, bg, false);
+            Sleep(1300);
+            orchestrator.ApplyOptimizations(0, 0, false, {}, {2}, bg, false);
+            const bool confined = orchestrator.IsBackgroundConfined();
+            orchestrator.RestoreAll(false);
+            TerminateProcess(pi.hProcess, 0);
+            CloseHandle(pi.hThread);
+            CloseHandle(pi.hProcess);
+            return confined;
+        };
+        const bool busy_confined = confined_after_two_samples(L"cmd.exe /c for /l %i in (1,1,2000000000) do @rem");
+        const bool idle_confined = confined_after_two_samples(L"ping.exe -n 30 127.0.0.1");
+        RecordResult(busy_confined && !idle_confined,
+                     "Test 27: Background confinement follows its CPU use",
+                     "Busy background confined: " + std::string(busy_confined ? "PASS" : "FAIL") + ", "
+                     + "Idle background left free: " + std::string(!idle_confined ? "PASS" : "FAIL"));
+    }
+
+    // -------------------------------------------------------------------------
     // FINAL SUMMARY
     // -------------------------------------------------------------------------
     std::cout << "\n================================================================================\n";
