@@ -241,6 +241,10 @@ Una carga que compite por el ancho de banda de memoria se comporta como la de CP
 
 La diferencia de FPS (±2) está dentro del ruido y 2 hilos le dan al fondo el doble de CPU, por lo que se mantienen 2 hilos en 12 (un sexto de los procesadores lógicos).
 
+#### Capturas sostenidas de 10 minutos, sin carga de fondo (2026-11-04, D3D11)
+
+Dos rondas, orden invertido en la segunda: apagado 119.6 y 119.8 FPS (1% Low 80.2 y 79.5); encendido 120.0 y 120.0 (1% Low 79.1 y 78.4). Sin diferencia a los 10 minutos. Una primera ronda de una sola repetición dio 106.9 con el daemon apagado y 122.5 encendido; no se repitió, y como el apagado fue la primera captura tras abrir el juego se atribuye al orden o al arranque, no al daemon. Solo se midieron FPS: no hay temperatura ni potencia, así que el efecto del perfil de energía en el térmico sostenido sigue sin medirse.
+
 - Solo se midió en un 6 núcleos / 12 hilos Zen 2. En equipos con menos núcleos, con núcleos híbridos o con más de 8 núcleos no hay medición y el resultado puede ser distinto.
 
 - El daemon sufre el mismo patrón que `tweaks_state.ps1`: su `--apu-balanced` escribe valores fijos y no los que había (borró `PERFBOOSTMODE=3` y `ASPM=0` que estaban puestos tras un reinicio).

@@ -22,6 +22,7 @@ Sigue pasando y conviene mejorarlo:
 - **No se pueden hacer llamadas MCP concurrentes** a `vfjob`; las cadenas largas se lanzan con el CLI en segundo plano.
 - **Medir requiere un reinicio previo y esperar unos minutos** (el sistema recién arrancado distorsiona). No hay forma de reiniciar el laptop de forma remota que vuelva sola a una sesión de escritorio: el autologon falló (4625 / 0xC000006D, cuenta Microsoft).
 - **`vfjob run` se caía con `TimeoutExpired` cuando el laptop tardaba en responder por SSH mientras medía** (dos veces, en capturas largas). Dejó dos trabajos solapados: el segundo cerró el juego del primero y se perdió una medición. Parcheado: `ssh()` devuelve vacío al agotar el tiempo y el bucle reintenta. Propuesta de fondo: que el ejecutor impida lanzar `game` mientras hay un trabajo `bg-factors` o `ab` en curso.
+- **El tiempo de espera de `vfjob run` (900 s por defecto) es menor que un trabajo largo** (capturas de 10 min). Dos llamadas encadenadas (`kill-game`, `doctor`) dieron "sin respuesta tras 900s" porque la tarea `VegaFlow-Run` pone en cola y espera al trabajo anterior; luego sí se ejecutaron. Propuesta: usar el límite de tiempo del trabajo del manifiesto como espera por defecto.
 - **Los umbrales de los trabajos son valores sueltos** (60, 90, 3600 s). Propuesta: que el tiempo límite del trabajo viva en el manifiesto y se pueda ver con `vfjob_list`.
 
 ### WinBridge
