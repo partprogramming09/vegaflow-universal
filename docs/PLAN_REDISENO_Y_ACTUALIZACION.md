@@ -16,7 +16,7 @@ Fuente: `docs/MEDICION_BASE.md` (Octopath Traveler II, escena fija, PresentMon 2
 
 | Problema | Estado | Evidencia |
 | --- | --- | --- |
-| Los efectos de proceso (CPU Sets, EcoQoS, prioridad I/O) solo alcanzan procesos que el detector clasifica como juego | Por verificar con `drawstress.exe` | `process_detector.cpp`: primer plano con `d3d11.dll`/`d3d12.dll`/`vulkan-1.dll` o `custom_game_exes` |
+| Los efectos de proceso (CPU Sets, EcoQoS, prioridad I/O) solo alcanzan procesos que el detector clasifica como juego, y el detector solo ve el escritorio de su propia sesión | Verificado | `--once --dry-run` con `drawstress.exe` abierto: desde la sesión 0 no detecta nada; desde la sesión del escritorio detecta `drawstress.exe` |
 | `Tasks\Games` (MMCSS) solo afecta a hilos que se registran como "Games"; un motor que no lo hace no recibe nada | Por verificar | Mecanismo documentado de MMCSS, sin medición propia |
 | El daemon continuo aplica GameDVR/FSE y el perfil de energía APU al arrancar y, al cerrar, solo restaura si había un juego activo | Verificado por lectura de código | `main.cpp`: llamadas al arrancar frente al bloque de cierre condicionado a `game_active` |
 | La línea base nunca fue un Windows de fábrica: siguen puestos `UMD\Tessellation=16`, `TurboSync`, `FlipQueueSize`, `TFQ`, `Main3D_DEF` y 13 entradas de `UserGpuPreferences` | Verificado | Informe de `VegaFlow-State` del 2026-11-04 |
@@ -60,7 +60,7 @@ Estado: los pasos 1 a 3 se pueden hacer hoy. El paso 4 también puede correr por
 
 Corregido y verificado:
 
-- `CPMINCORES=100` del perfil APU bajaba el FPS de `drawstress` D3D11 un 21% por sí solo; con el daemon completo el coste era del 10.7%. El perfil ahora deja el valor de fábrica y el A/B posterior muestra daemon encendido igual a apagado en D3D11 y D3D12 (`842df5b`).
+- `CPMINCORES=100` del perfil APU bajaba el FPS de `drawstress` D3D11 un 21% por sí solo; con el daemon completo el coste era del 10.7%. El perfil ahora deja el valor de fábrica y el A/B posterior muestra las partes globales del daemon encendido iguales a apagado en D3D11 y D3D12 (`842df5b`); las optimizaciones por proceso no se midieron (ver punto 5).
 - El cierre limpio del daemon en modo continuo no restauraba el perfil de energía si no había juego activo; ahora lo restaura siempre.
 - El daemon aplicaba dos veces `SetGameDvrAndFseOptimized` y `SetApuLaptopPowerProfile` al arrancar; se quitó el duplicado.
 - `tweaks_state.ps1` no vigilaba el plan de energía ni `GameConfigStore`: ahora informa `CPMINCORES`, `PERFEPP`, `PERFBOOSTMODE`, `ASPM` y los valores `GameDVR_*`.
@@ -71,8 +71,8 @@ Pendiente, por prioridad:
 1. Las pruebas ejecutan cambios reales y "restauran" a valores por defecto, no a los previos (`UMD\Tessellation` quedó en 64 tras correrlas). Cambiarlas a simulación o a guardar y restaurar el valor previo.
 2. Las demás partes del perfil APU (EPP 25, boost 4, ASPM 0) no tienen efecto medido en `drawstress`; medirlas en una carga con presupuesto térmico compartido con la iGPU (un juego real o un benchmark de GPU) antes de mantenerlas.
 3. `GameDVR_Enabled=0` y `GameDVR_FSEBehaviorMode=2` se escriben sin guardar el valor previo y no se restauran al salir. Guardar el valor previo, como el plan de energía.
-4. El daemon no detectó `drawstress.exe` como juego (ventana de bgfx, `d3d11.dll` o `d3d12.dll` cargada). Investigar por qué: si la detección falla con apps en ventana, las optimizaciones por proceso no se aplican a ese tipo de aplicación.
-5. Ninguna optimización por proceso (CPU Sets, EcoQoS, prioridad de I/O) tiene todavía una medición propia con carga real. Medirlas con un workload que el daemon sí detecte.
+4. Resuelto: la detección funciona. El daemon no vio `drawstress.exe` en el A/B porque se lanzó desde SSH (sesión 0, sin escritorio). Comprobado con `--once --dry-run`: desde la sesión del escritorio detecta `drawstress.exe` (DirectX 11), 18 procesos de fondo y 8 núcleos. Mejora pendiente: que el daemon avise por log si arranca en una sesión sin escritorio, para no medirlo sin darse cuenta.
+5. Ninguna optimización por proceso (CPU Sets, EcoQoS, prioridad de I/O) tiene todavía una medición propia. Requiere el daemon elevado en la sesión del escritorio: ejecutar una vez `scripts\setup_tasks.ps1` como administrador (un UAC) y arrancar `VegaFlow-Start` desde SSH; después repetir el A/B con `scripts/ab_loop.ps1` adaptado a esa tarea.
 6. `src/main.cpp` (1925 líneas) y `src/optimizers/graphics_optimizer.cpp` (2009 líneas) concentran demasiada lógica; dividir con las pruebas actuales como red de seguridad.
 7. Medir otras cargas con percentiles: Godot (`godot-benchmarks`) y la muestra `nBodyGravity` (DirectX-Graphics-Samples) para AsyncCompute.
 8. Registrar en `CLAUDE.md` que una sesión SSH corre en la sesión 0 y que las mediciones de PresentMon requieren lanzar la carga en el escritorio.

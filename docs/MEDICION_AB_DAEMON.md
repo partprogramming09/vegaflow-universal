@@ -64,17 +64,20 @@ Corrección (`842df5b`): el perfil APU deja `CPMINCORES` en el valor de fábrica
 | D3D12 | daemon apagado | 102.8 [102.6–103.0] | 89.8 [87.3–93.1] | 80.6 [71.9–86.0] | 0.27 |
 | D3D12 | daemon encendido | 102.8 [102.5–103.1] | 90.0 [87.3–91.7] | 82.5 [79.1–86.5] | 0.27 |
 
-El coste en D3D11 (-10.7%) desaparece y la ganancia aparente en D3D12 (+2.1%) también: con la corrección, el daemon encendido no cambia el resultado de `drawstress` en ninguna de las dos APIs. La ganancia anterior en D3D12 venía de la combinación de ajustes de energía, no de una optimización del daemon.
+El coste en D3D11 (-10.7%) desaparece y la ganancia aparente en D3D12 (+2.1%) también: con la corrección, las partes globales del daemon encendido no cambian el resultado de `drawstress` en ninguna de las dos APIs (ver "Alcance" abajo). La ganancia anterior en D3D12 venía de la combinación de ajustes de energía, no de una optimización del daemon.
 
-Esto es coherente con la observación siguiente: el daemon no trata a `drawstress.exe` como juego, así que solo actúan sus partes globales, y tras la corrección esas partes no mueven este benchmark.
+Alcance: en estas corridas el daemon se lanzó desde una sesión SSH, que es la sesión 0 de Windows, sin acceso al escritorio. El detector usa `GetForegroundWindow` y `EnumWindows`, que solo ven las ventanas de la sesión del proceso, así que no detectó ningún juego y actuaron únicamente sus partes globales (plan de energía, `GameConfigStore`). Las optimizaciones por proceso (CPU Sets, EcoQoS, prioridad de I/O) no se midieron. Comprobado con `--once --dry-run` y `drawstress.exe` abierto: desde la sesión 0 dice "No foreground 3D game currently detected"; desde la sesión del escritorio dice "Active 3D Game Detected: drawstress.exe", "Render API: DirectX 11", 18 procesos de fondo a aislar y 8 núcleos para el juego.
+
+Resultado válido solo para las partes globales del daemon. Medir las optimizaciones por proceso exige que el daemon corra elevado en la sesión del escritorio (tarea programada interactiva `VegaFlow-Start` de `scripts/setup_tasks.ps1`, que requiere un UAC del usuario una vez).
 
 ## Observaciones
 
-- El daemon no registró ninguna sesión de juego con `drawstress.exe` (`session_reports.log` no cambió en ninguna parada): no lo trató como juego, así que las optimizaciones por proceso no se aplicaron. El coste viene de algo que hace sin detectar un juego.
+- El daemon no registró ninguna sesión de juego en estas corridas (`session_reports.log` no cambió en ninguna parada) porque corría en la sesión 0 (ver "Alcance"). El coste de -10.7% vino de algo que hace sin detectar un juego: el perfil de energía.
 - La variación del nivel del daemon encendido entre sesiones (~95 a ~112 FPS antes de la corrección) quedó sin explicar; la corrección la elimina en la práctica, pero no se identificó su origen.
 
 ## Límites
 
+- El daemon corrió en la sesión 0: las optimizaciones por proceso no están medidas.
 - Una sola carga sintética limitada por CPU y driver (draw calls), en ventana. No es un juego.
 - Una sola máquina y una sola sesión de medición.
 - La causa del coste en D3D11 no está identificada.
