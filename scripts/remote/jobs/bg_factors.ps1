@@ -9,7 +9,10 @@
       eco  : carga en modo de eficiencia (EcoQoS, PROCESS_POWER_THROTTLING_EXECUTION_SPEED)
       io   : carga con prioridad de I/O muy baja
       all  : las tres acciones juntas
-    Imprime una fila por captura: etiqueta, FPS medio, 1% Low, 0.1% Low, desviacion del frametime.
+    Con -Mode threads mide en cambio cuantos hilos dar al fondo: base (sin limite), aff2, aff4, aff6 y aff8
+    (carga limitada a los 2, 4, 6 u 8 ultimos hilos logicos; los hilos van de dos en dos por nucleo con SMT).
+    Imprime una fila por captura: etiqueta, FPS medio, 1% Low, 0.1% Low, desviacion del frametime, procesos
+    tocados y segundos de CPU que consiguio la carga de fondo durante la captura (bg_cpu_s).
 .PARAMETER Reps
     Rondas; cada ronda mide las cinco condiciones.
 .PARAMETER Seconds
@@ -20,7 +23,8 @@
 param(
     [ValidateRange(1, 6)][int]$Reps = 3,
     [ValidateRange(10, 120)][int]$Seconds = 30,
-    [ValidateRange(1, 12)][int]$Workers = 6
+    [ValidateRange(1, 12)][int]$Workers = 6,
+    [ValidateSet('factors', 'threads')][string]$Mode = 'factors'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -55,7 +59,8 @@ function Set-Condition($cond) {
     $n = 0
     foreach ($p in Get-LoadProcesses) {
         try {
-            if ($cond -in 'aff', 'all') { $p.ProcessorAffinity = [IntPtr]0xC00 }
+            $mask = @{ aff = 0xC00; all = 0xC00; aff2 = 0xC00; aff4 = 0xF00; aff6 = 0xFC0; aff8 = 0xFF0 }[$cond]
+            if ($mask) { $p.ProcessorAffinity = [IntPtr]$mask }
             if ($cond -in 'eco', 'all') { [void][VF.Bg]::SetProcessInformation($p.Handle, 4, [uint32[]](1, 1, 1), 12) }
             if ($cond -in 'io', 'all') { $v = 0; [void][VF.Bg]::NtSetInformationProcess($p.Handle, 33, [ref]$v, 4) }
             $n++
@@ -67,7 +72,16 @@ function Set-Condition($cond) {
 if (Get-Process vegaflow_daemon -ErrorAction SilentlyContinue) { throw 'El daemon esta corriendo; esta prueba es con el daemon apagado.' }
 if (-not (Get-Process drawstress -ErrorAction SilentlyContinue)) { throw 'drawstress no esta abierto.' }
 
-$names = @('base', 'aff', 'eco', 'io', 'all')
+$names = if ($Mode -eq 'threads') { @('base', 'aff2', 'aff4', 'aff6', 'aff8') } else { @('base', 'aff', 'eco', 'io', 'all') }
+$prefix = if ($Mode -eq 'threads') { 'bgt' } else { 'bgf' }
+
+# Suma los segundos de CPU de los procesos de la carga de fondo cuyo id se pasa.
+function Get-LoadCpu($ids) {
+    $sum = 0.0
+    foreach ($id in $ids) { $p = Get-Process -Id $id -ErrorAction SilentlyContinue; if ($p) { $sum += $p.TotalProcessorTime.TotalSeconds } }
+    return $sum
+}
+
 try {
     for ($i = 1; $i -le $Reps; $i++) {
         $order = for ($k = 0; $k -lt $names.Count; $k++) { $names[($k + $i - 1) % $names.Count] }
@@ -75,11 +89,14 @@ try {
             Start-Load
             $touched = Set-Condition $c
             Start-Sleep -Seconds 2
-            $label = "bgf-$c-d3d11-$i"
+            $ids = @(Get-LoadProcesses | ForEach-Object { $_.Id })
+            $cpu0 = Get-LoadCpu $ids
+            $label = "$prefix-$c-d3d11-w$Workers-$i"
             & $bench -Process 'drawstress.exe' -Label $label -Seconds $Seconds -WarmupSeconds 5 | Out-Null
+            $bgCpu = [math]::Round((Get-LoadCpu $ids) - $cpu0, 1)
             Stop-Load
             $r = Get-Content (Get-ChildItem (Join-Path $resultsDir "$label-*.json") | Select-Object -Last 1).FullName -Raw | ConvertFrom-Json
-            '{0},{1},{2},{3},{4},procesos={5}' -f $label, $r.avg_fps, $r.fps_1pct_low, $r.fps_0_1pct_low, $r.frametime_stddev_ms, $touched
+            '{0},{1},{2},{3},{4},procesos={5},bg_cpu_s={6}' -f $label, $r.avg_fps, $r.fps_1pct_low, $r.fps_0_1pct_low, $r.frametime_stddev_ms, $touched, $bgCpu
         }
     }
 } finally {
