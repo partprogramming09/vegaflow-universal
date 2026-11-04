@@ -178,6 +178,30 @@ Hilos asignados al fondo (de 12), con el daemon apagado y el resto de acciones a
 - Con carga pesada, cada hilo menos para el fondo da más FPS, pero el fondo hace menos trabajo (con 2 hilos, un tercio). Con carga ligera, 2 a 6 hilos dan el mismo FPS y 4 a 2 mejoran el 1% Low. Es un compromiso entre el juego y el fondo, no un óptimo único.
 - Esto apoya confinar el fondo en proporción a lo que consume. Implementado en `CpuOrchestrator`: el fondo se confina a los hilos de fondo solo mientras consume al menos 0.5 procesadores lógicos y se libera por debajo de 0.25 (umbrales elegidos sin medirlos por separado; la confinación llega con hasta 1.5 s de retraso). El número de hilos sigue siendo fijo (los del último núcleo físico).
 - Con ese cambio, D3D11, 3 capturas: carga de 6 workers 51.6 → 107.6 FPS (1% Low 32.2 → 65.7); carga de 1 worker 94.5 → 101.8 FPS (+7.7%, 1% Low 65.3 → 65.0). Con 1 worker la mejora medida antes del cambio fue +14%, con una base apagada distinta (87.7 contra 94.5): la base varía entre sesiones, no se concluye que el cambio la redujera. Sin carga de fondo, 3 capturas: apagado 121.1 FPS (1% Low 81.8), encendido 121.4 (80.4); sin diferencia.
+#### Umbral de confinamiento y número de hilos (2026-11-04, D3D11, daemon apagado, acciones aplicadas a mano)
+
+Carga con ciclo de trabajo (`busy.html?duty=`, `bg_factors.ps1 -Mode confine`), 5 rondas por condición. La carga real es el CPU que consiguió el fondo sin confinar dividido por los ~30 s de captura:
+
+| Carga de fondo (procesadores lógicos) | Sin confinar (FPS / 1% Low) | Confinado a 2 hilos (FPS / 1% Low) | Efecto en FPS medio |
+| --- | --- | --- | --- |
+| 0.23 | 108.2 / 70.3 | 102.4 / 69.3 | -5.4% |
+| 0.46 | 98.7 / 66.5 | 97.6 / 70.3 | -1.1% (1% Low +3.8) |
+| 0.92 | 96.2 / 64.3 | 104.1 / 66.1 | +8.2% |
+
+Por debajo de unos 0.5 procesadores lógicos confinar no ayuda y con cargas muy bajas cuesta FPS; el punto de equilibrio queda alrededor de 0.5. Son los umbrales del daemon (se confina desde 0.5 y se libera por debajo de 0.25): los datos los respaldan y no se cambian.
+
+Hilos para el fondo con cargas de 3 y 4 workers (3 rondas), FPS medio / 1% Low / CPU que consiguió el fondo en segundos:
+
+| Hilos del fondo | 3 workers | 4 workers |
+| --- | --- | --- |
+| sin confinar | 80.6 / 56.5 / 91 | 70.3 / 46.2 / 121 |
+| 2 | 107.3 / 68.8 / 60 | 108.1 / 68.4 / 60 |
+| 4 | 97.6 / 61.3 / 81 | 88.4 / 58.2 / 120 |
+| 6 | 87.8 / 56.2 / 91 | 83.9 / 49.8 / 120 |
+| 8 | 82.4 / 56.2 / 91 | 75.2 / 48.8 / 121 |
+
+Con 2, 3, 4 y 6 workers, 2 hilos da el mayor FPS. Ensanchar el conjunto solo le da más CPU al fondo a costa de FPS (con 4 workers, 4 hilos: -18% de FPS), y con carga ligera (2 workers) 2 y 4 hilos dan lo mismo en FPS y en CPU del fondo. Ningún caso medido justifica escalar el número de hilos, así que se mantiene fijo. Límite: `drawstress` usa pocos hilos; un juego que reparta su trabajo en más hilos podría preferir otro reparto.
+
 - Solo se midió en un 6 núcleos / 12 hilos Zen 2. En equipos con menos núcleos, con núcleos híbridos o con más de 8 núcleos no hay medición y el resultado puede ser distinto.
 
 - El daemon sufre el mismo patrón que `tweaks_state.ps1`: su `--apu-balanced` escribe valores fijos y no los que había (borró `PERFBOOSTMODE=3` y `ASPM=0` que estaban puestos tras un reinicio).
