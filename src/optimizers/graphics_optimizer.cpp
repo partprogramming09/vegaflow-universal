@@ -31,8 +31,10 @@ extern "C" {
 }
 #endif
 
+#include <algorithm>
 #include <atomic>
 #include <cstring>
+#include <mutex>
 #include <cwctype>
 #include <filesystem>
 #include <tlhelp32.h>
@@ -90,6 +92,34 @@ static const GUID GUID_PROCESSOR_FREQUENCY_MAX = {0x75b64e17, 0x1334, 0x44c1, {0
 static const GUID GUID_PROCESSOR_FREQUENCY_MAX_ALT = {0x75b0ae3f, 0xbce0, 0x45a7, {0x8c, 0x89, 0xc9, 0x61, 0x1c, 0x25, 0xe1, 0x00}};
 static const GUID GUID_PROCESSOR_THROTTLE_MAXIMUM = {0xbc5038f7, 0x23e0, 0x4960, {0x96, 0xda, 0x33, 0xab, 0xaf, 0x59, 0x35, 0xec}};
 static const GUID GUID_PROCESSOR_ENERGY_PERF_PREFERENCE = {0x36687f9e, 0xe3a5, 0x4dbf, {0xb1, 0xdc, 0x15, 0xeb, 0x38, 0x1c, 0x68, 0x63}};
+
+typedef DWORD (WINAPI *pfnPowerReadDCValueIndex)(HKEY RootPowerKey, const GUID *SchemeGuid, const GUID *SubGroupOfPowerSettingsGuid, const GUID *PowerSettingGuid, LPDWORD DcValueIndex);
+
+// Los siete ajustes del plan de energia que escribe SetApuPowerMode, en este orden.
+struct ApuPowerSetting {
+    const GUID* subgroup;
+    const GUID* setting;
+};
+constexpr size_t kApuPowerSettingCount = 7;
+const ApuPowerSetting kApuPowerSettings[kApuPowerSettingCount] = {
+    {&GUID_PCIEXPRESS_SETTINGS_SUBGROUP, &GUID_PCIEXPRESS_ASPM},
+    {&GUID_PROCESSOR_SETTINGS_SUBGROUP, &GUID_PROCESSOR_PERF_BOOST_MODE},
+    {&GUID_PROCESSOR_SETTINGS_SUBGROUP, &GUID_PROCESSOR_CORE_PARKING_MIN_CORES},
+    {&GUID_PROCESSOR_SETTINGS_SUBGROUP, &GUID_PROCESSOR_FREQUENCY_MAX},
+    {&GUID_PROCESSOR_SETTINGS_SUBGROUP, &GUID_PROCESSOR_FREQUENCY_MAX_ALT},
+    {&GUID_PROCESSOR_SETTINGS_SUBGROUP, &GUID_PROCESSOR_THROTTLE_MAXIMUM},
+    {&GUID_PROCESSOR_SETTINGS_SUBGROUP, &GUID_PROCESSOR_ENERGY_PERF_PREFERENCE},
+};
+
+// Estado del modo APU en este proceso: si esta aplicado y los valores anteriores para restaurarlos.
+struct ApuPowerState {
+    std::mutex mutex;
+    bool applied = false;
+    bool saved = false;
+    DWORD prev_ac[kApuPowerSettingCount] = {};
+    DWORD prev_dc[kApuPowerSettingCount] = {};
+};
+ApuPowerState g_apu_power;
 
 std::wstring ToLower(std::wstring_view str) {
     std::wstring result;
@@ -1581,6 +1611,8 @@ bool GraphicsOptimizer::SetApuPowerMode(ApuPowerMode mode, bool dry_run) {
     static auto pfnSetActiveScheme = reinterpret_cast<pfnPowerSetActiveScheme>(GetProcAddress(s_hPowrProf, "PowerSetActiveScheme"));
     static auto pfnWriteACValueIndex = reinterpret_cast<pfnPowerWriteACValueIndex>(GetProcAddress(s_hPowrProf, "PowerWriteACValueIndex"));
     static auto pfnWriteDCValueIndex = reinterpret_cast<pfnPowerWriteDCValueIndex>(GetProcAddress(s_hPowrProf, "PowerWriteDCValueIndex"));
+    static auto pfnReadACValueIndex = reinterpret_cast<pfnPowerReadACValueIndex>(GetProcAddress(s_hPowrProf, "PowerReadACValueIndex"));
+    static auto pfnReadDCValueIndex = reinterpret_cast<pfnPowerReadDCValueIndex>(GetProcAddress(s_hPowrProf, "PowerReadDCValueIndex"));
 #if defined(__GNUC__)
 #pragma GCC diagnostic pop
 #endif
@@ -1618,30 +1650,63 @@ bool GraphicsOptimizer::SetApuPowerMode(ApuPowerMode mode, bool dry_run) {
         cpu_throttle_max = 100;
     }
 
-    // Escribir en AC
-    pfnWriteACValueIndex(nullptr, activePolicy, &GUID_PCIEXPRESS_SETTINGS_SUBGROUP, &GUID_PCIEXPRESS_ASPM, aspm_val);
-    pfnWriteACValueIndex(nullptr, activePolicy, &GUID_PROCESSOR_SETTINGS_SUBGROUP, &GUID_PROCESSOR_PERF_BOOST_MODE, boost_val);
-    pfnWriteACValueIndex(nullptr, activePolicy, &GUID_PROCESSOR_SETTINGS_SUBGROUP, &GUID_PROCESSOR_CORE_PARKING_MIN_CORES, core_parking_val);
-    pfnWriteACValueIndex(nullptr, activePolicy, &GUID_PROCESSOR_SETTINGS_SUBGROUP, &GUID_PROCESSOR_FREQUENCY_MAX, cpu_max_freq);
-    pfnWriteACValueIndex(nullptr, activePolicy, &GUID_PROCESSOR_SETTINGS_SUBGROUP, &GUID_PROCESSOR_FREQUENCY_MAX_ALT, cpu_max_freq);
-    pfnWriteACValueIndex(nullptr, activePolicy, &GUID_PROCESSOR_SETTINGS_SUBGROUP, &GUID_PROCESSOR_THROTTLE_MAXIMUM, cpu_throttle_max);
-    pfnWriteACValueIndex(nullptr, activePolicy, &GUID_PROCESSOR_SETTINGS_SUBGROUP, &GUID_PROCESSOR_ENERGY_PERF_PREFERENCE, epp_val);
+    // Valores a escribir, en el orden de kApuPowerSettings.
+    const DWORD target[kApuPowerSettingCount] = {aspm_val, boost_val, core_parking_val, cpu_max_freq, cpu_max_freq, cpu_throttle_max, epp_val};
+    DWORD ac_values[kApuPowerSettingCount];
+    DWORD dc_values[kApuPowerSettingCount];
+    std::copy(std::begin(target), std::end(target), std::begin(ac_values));
+    std::copy(std::begin(target), std::end(target), std::begin(dc_values));
 
-    // Escribir en DC si está disponible para paridad
-    if (pfnWriteDCValueIndex) {
-        pfnWriteDCValueIndex(nullptr, activePolicy, &GUID_PCIEXPRESS_SETTINGS_SUBGROUP, &GUID_PCIEXPRESS_ASPM, aspm_val);
-        pfnWriteDCValueIndex(nullptr, activePolicy, &GUID_PROCESSOR_SETTINGS_SUBGROUP, &GUID_PROCESSOR_PERF_BOOST_MODE, boost_val);
-        pfnWriteDCValueIndex(nullptr, activePolicy, &GUID_PROCESSOR_SETTINGS_SUBGROUP, &GUID_PROCESSOR_CORE_PARKING_MIN_CORES, core_parking_val);
-        pfnWriteDCValueIndex(nullptr, activePolicy, &GUID_PROCESSOR_SETTINGS_SUBGROUP, &GUID_PROCESSOR_FREQUENCY_MAX, cpu_max_freq);
-        pfnWriteDCValueIndex(nullptr, activePolicy, &GUID_PROCESSOR_SETTINGS_SUBGROUP, &GUID_PROCESSOR_FREQUENCY_MAX_ALT, cpu_max_freq);
-        pfnWriteDCValueIndex(nullptr, activePolicy, &GUID_PROCESSOR_SETTINGS_SUBGROUP, &GUID_PROCESSOR_THROTTLE_MAXIMUM, cpu_throttle_max);
-        pfnWriteDCValueIndex(nullptr, activePolicy, &GUID_PROCESSOR_SETTINGS_SUBGROUP, &GUID_PROCESSOR_ENERGY_PERF_PREFERENCE, epp_val);
+    std::lock_guard<std::mutex> state_lock(g_apu_power.mutex);
+    if (mode == ApuPowerMode::GpuPrioritySustained) {
+        if (!g_apu_power.saved && pfnReadACValueIndex && pfnReadDCValueIndex) {
+            DWORD ac[kApuPowerSettingCount];
+            DWORD dc[kApuPowerSettingCount];
+            bool read_ok = true;
+            bool already_applied = true;
+            for (size_t i = 0; i < kApuPowerSettingCount && read_ok; ++i) {
+                const ApuPowerSetting& s = kApuPowerSettings[i];
+                if (pfnReadACValueIndex(nullptr, activePolicy, s.subgroup, s.setting, &ac[i]) != ERROR_SUCCESS ||
+                    pfnReadDCValueIndex(nullptr, activePolicy, s.subgroup, s.setting, &dc[i]) != ERROR_SUCCESS) {
+                    read_ok = false;
+                } else if (ac[i] != target[i] || dc[i] != target[i]) {
+                    already_applied = false;
+                }
+            }
+            // Si el perfil ya estaba aplicado (cierre anterior sin restaurar) esos valores no son un estado previo valido.
+            if (read_ok && !already_applied) {
+                std::copy(std::begin(ac), std::end(ac), std::begin(g_apu_power.prev_ac));
+                std::copy(std::begin(dc), std::end(dc), std::begin(g_apu_power.prev_dc));
+                g_apu_power.saved = true;
+            }
+        }
+    } else if (g_apu_power.saved) {
+        std::copy(std::begin(g_apu_power.prev_ac), std::end(g_apu_power.prev_ac), std::begin(ac_values));
+        std::copy(std::begin(g_apu_power.prev_dc), std::end(g_apu_power.prev_dc), std::begin(dc_values));
+        g_apu_power.saved = false;
+    }
+
+    for (size_t i = 0; i < kApuPowerSettingCount; ++i) {
+        const ApuPowerSetting& s = kApuPowerSettings[i];
+        pfnWriteACValueIndex(nullptr, activePolicy, s.subgroup, s.setting, ac_values[i]);
+        if (pfnWriteDCValueIndex) {
+            pfnWriteDCValueIndex(nullptr, activePolicy, s.subgroup, s.setting, dc_values[i]);
+        }
     }
 
     DWORD set_res = pfnSetActiveScheme(nullptr, activePolicy);
     LocalFree(activePolicy);
 
-    return (set_res == ERROR_SUCCESS);
+    const bool ok = (set_res == ERROR_SUCCESS);
+    if (ok) {
+        g_apu_power.applied = (mode == ApuPowerMode::GpuPrioritySustained);
+    }
+    return ok;
+}
+
+bool GraphicsOptimizer::IsApuPowerModeApplied() {
+    std::lock_guard<std::mutex> lock(g_apu_power.mutex);
+    return g_apu_power.applied;
 }
 
 bool GraphicsOptimizer::SetApuLaptopPowerProfile(bool optimize, bool dry_run) {

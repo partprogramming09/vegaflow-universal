@@ -86,7 +86,12 @@ public:
     static bool SetGameDvrAndFseOptimized(bool optimize, bool dry_run = false);
 
     // Control térmico y de energía APU (Modo GPU-Priority Sustained vs Balanced):
+    // GpuPrioritySustained guarda los valores del plan de energia antes de aplicarse y Balanced los devuelve;
+    // si no hay valores guardados (otro proceso lo aplico), Balanced escribe los valores por defecto de Windows.
     static bool SetApuPowerMode(ApuPowerMode mode, bool dry_run = false);
+
+    // Indica si este proceso dejo aplicado el modo GpuPrioritySustained y falta restaurarlo.
+    static bool IsApuPowerModeApplied();
 
     // Optimiza el perfil de energía de la laptop APU (Ryzen 4000/5000/6000/7000 + Radeon iGPU):
     // - Conservado por compatibilidad; invoca SetApuPowerMode(GpuPrioritySustained / Balanced)

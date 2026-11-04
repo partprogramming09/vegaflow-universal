@@ -52,10 +52,20 @@ void RecordResult(bool success, const std::string& test_name, const std::string&
     }
 }
 
+/** Al terminar devuelve el plan de energia a su estado anterior si alguna prueba aplico el perfil APU de verdad. */
+struct PowerPlanGuard {
+    ~PowerPlanGuard() {
+        if (vegaflow::GraphicsOptimizer::IsApuPowerModeApplied()) {
+            vegaflow::GraphicsOptimizer::SetApuPowerMode(vegaflow::ApuPowerMode::Balanced);
+        }
+    }
+};
+
 } // anonymous namespace
 
 int main() {
     SetConsoleOutputCP(CP_UTF8);
+    PowerPlanGuard power_plan_guard;
 
     std::cout << "================================================================================\n";
     std::cout << "                     VEGAFLOW INTEGRATED TEST SUITE                             \n";
