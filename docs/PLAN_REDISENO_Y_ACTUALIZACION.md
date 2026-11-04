@@ -46,12 +46,33 @@ Modelo: `winbridge update` (paquete verificado por hash, por SSH, sin UAC, con r
 4. Con la tarea elevada `VegaFlow-Update` (se registra una sola vez): copiar a `C:\ProgramData\VegaFlow\staging`, conservar la versión anterior en `previous\`, intercambiar y registrar el hash instalado en `setup.log`.
 5. Humo posterior: `VegaFlow-State` sin diferencias inesperadas; si falla, reversión automática a `previous\`.
 
-Estado: pasos 1 a 3 posibles hoy; el paso 4 necesita una tarea nueva y un UAC único.
+Estado: los pasos 1 a 3 se pueden hacer hoy. El paso 4 también puede correr por SSH, que ya está elevado, sin registrar tareas: queda como mejora opcional una tarea `VegaFlow-Update` si se quiere ejecutar sin sesión SSH.
 
-## 5. Fases
+## 5. Fases y estado
 
-1. Instrumento: confirmar que `perf_record` con `drawstress.exe` produce lows con PresentMon o usar `scripts/bench.ps1`.
-2. A/B intercalado de `drawstress` (D3D11 y D3D12): fábrica contra daemon activo, con `VegaFlow-Start` y `VegaFlow-Stop`.
-3. Auditoría: contrastar cada afirmación de `CLAUDE.md` con una medición y marcar las no probadas.
-4. Reorganización: retirar o apagar lo que no se demuestre; actualizar `CLAUDE.md` y las rutas.
-5. Método de actualización por paquete (sección 4).
+1. Instrumento. Hecho: `perf_record` con `drawstress` solo da medias (`drawstress-log`) y un proceso lanzado desde SSH corre en la sesión 0, donde PresentMon no ve presents. Se usa `scripts/bench.ps1` con el juego lanzado en el escritorio (WinBridge, `Win+R`).
+2. A/B intercalado de `drawstress` (D3D11 y D3D12). Hecho: `docs/MEDICION_AB_DAEMON.md`.
+3. Auditoría de `CLAUDE.md`. Parcial: enlaces corregidos; las afirmaciones de rendimiento siguen sin medición propia (sección 6).
+4. Reorganización: retirar o apagar lo que no se demuestre. Pendiente.
+5. Método de actualización por paquete (sección 4). Pendiente.
+
+## 6. Hallazgos de la sesión del 2026-11-04 y trabajo pendiente
+
+Corregido y verificado:
+
+- `CPMINCORES=100` del perfil APU bajaba el FPS de `drawstress` D3D11 un 21% por sí solo; con el daemon completo el coste era del 10.7%. El perfil ahora deja el valor de fábrica y el A/B posterior muestra daemon encendido igual a apagado en D3D11 y D3D12 (`842df5b`).
+- El cierre limpio del daemon en modo continuo no restauraba el perfil de energía si no había juego activo; ahora lo restaura siempre.
+- El daemon aplicaba dos veces `SetGameDvrAndFseOptimized` y `SetApuLaptopPowerProfile` al arrancar; se quitó el duplicado.
+- `tweaks_state.ps1` no vigilaba el plan de energía ni `GameConfigStore`: ahora informa `CPMINCORES`, `PERFEPP`, `PERFBOOSTMODE`, `ASPM` y los valores `GameDVR_*`.
+- `CLAUDE.md` tenía 20 enlaces absolutos al proyecto original; ahora son relativos y todos resuelven.
+
+Pendiente, por prioridad:
+
+1. Las pruebas ejecutan cambios reales y "restauran" a valores por defecto, no a los previos (`UMD\Tessellation` quedó en 64 tras correrlas). Cambiarlas a simulación o a guardar y restaurar el valor previo.
+2. Las demás partes del perfil APU (EPP 25, boost 4, ASPM 0) no tienen efecto medido en `drawstress`; medirlas en una carga con presupuesto térmico compartido con la iGPU (un juego real o un benchmark de GPU) antes de mantenerlas.
+3. `GameDVR_Enabled=0` y `GameDVR_FSEBehaviorMode=2` se escriben sin guardar el valor previo y no se restauran al salir. Guardar el valor previo, como el plan de energía.
+4. El daemon no detectó `drawstress.exe` como juego (ventana de bgfx, `d3d11.dll` o `d3d12.dll` cargada). Investigar por qué: si la detección falla con apps en ventana, las optimizaciones por proceso no se aplican a ese tipo de aplicación.
+5. Ninguna optimización por proceso (CPU Sets, EcoQoS, prioridad de I/O) tiene todavía una medición propia con carga real. Medirlas con un workload que el daemon sí detecte.
+6. `src/main.cpp` (1925 líneas) y `src/optimizers/graphics_optimizer.cpp` (2009 líneas) concentran demasiada lógica; dividir con las pruebas actuales como red de seguridad.
+7. Medir otras cargas con percentiles: Godot (`godot-benchmarks`) y la muestra `nBodyGravity` (DirectX-Graphics-Samples) para AsyncCompute.
+8. Registrar en `CLAUDE.md` que una sesión SSH corre en la sesión 0 y que las mediciones de PresentMon requieren lanzar la carga en el escritorio.

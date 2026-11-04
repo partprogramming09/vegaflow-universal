@@ -28,20 +28,50 @@ Lectura:
 - D3D12: el FPS medio sube un 2.1% (rangos sin solape) y el 1% Low un 5%; el 0.1% Low es irregular (de 70.0 a 89.5), sin efecto atribuible.
 - Con 5 capturas por celda y una sola carga, el resultado de D3D12 es pequeño y no se puede extender a otras cargas.
 
-## Causas descartadas
+## Causa del coste en D3D11
+
+El daemon cambia cuatro ajustes del plan de energía al arrancar, medido con `powercfg /qh` (incluye los ocultos) antes y después; no cambia ningún valor de registro vigilado:
+
+| Ajuste | Fábrica | Daemon |
+| --- | --- | --- |
+| Mínimo de núcleos sin aparcar (`CPMINCORES`) | 50 | 100 |
+| Preferencia de rendimiento energético (`PERFEPP`) | 50 | 25 |
+| Modo de boost (`PERFBOOSTMODE`) | 2 (Agresiva) | 4 (Eficiencia agresiva) |
+| PCIe ASPM | 1 | 0 |
+
+Aislamiento, todo en D3D11 con `drawstress`:
 
 | Prueba | Resultado |
 | --- | --- |
-| Modo de boost del procesador 2 (Agresiva) contra 4 (Eficiencia agresiva), daemon apagado, 4 capturas ABBA | 124.5 contra 123.2 FPS (-1.1%): explica una décima parte del efecto |
-| Con el daemon encendido, devolver boost y ASPM a su valor original contra dejarlos como los pone el daemon, 4 capturas ABBA | 95.2 contra 95.5 FPS: sin diferencia, así que los ajustes de energía no son la causa |
+| Daemon encendido, devolver los cuatro ajustes a fábrica contra dejarlos como los pone el daemon, 4 capturas ABBA | 126.0 [125.4–126.2] contra 110.9 [107.1–113.7] FPS: los cuatro ajustes explican todo el coste |
+| Daemon apagado, un ajuste por vez a su valor del daemon, 3 rondas rotadas (base, park, epp, aspm) | base 126.2 [124.3–127.3]; **park 99.4 [98.4–100.0]**; epp 126.1 [125.6–126.8]; aspm 126.5 [126.2–127.1] |
+| Daemon apagado, solo el modo de boost 2 contra 4, 4 capturas ABBA | 124.5 contra 123.2 FPS (-1.1%) |
+| Intervalo de sondeo del daemon 1500 ms contra 60 000 ms, 3 capturas ABBA | 95.0–95.6 en ambos: el sondeo no influye |
 | Deriva térmica | Línea base sin daemon 3 capturas seguidas: 124.4, 126.4, 126.0 FPS, procesador a 3.0 GHz |
 
-El daemon cambia dos ajustes del plan de energía al arrancar (`PERFBOOSTMODE` 2 a 4, `ASPM` 1 a 0), medido con `powercfg /q` antes y después; no cambia ningún valor de registro vigilado.
+Conclusión: `CPMINCORES=100` (todos los núcleos sin aparcar) baja el FPS de `drawstress` D3D11 un 21% por sí solo. El modo de boost aporta cerca de un 1%; la EPP y el ASPM no tienen efecto medible en esta carga. El mecanismo no está medido: puede ser reparto de hilos entre núcleos o presupuesto de potencia compartido con la iGPU, ninguno verificado.
+
+Sin explicar: el nivel con el daemon encendido varió entre sesiones de medición, con las mismas condiciones nominales. Fue ~112 FPS en el bucle ABBA y ~111 en la prueba de cuatro ajustes, pero ~95 FPS en la prueba del intervalo de sondeo y en la de revertir solo boost y ASPM. Con el daemon apagado el nivel se mantuvo en ~125 todo el tiempo. No se identificó qué cambió entre esas sesiones; hasta saberlo, el tamaño exacto del coste del daemon (entre -11% y -24%) no está fijado, aunque la dirección sí.
+
+## Verificación tras la corrección
+
+Corrección (`842df5b`): el perfil APU deja `CPMINCORES` en el valor de fábrica (50) y el cierre limpio del daemon restaura siempre el perfil de energía. Mismo método ABBA, 5 capturas por celda, daemon recompilado en el laptop (26 de 26 pruebas en verde).
+
+| API | Condición | FPS medio | 1% Low | 0.1% Low | Desv. frametime (ms) |
+| --- | --- | --- | --- | --- | --- |
+| D3D11 | daemon apagado | 123.6 [123.4–124.1] | 86.3 [85.7–86.8] | 80.9 | 0.65 |
+| D3D11 | daemon encendido | 123.6 [123.0–124.0] | 86.2 [85.0–87.2] | 81.2 | 0.66 |
+| D3D12 | daemon apagado | 102.8 [102.6–103.0] | 89.8 [87.3–93.1] | 80.6 [71.9–86.0] | 0.27 |
+| D3D12 | daemon encendido | 102.8 [102.5–103.1] | 90.0 [87.3–91.7] | 82.5 [79.1–86.5] | 0.27 |
+
+El coste en D3D11 (-10.7%) desaparece y la ganancia aparente en D3D12 (+2.1%) también: con la corrección, el daemon encendido no cambia el resultado de `drawstress` en ninguna de las dos APIs. La ganancia anterior en D3D12 venía de la combinación de ajustes de energía, no de una optimización del daemon.
+
+Esto es coherente con la observación siguiente: el daemon no trata a `drawstress.exe` como juego, así que solo actúan sus partes globales, y tras la corrección esas partes no mueven este benchmark.
 
 ## Observaciones
 
 - El daemon no registró ninguna sesión de juego con `drawstress.exe` (`session_reports.log` no cambió en ninguna parada): no lo trató como juego, así que las optimizaciones por proceso no se aplicaron. El coste viene de algo que hace sin detectar un juego.
-- Con el daemon encendido varios minutos seguidos el FPS medio fue ~95, no ~112: el coste parece crecer con el tiempo encendido. Sin causa verificada.
+- La variación del nivel del daemon encendido entre sesiones (~95 a ~112 FPS antes de la corrección) quedó sin explicar; la corrección la elimina en la práctica, pero no se identificó su origen.
 
 ## Límites
 

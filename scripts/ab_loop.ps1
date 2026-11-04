@@ -70,6 +70,7 @@ for ($i = 1; $i -le $Reps; $i++) {
     }
 }
 Write-Run 'fin'
+Get-Process $procName -ErrorAction SilentlyContinue | Stop-Process -Force
 
 Get-ChildItem (Join-Path (Split-Path $PSScriptRoot) 'bench\results') -Filter "*-$Api-*.json" |
     Sort-Object LastWriteTime | ForEach-Object {

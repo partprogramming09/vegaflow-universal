@@ -100,6 +100,33 @@ if ($ugp) {
     $names = $ugp.PSObject.Properties | Where-Object { $_.Name -notlike 'PS*' }
     "UserGpuPreferences: $(@($names).Count) entradas (solo informe)"
 }
+
+# Lee el valor de corriente alterna de un ajuste del plan activo: son las dos ultimas cifras 0x (AC y DC), sin depender del idioma.
+function Get-PowerAc($subgroup, $alias) {
+    $hex = @(powercfg /qh SCHEME_CURRENT $subgroup $alias | Select-String '0x[0-9a-fA-F]+' | ForEach-Object { $_.Matches[0].Value })
+    if ($hex.Count -lt 2) { return $null }
+    [Convert]::ToInt32($hex[-2], 16)
+}
+# Subgrupo, alias, valor del plan Equilibrado de esta laptop (solo informe: no hay valor de fabrica confirmado en otros equipos).
+$powerEntries = @(
+    @('SUB_PROCESSOR', 'CPMINCORES', 50),
+    @('SUB_PROCESSOR', 'PERFEPP', 50),
+    @('SUB_PROCESSOR', 'PERFBOOSTMODE', 2),
+    @('SUB_PCIEXPRESS', 'ASPM', 1)
+)
+foreach ($pe in $powerEntries) {
+    $sub, $alias, $stock = $pe
+    $cur = Get-PowerAc $sub $alias
+    $state = if ($null -ne $cur -and $cur -ne $stock) { 'DIFERENTE (solo informe)' } else { 'ok' }
+    '{0,-26} {1,-14} {2,-10} {3}' -f "energia:$alias", $(if ($null -eq $cur) { '(ausente)' } else { $cur }), $stock, $state
+}
+
+$gcs = Get-ItemProperty 'HKCU:\System\GameConfigStore' -ErrorAction SilentlyContinue
+if ($gcs) {
+    foreach ($n in 'GameDVR_Enabled', 'GameDVR_FSEBehaviorMode', 'GameDVR_DXGIHonorFSEWindowsCompatible') {
+        if ($null -ne $gcs.$n) { "  GameConfigStore\$n = $($gcs.$n) (solo informe)" }
+    }
+}
 $integrity = (whoami /groups | Select-String 'Mandatory Label') -replace '\s+', ' '
 "integridad=$integrity"
 "admin=$isAdmin  modo=$(if ($Restore) { if ($Apply) { 'restaurar' } else { 'simulacion' } } else { 'lectura' })"
