@@ -102,3 +102,10 @@ Resultado del reinicio de prueba del 2026-11-04 (arranque 09:44:55):
 - `tailscaled` y `sshd` arrancaron a las 09:45:06, sin sesión de usuario. Aun así el puerto 22 solo respondió a las 09:48:37, justo después de que apareciera el escritorio (`explorer` 09:48:13, `tailscale-ipn` 09:48:29). La configuración de Tailscale no tenía `ForceDaemon`: no estaba en modo desatendido y no se conectaba hasta iniciar sesión.
 - Corregido con `tailscale set --unattended` (Tailscale 1.104.4); `tailscale debug prefs` muestra `ForceDaemon: true`. Falta un segundo reinicio sin intervención para comprobar que SSH vuelve sin sesión de usuario.
 - El escritorio apareció 3 min 18 s después del arranque. Sin determinar si el inicio de sesión automático lo hizo solo o lo hizo el usuario.
+
+Segundo reinicio de prueba, sin intervención (arranque 09:55:31):
+
+- Tailscale desatendido verificado: SSH respondió a las 09:55:58, 27 s después del arranque y sin ninguna sesión de usuario. Antes tardaba hasta iniciar sesión (4 min 18 s).
+- Inicio de sesión automático fallido: a las 09:55:42 Winlogon lo intentó y el evento 4625 (tipo 2, proceso User32) registró estado `0xC000006D` y subestado `0xC000023C` (red inaccesible). La pantalla mostró "No podemos conectarnos en este momento" y quedó en el inicio de sesión normal; Windows no reintenta. La configuración es correcta (`AutoAdminLogon=1`, `DefaultUserName=testuser`, secreto de LSA presente).
+- Hipótesis sin verificar: la cuenta es de Microsoft y siempre se usó con huella o PIN, así que quizá el equipo no tiene verificador de contraseña en caché y necesita red para validarla; a los 11 s del arranque el Wi-Fi aún no está conectado. Siguiente prueba: iniciar sesión una vez con la contraseña (no con huella ni PIN) y repetir el reinicio.
+- Si falla: cuenta local en lugar de la de Microsoft, o aceptar un inicio de sesión físico tras cada reinicio y evitar reinicios (pausar Windows Update).
