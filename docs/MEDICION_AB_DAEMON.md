@@ -123,8 +123,35 @@ Con carga de fondo pesada el daemon encendido da 2.14 veces el FPS medio, 2.09 v
 Es la primera ganancia demostrada de VegaFlow. Límites:
 
 - La carga es un peor caso: 6 workers ocupando CPU sin pausa. Una pestaña o un launcher normales cargarían mucho menos, y el efecto sería menor.
-- No se aisló qué parte del daemon produce la ganancia. La candidata más probable es el confinamiento del fondo a los CPU Sets de fondo (el juego conserva todos los hilos), no EcoQoS ni la prioridad de I/O, pero no se midió por separado.
-- Una sola carga de juego sintética, limitada por CPU; no se probó con un juego real ni con D3D12.
+- Qué parte produce la ganancia, medido por separado en el siguiente apartado.
+- Una sola carga de juego sintética; no se probó con un juego real.
+
+#### Qué acción protege al juego
+
+Con el daemon apagado, `jobs/bg_factors.ps1` aplica a mano cada acción a la carga de fondo (Chrome sin ventana, 6 workers). D3D11, 3 rondas rotadas por condición:
+
+| Acción aplicada a la carga de fondo | FPS medio | 1% Low | 0.1% Low | Desv. (ms) |
+| --- | --- | --- | --- | --- |
+| ninguna | 51.5 [51.0–52.0] | 34.3 | 30.9 | 3.74 |
+| limitarla a 2 hilos lógicos (equivale a los CPU Sets de fondo) | 102.1 [101.1–103.4] | 71.5 | 62.3 | 1.20 |
+| EcoQoS | 57.0 [56.2–57.6] | 36.1 | 32.9 | 3.28 |
+| prioridad de I/O muy baja | 51.5 [50.3–52.1] | 34.3 | 32.1 | 3.73 |
+| las tres juntas | 100.8 [100.7–100.9] | 69.9 | 61.2 | 1.18 |
+
+Confinar el fondo a pocos hilos duplica el FPS (+98%) y explica casi toda la ganancia. EcoQoS aporta un 11%. La prioridad de I/O no tiene efecto en una carga que no usa disco. Las tres juntas quedan en 100.8 FPS, algo por debajo de los 109.3 del daemon real; la diferencia no se investigó (el daemon reaplica cada 1.5 s a los procesos nuevos de Chrome y yo apliqué una sola vez).
+
+#### Otras cargas
+
+| Escenario | Condición | FPS medio | 1% Low | 0.1% Low | Desv. (ms) |
+| --- | --- | --- | --- | --- | --- |
+| D3D12, carga de 6 workers (5 capturas) | daemon apagado | 39.5 [36.8–41.1] | 26.0 | 24.4 | 3.92 |
+| D3D12, carga de 6 workers (5 capturas) | daemon encendido | 90.0 [89.9–90.2] | 71.9 | 61.8 | 0.45 |
+| D3D11, carga ligera de 2 workers (5 capturas) | daemon apagado | 95.7 [94.3–98.3] | 61.9 | 55.3 | 2.04 |
+| D3D11, carga ligera de 2 workers (5 capturas) | daemon encendido | 108.0 [105.3–108.7] | 63.5 | 47.6 | 2.11 |
+
+- D3D12 con carga pesada: 2.28 veces el FPS medio y 2.77 veces el 1% Low.
+- Carga ligera (D3D11): el FPS medio sube un 12.9%, pero los mínimos no mejoran. El 1% Low pasa de 61.9 a 63.5 (dentro del ruido) y el 0.1% Low empeora de 55.3 a 47.6 por una sola captura con un tirón (`bgl2-on-d3d11-3`: 1% Low 52.0 y 0.1% Low 20.6); sin ella el 0.1% Low encendido es 54.3. Con una captura atípica no se concluye que el daemon cause tirones, pero tampoco que los evite.
+- La ganancia crece con la carga de fondo: nula sin ella, +13% con 2 workers y de 2.1 a 2.3 veces con 6.
 
 - El daemon sufre el mismo patrón que `tweaks_state.ps1`: su `--apu-balanced` escribe valores fijos y no los que había (borró `PERFBOOSTMODE=3` y `ASPM=0` que estaban puestos tras un reinicio).
 
