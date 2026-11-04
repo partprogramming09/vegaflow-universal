@@ -109,3 +109,14 @@ Segundo reinicio de prueba, sin intervención (arranque 09:55:31):
 - Inicio de sesión automático fallido: a las 09:55:42 Winlogon lo intentó y el evento 4625 (tipo 2, proceso User32) registró estado `0xC000006D` y subestado `0xC000023C` (red inaccesible). La pantalla mostró "No podemos conectarnos en este momento" y quedó en el inicio de sesión normal; Windows no reintenta. La configuración es correcta (`AutoAdminLogon=1`, `DefaultUserName=testuser`, secreto de LSA presente).
 - Hipótesis sin verificar: la cuenta es de Microsoft y siempre se usó con huella o PIN, así que quizá el equipo no tiene verificador de contraseña en caché y necesita red para validarla; a los 11 s del arranque el Wi-Fi aún no está conectado. Siguiente prueba: iniciar sesión una vez con la contraseña (no con huella ni PIN) y repetir el reinicio.
 - Si falla: cuenta local en lugar de la de Microsoft, o aceptar un inicio de sesión físico tras cada reinicio y evitar reinicios (pausar Windows Update).
+
+## 8. Ejecutor remoto de trabajos (`scripts/remote/`)
+
+Objetivo: operar el laptop desde la Mac sin estar delante, incluida la sesión del escritorio (donde el detector del daemon, PresentMon y los juegos sí funcionan) y sin un UAC por cada acción.
+
+- `runner.ps1` corre en la sesión 1 y elevado (tarea `VegaFlow-Run`), procesa `jobs\inbox\*.json` y solo ejecuta trabajos de `manifest.json`, comprobando el SHA-256 del script y validando cada parámetro con su expresión regular. Los parámetros se pasan con nombre, nunca como texto de comando.
+- Trabajos: `state`, `doctor`, `restore`, `daemon-start`, `daemon-stop`, `game`, `kill-game`, `bench`, `ab`.
+- `install_runner.ps1` copia todo a `C:\ProgramData\VegaFlow` (solo administradores escriben), incluidos PresentMon y drawstress, y registra las tareas. `-SkipTasks` solo actualiza archivos y manifiesto.
+- `scripts/remote/vfjob` (Mac): `deploy`, `update`, `run JOB Clave=valor`, `status ID`.
+- Estado: archivos preparados en `C:\dev\vf-deploy` del laptop, con sintaxis verificada. Falta registrar las tareas, que es una persistencia con privilegios y el sistema de permisos de Claude Code la bloqueó. La instalación la hace el usuario con un clic de UAC o añadiendo una regla de permiso para `scripts/remote/vfjob deploy`.
+- Riesgo asumido: PresentMon y drawstress se copian de una carpeta del usuario sin verificar su firma; se registra su hash en `setup.log` y conviene contrastarlo con la versión publicada.
