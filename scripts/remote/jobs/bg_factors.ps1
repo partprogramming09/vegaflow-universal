@@ -22,6 +22,9 @@
 .PARAMETER Topo
     Con -Mode sim simula un equipo con menos procesadores: el juego y la carga quedan limitados a 4 hilos (4c: un hilo en cada uno de 4 nucleos;
     4t2c: 2 nucleos con SMT). Condiciones: base (carga en los 4 hilos), c1 (carga en 1 hilo) y c2 (carga en 2 hilos).
+.PARAMETER Kind
+    cpu quema ALU; mem copia buffers grandes para saturar el ancho de banda de memoria.
+    Con -Mode narrow se comparan 1 y 2 hilos logicos para el fondo en el equipo completo.
 .PARAMETER Duty
     Porcentaje de cada 100 ms que cada hilo de la carga quema CPU (5 a 100); fija la carga total en Workers x Duty / 100 procesadores logicos.
     Con -Mode confine solo se miden base y aff2 (para ver desde que carga conviene confinar).
@@ -31,7 +34,8 @@ param(
     [ValidateRange(10, 120)][int]$Seconds = 30,
     [ValidateRange(1, 12)][int]$Workers = 6,
     [ValidateRange(5, 100)][int]$Duty = 100,
-    [ValidateSet('factors', 'threads', 'confine', 'sim')][string]$Mode = 'factors',
+    [ValidateSet('factors', 'threads', 'confine', 'sim', 'narrow')][string]$Mode = 'factors',
+    [ValidateSet('cpu', 'mem')][string]$Kind = 'cpu',
     [ValidateSet('4c', '4t2c')][string]$Topo = '4c'
 )
 
@@ -55,7 +59,7 @@ function Get-LoadProcesses {
 function Start-Load {
     $page = Join-Path $env:TEMP 'vf-busy.html'
     Copy-Item (Join-Path $root 'tools\busy.html') $page -Force
-    Start-Process 'C:\Program Files\Google\Chrome\Application\chrome.exe' -ArgumentList '--headless=new', '--disable-gpu', '--no-first-run', "--user-data-dir=$(Join-Path $env:TEMP 'vf-chrome-bgf')", "file:///$($page -replace '\\', '/')?n=$Workers&duty=$Duty" | Out-Null
+    Start-Process 'C:\Program Files\Google\Chrome\Application\chrome.exe' -ArgumentList '--headless=new', '--disable-gpu', '--no-first-run', "--user-data-dir=$(Join-Path $env:TEMP 'vf-chrome-bgf')", "file:///$($page -replace '\\', '/')?n=$Workers&duty=$Duty&kind=$Kind" | Out-Null
     Start-Sleep -Seconds 8
 }
 
@@ -67,7 +71,7 @@ function Set-Condition($cond) {
     $n = 0
     foreach ($p in Get-LoadProcesses) {
         try {
-            $mask = if ($Mode -eq 'sim') { @{ base = $simMasks.all; c1 = $simMasks.c1; c2 = $simMasks.c2 }[$cond] } else { @{ aff = 0xC00; all = 0xC00; aff2 = 0xC00; aff4 = 0xF00; aff6 = 0xFC0; aff8 = 0xFF0 }[$cond] }
+            $mask = if ($Mode -eq 'sim') { @{ base = $simMasks.all; c1 = $simMasks.c1; c2 = $simMasks.c2 }[$cond] } else { @{ aff = 0xC00; all = 0xC00; aff1 = 0x800; aff2 = 0xC00; aff4 = 0xF00; aff6 = 0xFC0; aff8 = 0xFF0 }[$cond] }
             if ($mask) { $p.ProcessorAffinity = [IntPtr]$mask }
             if ($cond -in 'eco', 'all') { [void][VF.Bg]::SetProcessInformation($p.Handle, 4, [uint32[]](1, 1, 1), 12) }
             if ($cond -in 'io', 'all') { $v = 0; [void][VF.Bg]::NtSetInformationProcess($p.Handle, 33, [ref]$v, 4) }
@@ -82,9 +86,9 @@ if (-not (Get-Process drawstress -ErrorAction SilentlyContinue)) { throw 'drawst
 
 $simMasks = @{ '4c' = @{ all = 0x55; c1 = 0x40; c2 = 0x50 }; '4t2c' = @{ all = 0x0F; c1 = 0x08; c2 = 0x0C } }[$Topo]
 if ($Mode -eq 'sim') { (Get-Process drawstress | Select-Object -First 1).ProcessorAffinity = [IntPtr]$simMasks.all }
-$names = switch ($Mode) { 'threads' { @('base', 'aff2', 'aff4', 'aff6', 'aff8') } 'confine' { @('base', 'aff2') } 'sim' { @('base', 'c1', 'c2') } default { @('base', 'aff', 'eco', 'io', 'all') } }
-$prefix = switch ($Mode) { 'threads' { 'bgt' } 'confine' { 'bgc' } 'sim' { "bgs$Topo" } default { 'bgf' } }
-$dutyTag = if ($Duty -lt 100) { "-d$Duty" } else { '' }
+$names = switch ($Mode) { 'threads' { @('base', 'aff2', 'aff4', 'aff6', 'aff8') } 'confine' { @('base', 'aff2') } 'sim' { @('base', 'c1', 'c2') } 'narrow' { @('aff1', 'aff2') } default { @('base', 'aff', 'eco', 'io', 'all') } }
+$prefix = switch ($Mode) { 'threads' { 'bgt' } 'confine' { 'bgc' } 'sim' { "bgs$Topo" } 'narrow' { 'bgn' } default { 'bgf' } }
+$dutyTag = "$(if ($Duty -lt 100) { "-d$Duty" })$(if ($Kind -eq 'mem') { '-mem' })"
 
 # Suma los segundos de CPU de los procesos de la carga de fondo cuyo id se pasa.
 function Get-LoadCpu($ids) {

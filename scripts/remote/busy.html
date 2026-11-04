@@ -1,11 +1,16 @@
 <!doctype html><meta charset="utf-8"><title>vf busy</title>
 <script>
 // Quema CPU con n workers (?n=, 6 por defecto) para simular una pestana pesada en segundo plano.
+// ?kind=mem cambia la carga de calculo por copias de memoria.
 // ?duty= (5 a 100, 100 por defecto) es el porcentaje de cada 100 ms que cada worker pasa quemando CPU.
 const q = new URLSearchParams(location.search);
 const n = Math.min(12, Math.max(1, +q.get('n') || 6));
+const kind = q.get('kind') === 'mem' ? 'mem' : 'cpu';
 const duty = Math.min(100, Math.max(5, +q.get('duty') || 100));
-const src = duty >= 100 ? 'for(;;){Math.sqrt(Math.random())}'
-    : `const d=${duty};(function t(){const s=performance.now();while(performance.now()-s<d)Math.sqrt(Math.random());setTimeout(t,100-d)})()`;
+// kind=mem copia buffers de 64 MB sin parar para saturar el ancho de banda de memoria en vez de la ALU.
+const work = kind === 'mem' ? 'b.set(a)' : 'Math.sqrt(Math.random())';
+const init = kind === 'mem' ? 'const a=new Float64Array(8e6),b=new Float64Array(8e6);' : '';
+const src = duty >= 100 ? `${init}for(;;){${work}}`
+    : `${init}const d=${duty};(function t(){const s=performance.now();while(performance.now()-s<d){${work}}setTimeout(t,100-d)})()`;
 for (let i = 0; i < n; i++) new Worker(URL.createObjectURL(new Blob([src])));
 </script>
