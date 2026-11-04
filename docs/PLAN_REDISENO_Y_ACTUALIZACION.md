@@ -21,7 +21,9 @@ Fuente: `docs/MEDICION_BASE.md` (Octopath Traveler II, escena fija, PresentMon 2
 | El daemon continuo aplica GameDVR/FSE y el perfil de energía APU al arrancar y, al cerrar, solo restaura si había un juego activo | Verificado por lectura de código | `main.cpp`: llamadas al arrancar frente al bloque de cierre condicionado a `game_active` |
 | La línea base nunca fue un Windows de fábrica: siguen puestos `UMD\Tessellation=16`, `TurboSync`, `FlipQueueSize`, `TFQ`, `Main3D_DEF` y 13 entradas de `UserGpuPreferences` | Verificado | Informe de `VegaFlow-State` del 2026-11-04 |
 | Esos valores del driver no tienen valor de fábrica confirmado, así que `VegaFlow-Restore` no los toca | Verificado | `tweaks_state.ps1` los marca "solo informe" |
-| Una acción elevada necesita un UAC que WinBridge no puede pulsar | Verificado | `Diagnose` con `input_desktop: secure` |
+| WinBridge no puede pulsar un UAC, pero la sesión SSH del laptop ya corre elevada y no lo necesita | Verificado | `Diagnose` con `input_desktop: secure`; `whoami /groups` por SSH: `High Mandatory Level` |
+| La suite de pruebas ejecuta cambios reales (modos "Exec") y deja el sistema modificado: tras una corrida, `UMD\Tessellation` pasó de 16 a 64, `TurboSync`, `TFQ` y `Main3D_DEF` a 0 | Verificado | `VegaFlow-State` antes y después de `build.ps1 -RunTests` el 2026-11-04 |
+| `GameConfigStore` (`GameDVR_Enabled=0`, `GameDVR_FSEBehaviorMode=2`) queda aplicado y `tweaks_state.ps1` no lo vigila | Verificado | Lectura del registro el 2026-11-04 |
 | Una sesión SSH no tiene credenciales de GitHub ni `g++` en el PATH | Verificado | `git fetch` falló con `wincredman`; `g++` está en `scoop\apps\mingw\16.2.0-rt_v14-rev1\bin` |
 | `CLAUDE.md` enlaza rutas `file:///C:/Users/testuser/OneDrive/...` del proyecto original | Verificado | Aparecen en las secciones 3 y 4 |
 | El estado de los tweaks no se comprueba antes de medir | Resuelto con `VegaFlow-State` | `scripts/tweaks_state.ps1` |

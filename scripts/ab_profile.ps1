@@ -7,11 +7,13 @@
     -Stop  : pide un cierre limpio con el evento Global\VegaFlowStop (el daemon ejecuta RestoreAll),
              espera hasta 20 s, restaura el perfil de energia APU y deja el estado en ab.log.
     Si el daemon no sale en 20 s, -Stop falla y no lo mata: matar el proceso saltaria RestoreAll.
-    Requiere administrador. Se ejecuta desde la copia protegida de C:\ProgramData\VegaFlow.
+    Requiere administrador. Por defecto usa la copia protegida de C:\ProgramData\VegaFlow; -Dir permite
+    otra carpeta con vegaflow_daemon.exe, config\config.json, logs\ y tweaks_state.ps1 (sesion SSH elevada, sin tareas).
 #>
 param(
     [switch]$Start,
-    [switch]$Stop
+    [switch]$Stop,
+    [string]$Dir = 'C:\ProgramData\VegaFlow'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -20,7 +22,7 @@ if ($Start -eq $Stop) { throw 'Indica exactamente uno: -Start o -Stop.' }
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) { throw 'Requiere administrador.' }
 
-$dir = 'C:\ProgramData\VegaFlow'
+$dir = $Dir
 $exe = Join-Path $dir 'vegaflow_daemon.exe'
 $pidFile = Join-Path $dir 'ab.pid'
 $log = Join-Path $dir 'ab.log'
