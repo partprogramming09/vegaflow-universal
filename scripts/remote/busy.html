@@ -1,0 +1,6 @@
+<!doctype html><meta charset="utf-8"><title>vf busy</title>
+<script>
+// Quema CPU con varios workers para simular una pestana pesada en segundo plano.
+const src = 'for(;;){Math.sqrt(Math.random())}';
+for (let i = 0; i < 6; i++) new Worker(URL.createObjectURL(new Blob([src])));
+</script>

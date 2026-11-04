@@ -130,6 +130,15 @@ Servidor MCP de la Mac, solo Python estándar, que envuelve el ejecutor remoto: 
 - Verificado de extremo a extremo el 2026-11-04 desde las herramientas del MCP: `vfjob_submit` más `vfjob_wait` con `doctor` terminó en `done` con `exit_code` 0 en 1.2 s, y `vfjob_run` con `bench` y `Process="x; calc.exe"` fue rechazado por el ejecutor ("valor no valido para Process") sin lanzar nada.
 - Duplicación conocida: la lógica de enviar y leer trabajos está en `vfjob` (bash) y en `vfjob_mcp.py` (Python); conviene unificarla.
 
+### 8.2. ¿Mover el ejecutor a `winbridge`? Evaluado el 2026-11-04
+
+`winbridge` tiene dos mecanismos parecidos, y ninguno sirve tal cual para estos trabajos (agente y CLI en Go; Python solo heredado):
+
+- `RunTask`: scripts de nombre fijo fijados por SHA-256, sin argumentos, con un límite fijo de **60 s** (`var timeout = 60 * time.Second`), salida máxima de 16 KB y bloqueo de entrada mientras corre (`serialized`). `ab` dura unos 8 minutos y `game` lleva `Api` y `Dim`; no caben. Valdría solo para trabajos cortos y sin parámetros (`doctor`, `state`, `daemon-start`, `daemon-stop`).
+- Gateway de servidores MCP (`CallServerTool`): admite argumentos, `deny_args` y `timeout` largo (se probó una llamada de 400 s). Es el camino viable, pero exige escribir un servidor MCP que corra en el laptop (un `metal-gpu-trace` propio para VegaFlow) y adaptarlo a un agente **sin elevar**: scripts fijados en carpeta protegida, resultados en carpeta del usuario, y el daemon lanzado a través de las tareas `VegaFlow-Start` y `VegaFlow-Stop`.
+- No se migró: el ejecutor actual está verificado de extremo a extremo y la migración es una reescritura que, además, no añade capacidad. Reiniciar el agente de `winbridge` con una configuración mala dejaría sin `winbridge` a un usuario que está fuera. Decisión pendiente para cuando haya alguien presente.
+- Utilidad hallada: `winbridge` trae `wb-call` (`agent/cmd/wb-call`), cliente para la Mac que lee la clave del Llavero por sí mismo (`-keychain-service`); sirve para probar `RunTask` sin reconectar el MCP.
+
 ## 9. Medición de las optimizaciones por proceso (2026-11-04)
 
 Detalle en `docs/MEDICION_AB_DAEMON.md`.

@@ -16,7 +16,8 @@ param(
     [int]$Seconds = 30,
     [string]$Dir = 'C:\ProgramData\VegaFlow',
     [string]$Process = 'drawstress.exe',
-    [string]$LabelPrefix = 'task'
+    [string]$LabelPrefix = 'task',
+    [ValidateSet('none', 'chrome')][string]$Load = 'none'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -33,13 +34,29 @@ function Get-Drift {
     (& (Join-Path $Dir 'tweaks_state.ps1') 2>&1 | Where-Object { $_ -match '\S' -and $_ -notmatch ' ok$' -and $_ -notmatch '^(valor|AMD|  |UserGpu|integridad|admin)' }) -join '; '
 }
 
-# Captura una condicion: comprueba que el juego sigue vivo, anota el estado y mide con PresentMon.
+# Arranca la carga de fondo (Chrome sin ventana quemando CPU con 6 workers) y espera a que se asiente.
+function Start-Load {
+    if ($Load -ne 'chrome') { return }
+    $page = Join-Path $env:TEMP 'vf-busy.html'
+    Copy-Item (Join-Path $Dir 'tools\busy.html') $page -Force
+    Start-Process 'C:\Program Files\Google\Chrome\Application\chrome.exe' -ArgumentList '--headless=new', '--disable-gpu', '--no-first-run', "--user-data-dir=$(Join-Path $env:TEMP 'vf-chrome-load')", "file:///$($page -replace '\\', '/')" | Out-Null
+    Start-Sleep -Seconds 8
+}
+
+# Cierra solo los procesos de Chrome que arranco Start-Load (los identifica por su carpeta de perfil).
+function Stop-Load {
+    Get-CimInstance Win32_Process -Filter "Name='chrome.exe'" | Where-Object { $_.CommandLine -match 'vf-chrome-load' } |
+        ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+}
+
+# Captura una condicion: comprueba que el juego sigue vivo, anota el estado y mide con PresentMon, con la carga de fondo si se pidio.
 function Invoke-Capture($cond, $i) {
     if (-not (Get-Process $procName -ErrorAction SilentlyContinue)) { throw "$Process ya no esta corriendo." }
     $label = "$LabelPrefix-$cond-$Api-$i"
     $d = Get-Process vegaflow_daemon -ErrorAction SilentlyContinue | Select-Object -First 1
-    Write-Run ("captura label=$label daemon=$(if ($d) { "sesion$($d.SessionId)" } else { 'apagado' }) desviado=[$(Get-Drift)]")
-    & $bench -Process $Process -Label $label -Seconds $Seconds -WarmupSeconds 5 | Out-Null
+    Write-Run ("captura label=$label load=$Load daemon=$(if ($d) { "sesion$($d.SessionId)" } else { 'apagado' }) desviado=[$(Get-Drift)]")
+    Start-Load
+    try { & $bench -Process $Process -Label $label -Seconds $Seconds -WarmupSeconds 5 | Out-Null } finally { Stop-Load }
 }
 
 # Lanza la tarea VegaFlow-Start y espera a que el daemon corra en la sesion 1 y aplique sus optimizaciones.
@@ -87,6 +104,7 @@ try {
         }
     }
 } finally {
+    Stop-Load
     if (Get-Process vegaflow_daemon -ErrorAction SilentlyContinue) { Start-ScheduledTask -TaskName 'VegaFlow-Stop'; Start-Sleep -Seconds 15 }
     Get-Process $procName -ErrorAction SilentlyContinue | Stop-Process -Force
     Write-Run 'fin'
