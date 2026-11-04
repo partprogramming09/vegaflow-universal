@@ -76,3 +76,23 @@ Pendiente, por prioridad:
 6. `src/main.cpp` (1925 líneas) y `src/optimizers/graphics_optimizer.cpp` (2009 líneas) concentran demasiada lógica; dividir con las pruebas actuales como red de seguridad.
 7. Medir otras cargas con percentiles: Godot (`godot-benchmarks`) y la muestra `nBodyGravity` (DirectX-Graphics-Samples) para AsyncCompute.
 8. Registrar en `CLAUDE.md` que una sesión SSH corre en la sesión 0 y que las mediciones de PresentMon requieren lanzar la carga en el escritorio.
+
+## 7. Preparación para operar a distancia
+
+Estado del laptop leído el 2026-11-04 (solo lectura salvo lo indicado):
+
+| Punto | Estado |
+| --- | --- |
+| `sshd` y Tailscale | Servicios automáticos, corriendo. No verificado que respondan antes de iniciar sesión |
+| Suspensión por inactividad y apagado de pantalla en corriente alterna | Nunca |
+| Tapa en corriente alterna | Cambiada de 1 (suspender) a 0 (no hacer nada) el 2026-11-04; valor anterior 1. Verificado con `powercfg /qh` |
+| Inicio de sesión automático | No configurado. La cuenta es de Microsoft y `DevicePasswordLessBuildVersion=2` (solo Windows Hello), lo que oculta la casilla de `netplwiz`. Lo debe configurar el usuario en el laptop: tiene que escribir su contraseña, que no pasa por el asistente |
+| Reinicio pendiente de Windows Update | No. 183 GB libres |
+
+Pasos del usuario para el inicio de sesión automático (unos 3 minutos, en el laptop):
+
+1. Configuración, Cuentas, Opciones de inicio de sesión: desactivar "Para mejorar la seguridad, permitir solo el inicio de sesión con Windows Hello para cuentas Microsoft en este dispositivo".
+2. `Win+R`, `netplwiz`: desmarcar "Los usuarios deben escribir su nombre y contraseña", aplicar y escribir la contraseña.
+3. Verificación posterior sin leer la contraseña: `AutoAdminLogon=1` y `DefaultUserName=testuser`, y un reinicio de prueba por SSH para comprobar que vuelven Tailscale, SSH, la sesión del escritorio y `winbridge-mcp`.
+
+Lista de comprobaciones previas a cada trabajo automático: Tailscale y SSH arriba, sesión iniciada y desbloqueada, cargador conectado y batería sobre el mínimo, disco libre, sin `drawstress` ni daemon sobrantes, `tweaks_state.ps1` sin valores fuera de fábrica.
