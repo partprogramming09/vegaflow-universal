@@ -129,3 +129,12 @@ Servidor MCP de la Mac, solo Python estándar, que envuelve el ejecutor remoto: 
 - Autocomprobación sin el laptop: `python3 -I scripts/remote/vfjob_mcp.py --self-test`. Verificado: protocolo, validación de nombres e ids, y `vfjob_list` contra el laptop.
 - Pendiente de verificar: `vfjob_submit` y `vfjob_wait` de extremo a extremo (el ejecutor procesa un trabajo a la vez y estaba ocupado con el A/B).
 - Duplicación conocida: la lógica de enviar y leer trabajos está en `vfjob` (bash) y en `vfjob_mcp.py` (Python); conviene unificarla.
+
+## 9. Medición de las optimizaciones por proceso (2026-11-04)
+
+Detalle en `docs/MEDICION_AB_DAEMON.md`.
+
+- Hallazgo: confinar al juego a 8 de los 12 hilos (CPU Sets) bajaba `drawstress` D3D11 un 19% a 24%. La prioridad del planificador (`Win32PrioritySeparation`) no tenía efecto.
+- Corregido (`bcf360c`): `restrict_game_cpu_sets` apagado por defecto. Con el juego sin restringir, el daemon encendido iguala al apagado en D3D11 (120.4 contra 120.0 FPS) y en D3D12 no había efecto.
+- Estado de las promesas del proyecto: ninguna optimización de VegaFlow tiene todavía una ganancia demostrada en `drawstress`; el perfil de energía y el confinamiento del juego tenían un coste medible, ya eliminado. El beneficio del aislamiento de fondo (EcoQoS, prioridad de I/O) no se midió: requiere una carga de fondo real.
+- Siguiente medición útil: `drawstress` con una carga de fondo (`7z b`, navegador, Discord) y el daemon apagado contra encendido, para ver si el aislamiento de fondo protege al juego.

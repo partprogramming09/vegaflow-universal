@@ -85,6 +85,30 @@ Daemon lanzado con la tarea interactiva `VegaFlow-Start` (sesión 1, elevado), c
 - D3D12: sin efecto fuera del ruido (+0.7%). La carga está limitada por la GPU a unos 100 FPS.
 - Durante las capturas con el daemon encendido, `Win32PrioritySeparation` pasa de 2 a 38 o 40 y `PERFEPP` a 25 (`ab_runs.log`).
 - D3D12 tiene solo 3 y 4 capturas porque el primer intento se interrumpió por una carrera del script (espera por el proceso en vez de por las tareas), corregida; las capturas obtenidas son válidas.
+### Causa y corrección
+
+Aislamiento con el daemon apagado, D3D11, 3 rondas rotadas (`Win32PrioritySeparation` por registro y restricción del juego con máscara de afinidad de 8 de los 12 hilos):
+
+| Condición | FPS medio | 1% Low | 0.1% Low |
+| --- | --- | --- | --- |
+| base | 123.3 [123.0–123.6] | 84.1 | 76.8 |
+| `Win32PrioritySeparation` 40 | 123.7 [123.4–124.0] | 82.6 | 71.8 |
+| juego limitado a 8 de 12 hilos | 93.1 [89.8–99.6] | 77.2 | 70.4 |
+| ambas | 90.5 [90.3–90.7] | 75.2 | 69.9 |
+
+La prioridad del planificador no tiene efecto. Limitar el juego a 8 de los 12 hilos le quita un 24.5% de FPS en esta carga multihilo limitada por CPU. La afinidad no es exactamente un CPU Set, así que se confirmó con el daemon mismo.
+
+Corrección (`bcf360c`): opción `restrict_game_cpu_sets` en la configuración del daemon, apagada por defecto. El juego conserva todos los hilos y solo se confina el fondo. Repetición del A/B ABBA de D3D11, 5 capturas por condición, mismo método:
+
+| D3D11 | FPS medio | 1% Low | 0.1% Low | Desv. frametime (ms) |
+| --- | --- | --- | --- | --- |
+| daemon apagado | 120.0 [118.3–120.9] | 81.3 | 72.8 | 1.18 |
+| daemon encendido, juego sin restringir | 120.4 [116.6–122.5] | 80.1 | 73.1 | 1.13 |
+
+Daemon encendido igual que apagado (+0.3% en FPS, dentro del ruido; el 1% Low y el 0.1% Low también). El coste del -18.9% venía por completo de confinar al juego. Lo que queda activo (EcoQoS e I/O del fondo, prioridad de I/O del juego) no mejora ni empeora `drawstress`: sin beneficio demostrado.
+
+Límites: una sola carga sintética sin descargas de disco ni procesos de fondo pesados; el beneficio del aislamiento de fondo (EcoQoS, I/O) se mediría con una carga de fondo real, que no se probó.
+
 - El daemon sufre el mismo patrón que `tweaks_state.ps1`: su `--apu-balanced` escribe valores fijos y no los que había (borró `PERFBOOSTMODE=3` y `ASPM=0` que estaban puestos tras un reinicio).
 
 ## Observaciones
