@@ -120,3 +120,12 @@ Objetivo: operar el laptop desde la Mac sin estar delante, incluida la sesión d
 - `scripts/remote/vfjob` (Mac): `deploy`, `update`, `run JOB Clave=valor`, `status ID`.
 - Estado: archivos preparados en `C:\dev\vf-deploy` del laptop, con sintaxis verificada. Falta registrar las tareas, que es una persistencia con privilegios y el sistema de permisos de Claude Code la bloqueó. La instalación la hace el usuario con un clic de UAC o añadiendo una regla de permiso para `scripts/remote/vfjob deploy`.
 - Riesgo asumido: PresentMon y drawstress se copian de una carpeta del usuario sin verificar su firma; se registra su hash en `setup.log` y conviene contrastarlo con la versión publicada.
+
+### 8.1. MCP `vfjob` (`scripts/remote/vfjob_mcp.py`)
+
+Servidor MCP de la Mac, solo Python estándar, que envuelve el ejecutor remoto: `vfjob_list`, `vfjob_submit`, `vfjob_status`, `vfjob_wait` y `vfjob_run`. Solo expone los trabajos del manifiesto; no ejecuta comandos arbitrarios ni expone el instalador, así que no puede cambiar qué scripts se permiten (eso queda en `vfjob update` por CLI).
+
+- Registro: `claude mcp add --scope user vfjob -- python3 -I /Volumes/dev/vegaflow-universal/scripts/remote/vfjob_mcp.py`. Tras añadirlo hay que reconectar con `/mcp` o reiniciar la sesión para que aparezcan las herramientas.
+- Autocomprobación sin el laptop: `python3 -I scripts/remote/vfjob_mcp.py --self-test`. Verificado: protocolo, validación de nombres e ids, y `vfjob_list` contra el laptop.
+- Pendiente de verificar: `vfjob_submit` y `vfjob_wait` de extremo a extremo (el ejecutor procesa un trabajo a la vez y estaba ocupado con el A/B).
+- Duplicación conocida: la lógica de enviar y leer trabajos está en `vfjob` (bash) y en `vfjob_mcp.py` (Python); conviene unificarla.
