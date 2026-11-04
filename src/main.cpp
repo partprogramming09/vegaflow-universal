@@ -1839,9 +1839,6 @@ int main(int argc, char* argv[]) {
     auto steam_games = SteamEngineOptimizer::ScanSteamLibrary();
     SyncSteamGamesToCustomExes(steam_games, config);
 
-    GraphicsOptimizer::SetGameDvrAndFseOptimized(true, false);
-    GraphicsOptimizer::SetApuLaptopPowerProfile(true, false);
-
     // Named so an elevated script can request a clean shutdown (RestoreAll) without a console.
     g_stop_event = CreateEventW(nullptr, TRUE, FALSE, L"Global\\VegaFlowStop");
     if (!SetConsoleCtrlHandler(ConsoleCtrlHandler, TRUE)) {
@@ -1908,6 +1905,7 @@ int main(int argc, char* argv[]) {
         }
         telemetry_monitor.StopMonitoring();
     }
+    GraphicsOptimizer::SetApuLaptopPowerProfile(false, false);
 
     CancelWaitableTimer(waitable_timer);
     CloseHandle(waitable_timer);

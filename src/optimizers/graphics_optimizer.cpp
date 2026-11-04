@@ -1607,7 +1607,7 @@ bool GraphicsOptimizer::SetApuPowerMode(ApuPowerMode mode, bool dry_run) {
         cpu_max_freq = policy.cpu_stapm_cap_mhz;  // 0 = 100% desbloqueado (Smart Uncapped Boost)
         epp_val = 25;         // Alto rendimiento eficiente SMU, priorizando respuesta inmediata en hilos del juego y GPU al 100%
         aspm_val = 0;         // PCIe ASPM deshabilitado
-        core_parking_val = 100;
+        core_parking_val = 50; // Fabrica: 100 bajo 21% el FPS de drawstress D3D11 (126.2 a 99.4, docs/MEDICION_AB_DAEMON.md)
         cpu_throttle_max = 100;
     } else { // ApuPowerMode::Balanced
         boost_val = 2;        // Default: Boost agresivo estándar (4.0 GHz)
