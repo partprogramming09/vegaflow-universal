@@ -1,0 +1,88 @@
+<#
+.SYNOPSIS
+    Aisla que accion del aislamiento de fondo protege al juego: con el daemon apagado, aplica a mano cada accion a la carga de fondo.
+.DESCRIPTION
+    Con drawstress abierto en el escritorio y el daemon apagado, arranca una carga de fondo (Chrome sin ventana
+    quemando CPU) y mide el juego con PresentMon bajo cinco condiciones, rotadas en cada ronda:
+      base : sin tocar la carga
+      aff  : carga limitada a 2 hilos logicos (equivale a los CPU Sets de fondo del daemon)
+      eco  : carga en modo de eficiencia (EcoQoS, PROCESS_POWER_THROTTLING_EXECUTION_SPEED)
+      io   : carga con prioridad de I/O muy baja
+      all  : las tres acciones juntas
+    Imprime una fila por captura: etiqueta, FPS medio, 1% Low, 0.1% Low, desviacion del frametime.
+.PARAMETER Reps
+    Rondas; cada ronda mide las cinco condiciones.
+.PARAMETER Seconds
+    Duracion de cada captura de PresentMon.
+.PARAMETER Workers
+    Hilos que quema la carga de fondo (1 a 12).
+#>
+param(
+    [ValidateRange(1, 6)][int]$Reps = 3,
+    [ValidateRange(10, 120)][int]$Seconds = 30,
+    [ValidateRange(1, 12)][int]$Workers = 6
+)
+
+$ErrorActionPreference = 'Stop'
+$root = 'C:\ProgramData\VegaFlow'
+$bench = Join-Path $PSScriptRoot 'bench.ps1'
+$resultsDir = Join-Path (Split-Path $PSScriptRoot) 'bench\results'
+
+Add-Type -Namespace VF -Name Bg -MemberDefinition @'
+[DllImport("kernel32.dll", SetLastError = true)] public static extern bool SetProcessInformation(IntPtr h, int cls, uint[] info, int size);
+[DllImport("ntdll.dll")] public static extern int NtSetInformationProcess(IntPtr h, int cls, ref int info, int size);
+'@
+
+# Devuelve los procesos de Chrome que arranco la carga de fondo (los identifica por su carpeta de perfil).
+function Get-LoadProcesses {
+    Get-CimInstance Win32_Process -Filter "Name='chrome.exe'" | Where-Object { $_.CommandLine -match 'vf-chrome-bgf' } |
+        ForEach-Object { Get-Process -Id $_.ProcessId -ErrorAction SilentlyContinue }
+}
+
+# Arranca la carga de fondo y espera a que Chrome cree sus procesos.
+function Start-Load {
+    $page = Join-Path $env:TEMP 'vf-busy.html'
+    Copy-Item (Join-Path $root 'tools\busy.html') $page -Force
+    Start-Process 'C:\Program Files\Google\Chrome\Application\chrome.exe' -ArgumentList '--headless=new', '--disable-gpu', '--no-first-run', "--user-data-dir=$(Join-Path $env:TEMP 'vf-chrome-bgf')", "file:///$($page -replace '\\', '/')?n=$Workers" | Out-Null
+    Start-Sleep -Seconds 8
+}
+
+# Cierra solo los procesos de Chrome de la carga de fondo.
+function Stop-Load { Get-LoadProcesses | ForEach-Object { Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue } }
+
+# Aplica una condicion a todos los procesos de la carga y devuelve cuantos tocó.
+function Set-Condition($cond) {
+    $n = 0
+    foreach ($p in Get-LoadProcesses) {
+        try {
+            if ($cond -in 'aff', 'all') { $p.ProcessorAffinity = [IntPtr]0xC00 }
+            if ($cond -in 'eco', 'all') { [void][VF.Bg]::SetProcessInformation($p.Handle, 4, [uint32[]](1, 1, 1), 12) }
+            if ($cond -in 'io', 'all') { $v = 0; [void][VF.Bg]::NtSetInformationProcess($p.Handle, 33, [ref]$v, 4) }
+            $n++
+        } catch { }
+    }
+    return $n
+}
+
+if (Get-Process vegaflow_daemon -ErrorAction SilentlyContinue) { throw 'El daemon esta corriendo; esta prueba es con el daemon apagado.' }
+if (-not (Get-Process drawstress -ErrorAction SilentlyContinue)) { throw 'drawstress no esta abierto.' }
+
+$names = @('base', 'aff', 'eco', 'io', 'all')
+try {
+    for ($i = 1; $i -le $Reps; $i++) {
+        $order = for ($k = 0; $k -lt $names.Count; $k++) { $names[($k + $i - 1) % $names.Count] }
+        foreach ($c in $order) {
+            Start-Load
+            $touched = Set-Condition $c
+            Start-Sleep -Seconds 2
+            $label = "bgf-$c-d3d11-$i"
+            & $bench -Process 'drawstress.exe' -Label $label -Seconds $Seconds -WarmupSeconds 5 | Out-Null
+            Stop-Load
+            $r = Get-Content (Get-ChildItem (Join-Path $resultsDir "$label-*.json") | Select-Object -Last 1).FullName -Raw | ConvertFrom-Json
+            '{0},{1},{2},{3},{4},procesos={5}' -f $label, $r.avg_fps, $r.fps_1pct_low, $r.fps_0_1pct_low, $r.frametime_stddev_ms, $touched
+        }
+    }
+} finally {
+    Stop-Load
+    Get-Process drawstress -ErrorAction SilentlyContinue | Stop-Process -Force
+}

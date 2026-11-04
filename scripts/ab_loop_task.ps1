@@ -17,7 +17,8 @@ param(
     [string]$Dir = 'C:\ProgramData\VegaFlow',
     [string]$Process = 'drawstress.exe',
     [string]$LabelPrefix = 'task',
-    [ValidateSet('none', 'chrome')][string]$Load = 'none'
+    [ValidateSet('none', 'chrome')][string]$Load = 'none',
+    [ValidateRange(1, 12)][int]$LoadWorkers = 6
 )
 
 $ErrorActionPreference = 'Stop'
@@ -39,7 +40,7 @@ function Start-Load {
     if ($Load -ne 'chrome') { return }
     $page = Join-Path $env:TEMP 'vf-busy.html'
     Copy-Item (Join-Path $Dir 'tools\busy.html') $page -Force
-    Start-Process 'C:\Program Files\Google\Chrome\Application\chrome.exe' -ArgumentList '--headless=new', '--disable-gpu', '--no-first-run', "--user-data-dir=$(Join-Path $env:TEMP 'vf-chrome-load')", "file:///$($page -replace '\\', '/')" | Out-Null
+    Start-Process 'C:\Program Files\Google\Chrome\Application\chrome.exe' -ArgumentList '--headless=new', '--disable-gpu', '--no-first-run', "--user-data-dir=$(Join-Path $env:TEMP 'vf-chrome-load')", "file:///$($page -replace '\\', '/')?n=$LoadWorkers" | Out-Null
     Start-Sleep -Seconds 8
 }
 
