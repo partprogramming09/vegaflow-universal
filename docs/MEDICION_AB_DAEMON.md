@@ -218,6 +218,29 @@ Con 4 hilos, dejar al fondo 2 hilos (la mitad) rinde mucho menos que dejarle 1, 
 
 Cambio: el conjunto de fondo es como máximo una sexta parte de los procesadores lógicos (mínimo 1): 12 hilos dan 2 (igual que antes), 4 hilos dan 1. Es una extrapolación entre dos puntos (4 y 12 hilos): 6, 8 o 16 hilos no están medidos, ni equipos reales con menos núcleos.
 
+#### Carga de memoria y ancho del conjunto de fondo en 12 hilos (2026-11-04, D3D11, 3 rondas, daemon apagado)
+
+Carga de fondo que copia buffers de 64 MB sin parar (`busy.html?kind=mem`, 4 workers), acciones aplicadas a mano:
+
+| Acción sobre el fondo | FPS medio | 1% Low | 0.1% Low |
+| --- | --- | --- | --- |
+| ninguna | 59.8 | 33.2 | 29.1 |
+| confinar a 2 hilos | 95.3 | 56.4 | 49.8 |
+| EcoQoS | 64.5 | 37.8 | 33.6 |
+| prioridad de I/O | 59.9 | 31.3 | 27.0 |
+| las tres juntas | 94.7 | 55.6 | 50.1 |
+
+Una carga que compite por el ancho de banda de memoria se comporta como la de CPU: confinar a pocos hilos da +59% de FPS, EcoQoS un 8% y la prioridad de I/O nada. Es una carga sintética; no está medido el efecto sobre una carga de memoria real ni con otro juego.
+
+1 hilo contra 2 hilos para el fondo en las 12 hilos (`-Mode narrow`), FPS medio / 1% Low / CPU del fondo en s:
+
+| Carga de fondo | 1 hilo | 2 hilos |
+| --- | --- | --- |
+| 6 workers | 115.4 / 68.5 / 30 | 113.4 / 70.7 / 60 |
+| 2 workers | 103.1 / 67.6 / 30 | 104.9 / 71.5 / 60 |
+
+La diferencia de FPS (±2) está dentro del ruido y 2 hilos le dan al fondo el doble de CPU, por lo que se mantienen 2 hilos en 12 (un sexto de los procesadores lógicos).
+
 - Solo se midió en un 6 núcleos / 12 hilos Zen 2. En equipos con menos núcleos, con núcleos híbridos o con más de 8 núcleos no hay medición y el resultado puede ser distinto.
 
 - El daemon sufre el mismo patrón que `tweaks_state.ps1`: su `--apu-balanced` escribe valores fijos y no los que había (borró `PERFBOOSTMODE=3` y `ASPM=0` que estaban puestos tras un reinicio).

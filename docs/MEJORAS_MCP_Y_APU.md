@@ -21,6 +21,7 @@ Sigue pasando y conviene mejorarlo:
 - **El servidor MCP en ejecución usa el código viejo hasta reconectar con `/mcp`.** Tras cada cambio hay que pedirlo al usuario. Propuesta: el cliente `vfjob` (CLI) para todo y el MCP solo para listar y lanzar.
 - **No se pueden hacer llamadas MCP concurrentes** a `vfjob`; las cadenas largas se lanzan con el CLI en segundo plano.
 - **Medir requiere un reinicio previo y esperar unos minutos** (el sistema recién arrancado distorsiona). No hay forma de reiniciar el laptop de forma remota que vuelva sola a una sesión de escritorio: el autologon falló (4625 / 0xC000006D, cuenta Microsoft).
+- **`vfjob run` se caía con `TimeoutExpired` cuando el laptop tardaba en responder por SSH mientras medía** (dos veces, en capturas largas). Dejó dos trabajos solapados: el segundo cerró el juego del primero y se perdió una medición. Parcheado: `ssh()` devuelve vacío al agotar el tiempo y el bucle reintenta. Propuesta de fondo: que el ejecutor impida lanzar `game` mientras hay un trabajo `bg-factors` o `ab` en curso.
 - **Los umbrales de los trabajos son valores sueltos** (60, 90, 3600 s). Propuesta: que el tiempo límite del trabajo viva en el manifiesto y se pueda ver con `vfjob_list`.
 
 ### WinBridge
