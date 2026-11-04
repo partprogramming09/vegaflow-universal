@@ -58,6 +58,7 @@ struct PowerPlanGuard {
         if (vegaflow::GraphicsOptimizer::IsApuPowerModeApplied()) {
             vegaflow::GraphicsOptimizer::SetApuPowerMode(vegaflow::ApuPowerMode::Balanced);
         }
+        vegaflow::GraphicsOptimizer::RestoreAllRegistryBackups();
     }
 };
 
@@ -1879,6 +1880,50 @@ int main() {
                      "Test 28: Background CPU set size scales with logical processors",
                      "4C/4T=1: " + std::string(c4t4 ? "PASS" : "FAIL") + ", 2C/4T=1: " + std::string(c2t4 ? "PASS" : "FAIL")
                      + ", 6C/12T=2: " + std::string(c6t12 ? "PASS" : "FAIL") + ", 8C/16T=2: " + std::string(c8t16 ? "PASS" : "FAIL"));
+    }
+
+    // -------------------------------------------------------------------------
+    // Test 29: los cambios de registro devuelven el valor original
+    // -------------------------------------------------------------------------
+    {
+        // Lee los valores de GameDVR que toca el optimizador: (existe, dato).
+        auto read_dvr = []() {
+            std::vector<std::pair<bool, DWORD>> out;
+            const struct { const wchar_t* key; const wchar_t* name; } items[] = {
+                { L"System\\GameConfigStore", L"GameDVR_Enabled" },
+                { L"System\\GameConfigStore", L"GameDVR_FSEBehaviorMode" },
+                { L"System\\GameConfigStore", L"GameDVR_HonorUserFSEBehaviorMode" },
+                { L"System\\GameConfigStore", L"GameDVR_DXGIHonorFSEWindowsCompatible" },
+                { L"System\\GameConfigStore", L"GameDVR_EFSEFeatureFlags" },
+                { L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\GameDVR", L"AppCaptureEnabled" },
+            };
+            for (const auto& it : items) {
+                DWORD v = 0, size = sizeof(v), type = 0;
+                const bool present = RegGetValueW(HKEY_CURRENT_USER, it.key, it.name, RRF_RT_REG_DWORD, &type, &v, &size) == ERROR_SUCCESS;
+                out.emplace_back(present, present ? v : 0);
+            }
+            return out;
+        };
+
+        vegaflow::GraphicsOptimizer::RestoreAllRegistryBackups(); // deja el estado de pruebas anteriores como original
+        const auto before = read_dvr();
+
+        vegaflow::GraphicsOptimizer::SetGameDvrAndFseOptimized(true, false);
+        const auto during = read_dvr();
+        const bool changed = during != before || (before[0].first && before[0].second == 0);
+        vegaflow::GraphicsOptimizer::SetGameDvrAndFseOptimized(false, false);
+        const bool restored_by_toggle = (read_dvr() == before);
+
+        vegaflow::GraphicsOptimizer::SetGameDvrAndFseOptimized(true, false);
+        const bool restore_all_ok = vegaflow::GraphicsOptimizer::RestoreAllRegistryBackups();
+        const bool restored_by_all = (read_dvr() == before);
+
+        RecordResult(restored_by_toggle && restored_by_all && restore_all_ok && during[0] == std::make_pair(true, DWORD{0}),
+                     "Test 29: Registry changes restore the original values",
+                     "GameDVR applied: " + std::string(during[0] == std::make_pair(true, DWORD{0}) ? "PASS" : "FAIL")
+                     + ", restored by toggle: " + std::string(restored_by_toggle ? "PASS" : "FAIL")
+                     + ", restored by RestoreAll: " + std::string(restored_by_all ? "PASS" : "FAIL")
+                     + (changed ? "" : " (original already optimized)"));
     }
 
     // -------------------------------------------------------------------------

@@ -85,6 +85,11 @@ public:
     // y fuerza Fullscreen Optimizations de latencia cero (FSEBehaviorMode = 2)
     static bool SetGameDvrAndFseOptimized(bool optimize, bool dry_run = false);
 
+    // Los cambios al registro de GameDVR y del driver de AMD guardan antes el valor original; desactivar la
+    // optimizacion lo devuelve (o borra el valor si no existia). Esta funcion restaura todas las copias pendientes
+    // y devuelve true si todas se pudieron restaurar.
+    static bool RestoreAllRegistryBackups();
+
     // Control térmico y de energía APU (Modo GPU-Priority Sustained vs Balanced):
     // GpuPrioritySustained guarda los valores del plan de energia antes de aplicarse y Balanced los devuelve;
     // si no hay valores guardados (otro proceso lo aplico), Balanced escribe los valores por defecto de Windows.

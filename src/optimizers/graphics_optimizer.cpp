@@ -37,6 +37,7 @@ extern "C" {
 #include <mutex>
 #include <cwctype>
 #include <filesystem>
+#include <functional>
 #include <tlhelp32.h>
 #include <winioctl.h>
 #include <vector>
@@ -148,6 +149,147 @@ uint32_t ParseTessellationValue(const BYTE* buf, DWORD sz, DWORD type) {
         return static_cast<uint32_t>(std::stoul(s));
     } catch (...) {}
     return 0;
+}
+
+
+// ---- Copia de seguridad de valores de registro --------------------------------------------------
+// Antes de cambiar un valor se guarda su estado original (o su ausencia) bajo SOFTWARE\VegaFlow\RegBackup del
+// mismo hive; la primera copia no se sobrescribe, asi un cierre sin restaurar no pierde el valor original.
+
+constexpr wchar_t kRegBackupRoot[] = L"SOFTWARE\\VegaFlow\\RegBackup";
+constexpr int kHiveLocalMachine = 0;
+constexpr int kHiveCurrentUser = 1;
+
+HKEY HiveFromId(int id) { return id == kHiveLocalMachine ? HKEY_LOCAL_MACHINE : HKEY_CURRENT_USER; }
+
+/// Nombre estable del registro de copia de un valor.
+std::wstring RegBackupRecordName(int hive, const std::wstring& subkey, const wchar_t* name) {
+    const std::wstring id = std::to_wstring(hive) + L"|" + ToLower(subkey) + L"|" + ToLower(name);
+    return std::to_wstring(std::hash<std::wstring>{}(id));
+}
+
+bool RegWriteString(HKEY h, const wchar_t* name, const std::wstring& v) {
+    return RegSetValueExW(h, name, 0, REG_SZ, reinterpret_cast<const BYTE*>(v.c_str()),
+                          static_cast<DWORD>((v.size() + 1) * sizeof(wchar_t))) == ERROR_SUCCESS;
+}
+
+bool RegWriteDword(HKEY h, const wchar_t* name, DWORD v) {
+    return RegSetValueExW(h, name, 0, REG_DWORD, reinterpret_cast<const BYTE*>(&v), sizeof(v)) == ERROR_SUCCESS;
+}
+
+bool RegReadString(HKEY h, const wchar_t* name, std::wstring& out) {
+    DWORD type = 0, size = 0;
+    if (RegQueryValueExW(h, name, nullptr, &type, nullptr, &size) != ERROR_SUCCESS || type != REG_SZ) return false;
+    std::wstring buf(size / sizeof(wchar_t) + 1, L'\0');
+    size = static_cast<DWORD>(buf.size() * sizeof(wchar_t));
+    if (RegQueryValueExW(h, name, nullptr, &type, reinterpret_cast<BYTE*>(buf.data()), &size) != ERROR_SUCCESS) return false;
+    out.assign(buf.c_str());
+    return true;
+}
+
+bool RegReadDword(HKEY h, const wchar_t* name, DWORD& out) {
+    DWORD type = 0, size = sizeof(out);
+    return RegQueryValueExW(h, name, nullptr, &type, reinterpret_cast<BYTE*>(&out), &size) == ERROR_SUCCESS && type == REG_DWORD;
+}
+
+/// Guarda el valor `name` de `hKey` (abierto en `subkey` del hive indicado) si todavia no hay copia.
+void RegBackupValue(int hive, const std::wstring& subkey, HKEY hKey, const wchar_t* name) {
+    const std::wstring path = std::wstring(kRegBackupRoot) + L"\\" + RegBackupRecordName(hive, subkey, name);
+    HKEY hb = nullptr;
+    DWORD disposition = 0;
+    if (RegCreateKeyExW(HiveFromId(hive), path.c_str(), 0, nullptr, REG_OPTION_NON_VOLATILE,
+                        KEY_READ | KEY_WRITE, nullptr, &hb, &disposition) != ERROR_SUCCESS) {
+        return;
+    }
+    if (disposition == REG_OPENED_EXISTING_KEY) {
+        RegCloseKey(hb);
+        return;
+    }
+
+    DWORD type = 0, size = 0;
+    std::vector<BYTE> data;
+    bool present = false;
+    const LSTATUS probe = RegQueryValueExW(hKey, name, nullptr, &type, nullptr, &size);
+    if (probe == ERROR_SUCCESS) {
+        data.resize(size);
+        if (RegQueryValueExW(hKey, name, nullptr, &type, data.data(), &size) != ERROR_SUCCESS) {
+            // Si no se puede leer el valor existente no se registra como ausente: se descarta la copia.
+            RegCloseKey(hb);
+            RegDeleteKeyW(HiveFromId(hive), path.c_str());
+            return;
+        }
+        data.resize(size);
+        present = true;
+    } else if (probe != ERROR_FILE_NOT_FOUND) {
+        RegCloseKey(hb);
+        RegDeleteKeyW(HiveFromId(hive), path.c_str());
+        return;
+    }
+
+    RegWriteString(hb, L"subkey", subkey);
+    RegWriteString(hb, L"name", name);
+    RegWriteDword(hb, L"hive", static_cast<DWORD>(hive));
+    RegWriteDword(hb, L"present", present ? 1 : 0);
+    RegWriteDword(hb, L"type", type);
+    const BYTE empty = 0;
+    RegSetValueExW(hb, L"data", 0, REG_BINARY, data.empty() ? &empty : data.data(), static_cast<DWORD>(data.size()));
+    RegCloseKey(hb);
+}
+
+/// Devuelve un valor a su estado original segun el registro de copia `record` y borra ese registro.
+bool RegRestoreRecord(int hive_of_backup, const std::wstring& record) {
+    const std::wstring path = std::wstring(kRegBackupRoot) + L"\\" + record;
+    HKEY hb = nullptr;
+    if (RegOpenKeyExW(HiveFromId(hive_of_backup), path.c_str(), 0, KEY_READ, &hb) != ERROR_SUCCESS) return false;
+
+    std::wstring subkey, name;
+    DWORD hive = 0, present = 0, type = 0;
+    std::vector<BYTE> data;
+    bool ok = RegReadString(hb, L"subkey", subkey) && RegReadString(hb, L"name", name) &&
+              RegReadDword(hb, L"hive", hive) && RegReadDword(hb, L"present", present) && RegReadDword(hb, L"type", type);
+    if (ok) {
+        DWORD dtype = 0, size = 0;
+        if (RegQueryValueExW(hb, L"data", nullptr, &dtype, nullptr, &size) == ERROR_SUCCESS) {
+            data.resize(size);
+            ok = RegQueryValueExW(hb, L"data", nullptr, &dtype, data.data(), &size) == ERROR_SUCCESS;
+            data.resize(size);
+        }
+    }
+    RegCloseKey(hb);
+    if (!ok) return false;
+
+    HKEY target = nullptr;
+    const REGSAM want = KEY_WRITE | KEY_READ;
+    LSTATUS open = present ? RegCreateKeyExW(HiveFromId(static_cast<int>(hive)), subkey.c_str(), 0, nullptr, REG_OPTION_NON_VOLATILE,
+                                             want, nullptr, &target, nullptr)
+                           : RegOpenKeyExW(HiveFromId(static_cast<int>(hive)), subkey.c_str(), 0, want, &target);
+    bool restored = false;
+    if (open == ERROR_SUCCESS) {
+        if (present) {
+            const BYTE empty = 0;
+            restored = RegSetValueExW(target, name.c_str(), 0, type, data.empty() ? &empty : data.data(),
+                                      static_cast<DWORD>(data.size())) == ERROR_SUCCESS;
+        } else {
+            const LSTATUS del = RegDeleteValueW(target, name.c_str());
+            restored = (del == ERROR_SUCCESS || del == ERROR_FILE_NOT_FOUND);
+        }
+        RegCloseKey(target);
+    } else if (!present) {
+        restored = true; // la clave ya no existe, asi que el valor ausente ya esta como estaba
+    }
+    if (restored) RegDeleteKeyW(HiveFromId(hive_of_backup), path.c_str());
+    return restored;
+}
+
+/// Valores del subkey UMD del driver de AMD que modifican los perfiles de arranque rapido y de teselacion.
+constexpr const wchar_t* kUmdBoostValues[] = {
+    L"SurfaceFormatReplacements", L"FlipQueueSize", L"TFQ", L"Tessellation_OPTION",
+    L"Tessellation", L"Main3D_DEF", L"TurboSync", L"DisableFlipQueueOptimization"
+};
+
+/// Restaura un valor concreto desde su copia; false si no habia copia o no se pudo restaurar.
+bool RegRestoreValue(int hive, const std::wstring& subkey, const wchar_t* name) {
+    return RegRestoreRecord(hive, RegBackupRecordName(hive, subkey, name));
 }
 
 } // anonymous namespace
@@ -1414,6 +1556,10 @@ bool GraphicsOptimizer::SetAmdDx11UmaDriverBoost(bool enable, bool dry_run) {
 
             if (is_amd) {
                 if (hUmd || RegCreateKeyExW(hAdapter, L"UMD", 0, nullptr, REG_OPTION_NON_VOLATILE, KEY_READ | KEY_WRITE, nullptr, &hUmd, nullptr) == ERROR_SUCCESS) {
+                    const std::wstring umd_path = adapter_path + L"\\UMD";
+                    if (enable) {
+                        for (const wchar_t* n : kUmdBoostValues) RegBackupValue(kHiveLocalMachine, umd_path, hUmd, n);
+                    }
                     LSTATUS st1 = SetUmdValue(hUmd, L"SurfaceFormatReplacements", sfr_val);
                     LSTATUS st2 = SetUmdValue(hUmd, L"FlipQueueSize", fqs_val);
                     LSTATUS st3 = SetUmdValue(hUmd, L"TFQ", tfq_val);
@@ -1430,6 +1576,9 @@ bool GraphicsOptimizer::SetAmdDx11UmaDriverBoost(bool enable, bool dry_run) {
                     LSTATUS st6 = SetUmdValue(hUmd, L"Main3D_DEF", main3d_val);
                     LSTATUS st7 = SetUmdValue(hUmd, L"TurboSync", turbosync_val);
                     LSTATUS st8 = SetUmdValue(hUmd, L"DisableFlipQueueOptimization", dfqo_val);
+                    if (!enable) {
+                        for (const wchar_t* n : kUmdBoostValues) RegRestoreValue(kHiveLocalMachine, umd_path, n);
+                    }
                     if (st1 == ERROR_SUCCESS || st2 == ERROR_SUCCESS || st3 == ERROR_SUCCESS ||
                         st4 == ERROR_SUCCESS || st5 == ERROR_SUCCESS || st6 == ERROR_SUCCESS ||
                         st7 == ERROR_SUCCESS || st8 == ERROR_SUCCESS) {
@@ -1513,6 +1662,11 @@ bool GraphicsOptimizer::SetAmdTessellationCap(uint32_t max_tess, bool dry_run) {
 
             if (is_amd) {
                 if (hUmd || RegCreateKeyExW(hAdapter, L"UMD", 0, nullptr, REG_OPTION_NON_VOLATILE, KEY_READ | KEY_WRITE, nullptr, &hUmd, nullptr) == ERROR_SUCCESS) {
+                    const std::wstring umd_path = adapter_path + L"\\UMD";
+                    if (enable_override) {
+                        RegBackupValue(kHiveLocalMachine, umd_path, hUmd, L"Tessellation_OPTION");
+                        RegBackupValue(kHiveLocalMachine, umd_path, hUmd, L"Tessellation");
+                    }
                     LSTATUS stOpt = SetUmdValue(hUmd, L"Tessellation_OPTION", tess_opt_val);
 
                     DWORD t_type = 0;
@@ -1523,6 +1677,10 @@ bool GraphicsOptimizer::SetAmdTessellationCap(uint32_t max_tess, bool dry_run) {
                         stTess = RegSetValueExW(hUmd, L"Tessellation", 0, REG_BINARY, tess_bytes.data(), static_cast<DWORD>(tess_bytes.size()));
                     }
 
+                    if (!enable_override) {
+                        RegRestoreValue(kHiveLocalMachine, umd_path, L"Tessellation_OPTION");
+                        RegRestoreValue(kHiveLocalMachine, umd_path, L"Tessellation");
+                    }
                     if (stOpt == ERROR_SUCCESS || stTess == ERROR_SUCCESS) {
                         updated_any = true;
                     }
@@ -1537,6 +1695,26 @@ bool GraphicsOptimizer::SetAmdTessellationCap(uint32_t max_tess, bool dry_run) {
     }
 
     return updated_any;
+}
+
+bool GraphicsOptimizer::RestoreAllRegistryBackups() {
+    bool all_ok = true;
+    for (int hive : { kHiveLocalMachine, kHiveCurrentUser }) {
+        HKEY root = nullptr;
+        if (RegOpenKeyExW(HiveFromId(hive), kRegBackupRoot, 0, KEY_READ, &root) != ERROR_SUCCESS) continue;
+        std::vector<std::wstring> records;
+        wchar_t buf[256];
+        for (DWORD i = 0;; ++i) {
+            DWORD len = 256;
+            if (RegEnumKeyExW(root, i, buf, &len, nullptr, nullptr, nullptr, nullptr) != ERROR_SUCCESS) break;
+            records.emplace_back(buf, len);
+        }
+        RegCloseKey(root);
+        for (const auto& r : records) {
+            if (!RegRestoreRecord(hive, r)) all_ok = false;
+        }
+    }
+    return all_ok;
 }
 
 bool GraphicsOptimizer::SetGameDvrAndFseOptimized(bool optimize, bool dry_run) {
@@ -1555,7 +1733,16 @@ bool GraphicsOptimizer::SetGameDvrAndFseOptimized(bool optimize, bool dry_run) {
         KEY_READ | KEY_WRITE,
         nullptr, &hStore, nullptr
     );
+    static const wchar_t* const kStoreValues[] = {
+        L"GameDVR_Enabled", L"GameDVR_FSEBehaviorMode", L"GameDVR_HonorUserFSEBehaviorMode",
+        L"GameDVR_DXGIHonorFSEWindowsCompatible", L"GameDVR_EFSEFeatureFlags"
+    };
+    const std::wstring store_path = L"System\\GameConfigStore";
+    const std::wstring dvr_path = L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\GameDVR";
     if (stStore == ERROR_SUCCESS) {
+        if (optimize) {
+            for (const wchar_t* n : kStoreValues) RegBackupValue(kHiveCurrentUser, store_path, hStore, n);
+        }
         DWORD dvr_enabled = optimize ? 0 : 1;
         DWORD fse_mode = optimize ? 2 : 0;
         DWORD honor_user = optimize ? 1 : 0;
@@ -1567,8 +1754,10 @@ bool GraphicsOptimizer::SetGameDvrAndFseOptimized(bool optimize, bool dry_run) {
         RegSetValueExW(hStore, L"GameDVR_HonorUserFSEBehaviorMode", 0, REG_DWORD, reinterpret_cast<const BYTE*>(&honor_user), sizeof(honor_user));
         RegSetValueExW(hStore, L"GameDVR_DXGIHonorFSEWindowsCompatible", 0, REG_DWORD, reinterpret_cast<const BYTE*>(&honor_dxgi), sizeof(honor_dxgi));
         RegSetValueExW(hStore, L"GameDVR_EFSEFeatureFlags", 0, REG_DWORD, reinterpret_cast<const BYTE*>(&efse_flags), sizeof(efse_flags));
-
         RegCloseKey(hStore);
+        if (!optimize) {
+            for (const wchar_t* n : kStoreValues) RegRestoreValue(kHiveCurrentUser, store_path, n);
+        }
     } else {
         success = false;
     }
@@ -1583,9 +1772,11 @@ bool GraphicsOptimizer::SetGameDvrAndFseOptimized(bool optimize, bool dry_run) {
         nullptr, &hDvr, nullptr
     );
     if (stDvr == ERROR_SUCCESS) {
+        if (optimize) RegBackupValue(kHiveCurrentUser, dvr_path, hDvr, L"AppCaptureEnabled");
         DWORD app_capture = optimize ? 0 : 1;
         RegSetValueExW(hDvr, L"AppCaptureEnabled", 0, REG_DWORD, reinterpret_cast<const BYTE*>(&app_capture), sizeof(app_capture));
         RegCloseKey(hDvr);
+        if (!optimize) RegRestoreValue(kHiveCurrentUser, dvr_path, L"AppCaptureEnabled");
     } else {
         success = false;
     }
