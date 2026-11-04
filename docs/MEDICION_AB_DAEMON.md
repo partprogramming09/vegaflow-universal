@@ -153,6 +153,32 @@ Confinar el fondo a pocos hilos duplica el FPS (+98%) y explica casi toda la gan
 - Carga ligera (D3D11): el FPS medio sube un 12.9%, pero los mínimos no mejoran. El 1% Low pasa de 61.9 a 63.5 (dentro del ruido) y el 0.1% Low empeora de 55.3 a 47.6 por una sola captura con un tirón (`bgl2-on-d3d11-3`: 1% Low 52.0 y 0.1% Low 20.6); sin ella el 0.1% Low encendido es 54.3. Con una captura atípica no se concluye que el daemon cause tirones, pero tampoco que los evite.
 - La ganancia crece con la carga de fondo: nula sin ella, +13% con 2 workers y de 2.1 a 2.3 veces con 6.
 
+#### Escala de carga y número de hilos para el fondo (2026-11-04, D3D11, 5 capturas por condición en A/B, 3 en hilos)
+
+| Workers de fondo | daemon apagado (FPS / 1% Low) | daemon encendido (FPS / 1% Low) | Mejora FPS |
+| --- | --- | --- | --- |
+| 1 | 87.7 / 65.7 | 100.4 / 64.6 | +14% |
+| 2 | 95.7 / 61.9 | 108.0 / 63.5 | +13% |
+| 3 | 83.1 / 55.6 | 107.2 / 67.3 | +29% |
+| 4 | 72.7 / 48.8 | 105.4 / 68.7 | +45% |
+| 6 | 51.0 / ver arriba | 109.3 / ver arriba | +114% |
+
+Con el daemon encendido el FPS queda casi constante (100 a 109) sea cual sea la carga; con él apagado cae al subir la carga. Los mínimos solo mejoran claramente desde 3 workers.
+
+Hilos asignados al fondo (de 12), con el daemon apagado y el resto de acciones aplicadas a mano (`bg_factors.ps1 -Mode threads`):
+
+| Hilos del fondo | 6 workers: FPS / 1% Low / CPU del fondo (s) | 2 workers: FPS / 1% Low / CPU del fondo (s) |
+| --- | --- | --- |
+| sin confinar | 52.0 / 33.0 / 181 | 91.8 / 63.5 / 61 |
+| 8 | 62.0 / 36.9 / 180 | 92.3 / 62.8 / 61 |
+| 6 | 88.0 / 50.0 / 173 | 104.2 / 63.3 / 59 |
+| 4 | 90.4 / 60.1 / 120 | 104.2 / 72.2 / 45 |
+| 2 | 113.1 / 70.1 / 60 | 104.2 / 74.1 / 44 |
+
+- Con carga pesada, cada hilo menos para el fondo da más FPS, pero el fondo hace menos trabajo (con 2 hilos, un tercio). Con carga ligera, 2 a 6 hilos dan el mismo FPS y 4 a 2 mejoran el 1% Low. Es un compromiso entre el juego y el fondo, no un óptimo único.
+- Esto apoya confinar el fondo en proporción a lo que consume, no un número fijo. No está implementado.
+- Solo se midió en un 6 núcleos / 12 hilos Zen 2. En equipos con menos núcleos, con núcleos híbridos o con más de 8 núcleos no hay medición y el resultado puede ser distinto.
+
 - El daemon sufre el mismo patrón que `tweaks_state.ps1`: su `--apu-balanced` escribe valores fijos y no los que había (borró `PERFBOOSTMODE=3` y `ASPM=0` que estaban puestos tras un reinicio).
 
 ## Observaciones
