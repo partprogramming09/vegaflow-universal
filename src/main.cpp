@@ -86,6 +86,7 @@ struct AppConfig {
     float fsr_sharpness = 0.20f;
     int fsr_mode = 0; // 0 = FSR 1.0 Ultra-Clean, 1 = NIS / Bicúbico 16-Tap, 2 = Anime4K (JRPG/Cel)
     bool timer_forced_manual = false;
+    bool restrict_game_cpu_sets = false; // false: el juego usa todos los hilos y solo se confina el fondo
     vegaflow::MemoryPurgeConfig memory{};
     std::vector<std::wstring> custom_game_exes;
     std::vector<std::wstring> user_custom_game_exes; // Exes originales de config.json
@@ -152,6 +153,7 @@ AppConfig LoadConfig(const std::string& path) {
     cfg.fsr_sharpness = find_float("fsr_sharpness", 0.20f);
     cfg.fsr_mode = std::clamp(static_cast<int>(find_uint("fsr_mode", 0)), 0, 2);
     cfg.timer_forced_manual = find_bool("timer_forced_manual", false);
+    cfg.restrict_game_cpu_sets = find_bool("restrict_game_cpu_sets", false);
     cfg.memory.min_free_ram_mb = find_uint("min_free_ram_mb", 1200);
     cfg.memory.min_standby_mb = find_uint("min_standby_mb", 1500);
     cfg.memory.cooldown_seconds = static_cast<uint32_t>(find_uint("cooldown_seconds", 90));
@@ -193,6 +195,7 @@ bool SaveConfig(const std::string& path, const AppConfig& cfg) {
     file << "  \"fsr_sharpness\": " << cfg.fsr_sharpness << ",\n";
     file << "  \"fsr_mode\": " << cfg.fsr_mode << ",\n";
     file << "  \"timer_forced_manual\": " << (cfg.timer_forced_manual ? "true" : "false") << ",\n";
+    file << "  \"restrict_game_cpu_sets\": " << (cfg.restrict_game_cpu_sets ? "true" : "false") << ",\n";
     file << "  \"memory\": {\n";
     file << "    \"min_free_ram_mb\": " << cfg.memory.min_free_ram_mb << ",\n";
     file << "    \"min_standby_mb\": " << cfg.memory.min_standby_mb << ",\n";
@@ -533,11 +536,12 @@ void ExecuteDryRun(const AppConfig& config) {
         auto bg_pids = ProcessDetector::FindBackgroundNoisyProcesses(game.pid);
         std::cout << "  -> Background Noisy Processes to Isolate: " << bg_pids.size() << " PIDs\n";
         bool is_dx12 = (game.api == RenderApi::DirectX12 || game.api == RenderApi::Vulkan);
+        const std::vector<ULONG> no_sets;
         auto cpu_res = cpu_orchestrator.ApplyOptimizations(
             game.pid,
             game.presenter_thread_id,
             is_dx12,
-            hw.cpu_topology.game_optimal_cpu_set_ids,
+            config.restrict_game_cpu_sets ? hw.cpu_topology.game_optimal_cpu_set_ids : no_sets,
             hw.cpu_topology.background_cpu_set_ids,
             bg_pids,
             true /* dry_run */);
@@ -721,11 +725,12 @@ void RunSingleIteration(
         }
         bool is_dx12 = (game.api == RenderApi::DirectX12 || game.api == RenderApi::Vulkan);
 
+        const std::vector<ULONG> no_sets;
         auto cpu_res = cpu_orchestrator.ApplyOptimizations(
             game.pid,
             game.presenter_thread_id,
             is_dx12,
-            hw.cpu_topology.game_optimal_cpu_set_ids,
+            config.restrict_game_cpu_sets ? hw.cpu_topology.game_optimal_cpu_set_ids : no_sets,
             hw.cpu_topology.background_cpu_set_ids,
             bg_pids,
             false);

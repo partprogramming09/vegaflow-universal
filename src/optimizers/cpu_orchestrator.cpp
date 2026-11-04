@@ -64,7 +64,7 @@ CpuOptimizationResult CpuOrchestrator::ApplyOptimizations(
     CpuOptimizationResult result{};
 
     if (game_pid != 0) {
-        if (!dry_run && game_pid == last_optimized_game_pid_ && !game_cpu_sets.empty()) {
+        if (!dry_run && game_pid == last_optimized_game_pid_) {
             result.game_handle_full_access = last_game_had_full_access_;
             result.power_throttling_disabled = last_power_throttling_disabled_;
             result.io_priority_elevated = last_io_priority_elevated_;
