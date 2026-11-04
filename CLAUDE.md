@@ -516,3 +516,17 @@ El desarrollo activo de VegaFlow Universal se rige por el documento índice maes
 2. **Pilar 2 — Perfiles Dinámicos por Juego y Detección Automática de Cuello de Botella:** Identificación en tiempo real de estados *CPU-Bound* vs *GPU-Bound* en `FrameTelemetryMonitor`, modulando dinámicamente el factor de escalado espacial FSR 1.0 / NIS y la agresividad de `EcoQoS` en procesos secundarios.
 3. **Pilar 3 — Topología Híbrida para APUs de Nueva Generación ([`src/optimizers/cpu_orchestrator.cpp`](src/optimizers/cpu_orchestrator.cpp)):** Particionamiento avanzado de CPU Sets para procesadores heterogéneos (Zen 5 + Zen 5c en AMD Strix Point; P-Cores + E-Cores en Intel Core Ultra), confinando los hilos de renderizado D3D/DXVK exclusivamente en los núcleos de alta frecuencia con caché L3 completa.
 4. **Pilar 4 — Telemetría In-Game Zero-Hook sobre DirectFlip:** Superposición ultraligera tipo *click-through* (`< 0.2 ms` de coste de renderizado) para visualizar frametime, 1% Lows, presupuesto UMA y estado del Guard, **100% inmune a baneos** al no inyectar DLLs en juegos con protección anti-cheat.
+
+---
+
+## 9. Estado de verificación (2026-11-04)
+
+Las secciones anteriores describen lo que el código hace y la intención de cada optimización; no todo está medido. Medido con `scripts/bench.ps1` (PresentMon) y A/B intercalado ABBA; detalle en [`docs/MEDICION_AB_DAEMON.md`](docs/MEDICION_AB_DAEMON.md) y [`docs/MEDICION_BASE.md`](docs/MEDICION_BASE.md).
+
+- **Quitado por costar rendimiento medido:** `CPMINCORES=100` en el perfil APU (-21% en `drawstress` D3D11) y confinar al juego a 8 de 12 hilos (entre -19% y -24%; ahora es opción `restrict_game_cpu_sets`, apagada por defecto).
+- **Sin efecto medible en `drawstress`:** `Win32PrioritySeparation`, PCIe ASPM, EPP y el modo de boost (≈1%). El temporizador NT de 0.5 ms pedido por otro proceso no cambia `Sleep(1)` de un tercero.
+- **Sin medición propia todavía:** EcoQoS y prioridad de I/O del fondo (A/B con carga de fondo en curso), DirectFlip y MPO (el juego medido ya presentaba en `Legacy Flip` o `Independent Flip`), `DisablePagingExecutive`, teselación 16x, AsyncCompute desactivado, DXVK-GPLAsync, FSR y purga de standby.
+- **Cifras de las secciones 2.5 y 3.4** (12-14 W de CPU, 3.2 GHz, 1500 MHz sostenidos, 3-5 W recuperados): no están medidas en este repositorio.
+- **Reglas de medición:** el juego debe abrirse en el escritorio (sesión 1), no por SSH (sesión 0: PresentMon no ve cuadros y el detector del daemon no ve ningún juego); usar `scripts/ab_loop_task.ps1` y descartar los primeros minutos tras un reinicio; leer el estado con `scripts/tweaks_state.ps1` antes de medir.
+- **Cuidados conocidos:** la suite de pruebas ejecuta cambios reales y deja el equipo modificado; los restauradores escriben valores fijos, no los previos; en Windows en español usar SID en `icacls` y `WindowsBuiltInRole::Administrator`, porque los nombres en inglés fallan sin avisar.
+- **Herramienta de desarrollo remoto:** [`scripts/remote/`](scripts/remote/README.md), que no forma parte del producto.
