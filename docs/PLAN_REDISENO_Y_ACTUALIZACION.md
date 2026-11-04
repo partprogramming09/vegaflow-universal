@@ -127,7 +127,7 @@ Servidor MCP de la Mac, solo Python estándar, que envuelve el ejecutor remoto: 
 
 - Registro: `claude mcp add --scope user vfjob -- python3 -I /Volumes/dev/vegaflow-universal/scripts/remote/vfjob_mcp.py`. Tras añadirlo hay que reconectar con `/mcp` o reiniciar la sesión para que aparezcan las herramientas.
 - Autocomprobación sin el laptop: `python3 -I scripts/remote/vfjob_mcp.py --self-test`. Verificado: protocolo, validación de nombres e ids, y `vfjob_list` contra el laptop.
-- Pendiente de verificar: `vfjob_submit` y `vfjob_wait` de extremo a extremo (el ejecutor procesa un trabajo a la vez y estaba ocupado con el A/B).
+- Verificado de extremo a extremo el 2026-11-04 desde las herramientas del MCP: `vfjob_submit` más `vfjob_wait` con `doctor` terminó en `done` con `exit_code` 0 en 1.2 s, y `vfjob_run` con `bench` y `Process="x; calc.exe"` fue rechazado por el ejecutor ("valor no valido para Process") sin lanzar nada.
 - Duplicación conocida: la lógica de enviar y leer trabajos está en `vfjob` (bash) y en `vfjob_mcp.py` (Python); conviene unificarla.
 
 ## 9. Medición de las optimizaciones por proceso (2026-11-04)
