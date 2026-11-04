@@ -96,3 +96,9 @@ Pasos del usuario para el inicio de sesión automático (unos 3 minutos, en el l
 3. Verificación posterior sin leer la contraseña: `AutoAdminLogon=1` y `DefaultUserName=testuser`, y un reinicio de prueba por SSH para comprobar que vuelven Tailscale, SSH, la sesión del escritorio y `winbridge-mcp`.
 
 Lista de comprobaciones previas a cada trabajo automático: Tailscale y SSH arriba, sesión iniciada y desbloqueada, cargador conectado y batería sobre el mínimo, disco libre, sin `drawstress` ni daemon sobrantes, `tweaks_state.ps1` sin valores fuera de fábrica.
+
+Resultado del reinicio de prueba del 2026-11-04 (arranque 09:44:55):
+
+- `tailscaled` y `sshd` arrancaron a las 09:45:06, sin sesión de usuario. Aun así el puerto 22 solo respondió a las 09:48:37, justo después de que apareciera el escritorio (`explorer` 09:48:13, `tailscale-ipn` 09:48:29). La configuración de Tailscale no tenía `ForceDaemon`: no estaba en modo desatendido y no se conectaba hasta iniciar sesión.
+- Corregido con `tailscale set --unattended` (Tailscale 1.104.4); `tailscale debug prefs` muestra `ForceDaemon: true`. Falta un segundo reinicio sin intervención para comprobar que SSH vuelve sin sesión de usuario.
+- El escritorio apareció 3 min 18 s después del arranque. Sin determinar si el inicio de sesión automático lo hizo solo o lo hizo el usuario.
