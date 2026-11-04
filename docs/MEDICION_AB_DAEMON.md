@@ -202,6 +202,22 @@ Hilos para el fondo con cargas de 3 y 4 workers (3 rondas), FPS medio / 1% Low /
 
 Con 2, 3, 4 y 6 workers, 2 hilos da el mayor FPS. Ensanchar el conjunto solo le da más CPU al fondo a costa de FPS (con 4 workers, 4 hilos: -18% de FPS), y con carga ligera (2 workers) 2 y 4 hilos dan lo mismo en FPS y en CPU del fondo. Ningún caso medido justifica escalar el número de hilos, así que se mantiene fijo. Límite: `drawstress` usa pocos hilos; un juego que reparta su trabajo en más hilos podría preferir otro reparto.
 
+#### Equipo con menos procesadores, simulado (2026-11-04, D3D11, 3 rondas)
+
+`bg_factors.ps1 -Mode sim` limita el juego y la carga de fondo a 4 hilos con máscaras de afinidad en este mismo laptop (misma Vega 6, misma caché y memoria; no imita un equipo real). FPS medio / 1% Low con el fondo en los 4 hilos, en 2 y en 1:
+
+| Equipo simulado | Workers de fondo | 4 hilos | 2 hilos | 1 hilo |
+| --- | --- | --- | --- | --- |
+| 4 núcleos sin SMT (hilos 0, 2, 4, 6) | 1 | 83.1 / 27.5 | 82.8 / 25.2 | 106.1 / 41.1 |
+| | 2 | 58.0 / 16.0 | 89.4 / 19.3 | 105.8 / 38.2 |
+| | 4 | 35.0 / 9.2 | 85.3 / 15.7 | 106.3 / 37.9 |
+| 2 núcleos con SMT (hilos 0 a 3) | 1 | 97.6 / 75.8 | 99.6 / 78.9 | 106.6 / 81.6 |
+| | 2 | 85.0 / 65.2 | 92.1 / 65.9 | 106.4 / 81.4 |
+
+Con 4 hilos, dejar al fondo 2 hilos (la mitad) rinde mucho menos que dejarle 1, y 1 hilo da unos 106 FPS con cualquier carga. La medición de 2 núcleos con SMT y 4 workers falló (PresentMon no generó datos) y no se repitió. En 12 hilos, 2 hilos eran lo mejor medido; 1 hilo no se midió.
+
+Cambio: el conjunto de fondo es como máximo una sexta parte de los procesadores lógicos (mínimo 1): 12 hilos dan 2 (igual que antes), 4 hilos dan 1. Es una extrapolación entre dos puntos (4 y 12 hilos): 6, 8 o 16 hilos no están medidos, ni equipos reales con menos núcleos.
+
 - Solo se midió en un 6 núcleos / 12 hilos Zen 2. En equipos con menos núcleos, con núcleos híbridos o con más de 8 núcleos no hay medición y el resultado puede ser distinto.
 
 - El daemon sufre el mismo patrón que `tweaks_state.ps1`: su `--apu-balanced` escribe valores fijos y no los que había (borró `PERFBOOSTMODE=3` y `ASPM=0` que estaban puestos tras un reinicio).
