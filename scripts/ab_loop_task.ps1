@@ -53,13 +53,24 @@ function Start-Daemon {
     Start-Sleep -Seconds 10
 }
 
-# Lanza la tarea VegaFlow-Stop, espera a que el daemon salga y anota si registro una sesion de juego.
+# Espera a que las tareas VegaFlow-Start y VegaFlow-Stop dejen de correr; devuelve falso si pasa el limite.
+function Wait-TasksIdle($seconds) {
+    $deadline = (Get-Date).AddSeconds($seconds)
+    while ((Get-Date) -lt $deadline) {
+        $busy = @('VegaFlow-Start', 'VegaFlow-Stop') | Where-Object { (Get-ScheduledTask -TaskName $_).State -eq 'Running' }
+        if (-not $busy) { return $true }
+        Start-Sleep -Milliseconds 500
+    }
+    return $false
+}
+
+# Lanza la tarea VegaFlow-Stop, espera a que terminen las tareas (el cierre lanza un proceso breve --apu-balanced) y anota si registro una sesion de juego.
 function Stop-Daemon {
     $before = if (Test-Path $sessionLog) { (Get-Item $sessionLog).Length } else { 0 }
     Start-ScheduledTask -TaskName 'VegaFlow-Stop'
-    $deadline = (Get-Date).AddSeconds(40)
-    while ((Get-Process vegaflow_daemon -ErrorAction SilentlyContinue) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }
-    if (Get-Process vegaflow_daemon -ErrorAction SilentlyContinue) { throw 'El daemon no salio tras VegaFlow-Stop.' }
+    Start-Sleep -Seconds 2
+    if (-not (Wait-TasksIdle 90)) { throw 'Las tareas de arranque y parada siguen corriendo tras 90 s.' }
+    if (Get-Process vegaflow_daemon -ErrorAction SilentlyContinue) { throw 'El daemon sigue corriendo tras VegaFlow-Stop.' }
     $after = if (Test-Path $sessionLog) { (Get-Item $sessionLog).Length } else { 0 }
     Write-Run ("stop-daemon sesion_registrada=$($after -gt $before)")
     Start-Sleep -Seconds 5
