@@ -424,6 +424,9 @@ void HardwareProfiler::PartitionCpuSetsFromTopology(CpuTopologyProfile& cpu_topo
     cpu_topology.has_multiple_ccx = (llc_indices.size() > 1);
     cpu_topology.has_hybrid_cores = (min_eff != max_eff);
 
+    // Hilos de fondo como maximo una sexta parte de los logicos (minimo 1): con 12 son 2 y con 4 es 1.
+    const size_t bg_limit = std::max<size_t>(1, cpu_topology.logical_processors / 6);
+
     if (cpu_topology.has_hybrid_cores) {
         std::set<uint32_t> high_perf_cores;
         for (const auto& cs : cpu_topology.all_cpu_sets) {
@@ -504,9 +507,11 @@ void HardwareProfiler::PartitionCpuSetsFromTopology(CpuTopologyProfile& cpu_topo
 
         std::vector<CpuCoreSetInfo> candidate_game_sets;
         std::map<uint32_t, size_t> bg_sets_per_llc;
+        size_t bg_taken = 0;
 
         for (const auto& cs : cpu_topology.all_cpu_sets) {
-            if (cs.core_index == last_core_index) {
+            if (cs.core_index == last_core_index && bg_taken < bg_limit) {
+                bg_taken++;
                 cpu_topology.background_cpu_set_ids.push_back(cs.cpu_set_id);
                 bg_sets_per_llc[cs.last_level_cache_index]++;
             } else {
@@ -557,8 +562,10 @@ void HardwareProfiler::PartitionCpuSetsFromTopology(CpuTopologyProfile& cpu_topo
 
     std::vector<CpuCoreSetInfo> candidate_game_sets;
 
+    size_t bg_taken = 0;
     for (const auto& cs : cpu_topology.all_cpu_sets) {
-        if (cs.core_index == last_core_index) {
+        if (cs.core_index == last_core_index && bg_taken < bg_limit) {
+            bg_taken++;
             cpu_topology.background_cpu_set_ids.push_back(cs.cpu_set_id);
         } else {
             if (!exclude_core_zero || cs.core_index != 0) {

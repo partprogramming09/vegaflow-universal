@@ -1849,6 +1849,39 @@ int main() {
     }
 
     // -------------------------------------------------------------------------
+    // Test 28: los hilos de fondo escalan con el numero de procesadores logicos
+    // -------------------------------------------------------------------------
+    {
+        // Crea una topologia de un solo L3 con `cores` nucleos y `smt` hilos por nucleo y devuelve el tamano del conjunto de fondo.
+        auto bg_size = [](uint32_t cores, uint32_t smt) {
+            vegaflow::CpuTopologyProfile topo{};
+            for (uint32_t c = 0; c < cores; ++c) {
+                for (uint32_t t = 0; t < smt; ++t) {
+                    vegaflow::CpuCoreSetInfo cs{};
+                    cs.cpu_set_id = 256 + c * smt + t;
+                    cs.core_index = c;
+                    cs.logical_processor_index = c * smt + t;
+                    cs.last_level_cache_index = 0;
+                    cs.efficiency_class = 0;
+                    topo.all_cpu_sets.push_back(cs);
+                }
+            }
+            vegaflow::HardwareProfiler::PartitionCpuSetsFromTopology(topo);
+            const size_t bg = topo.background_cpu_set_ids.size();
+            const bool all_assigned = (bg + topo.game_optimal_cpu_set_ids.size() >= topo.all_cpu_sets.size() - 2);
+            return all_assigned ? bg : size_t{999};
+        };
+        const bool c4t4 = (bg_size(4, 1) == 1);
+        const bool c2t4 = (bg_size(2, 2) == 1);
+        const bool c6t12 = (bg_size(6, 2) == 2);
+        const bool c8t16 = (bg_size(8, 2) == 2);
+        RecordResult(c4t4 && c2t4 && c6t12 && c8t16,
+                     "Test 28: Background CPU set size scales with logical processors",
+                     "4C/4T=1: " + std::string(c4t4 ? "PASS" : "FAIL") + ", 2C/4T=1: " + std::string(c2t4 ? "PASS" : "FAIL")
+                     + ", 6C/12T=2: " + std::string(c6t12 ? "PASS" : "FAIL") + ", 8C/16T=2: " + std::string(c8t16 ? "PASS" : "FAIL"));
+    }
+
+    // -------------------------------------------------------------------------
     // FINAL SUMMARY
     // -------------------------------------------------------------------------
     std::cout << "\n================================================================================\n";
