@@ -1876,6 +1876,10 @@ int main(int argc, char* argv[]) {
         std::cout << "  [WARN] Running without Administrator privileges: Standby List purge requires Admin.\n";
         std::cout << "         Run with --elevate to grant full access.\n";
     }
+    DWORD session_id = 0;
+    if (ProcessIdToSessionId(GetCurrentProcessId(), &session_id) && session_id == 0) {
+        std::cout << "  [WARN] Running in Windows session 0 (no desktop): game detection will not see any window.\n";
+    }
     std::cout << "  Press Ctrl+C to terminate cleanly.\n";
     std::cout << "================================================================================\n";
 
