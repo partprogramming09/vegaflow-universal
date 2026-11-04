@@ -127,7 +127,7 @@ Supervisa en caliente el uso real del presupuesto de memoria local de vídeo (`l
 
 ## 3. Seguridad Absoluta Frente a Sistemas Anti-Cheat y Subsistema SandboxGuard
 
-VegaFlow Universal implementa una política de seguridad estricta e inviolable: **bajo ninguna circunstancia se inyectarán DLLs ni se modificarán archivos de juegos protegidos por sistemas Anti-Cheat.** Toda operación sobre el disco y los procesos se rige por un modelo de aislamiento y contención formalizado en el módulo [`SandboxGuard`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/include/security/sandbox_guard.hpp).
+VegaFlow Universal implementa una política de seguridad estricta e inviolable: **bajo ninguna circunstancia se inyectarán DLLs ni se modificarán archivos de juegos protegidos por sistemas Anti-Cheat.** Toda operación sobre el disco y los procesos se rige por un modelo de aislamiento y contención formalizado en el módulo [`SandboxGuard`](include/security/sandbox_guard.hpp).
 
 ```
 +------------------------------------------------------------------------------------+
@@ -170,7 +170,7 @@ VegaFlow Universal implementa una política de seguridad estricta e inviolable: 
 Cualquier intento de desplegar DXVK o sobreescribir archivos en un directorio con estas firmas es **rechazado en seco por el código** (`blocked_by_anticheat = true`), salvaguardando la cuenta del usuario de cualquier riesgo de baneo.
 
 ### 3.1. Arquitectura de Aislamiento y Contención: `SandboxGuard`
-Implementado en [`include/security/sandbox_guard.hpp`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/include/security/sandbox_guard.hpp) y [`src/security/sandbox_guard.cpp`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/src/security/sandbox_guard.cpp), el subsistema `SandboxGuard` formaliza el paradigma de seguridad **Zero-Trust File Access**:
+Implementado en [`include/security/sandbox_guard.hpp`](include/security/sandbox_guard.hpp) y [`src/security/sandbox_guard.cpp`](src/security/sandbox_guard.cpp), el subsistema `SandboxGuard` formaliza el paradigma de seguridad **Zero-Trust File Access**:
 
 1. **Normalización Canónica (`CanonicalizePath`)**:
    - Neutraliza de raíz vectores de ataque o errores de **Path Traversal** (`..`, `.`, dobles barras invertidas y symlinks).
@@ -206,7 +206,7 @@ Implementado en [`include/security/sandbox_guard.hpp`](file:///C:/Users/testuser
    - Cada intento de acceso no autorizado registra un evento con marca de tiempo precisa en milisegundos (`timestamp_ms`), la acción solicitada (`SandboxAction`), el motivo técnico (`SandboxDenialReason`) y un mensaje explicativo para trazabilidad forense.
 
 ### 3.2. Subsistema `SystemInfo`: Telemetría Desacoplada y Detección de Hardware
-Implementado en [`include/core/system_info.hpp`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/include/core/system_info.hpp) y [`src/core/system_info.cpp`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/src/core/system_info.cpp), este módulo aísla toda la lógica de recopilación de hardware y sistema operativo en una biblioteca reutilizable:
+Implementado en [`include/core/system_info.hpp`](include/core/system_info.hpp) y [`src/core/system_info.cpp`](src/core/system_info.cpp), este módulo aísla toda la lógica de recopilación de hardware y sistema operativo en una biblioteca reutilizable:
 - **Detección de CPU**:
   - Lectura de marca mediante la instrucción x86 `CPUID` (registros EAX, EBX, ECX, EDX) reportando el procesador completo (e.g. *AMD Ryzen 5 4600H with Radeon Graphics*).
   - Conteo riguroso de núcleos físicos (6) y procesadores lógicos (12) mediante `GetLogicalProcessorInformationEx`.
@@ -230,7 +230,7 @@ Implementado en [`include/core/system_info.hpp`](file:///C:/Users/testuser/OneDr
   - Función `SystemInfo::ToJson()` que exporta toda la telemetría en un esquema estructurado para interoperabilidad con scripts, frontends web o herramientas CLI externas (`--system-info`).
 
 ### 3.3. Arquitectura y Rediseño Visual de la GUI (Clean Slate / Nordic Dark Mode)
-Implementado en [`include/gui/gui_window.hpp`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/include/gui/gui_window.hpp) y [`src/gui/gui_window.cpp`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/src/gui/gui_window.cpp):
+Implementado en [`include/gui/gui_window.hpp`](include/gui/gui_window.hpp) y [`src/gui/gui_window.cpp`](src/gui/gui_window.cpp):
 - **Cero Dependencias & Ultra Bajo Consumo**: GUI construida enteramente sobre la API pura de Win32/GDI con doble búfer (`BitBlt`), sin marcos pesados (Qt, WPF, Electron). Consume menos de **15 MB de RAM privada** y **0.0% de CPU** en reposo. Al detectar un juego en primer plano, la interfaz suspende sus llamadas gráficas de telemetría para ceder el 100% de los ciclos a la GPU.
 - **Paleta Slate / Zinc Neutra ("Clean Slate / Nordic Dark Mode")**:
   - Fondo principal: `#111317` (`RGB(17, 19, 23)`).
@@ -260,7 +260,7 @@ Implementado en [`include/gui/gui_window.hpp`](file:///C:/Users/testuser/OneDriv
        - **DirectFlip / AutoFlip**: Indicador de derivación directa de swap chain (0ms de latencia, bypass de cola DWM).
 
 ### 3.4. Suite Moderna para Juegos 3D (EcoQoS, Jerarquía I/O NT y DirectFlip)
-Implementada de forma coordinada en [`src/optimizers/cpu_orchestrator.cpp`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/src/optimizers/cpu_orchestrator.cpp), [`src/optimizers/graphics_optimizer.cpp`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/src/optimizers/graphics_optimizer.cpp), [`src/main.cpp`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/src/main.cpp) y [`src/gui/gui_window.cpp`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/src/gui/gui_window.cpp):
+Implementada de forma coordinada en [`src/optimizers/cpu_orchestrator.cpp`](src/optimizers/cpu_orchestrator.cpp), [`src/optimizers/graphics_optimizer.cpp`](src/optimizers/graphics_optimizer.cpp), [`src/main.cpp`](src/main.cpp) y [`src/gui/gui_window.cpp`](src/gui/gui_window.cpp):
 
 1. **Background EcoQoS (Power Throttling en Procesos de Fondo)**:
    - **Explicación técnica y física:** En procesadores con arquitectura APU como el Ryzen 5 4600H, el presupuesto térmico STAPM (Skin Temperature Aware Power Management) está limitado dinámicamente entre 35W y 45W para todo el encapsulado. Cuando procesos secundarios (navegadores web, launchers, Discord, tareas de indexación) ejecutan ráfagas de cómputo en núcleos Zen 2 a voltajes altos, sustraen entre 3W y 5W de este presupuesto unificado. La unidad SMU de AMD se ve forzada a reducir la frecuencia de la GPU Vega 6 a 1100–1200 MHz para mantenerse dentro del umbral térmico.
@@ -300,7 +300,7 @@ Implementada de forma coordinada en [`src/optimizers/cpu_orchestrator.cpp`](file
    - Esto habilita la promoción directa a **DirectFlip** en Windows 11, desacoplando la swap chain de la cola de copiado de DWM. El motor gráfico proyecta sus fotogramas directamente a la controladora de vídeo, logrando **0ms de latencia de entrada adicional** (equivalente a pantalla completa exclusiva) preservando la comodidad de la multitarea borderless y la compatibilidad con superposiciones de sistema.
 
 ### 3.5. Suite de Silicio APU & Blindaje de Memoria de Kernel NT (DisablePagingExecutive & Smart Tessellation 16x)
-Implementada en [`src/optimizers/graphics_optimizer.cpp`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/src/optimizers/graphics_optimizer.cpp), [`src/main.cpp`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/src/main.cpp) y [`src/gui/gui_window.cpp`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/src/gui/gui_window.cpp):
+Implementada en [`src/optimizers/graphics_optimizer.cpp`](src/optimizers/graphics_optimizer.cpp), [`src/main.cpp`](src/main.cpp) y [`src/gui/gui_window.cpp`](src/gui/gui_window.cpp):
 
 1. **Blindaje de Memoria de Kernel NT (`DisablePagingExecutive=1` & `LargeSystemCache=0`)**:
    - **Explicación técnica y física:** En sistemas APU con arquitectura de memoria unificada (UMA), Windows NT por defecto traslada al archivo de paginación (`pagefile.sys`) el código ejecutable de drivers y subsistemas del kernel inactivos temporalmente. Cuando la GPU integrada Vega 6 o el pipeline D3D demanda recursos de inmediato, un fallo de página duro (*hard page fault*) al disco NVMe provoca un congelamiento perceptible (micro-stutter) de 50 a 200 ms.
@@ -387,7 +387,7 @@ VegaFlow Universal está escrito en **C++20 estándar** con enlace estático en 
 
 ### 5.2. Compilación Automatizada (PowerShell)
 
-El proyecto incluye el script automatizado [`scripts/build.ps1`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/scripts/build.ps1), el cual detecta automáticamente MinGW g++ (en PATH o en Scoop), gestiona las rutas modulares y permite compilar ambos ejecutables y opcionalmente ejecutar la suite de pruebas:
+El proyecto incluye el script automatizado [`scripts/build.ps1`](scripts/build.ps1), el cual detecta automáticamente MinGW g++ (en PATH o en Scoop), gestiona las rutas modulares y permite compilar ambos ejecutables y opcionalmente ejecutar la suite de pruebas:
 
 ```powershell
 # Compilar vegaflow_daemon.exe y vegaflow_tests.exe:
@@ -499,10 +499,10 @@ TEST RESULTS: 26 PASSED, 0 FAILED
 
 ## 8. Hoja de Ruta y Enfoque Actual de Ingeniería
 
-El desarrollo activo de VegaFlow Universal se rige por el documento índice maestro [`docs/ROADMAP_FOCUS.md`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/docs/ROADMAP_FOCUS.md) y la especificación de diseño [`docs/superpowers/specs/2026-11-01-apu-dx11-dx12-universal-guards-design.md`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/docs/superpowers/specs/2026-11-01-apu-dx11-dx12-universal-guards-design.md).
+El desarrollo activo de VegaFlow Universal se rige por el documento índice maestro [`docs/ROADMAP_FOCUS.md`](docs/ROADMAP_FOCUS.md) y la especificación de diseño [`docs/superpowers/specs/2026-11-01-apu-dx11-dx12-universal-guards-design.md`](docs/superpowers/specs/2026-11-01-apu-dx11-dx12-universal-guards-design.md).
 
 ### 8.1. Base Consolidada (`26/26` Pruebas en Verde)
-- **Modularidad Integral:** Arquitectura desacoplada en cuatro subdominios (`core/`, `optimizers/`, `security/`, `gui/`) tanto en `include/` como en `src/`, con compilación automatizada en [`scripts/build.ps1`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/scripts/build.ps1).
+- **Modularidad Integral:** Arquitectura desacoplada en cuatro subdominios (`core/`, `optimizers/`, `security/`, `gui/`) tanto en `include/` como en `src/`, con compilación automatizada en [`scripts/build.ps1`](scripts/build.ps1).
 - **Motor `ApuCapabilityGuard`:** Clasificación en 4 Tiers con políticas acotadas:
   - *Tier 1 (`Survival Guard`):* APUs $\le$ 8–9 GB RAM o $\le$ 4 núcleos (protección OOM en Unreal Engine, teselación a 8x, DXVK a 3 hilos).
   - *Tier 2 (`Sweet-Spot Guard`):* APUs Vega / GCN 5 (Ryzen 5 4600H, 16 GB Dual-Channel, 4096 MB VRAM pool, 6 hilos DXVK, teselación a 16x).
@@ -512,7 +512,7 @@ El desarrollo activo de VegaFlow Universal se rige por el documento índice maes
 - **Aislamiento `SandboxGuard`:** Validación canónica de rutas, whitelist estricta y cuarentena total ante firmas de anti-cheat a nivel de kernel.
 
 ### 8.2. Próximos 4 Pilares de Enfoque
-1. **Pilar 1 — Integración Visual del `ApuCapabilityGuard` en la GUI ([`src/gui/`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/src/gui)):** Representación gráfica del Tier detectado (`Tier 1..4`), insignia cromática del Guard activo (*Survival / Sweet-Spot / Do-No-Harm*), barra dinámica de presupuesto DXGI 1.4 con alerta al superar el 85% y contador de intervenciones reactivas.
+1. **Pilar 1 — Integración Visual del `ApuCapabilityGuard` en la GUI ([`src/gui/`](src/gui)):** Representación gráfica del Tier detectado (`Tier 1..4`), insignia cromática del Guard activo (*Survival / Sweet-Spot / Do-No-Harm*), barra dinámica de presupuesto DXGI 1.4 con alerta al superar el 85% y contador de intervenciones reactivas.
 2. **Pilar 2 — Perfiles Dinámicos por Juego y Detección Automática de Cuello de Botella:** Identificación en tiempo real de estados *CPU-Bound* vs *GPU-Bound* en `FrameTelemetryMonitor`, modulando dinámicamente el factor de escalado espacial FSR 1.0 / NIS y la agresividad de `EcoQoS` en procesos secundarios.
-3. **Pilar 3 — Topología Híbrida para APUs de Nueva Generación ([`src/optimizers/cpu_orchestrator.cpp`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/src/optimizers/cpu_orchestrator.cpp)):** Particionamiento avanzado de CPU Sets para procesadores heterogéneos (Zen 5 + Zen 5c en AMD Strix Point; P-Cores + E-Cores en Intel Core Ultra), confinando los hilos de renderizado D3D/DXVK exclusivamente en los núcleos de alta frecuencia con caché L3 completa.
+3. **Pilar 3 — Topología Híbrida para APUs de Nueva Generación ([`src/optimizers/cpu_orchestrator.cpp`](src/optimizers/cpu_orchestrator.cpp)):** Particionamiento avanzado de CPU Sets para procesadores heterogéneos (Zen 5 + Zen 5c en AMD Strix Point; P-Cores + E-Cores en Intel Core Ultra), confinando los hilos de renderizado D3D/DXVK exclusivamente en los núcleos de alta frecuencia con caché L3 completa.
 4. **Pilar 4 — Telemetría In-Game Zero-Hook sobre DirectFlip:** Superposición ultraligera tipo *click-through* (`< 0.2 ms` de coste de renderizado) para visualizar frametime, 1% Lows, presupuesto UMA y estado del Guard, **100% inmune a baneos** al no inyectar DLLs en juegos con protección anti-cheat.
