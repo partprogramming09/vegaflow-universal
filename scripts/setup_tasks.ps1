@@ -17,7 +17,11 @@ $source = Join-Path $PSScriptRoot 'tweaks_state.ps1'
 $setupLog = Join-Path $dir 'setup.log'
 
 New-Item -ItemType Directory -Force -Path $dir | Out-Null
-icacls $dir /inheritance:r /grant:r 'Administrators:(OI)(CI)F' 'SYSTEM:(OI)(CI)F' 'Users:(OI)(CI)RX' | Out-Null
+# SID de SYSTEM, Administradores y Usuarios: los nombres en texto fallan en Windows en otro idioma.
+icacls $dir /grant:r '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-32-545:(OI)(CI)RX' | Out-Null
+if ($LASTEXITCODE -ne 0) { throw 'icacls no pudo fijar los permisos de la carpeta protegida.' }
+icacls $dir /inheritance:r | Out-Null
+icacls "$dir\*" /reset /T /C | Out-Null
 
 Copy-Item $source (Join-Path $dir 'tweaks_state.ps1') -Force
 Copy-Item (Join-Path $PSScriptRoot 'games_tweak.ps1') (Join-Path $dir 'games_tweak.ps1') -Force
