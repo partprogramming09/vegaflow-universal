@@ -19,12 +19,16 @@
     Duracion de cada captura de PresentMon.
 .PARAMETER Workers
     Hilos que quema la carga de fondo (1 a 12).
+.PARAMETER Duty
+    Porcentaje de cada 100 ms que cada hilo de la carga quema CPU (5 a 100); fija la carga total en Workers x Duty / 100 procesadores logicos.
+    Con -Mode confine solo se miden base y aff2 (para ver desde que carga conviene confinar).
 #>
 param(
     [ValidateRange(1, 6)][int]$Reps = 3,
     [ValidateRange(10, 120)][int]$Seconds = 30,
     [ValidateRange(1, 12)][int]$Workers = 6,
-    [ValidateSet('factors', 'threads')][string]$Mode = 'factors'
+    [ValidateRange(5, 100)][int]$Duty = 100,
+    [ValidateSet('factors', 'threads', 'confine')][string]$Mode = 'factors'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -47,7 +51,7 @@ function Get-LoadProcesses {
 function Start-Load {
     $page = Join-Path $env:TEMP 'vf-busy.html'
     Copy-Item (Join-Path $root 'tools\busy.html') $page -Force
-    Start-Process 'C:\Program Files\Google\Chrome\Application\chrome.exe' -ArgumentList '--headless=new', '--disable-gpu', '--no-first-run', "--user-data-dir=$(Join-Path $env:TEMP 'vf-chrome-bgf')", "file:///$($page -replace '\\', '/')?n=$Workers" | Out-Null
+    Start-Process 'C:\Program Files\Google\Chrome\Application\chrome.exe' -ArgumentList '--headless=new', '--disable-gpu', '--no-first-run', "--user-data-dir=$(Join-Path $env:TEMP 'vf-chrome-bgf')", "file:///$($page -replace '\\', '/')?n=$Workers&duty=$Duty" | Out-Null
     Start-Sleep -Seconds 8
 }
 
@@ -72,8 +76,9 @@ function Set-Condition($cond) {
 if (Get-Process vegaflow_daemon -ErrorAction SilentlyContinue) { throw 'El daemon esta corriendo; esta prueba es con el daemon apagado.' }
 if (-not (Get-Process drawstress -ErrorAction SilentlyContinue)) { throw 'drawstress no esta abierto.' }
 
-$names = if ($Mode -eq 'threads') { @('base', 'aff2', 'aff4', 'aff6', 'aff8') } else { @('base', 'aff', 'eco', 'io', 'all') }
-$prefix = if ($Mode -eq 'threads') { 'bgt' } else { 'bgf' }
+$names = switch ($Mode) { 'threads' { @('base', 'aff2', 'aff4', 'aff6', 'aff8') } 'confine' { @('base', 'aff2') } default { @('base', 'aff', 'eco', 'io', 'all') } }
+$prefix = switch ($Mode) { 'threads' { 'bgt' } 'confine' { 'bgc' } default { 'bgf' } }
+$dutyTag = if ($Duty -lt 100) { "-d$Duty" } else { '' }
 
 # Suma los segundos de CPU de los procesos de la carga de fondo cuyo id se pasa.
 function Get-LoadCpu($ids) {
@@ -91,7 +96,7 @@ try {
             Start-Sleep -Seconds 2
             $ids = @(Get-LoadProcesses | ForEach-Object { $_.Id })
             $cpu0 = Get-LoadCpu $ids
-            $label = "$prefix-$c-d3d11-w$Workers-$i"
+            $label = "$prefix-$c-d3d11-w$Workers$dutyTag-$i"
             & $bench -Process 'drawstress.exe' -Label $label -Seconds $Seconds -WarmupSeconds 5 | Out-Null
             $bgCpu = [math]::Round((Get-LoadCpu $ids) - $cpu0, 1)
             Stop-Load
