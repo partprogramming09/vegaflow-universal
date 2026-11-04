@@ -109,6 +109,23 @@ Daemon encendido igual que apagado (+0.3% en FPS, dentro del ruido; el 1% Low y 
 
 Límites: una sola carga sintética sin descargas de disco ni procesos de fondo pesados; el beneficio del aislamiento de fondo (EcoQoS, I/O) se mediría con una carga de fondo real, que no se probó.
 
+### Aislamiento de fondo con carga real
+
+Misma carga `drawstress` D3D11 `dim` 30 y mismo método ABBA (5 capturas por condición, juego sin restringir, daemon en la sesión del escritorio), pero con una carga de fondo en las dos condiciones: Chrome sin ventana con 6 workers quemando CPU (unos 6 de los 12 hilos ocupados). `chrome.exe` está en la lista de procesos ruidosos del daemon.
+
+| D3D11 con carga de fondo | FPS medio | 1% Low | 0.1% Low | Desv. frametime (ms) |
+| --- | --- | --- | --- | --- |
+| daemon apagado | 51.0 [47.1–52.9] | 31.9 | 29.2 | 4.58 |
+| daemon encendido | 109.3 [107.9–110.7] | 66.6 | 56.9 | 1.93 |
+
+Con carga de fondo pesada el daemon encendido da 2.14 veces el FPS medio, 2.09 veces el 1% Low y 1.95 veces el 0.1% Low, y reduce la desviación del frametime de 4.58 a 1.93 ms. Los rangos no se solapan. Sin carga de fondo, el daemon encendido y apagado dan lo mismo (120.4 contra 120.0 FPS), y con carga y daemon encendido el juego queda un 9% por debajo de ese valor sin carga.
+
+Es la primera ganancia demostrada de VegaFlow. Límites:
+
+- La carga es un peor caso: 6 workers ocupando CPU sin pausa. Una pestaña o un launcher normales cargarían mucho menos, y el efecto sería menor.
+- No se aisló qué parte del daemon produce la ganancia. La candidata más probable es el confinamiento del fondo a los CPU Sets de fondo (el juego conserva todos los hilos), no EcoQoS ni la prioridad de I/O, pero no se midió por separado.
+- Una sola carga de juego sintética, limitada por CPU; no se probó con un juego real ni con D3D12.
+
 - El daemon sufre el mismo patrón que `tweaks_state.ps1`: su `--apu-balanced` escribe valores fijos y no los que había (borró `PERFBOOSTMODE=3` y `ASPM=0` que estaban puestos tras un reinicio).
 
 ## Observaciones

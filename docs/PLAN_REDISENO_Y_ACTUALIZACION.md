@@ -145,5 +145,6 @@ Detalle en `docs/MEDICION_AB_DAEMON.md`.
 
 - Hallazgo: confinar al juego a 8 de los 12 hilos (CPU Sets) bajaba `drawstress` D3D11 un 19% a 24%. La prioridad del planificador (`Win32PrioritySeparation`) no tenía efecto.
 - Corregido (`bcf360c`): `restrict_game_cpu_sets` apagado por defecto. Con el juego sin restringir, el daemon encendido iguala al apagado en D3D11 (120.4 contra 120.0 FPS) y en D3D12 no había efecto.
-- Estado de las promesas del proyecto: ninguna optimización de VegaFlow tiene todavía una ganancia demostrada en `drawstress`; el perfil de energía y el confinamiento del juego tenían un coste medible, ya eliminado. El beneficio del aislamiento de fondo (EcoQoS, prioridad de I/O) no se midió: requiere una carga de fondo real.
-- Siguiente medición útil: `drawstress` con una carga de fondo (`7z b`, navegador, Discord) y el daemon apagado contra encendido, para ver si el aislamiento de fondo protege al juego.
+- Sin carga de fondo, ninguna optimización de VegaFlow mejora `drawstress`; el perfil de energía y el confinamiento del juego tenían un coste medible, ya eliminado.
+- Con una carga de fondo pesada (Chrome sin ventana, 6 workers) el aislamiento de fondo sí funciona: 51.0 FPS con el daemon apagado contra 109.3 encendido (2.14 veces; 1% Low 31.9 a 66.6; desviación 4.58 a 1.93 ms). Primera ganancia demostrada del proyecto; es un peor caso.
+- Siguiente: aislar qué parte produce la ganancia (CPU Sets de fondo, EcoQoS, prioridad de I/O) quitándolas una a una; repetir con D3D12 y con una carga de fondo más realista (un navegador con pestañas normales, Discord); y medir un juego real (Octopath Traveler II).
