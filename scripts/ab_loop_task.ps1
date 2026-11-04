@@ -9,6 +9,9 @@
     daemon registro una sesion de juego, y aborta si el daemon encendido corre fuera de la sesion 1.
 .PARAMETER Api
     Etiqueta de la API del juego abierto (d3d11 o d3d12); solo nombra las capturas.
+.PARAMETER Sensors
+    1 muestrea cada 5 s la temperatura de la zona termica ACPI y el rendimiento de la CPU durante cada captura y
+    anade al final una fila sens por captura (la potencia no se mide: el equipo no expone contadores de potencia).
 #>
 param(
     [Parameter(Mandatory)][string]$Api,
@@ -18,7 +21,8 @@ param(
     [string]$Process = 'drawstress.exe',
     [string]$LabelPrefix = 'task',
     [ValidateSet('none', 'chrome')][string]$Load = 'none',
-    [ValidateRange(1, 12)][int]$LoadWorkers = 6
+    [ValidateRange(1, 12)][int]$LoadWorkers = 6,
+    [ValidateSet('0', '1')][string]$Sensors = '0'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -26,6 +30,7 @@ $bench = Join-Path $PSScriptRoot 'bench.ps1'
 $runsLog = Join-Path $Dir 'ab_runs.log'
 $sessionLog = Join-Path $Dir 'logs\session_reports.log'
 $procName = [IO.Path]::GetFileNameWithoutExtension($Process)
+$sensRows = [System.Collections.Generic.List[string]]::new()
 
 # Anota una linea con marca de tiempo en ab_runs.log.
 function Write-Run($msg) { Add-Content -Path $runsLog -Value ('{0} {1}' -f (Get-Date -Format o), $msg) }
@@ -57,7 +62,29 @@ function Invoke-Capture($cond, $i) {
     $d = Get-Process vegaflow_daemon -ErrorAction SilentlyContinue | Select-Object -First 1
     Write-Run ("captura label=$label load=$Load daemon=$(if ($d) { "sesion$($d.SessionId)" } else { 'apagado' }) desviado=[$(Get-Drift)]")
     Start-Load
+    $sampler = $null
+    if ($Sensors -eq '1') {
+        $sampler = Start-Job {
+            while ($true) {
+                $t = Get-CimInstance Win32_PerfFormattedData_Counters_ThermalZoneInformation | Select-Object -First 1
+                $p = Get-CimInstance Win32_PerfFormattedData_Counters_ProcessorInformation -Filter "Name='_Total'"
+                [pscustomobject]@{ temp = $t.HighPrecisionTemperature / 10 - 273.15; perf = [double]$p.PercentProcessorPerformance; mhz = [double]$p.ProcessorFrequency }
+                Start-Sleep -Seconds 5
+            }
+        }
+    }
     try { & $bench -Process $Process -Label $label -Seconds $Seconds -WarmupSeconds 5 | Out-Null } finally { Stop-Load }
+    if ($sampler) {
+        Stop-Job $sampler
+        $samples = @(Receive-Job $sampler)
+        Remove-Job $sampler -Force
+        if ($samples.Count -gt 0) {
+            $eff = ($samples | ForEach-Object { $_.mhz * $_.perf / 100 } | Measure-Object -Average).Average
+            $sensRows.Add(('sens,{0},n={1},temp_first={2:N1},temp_avg={3:N1},temp_max={4:N1},temp_last={5:N1},perf_avg={6:N0},perf_min={7:N0},mhz_eff_avg={8:N0}' -f `
+                $label, $samples.Count, $samples[0].temp, ($samples | Measure-Object temp -Average).Average, ($samples | Measure-Object temp -Maximum).Maximum, `
+                $samples[-1].temp, ($samples | Measure-Object perf -Average).Average, ($samples | Measure-Object perf -Minimum).Minimum, $eff))
+        }
+    }
 }
 
 # Lanza la tarea VegaFlow-Start y espera a que el daemon corra en la sesion 1 y aplique sus optimizaciones.
@@ -116,3 +143,4 @@ Get-ChildItem (Join-Path (Split-Path $PSScriptRoot) 'bench\results') -Filter "$L
         $r = Get-Content $_.FullName -Raw | ConvertFrom-Json
         '{0},{1},{2},{3},{4},{5},{6}' -f $r.label, $r.frames, $r.avg_fps, $r.fps_1pct_low, $r.fps_0_1pct_low, $r.frametime_stddev_ms, $r.present_mode
     }
+$sensRows
