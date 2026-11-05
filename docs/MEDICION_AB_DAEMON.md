@@ -245,6 +245,23 @@ La diferencia de FPS (±2) está dentro del ruido y 2 hilos le dan al fondo el d
 
 Dos rondas, orden invertido en la segunda: apagado 119.6 y 119.8 FPS (1% Low 80.2 y 79.5); encendido 120.0 y 120.0 (1% Low 79.1 y 78.4). Sin diferencia a los 10 minutos. Una primera ronda de una sola repetición dio 106.9 con el daemon apagado y 122.5 encendido; no se repitió, y como el apagado fue la primera captura tras abrir el juego se atribuye al orden o al arranque, no al daemon. Solo se midieron FPS: no hay temperatura ni potencia, así que el efecto del perfil de energía en el térmico sostenido sigue sin medirse.
 
+#### Temperatura y frecuencia sostenidas (2026-11-04, D3D11, capturas de 10 minutos, 2 rondas con el orden invertido)
+
+`ab_loop_task.ps1 -Sensors 1` muestrea cada 5 s la zona térmica ACPI y el rendimiento de la CPU (porcentaje sobre la frecuencia base de 3001 MHz). La potencia no se midió: el laptop no expone contadores de potencia. La zona ACPI es una sola lectura, no la temperatura de un núcleo ni de la GPU.
+
+| Condición | FPS medio | 1% Low | Temp. media / máx. (°C) | Rendimiento CPU medio | MHz efectivos medios |
+| --- | --- | --- | --- | --- | --- |
+| Carga de 4 workers, daemon apagado | 74.1 | 48.7 | 82.1 / 83.1 | 118% | 3519 y 3580 |
+| Carga de 4 workers, daemon encendido | 111.6 | 67.3 | 82.8 / 84.6 | 128.5% | 3844 y 3868 |
+| Sin carga, daemon apagado | 119.8 | 80.3 | 72.5 / 76.6 | 129% | 3861 y 3859 |
+| Sin carga, daemon encendido | 120.6 | 79.9 | 72.5 / 73.6 | 129% | 3871 y 3873 |
+
+- Con carga, el daemon encendido sostiene 10 minutos la ganancia de FPS (+51%) y la CPU rinde unos 300 MHz efectivos más. La temperatura es la misma con y sin daemon (82 a 85 °C): el equipo está en su límite térmico en los dos casos y el daemon no lo calienta más.
+- Sin carga, daemon apagado y encendido dan lo mismo en FPS, frecuencia y temperatura (72.5 °C).
+- Ningún caso mostró deriva en 10 minutos: la temperatura al inicio y al final de cada captura es la misma. Con carga ya partía caliente (78 a 85 °C) de la captura anterior, así que no se vio el calentamiento desde frío.
+- Una captura (`sc-off-2`) tiene una muestra de rendimiento de 0%, una lectura anómala del contador que baja su media un 1%.
+- Solo se guardaron el primer valor, la media, el máximo y el último: no hay serie de tiempo.
+
 - Solo se midió en un 6 núcleos / 12 hilos Zen 2. En equipos con menos núcleos, con núcleos híbridos o con más de 8 núcleos no hay medición y el resultado puede ser distinto.
 
 - El daemon sufre el mismo patrón que `tweaks_state.ps1`: su `--apu-balanced` escribe valores fijos y no los que había (borró `PERFBOOSTMODE=3` y `ASPM=0` que estaban puestos tras un reinicio).

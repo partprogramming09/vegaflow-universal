@@ -14,9 +14,9 @@ Fecha: 2026-11-04. Rama `feat/ab-automation`, PR #5. Plan para terminar lo pendi
 ## Fases
 
 ### Fase 0: cerrar la medición térmica en curso
-- [ ] Esperar el fin de la cadena `therm.out` (sostenida sin carga) y leer el estado del doctor.
-- [ ] Analizar con `vfjob stats` (tiene en cuenta la lectura `perf_min=0`, que es una muestra anómala del contador).
-- [ ] Documentar en `docs/MEDICION_AB_DAEMON.md`: temperatura y frecuencia efectiva con y sin daemon, con y sin carga; sin potencia (el equipo no la expone).
+- [x] Esperar el fin de la cadena `therm.out` (sostenida sin carga) y leer el estado del doctor.
+- [x] Analizar con `vfjob stats` (tiene en cuenta la lectura `perf_min=0`, que es una muestra anómala del contador).
+- [x] Documentar en `docs/MEDICION_AB_DAEMON.md`: temperatura y frecuencia efectiva con y sin daemon, con y sin carga; sin potencia (el equipo no la expone).
 - Hecho cuando: el documento tiene la tabla y su límite y está commiteado.
 
 ### Fase 1: desplegar y verificar las mejoras de `vfjob`
