@@ -1876,10 +1876,13 @@ int main() {
         const bool c2t4 = (bg_size(2, 2) == 1);
         const bool c6t12 = (bg_size(6, 2) == 2);
         const bool c8t16 = (bg_size(8, 2) == 2);
-        RecordResult(c4t4 && c2t4 && c6t12 && c8t16,
-                     "Test 28: Background CPU set size scales with logical processors",
+        const bool c4t8 = (bg_size(4, 2) == 2);
+        const bool c6t6 = (bg_size(6, 1) == 1);
+        RecordResult(c4t4 && c2t4 && c6t12 && c8t16 && c4t8 && c6t6,
+                     "Test 28: Background CPU set is one physical core (one thread below 4 cores)",
                      "4C/4T=1: " + std::string(c4t4 ? "PASS" : "FAIL") + ", 2C/4T=1: " + std::string(c2t4 ? "PASS" : "FAIL")
-                     + ", 6C/12T=2: " + std::string(c6t12 ? "PASS" : "FAIL") + ", 8C/16T=2: " + std::string(c8t16 ? "PASS" : "FAIL"));
+                     + ", 6C/12T=2: " + std::string(c6t12 ? "PASS" : "FAIL") + ", 8C/16T=2: " + std::string(c8t16 ? "PASS" : "FAIL")
+                     + ", 4C/8T=2: " + std::string(c4t8 ? "PASS" : "FAIL") + ", 6C/6T=1: " + std::string(c6t6 ? "PASS" : "FAIL"));
     }
 
     // -------------------------------------------------------------------------

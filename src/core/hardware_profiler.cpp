@@ -424,8 +424,9 @@ void HardwareProfiler::PartitionCpuSetsFromTopology(CpuTopologyProfile& cpu_topo
     cpu_topology.has_multiple_ccx = (llc_indices.size() > 1);
     cpu_topology.has_hybrid_cores = (min_eff != max_eff);
 
-    // Hilos de fondo como maximo una sexta parte de los logicos (minimo 1): con 12 son 2 y con 4 es 1.
-    const size_t bg_limit = std::max<size_t>(1, cpu_topology.logical_processors / 6);
+    // Con 4 o mas nucleos el fondo recibe un nucleo fisico completo (sus hilos SMT); con menos, un solo hilo.
+    const size_t threads_per_core = std::max<size_t>(1, cpu_topology.logical_processors / std::max<uint32_t>(1, cpu_topology.physical_cores));
+    const size_t bg_limit = (cpu_topology.physical_cores >= 4) ? threads_per_core : 1;
 
     if (cpu_topology.has_hybrid_cores) {
         std::set<uint32_t> high_perf_cores;
