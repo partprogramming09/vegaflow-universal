@@ -67,3 +67,12 @@ Sigue pasando y conviene mejorarlo:
 ### Límites de todo lo anterior
 
 Una sola máquina (Zen 2, 6 núcleos), una sola carga de juego sintética (`drawstress`, D3D11 salvo donde se indica D3D12), ninguna prueba con un juego real y ninguna con otro tipo de equipo. Los equipos más pequeños se simularon con afinidad en el mismo laptop; no son equipos reales.
+
+## 3. Comparación del ejecutor de WinBridge con `vfjob` (2026-11-04)
+
+`bg-factors` (confinamiento, 4 workers, 3 rondas de 30 s, D3D11), mismos scripts en los dos ejecutores, orden vieja-nueva-nueva-vieja, 6 capturas por condición y ejecutor.
+
+- Primer intento inválido: en el ejecutor nuevo Chrome no arrancaba (`procesos=0`) porque su `TEMP` protegido (`C:\ProgramData\WinBridgeJobs\tmp`) no sirve de perfil. Se arregló usando la carpeta temporal del usuario en `bg_factors.ps1` y `ab_loop_task.ps1`.
+- Resultado válido (FPS medio [rango]): viejo sin aislar 75.3 [73.3-76.8], viejo confinado 104.0 [102.2-105.5]; nuevo sin aislar 78.2 [76.6-80.5], nuevo confinado 117.3 [114.1-120.1]. Sin aislar el nuevo da +3.9% (rangos que se tocan); confinado da +12.7% (rangos que no se solapan). Mismo modo de presentación (`Hardware: Independent Flip`) en las 24 capturas.
+- Conclusión: el ejecutor nuevo todavía no es equivalente al viejo en la condición confinada, y no se sabe por qué. Sin aislar está dentro del ruido. `vfjob` y `VegaFlow-Run` se quedan.
+- Siguiente experimento posible (lo decide el usuario): volcar el entorno (`Get-ChildItem Env:`) dentro de un trabajo en cada ejecutor y comparar, o repetir con el `PATH` y `PSModulePath` completos del usuario en el paquete nuevo.

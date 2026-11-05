@@ -49,9 +49,10 @@ Fecha: 2026-11-04. Rama `feat/ab-automation`, PR #5. Plan para terminar lo pendi
 - Hecho cuando: tabla en `docs/MEDICION_AB_DAEMON.md` y constantes respaldadas.
 
 ### Fase 6: restauración del registro en los flujos del daemon
-- [ ] Revisar `src/main.cpp`: los cierres limpios y `--apu-balanced` / restauración deben llamar a `RestoreAllRegistryBackups()` además de lo que ya restauran.
-- [ ] Añadir una opción de línea de comandos `--restore-registry` y una prueba que la ejecute.
-- [ ] `tweaks_state.ps1 -Restore`: guardar y devolver los valores previos (hoy escribe valores fijos); probar con la instantánea antes/después.
+- [x] Revisar `src/main.cpp`: los cierres limpios y `--apu-balanced` / restauración deben llamar a `RestoreAllRegistryBackups()` además de lo que ya restauran.
+- [x] Añadir una opción de línea de comandos `--restore-registry` y una prueba que la ejecute.
+- [x] `tweaks_state.ps1 -Restore`: guardar y devolver los valores previos (hoy escribe valores fijos); probar con la instantánea antes/después.
+- Estado: hecha el 2026-11-04. Cubre GameDVR, UMD de AMD, MPO, MMCSS, `Win32PrioritySeparation` y `DisablePagingExecutive`/`LargeSystemCache`; 30 de 30 en el laptop, `--restore-registry` sale con 0 y el registro queda idéntico antes y después. El cierre limpio del daemon no restaura el registro (decisión de diseño pendiente).
 - Hecho cuando: 29 de 29 (o más) en verde y el registro idéntico tras aplicar y restaurar.
 
 ### Fase 7: cierre
