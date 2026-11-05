@@ -48,7 +48,7 @@ Sigue pasando y conviene mejorarlo:
 - Quitado por costar FPS: `CPMINCORES=100` y confinar al juego a 8 de 12 hilos.
 - Ganancia demostrada: aislar el fondo con el juego sin restringir. Crece con la carga de fondo: +14% con 1 worker, +45% con 4, 2.1 veces con 6.
 - Confinar solo cuando el fondo consume al menos 0.5 procesadores lógicos (por debajo no ayuda y a 0.23 cuesta un 5%).
-- Número de hilos para el fondo: 2 de 12 es lo mejor medido; en un equipo simulado de 4 hilos, 1 hilo supera a 2 por mucho. Regla actual: un sexto de los procesadores lógicos, mínimo 1.
+- Número de hilos para el fondo: 2 de 12 es lo mejor medido; en un equipo simulado de 4 hilos, 1 hilo supera a 2 por mucho. Regla actual: un núcleo físico completo con 4 o más núcleos, un hilo con menos (medida con simulación en 4, 6, 8 y 12 hilos).
 - El perfil de energía ahora restaura los valores previos y las pruebas dejan el plan intacto.
 
 ### Por medir (propuestas, nada de esto está probado)
@@ -58,7 +58,7 @@ Sigue pasando y conviene mejorarlo:
 - **Contención de memoria UMA.** La carga de fondo fue de CPU pura. Una carga que sature el ancho de banda de memoria (CPU y GPU comparten ~40 GB/s) podría dañar al juego aunque esté confinada a pocos hilos.
 - **Disco y prioridad de I/O.** `drawstress` no usa disco; la prioridad de I/O no se pudo medir. Falta una carga de juego con streaming de texturas.
 - **Sin medición propia:** DirectFlip y MPO, `DisablePagingExecutive`, teselación 16x, AsyncCompute desactivado, DXVK-GPLAsync, FSR y purga de standby.
-- **Hilos de fondo en otros tamaños de CPU.** La regla de un sexto se apoya en 4 y 12 hilos; 6, 8 y 16 hilos son extrapolación. En equipos con núcleos híbridos (E-cores) el fondo ya va a los eficientes y no se midió.
+- **Hilos de fondo en otros tamaños de CPU.** La regla del núcleo completo se apoya en 4, 6, 8 y 12 hilos simulados; 16 hilos y más son extrapolación. En equipos con núcleos híbridos (E-cores) el fondo ya va a los eficientes y no se midió.
 - **Umbrales del confinamiento (0.5 y 0.25).** Quedan respaldados por una carga sintética en un equipo; falta repetir con cargas reales de fondo (navegador, launcher) y con otro juego.
 - **Latencia del daemon.** Confinar tarda hasta 1.5 s en aparecer una carga; no se midió su efecto en los tirones al inicio de la carga.
 - **Restauración.** Los restauradores de `tweaks_state.ps1` siguen escribiendo valores fijos; falta guardar y devolver los valores previos del registro del driver de AMD y de GameDVR.

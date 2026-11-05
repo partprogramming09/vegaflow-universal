@@ -216,7 +216,24 @@ Con 2, 3, 4 y 6 workers, 2 hilos da el mayor FPS. Ensanchar el conjunto solo le 
 
 Con 4 hilos, dejar al fondo 2 hilos (la mitad) rinde mucho menos que dejarle 1, y 1 hilo da unos 106 FPS con cualquier carga. La medición de 2 núcleos con SMT y 4 workers falló (PresentMon no generó datos) y no se repitió. En 12 hilos, 2 hilos eran lo mejor medido; 1 hilo no se midió.
 
-Cambio: el conjunto de fondo es como máximo una sexta parte de los procesadores lógicos (mínimo 1): 12 hilos dan 2 (igual que antes), 4 hilos dan 1. Es una extrapolación entre dos puntos (4 y 12 hilos): 6, 8 o 16 hilos no están medidos, ni equipos reales con menos núcleos.
+Primera regla (corregida más abajo): una sexta parte de los procesadores lógicos, mínimo 1.
+
+#### Equipos de 6 y 8 hilos, simulados (2026-11-04, D3D11, 3 rondas)
+
+Misma simulación por afinidad en este laptop. FPS medio / 1% Low con el fondo en 1 hilo y en 2 hilos:
+
+| Equipo simulado | Workers de fondo | 1 hilo | 2 hilos |
+| --- | --- | --- | --- |
+| 6 hilos, un hilo por núcleo (hilos 0, 2, 4, 6, 8, 10) | 1 | 101.5 / 62.4 | 103.4 / 62.4 |
+| | 2 | 98.3 / 49.4 | 95.7 / 40.6 |
+| | 4 | 86.8 / 52.9 | 76.5 / 44.1 |
+| 4 núcleos con SMT (8 hilos) | 1 | 105.5 / 65.3 | 105.1 / 65.1 |
+| | 2 | 101.1 / 65.2 | 114.6 / 68.0 |
+| | 4 | 99.0 / 57.2 | 105.4 / 72.4 |
+
+Con 6 hilos sin SMT, 1 hilo iguala o supera a 2 (con mucha variación entre rondas en el 1% Low). Con 8 hilos y SMT, 2 hilos (un núcleo completo) gana a 1 con cargas de 2 y 4 workers. Sin carga de fondo y con SMT, 12 hilos daban lo mismo con 1 que con 2.
+
+Regla vigente: el fondo recibe un núcleo físico completo (sus hilos SMT) cuando hay 4 o más núcleos, y un solo hilo cuando hay menos. Resultado: 12 hilos dan 2, 8 hilos con SMT dan 2, 6 hilos sin SMT dan 1, y 4 hilos (con o sin SMT) dan 1. La regla de una sexta parte daba 1 para 8 hilos y los datos la contradicen. Los 16 hilos y los equipos reales no están medidos; la regla del núcleo completo es una extrapolación para ellos.
 
 #### Carga de memoria y ancho del conjunto de fondo en 12 hilos (2026-11-04, D3D11, 3 rondas, daemon apagado)
 
