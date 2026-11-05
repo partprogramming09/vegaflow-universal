@@ -57,8 +57,9 @@ Fecha: 2026-11-04. Rama `feat/ab-automation`, PR #5. Plan para terminar lo pendi
 - Hecho cuando: 29 de 29 (o más) en verde y el registro idéntico tras aplicar y restaurar.
 
 ### Fase 7: cierre
-- [ ] Actualizar `docs/MEJORAS_MCP_Y_APU.md` (marcar lo hecho, lo que sigue abierto), `CLAUDE.md` §9, descripción del PR y la memoria del proyecto.
-- [ ] Verificación final: `build-test` en verde, registro y plan de energía idénticos a la instantánea inicial, `doctor` limpio, laptop sin `drawstress` ni daemon abiertos, todo subido.
+- [x] Actualizar `docs/MEJORAS_MCP_Y_APU.md` (marcar lo hecho, lo que sigue abierto), `CLAUDE.md` §9, descripción del PR y la memoria del proyecto.
+- [x] Verificación final: `build-test` en verde, registro y plan de energía idénticos a la instantánea inicial, `doctor` limpio, laptop sin `drawstress` ni daemon abiertos, todo subido.
+- Estado: hecha el 2026-11-05: 30 de 30, registro y plan de energía idénticos antes y después, `--restore-registry` con salida 0, doctor limpio, laptop sin juego ni daemon abiertos, todo subido.
 - Hecho cuando: el informe final nombra lo medido, lo no medido y lo que sigue en manos del usuario.
 
 ## Qué no entra
