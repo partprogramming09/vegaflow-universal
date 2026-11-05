@@ -20,13 +20,13 @@ Fecha: 2026-11-04. Rama `feat/ab-automation`, PR #5. Plan para terminar lo pendi
 - Hecho cuando: el documento tiene la tabla y su límite y está commiteado.
 
 ### Fase 1: desplegar y verificar las mejoras de `vfjob`
-- [ ] `vfjob update` (instala `ab_loop_task.ps1` y `bg_factors.ps1` nuevos y el manifiesto).
-- [ ] Probar: `ab` y `bg-factors` abren `drawstress` solos (lanzarlos sin `game` previo, 1 ronda corta de 30 s), `vfjob busy`, rechazo de un envío con un trabajo en curso, `VFJOB_QUEUE=1`, `vfjob sync` (sin cambios nuevos: "Already up to date"), `vfjob build-test` (29 de 29), `vfjob stats` sobre una salida real, espera por defecto del manifiesto.
-- [ ] Comprobar que el registro y el plan de energía quedan idénticos tras `build-test` (instantánea antes/después).
+- [x] `vfjob update` (instala `ab_loop_task.ps1` y `bg_factors.ps1` nuevos y el manifiesto).
+- [x] Probar: `ab` y `bg-factors` abren `drawstress` solos (lanzarlos sin `game` previo, 1 ronda corta de 30 s), `vfjob busy`, rechazo de un envío con un trabajo en curso, `VFJOB_QUEUE=1`, `vfjob sync` (sin cambios nuevos: "Already up to date"), `vfjob build-test` (29 de 29), `vfjob stats` sobre una salida real, espera por defecto del manifiesto.
+- [x] Comprobar que el registro y el plan de energía quedan idénticos tras `build-test` (instantánea antes/después).
 - Hecho cuando: todas las pruebas anteriores dan el resultado esperado y `doctor` sale limpio.
 
 ### Fase 2: subir
-- [ ] `git push` y actualizar la descripción del PR #5 con lo hecho desde la última versión.
+- [x] `git push` y actualizar la descripción del PR #5 con lo hecho desde la última versión.
 - Hecho cuando: `git status` limpio (salvo `concepts_brief.md`, que es ajeno) y el PR refleja los cambios.
 
 ### Fase 3: validar la regla de hilos de fondo en 6 y 8 hilos (simulado)
