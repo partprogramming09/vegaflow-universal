@@ -279,6 +279,23 @@ Dos rondas, orden invertido en la segunda: apagado 119.6 y 119.8 FPS (1% Low 80.
 - Una captura (`sc-off-2`) tiene una muestra de rendimiento de 0%, una lectura anómala del contador que baja su media un 1%.
 - Solo se guardaron el primer valor, la media, el máximo y el último: no hay serie de tiempo.
 
+#### Serie de tiempo de 5 minutos con carga de 4 workers (2026-11-04, D3D11, 3 rondas con el orden alternado)
+
+`ab_loop_task.ps1 -Sensors 1` ahora guarda la media por minuto de la temperatura ACPI y del rendimiento de la CPU.
+
+| Condición | FPS medio [rango] | 1% Low | Temp. media / máx. (°C) | Rendimiento CPU medio | MHz efectivos |
+| --- | --- | --- | --- | --- | --- |
+| Daemon apagado | 62.8 [51.5-69.6] | 32.5 [2.0-49.0] | 81.7 / 82.4 | 118% | 3539 |
+| Daemon encendido | 105.5 [105.2-105.8] | 69.7 [66.5-71.5] | 81.5 / 83.1 | 128.7% | 3859 |
+
+Media por minuto (temperatura / rendimiento), una captura de cada condición:
+- apagado: 1: 81.0 °C / 121%, 2: 81.1 / 118%, 3: 81.3 / 117%, 4: 81.6 / 116%, 5: 81.9 / 117%.
+- encendido: 1: 81.9 °C / 129%, 2: 81.2 / 129%, 3: 81.1 / 128%, 4: 81.7 / 129%, 5: 81.1 / 129%.
+
+- Ninguna condición mostró deriva térmica en 5 minutos: la temperatura oscila entre 81 y 83 °C y el rendimiento de la CPU se mantiene (con el daemon apagado baja del 121% al 116-117% en la primera captura y queda ahí, un 10% por debajo del encendido). El equipo parte ya caliente, así que no se vio el calentamiento desde frío.
+- Con el daemon apagado una captura tuvo un tirón enorme (1% Low 2.0, desviación del frametime 484 ms) que baja la media de esa condición; no se repitió y no se sabe si lo causó la carga de fondo sin aislar o algo ajeno. Sin esa captura la media apagada sería unos 69 FPS, y sigue por debajo del encendido.
+- Sigue sin medirse la potencia ni la temperatura de un componente concreto.
+
 - Solo se midió en un 6 núcleos / 12 hilos Zen 2. En equipos con menos núcleos, con núcleos híbridos o con más de 8 núcleos no hay medición y el resultado puede ser distinto.
 
 - El daemon sufre el mismo patrón que `tweaks_state.ps1`: su `--apu-balanced` escribe valores fijos y no los que había (borró `PERFBOOSTMODE=3` y `ASPM=0` que estaban puestos tras un reinicio).

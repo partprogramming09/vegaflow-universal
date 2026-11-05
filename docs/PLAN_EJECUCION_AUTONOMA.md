@@ -37,10 +37,10 @@ Fecha: 2026-11-04. Rama `feat/ab-automation`, PR #5. Plan para terminar lo pendi
 - Hecho cuando: hay tabla documentada y la regla del código coincide con los datos, o queda dicho que no.
 
 ### Fase 4: térmico con serie de tiempo
-- [ ] Guardar la serie completa de muestras (CSV por captura) en `ab_loop_task.ps1 -Sensors 1`.
-- [ ] Repetir sostenido con capturas de 5 minutos, descartando el primer minuto, daemon encendido y apagado, 3 rondas, con carga de 4 workers.
-- [ ] Informar si la temperatura o la frecuencia cambian con el tiempo, no solo la media.
-- Hecho cuando: documentado, con la serie como evidencia.
+- [x] Guardar la serie completa de muestras (CSV por captura) en `ab_loop_task.ps1 -Sensors 1`.
+- [x] Repetir sostenido con capturas de 5 minutos, descartando el primer minuto, daemon encendido y apagado, 3 rondas, con carga de 4 workers.
+- [x] Informar si la temperatura o la frecuencia cambian con el tiempo, no solo la media.
+- Estado: hecha; la serie se guardó como media por minuto en vez de CSV por captura. Hecho cuando: documentado, con la serie como evidencia.
 
 ### Fase 5: umbrales y D3D12
 - [ ] Repetir el umbral de confinamiento (cargas de 0,23, 0,46 y 0,92 procesadores lógicos) en D3D12, 5 rondas.
