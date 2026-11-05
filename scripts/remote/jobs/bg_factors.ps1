@@ -27,6 +27,8 @@
     Con -Mode narrow se comparan 1 y 2 hilos logicos para el fondo en el equipo completo.
 .PARAMETER Api
     API del juego que se abre si no esta abierto (d3d11 o d3d12); tambien nombra las capturas.
+.PARAMETER Diag
+    1 anade por captura dos filas: diag (prioridad, afinidad, ahorro de energia y CPU Sets del juego, de PresentMon y de Chrome) y cpu (uso medio de cada hilo logico durante la captura).
 .PARAMETER Duty
     Porcentaje de cada 100 ms que cada hilo de la carga quema CPU (5 a 100); fija la carga total en Workers x Duty / 100 procesadores logicos.
     Con -Mode confine solo se miden base y aff2 (para ver desde que carga conviene confinar).
@@ -39,7 +41,8 @@ param(
     [ValidateRange(5, 100)][int]$Duty = 100,
     [ValidateSet('factors', 'threads', 'confine', 'sim', 'narrow')][string]$Mode = 'factors',
     [ValidateSet('cpu', 'mem')][string]$Kind = 'cpu',
-    [ValidateSet('4c', '4t2c', '6c', '4c8t')][string]$Topo = '4c'
+    [ValidateSet('4c', '4t2c', '6c', '4c8t')][string]$Topo = '4c',
+    [ValidateSet('0', '1')][string]$Diag = '0'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -50,7 +53,20 @@ $resultsDir = Join-Path (Split-Path $PSScriptRoot) 'bench\results'
 Add-Type -Namespace VF -Name Bg -MemberDefinition @'
 [DllImport("kernel32.dll", SetLastError = true)] public static extern bool SetProcessInformation(IntPtr h, int cls, uint[] info, int size);
 [DllImport("ntdll.dll")] public static extern int NtSetInformationProcess(IntPtr h, int cls, ref int info, int size);
+[DllImport("kernel32.dll", SetLastError = true)] public static extern bool GetProcessInformation(IntPtr h, int cls, uint[] info, int size);
+[DllImport("kernel32.dll", SetLastError = true)] public static extern bool GetProcessDefaultCpuSets(IntPtr h, uint[] ids, uint count, out uint required);
 '@
+
+# Resume prioridad, afinidad, ahorro de energia (EcoQoS) y CPU Sets por defecto de un proceso, en una cadena.
+function Get-ProcDiag($p) {
+    try {
+        $eco = [uint32[]](1, 0, 0)
+        $ecoText = if ([VF.Bg]::GetProcessInformation($p.Handle, 4, $eco, 12)) { "ctl=$($eco[1])/state=$($eco[2])" } else { 'n/d' }
+        $req = [uint32]0
+        [void][VF.Bg]::GetProcessDefaultCpuSets($p.Handle, $null, 0, [ref]$req)
+        '{0}:{1} prio={2} aff=0x{3:X} eco={4} cpusets={5}' -f $p.ProcessName, $p.Id, $p.PriorityClass, [int64]$p.ProcessorAffinity, $ecoText, $req
+    } catch { "$($p.ProcessName):$($p.Id) n/d" }
+}
 
 # Devuelve los procesos de Chrome que arranco la carga de fondo (los identifica por su carpeta de perfil).
 function Get-LoadProcesses {
@@ -113,8 +129,36 @@ try {
             $ids = @(Get-LoadProcesses | ForEach-Object { $_.Id })
             $cpu0 = Get-LoadCpu $ids
             $label = "$prefix-$c-$Api-w$Workers$dutyTag-$i"
+            $sampler = $null
+            if ($Diag -eq '1') {
+                $chromeKinds = @(Get-LoadProcesses | ForEach-Object { '{0}/0x{1:X}' -f $_.PriorityClass, [int64]$_.ProcessorAffinity } | Sort-Object -Unique) -join ';'
+                $sampler = Start-Job {
+                    Start-Sleep -Seconds 12
+                    $pm = Get-Process -Name 'PresentMon*' -ErrorAction SilentlyContinue | Select-Object -First 1
+                    $pmText = if ($pm) { '{0}:{1} prio={2} aff=0x{3:X}' -f $pm.ProcessName, $pm.Id, $pm.PriorityClass, [int64]$pm.ProcessorAffinity } else { 'sin PresentMon' }
+                    [pscustomobject]@{ pm = $pmText }
+                    $acc = @{}
+                    $n = 0
+                    for ($k = 0; $k -lt 4; $k++) {
+                        Get-CimInstance Win32_PerfFormattedData_PerfOS_Processor -Filter "Name<>'_Total'" | ForEach-Object { $acc[[int]$_.Name] = [double]$acc[[int]$_.Name] + $_.PercentProcessorTime }
+                        $n++
+                        Start-Sleep -Seconds 3
+                    }
+                    [pscustomobject]@{ cpu = (($acc.Keys | Sort-Object | ForEach-Object { '{0}={1:F0}' -f $_, ($acc[$_] / $n) }) -join ' ') }
+                }
+                $game = Get-ProcDiag (Get-Process drawstress | Select-Object -First 1)
+            }
             & $bench -Process 'drawstress.exe' -Label $label -Seconds $Seconds -WarmupSeconds 5 | Out-Null
             $bgCpu = [math]::Round((Get-LoadCpu $ids) - $cpu0, 1)
+            if ($sampler) {
+                Wait-Job $sampler -Timeout 20 | Out-Null
+                $got = @(Receive-Job $sampler -ErrorAction SilentlyContinue)
+                Remove-Job $sampler -Force -ErrorAction SilentlyContinue
+                $pmDiag = ($got | Where-Object { $_.pm } | Select-Object -First 1).pm
+                $cpuDiag = ($got | Where-Object { $_.cpu } | Select-Object -First 1).cpu
+                "diag,$label,game=[$game],presentmon=[$pmDiag],chrome=[$chromeKinds]"
+                "cpu,$label,$cpuDiag"
+            }
             Stop-Load
             $r = Get-Content (Get-ChildItem (Join-Path $resultsDir "$label-*.json") | Select-Object -Last 1).FullName -Raw | ConvertFrom-Json
             '{0},{1},{2},{3},{4},procesos={5},bg_cpu_s={6}' -f $label, $r.avg_fps, $r.fps_1pct_low, $r.fps_0_1pct_low, $r.frametime_stddev_ms, $touched, $bgCpu
