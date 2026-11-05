@@ -364,6 +364,21 @@ Mundo (limitada por GPU), 2 workers de fondo:
 
 Límites: una sola máquina, un juego, una carga sintética y 5 capturas de 30 s por condición; cada celda tarda unos 9 minutos.
 
+#### Mezcla de fondo con forma realista, mundo (2026-11-05, `ab Load=mix`)
+
+Carga `mix` de `ab_loop_task.ps1`: Chrome sin ventana con 3 pestañas al 40% de ciclo de trabajo (ráfagas) más 2 procesos de PowerShell que calculan hashes SHA256 de DLL de `System32` sin parar (equivalente a un launcher verificando archivos). Medida antes en el laptop: 3.32 procesadores lógicos y ningún proceso sobrante al cerrar. Es una carga sintética con forma realista: no incluye vídeo, descarga de red ni la actualización de un launcher, que no se pueden provocar de forma reproducible sin conexión. Misma celda que las anteriores (5 capturas por condición de 30 s, ABBA, calentamiento, mundo de Octopath).
+
+| Condición | FPS medio (mediana [rango]) | 1% Low de 30 s | Tirones por min | Cuadros tardíos % |
+| --- | --- | --- | --- | --- |
+| daemon apagado | 41.03 [40.92-41.17] | 35.9, 36.5, 33.8, 33.5, 34.4 | 0, 0, 0, 0, 0 | 0, 0, 0, 0, 0 |
+| daemon encendido | 40.82 [40.71-40.87] | 30.5, 32.6, 33.4, 32.0, 33.9 | 0, 0, 0, 0, 0 | 0.098, 0, 0, 0.196, 0 |
+
+- Sin mejora: el FPS medio cambia -0.53%, bajo el umbral del 1%, así que no cuenta. Los rangos no se solapan (la peor captura apagada, 40.92, supera a la mejor encendida, 40.87): el daemon queda unas décimas de FPS por debajo, en las 5 capturas.
+- Esta mezcla le cuesta poco al juego: de 43.1 FPS sin carga a 41.0 apagado (-4.8%), contra -13% con 2 workers y -37% con 4 workers de Chrome al 100% en la misma escena. El daemon no tiene pérdida que recuperar.
+- Los 1% Low de 30 s del daemon encendido son más bajos (mediana 32.6 contra 34.4; agrupados -7%, intervalo de confianza del 95% de -12% a -1.8%). Las capturas son más cortas que los 120 s del criterio, así que no hay veredicto, pero el signo es negativo en 4 de 5 pares y queda como sospecha de un coste del daemon en esta carga; hace falta repetirlo con capturas de 120 s.
+- Hipótesis sin verificar: la pérdida de rendimiento depende del tipo de trabajo del fondo (el bucle de JavaScript de Chrome al 100% pesa más que los hashes y las ráfagas), no del número de procesadores lógicos que ocupa.
+- Errores en las dos condiciones: solo el ruido ambiental de `ryzenadj.exe`.
+
 ## Observaciones
 
 - El daemon no registró ninguna sesión de juego en estas corridas (`session_reports.log` no cambió en ninguna parada) porque corría en la sesión 0 (ver "Alcance"). El coste de -10.7% vino de algo que hace sin detectar un juego: el perfil de energía.

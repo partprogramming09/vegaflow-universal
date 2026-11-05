@@ -20,7 +20,7 @@ param(
     [string]$Dir = 'C:\ProgramData\VegaFlow',
     [string]$Process = 'drawstress.exe',
     [string]$LabelPrefix = 'task',
-    [ValidateSet('none', 'chrome')][string]$Load = 'none',
+    [ValidateSet('none', 'chrome', 'mix')][string]$Load = 'none',
     [ValidateRange(1, 12)][int]$LoadWorkers = 6,
     [ValidateSet('0', '1')][string]$Sensors = '0',
     [ValidateSet('0', '1')][string]$Warmup = '0'
@@ -44,18 +44,27 @@ function Get-Drift {
 # Carpeta del perfil de Chrome y de busy.html: el area del usuario, no el TEMP del ejecutor (con el TEMP protegido de WinBridge Chrome no arranca).
 $loadTemp = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'Temp'
 
-# Arranca la carga de fondo (Chrome sin ventana quemando CPU con 6 workers) y espera a que se asiente.
+# Arranca la carga de fondo y espera a que se asiente. 'chrome': Chrome sin ventana quemando CPU con LoadWorkers workers.
+# 'mix': 3 pestañas de Chrome al 40% de ciclo de trabajo (rafagas) y 2 procesos que calculan hashes de archivos del sistema sin parar (como un launcher verificando archivos).
 function Start-Load {
-    if ($Load -ne 'chrome') { return }
+    if ($Load -eq 'none') { return }
     $page = Join-Path $loadTemp 'vf-busy.html'
     Copy-Item (Join-Path $Dir 'tools\busy.html') $page -Force
-    Start-Process 'C:\Program Files\Google\Chrome\Application\chrome.exe' -ArgumentList '--headless=new', '--disable-gpu', '--no-first-run', "--user-data-dir=$(Join-Path $loadTemp 'vf-chrome-load')", "file:///$($page -replace '\\', '/')?n=$LoadWorkers" | Out-Null
+    $query = if ($Load -eq 'mix') { 'n=3&duty=40' } else { "n=$LoadWorkers" }
+    Start-Process 'C:\Program Files\Google\Chrome\Application\chrome.exe' -ArgumentList '--headless=new', '--disable-gpu', '--no-first-run', "--user-data-dir=$(Join-Path $loadTemp 'vf-chrome-load')", "file:///$($page -replace '\\', '/')?$query" | Out-Null
+    if ($Load -eq 'mix') {
+        1..2 | ForEach-Object {
+            Start-Process powershell -WindowStyle Hidden -ArgumentList '-NoProfile', '-Command', '$vfhashloop = 1; while ($true) { Get-ChildItem C:\Windows\System32 -Filter *.dll -File | Select-Object -First 300 | Get-FileHash -Algorithm SHA256 | Out-Null }' | Out-Null
+        }
+    }
     Start-Sleep -Seconds 8
 }
 
-# Cierra solo los procesos de Chrome que arranco Start-Load (los identifica por su carpeta de perfil).
+# Cierra solo los procesos que arranco Start-Load: los de Chrome por su carpeta de perfil y los de hashes por su marca.
 function Stop-Load {
     Get-CimInstance Win32_Process -Filter "Name='chrome.exe'" | Where-Object { $_.CommandLine -match 'vf-chrome-load' } |
+        ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+    Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" | Where-Object { $_.CommandLine -match 'vfhashloop' } |
         ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 }
 
