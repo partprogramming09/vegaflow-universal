@@ -149,7 +149,7 @@ try {
 } finally {
     Stop-Load
     if (Get-Process vegaflow_daemon -ErrorAction SilentlyContinue) { Start-ScheduledTask -TaskName 'VegaFlow-Stop'; Start-Sleep -Seconds 15 }
-    Get-Process $procName -ErrorAction SilentlyContinue | Stop-Process -Force
+    if ($procName -eq 'drawstress') { Get-Process $procName -ErrorAction SilentlyContinue | Stop-Process -Force }
     Write-Run 'fin'
 }
 
