@@ -256,7 +256,7 @@ Una carga que compite por el ancho de banda de memoria se comporta como la de CP
 | 6 workers | 115.4 / 68.5 / 30 | 113.4 / 70.7 / 60 |
 | 2 workers | 103.1 / 67.6 / 30 | 104.9 / 71.5 / 60 |
 
-La diferencia de FPS (±2) está dentro del ruido y 2 hilos le dan al fondo el doble de CPU, por lo que se mantienen 2 hilos en 12 (un sexto de los procesadores lógicos).
+La diferencia de FPS (±2) está dentro del ruido y 2 hilos le dan al fondo el doble de CPU, por lo que se mantienen 2 hilos en 12 (un núcleo físico completo).
 
 #### Capturas sostenidas de 10 minutos, sin carga de fondo (2026-11-04, D3D11)
 
