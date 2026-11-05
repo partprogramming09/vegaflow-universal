@@ -43,9 +43,10 @@ Fecha: 2026-11-04. Rama `feat/ab-automation`, PR #5. Plan para terminar lo pendi
 - Estado: hecha; la serie se guardó como media por minuto en vez de CSV por captura. Hecho cuando: documentado, con la serie como evidencia.
 
 ### Fase 5: umbrales y D3D12
-- [ ] Repetir el umbral de confinamiento (cargas de 0,23, 0,46 y 0,92 procesadores lógicos) en D3D12, 5 rondas.
-- [ ] Una carga de fondo real: una compilación de `g++` (`build.ps1`) como fondo mientras corre `drawstress`, con y sin daemon, 5 rondas.
+- [x] Repetir el umbral de confinamiento (cargas de 0,23, 0,46 y 0,92 procesadores lógicos) en D3D12, 5 rondas.
+- [ ] (no hecho) Una carga de fondo real: una compilación de `g++` (`build.ps1`) como fondo mientras corre `drawstress`, con y sin daemon, 5 rondas.
 - [ ] Si el umbral de 0,5 o el de 0,25 no se sostiene, cambiar las constantes de `cpu_orchestrator.cpp`, ampliar la Prueba 27 y repetir Fase 1.
+- Estado: umbrales D3D12 hechos y documentados (no cambian las constantes); la compilación como fondo no se hizo: sus procesos son efímeros y la afinidad por proceso no llega a los que nacen después, y medir su consumo necesita otro método.
 - Hecho cuando: tabla en `docs/MEDICION_AB_DAEMON.md` y constantes respaldadas.
 
 ### Fase 6: restauración del registro en los flujos del daemon

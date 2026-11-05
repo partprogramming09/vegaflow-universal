@@ -296,6 +296,18 @@ Media por minuto (temperatura / rendimiento), una captura de cada condición:
 - Con el daemon apagado una captura tuvo un tirón enorme (1% Low 2.0, desviación del frametime 484 ms) que baja la media de esa condición; no se repitió y no se sabe si lo causó la carga de fondo sin aislar o algo ajeno. Sin esa captura la media apagada sería unos 69 FPS, y sigue por debajo del encendido.
 - Sigue sin medirse la potencia ni la temperatura de un componente concreto.
 
+#### Umbral de confinamiento en D3D12 (2026-11-04, daemon apagado, acciones aplicadas a mano, 5 rondas)
+
+Misma carga con ciclo de trabajo (2 workers) que en D3D11; carga real = CPU del fondo sin confinar / ~30 s. FPS medio / 1% Low:
+
+| Carga de fondo (procesadores lógicos) | Sin confinar | Confinado a 2 hilos | Efecto en FPS medio |
+| --- | --- | --- | --- |
+| 0.22 | 94.1 / 66.6 | 94.6 / 68.0 | +0.5% |
+| 0.45 | 92.9 / 59.7 | 96.3 / 75.5 | +3.7% (1% Low +16 puntos) |
+| 0.92 | 95.3 / 66.1 | 97.8 / 70.8 | +2.6% |
+
+En D3D12 confinar no cuesta FPS a carga baja (en D3D11 costaba un 5% a 0.23) y la ganancia es menor que en D3D11 a 0.9 (+2.6% contra +8.2%), aunque mejora el 1% Low desde 0.45. El umbral de 0.5 queda respaldado en los dos: por debajo de él confinar no ayuda, o cuesta, y por encima ayuda. No se midió una carga de fondo real (una compilación): sus procesos son efímeros y la afinidad por proceso no se aplica a los que nacen después.
+
 - Solo se midió en un 6 núcleos / 12 hilos Zen 2. En equipos con menos núcleos, con núcleos híbridos o con más de 8 núcleos no hay medición y el resultado puede ser distinto.
 
 - El daemon sufre el mismo patrón que `tweaks_state.ps1`: su `--apu-balanced` escribe valores fijos y no los que había (borró `PERFBOOSTMODE=3` y `ASPM=0` que estaban puestos tras un reinicio).
