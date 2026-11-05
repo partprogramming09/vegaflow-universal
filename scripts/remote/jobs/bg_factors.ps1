@@ -55,11 +55,14 @@ function Get-LoadProcesses {
         ForEach-Object { Get-Process -Id $_.ProcessId -ErrorAction SilentlyContinue }
 }
 
+# Carpeta del perfil de Chrome y de busy.html: el area del usuario, no el TEMP del ejecutor (con el TEMP protegido de WinBridge Chrome no arranca).
+$loadTemp = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'Temp'
+
 # Arranca la carga de fondo y espera a que Chrome cree sus procesos.
 function Start-Load {
-    $page = Join-Path $env:TEMP 'vf-busy.html'
+    $page = Join-Path $loadTemp 'vf-busy.html'
     Copy-Item (Join-Path $root 'tools\busy.html') $page -Force
-    Start-Process 'C:\Program Files\Google\Chrome\Application\chrome.exe' -ArgumentList '--headless=new', '--disable-gpu', '--no-first-run', "--user-data-dir=$(Join-Path $env:TEMP 'vf-chrome-bgf')", "file:///$($page -replace '\\', '/')?n=$Workers&duty=$Duty&kind=$Kind" | Out-Null
+    Start-Process 'C:\Program Files\Google\Chrome\Application\chrome.exe' -ArgumentList '--headless=new', '--disable-gpu', '--no-first-run', "--user-data-dir=$(Join-Path $loadTemp 'vf-chrome-bgf')", "file:///$($page -replace '\\', '/')?n=$Workers&duty=$Duty&kind=$Kind" | Out-Null
     Start-Sleep -Seconds 8
 }
 
