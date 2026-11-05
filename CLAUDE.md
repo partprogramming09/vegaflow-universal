@@ -366,7 +366,7 @@ direct/
 │       ├── gui_components.cpp
 │       └── gui_tabs.cpp
 ├── tests/
-│   └── test_main.cpp             # Suite de 26 pruebas unitarias e integradas
+│   └── test_main.cpp             # Suite de 30 pruebas unitarias e integradas
 ├── logs/
 │   └── session_reports.log       # Registro persistente de sesiones y telemetría
 └── build/
@@ -393,7 +393,7 @@ El proyecto incluye el script automatizado [`scripts/build.ps1`](scripts/build.p
 # Compilar vegaflow_daemon.exe y vegaflow_tests.exe:
 powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
 
-# Compilar y ejecutar inmediatamente los 26 tests unitarios:
+# Compilar y ejecutar inmediatamente los 30 tests unitarios:
 powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1 -RunTests
 ```
 
@@ -480,9 +480,13 @@ Cualquier cambio en el repositorio debe ser validado ejecutando `build/vegaflow_
 [PASS] Test 24: APU Shadow & Cascades Optimizer (CSM 2-Splits & Half-Res AO)
 [PASS] Test 25: Universal APU Tier Classification, DX11/DX12 Policy & Advanced APU Safety Guards
 [PASS] Test 26: Live APU Guard Telemetry, Multi-CCX / Hybrid L3 Partitioning & Dynamic Pool Sync
+[PASS] Test 27: Background confinement follows its CPU use
+[PASS] Test 28: Background CPU set is one physical core (one thread below 4 cores)
+[PASS] Test 29: Registry changes restore the original values
+[PASS] Test 30: HKLM tweaks restore the original values
 
 ================================================================================
-TEST RESULTS: 26 PASSED, 0 FAILED
+TEST RESULTS: 30 PASSED, 0 FAILED
 ================================================================================
 ```
 
@@ -501,7 +505,7 @@ TEST RESULTS: 26 PASSED, 0 FAILED
 
 El desarrollo activo de VegaFlow Universal se rige por el documento índice maestro [`docs/ROADMAP_FOCUS.md`](docs/ROADMAP_FOCUS.md) y la especificación de diseño [`docs/superpowers/specs/2026-11-01-apu-dx11-dx12-universal-guards-design.md`](docs/superpowers/specs/2026-11-01-apu-dx11-dx12-universal-guards-design.md).
 
-### 8.1. Base Consolidada (`26/26` Pruebas en Verde)
+### 8.1. Base Consolidada (`30/30` Pruebas en Verde)
 - **Modularidad Integral:** Arquitectura desacoplada en cuatro subdominios (`core/`, `optimizers/`, `security/`, `gui/`) tanto en `include/` como en `src/`, con compilación automatizada en [`scripts/build.ps1`](scripts/build.ps1).
 - **Motor `ApuCapabilityGuard`:** Clasificación en 4 Tiers con políticas acotadas:
   - *Tier 1 (`Survival Guard`):* APUs $\le$ 8–9 GB RAM o $\le$ 4 núcleos (protección OOM en Unreal Engine, teselación a 8x, DXVK a 3 hilos).
