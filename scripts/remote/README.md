@@ -17,7 +17,7 @@ Los trabajos corren en el **ejecutor de trabajos de WinBridge** (`/Volumes/dev/w
 | `vfstats.py` | Mac | Agrupa filas de resultados: n, media, mediana y rango |
 | `vfframes.py` | Mac | Compara dos condiciones con los CSV de cuadros de `bench.ps1`: cuadros agrupados, intervalo de confianza del 1% Low y veredicto con los umbrales del plan de pruebas |
 
-`bench` y `ab` salen de `scripts/bench.ps1` y `scripts/ab_loop_task.ps1`. Las tareas `VegaFlow-Start`, `-Stop`, `-State` y `-Restore` (interactivas y elevadas, instaladas una vez por el usuario) siguen en uso: las usan `daemon-start`, `daemon-stop` y `ab`.
+`pack` (`scripts/bench_pack.ps1`) mide una sola condicion con el juego ya abierto y empaqueta CSV, JSON, `--system-info` y el estado de los ajustes para llevarlos a otro equipo o analizarlos con `vfdev frames` y `vfdev regress`. `bench` y `ab` salen de `scripts/bench.ps1` y `scripts/ab_loop_task.ps1`. Las tareas `VegaFlow-Start`, `-Stop`, `-State` y `-Restore` (interactivas y elevadas, instaladas una vez por el usuario) siguen en uso: las usan `daemon-start`, `daemon-stop` y `ab`.
 
 ## Uso
 
@@ -38,6 +38,7 @@ scripts/remote/vfdev fetch PREFIJO [DESTINO]   # trae los JSON y CSV de cuadros 
 scripts/remote/vfdev frames 'A/*.csv' 'B/*.csv' # compara dos condiciones con los cuadros agrupados
 scripts/remote/vfdev regress scripts/remote/baselines/octopath_world.json 'NUEVAS/*.csv'   # PASS o FAIL contra la linea base de la escena
 scripts/remote/vfdev run ab Api=d3d11 Process=juego.exe Reps=5 Seconds=120 Warmup=1 LabelPrefix=run1   # juego real: no se cierra al terminar
+scripts/remote/vfdev run pack Process=juego.exe Label=escena-condicion Captures=5 Seconds=125   # paquete portatil: calentamiento + capturas + huella del equipo en bench\pack-*.zip
 ```
 
 `ab` y `bg-factors` abren `drawstress` solos si no está abierto y lo cierran al terminar. `build-test` se rechaza mientras hay un trabajo en curso (`VFJOB_QUEUE=1` lo salta). Variables: `VFJOB_HOST` (usuario@ip), `VFJOB_KEY` (llave SSH), `WINBRIDGE_BIN`, `VFJOB_REPO` (repositorio en el laptop), `VFJOB_MINGW` (carpeta `bin` de g++), `VFJOB_BASE` (rama base del bundle, `main`).

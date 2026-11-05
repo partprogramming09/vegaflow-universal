@@ -405,6 +405,23 @@ Octopath abierto, Chrome sin ventana con 4 workers como fondo, daemon lanzado co
 - Recuperación probada: arrancar el daemon otra vez y cerrarlo con normalidad (tarea `VegaFlow-Stop`) devuelve `Win32PrioritySeparation` a 2, así que la copia de seguridad conserva el valor original tras el fallo; también sirve `vegaflow_daemon.exe --restore-registry`.
 - Corrección propuesta, no implementada (registrar una tarea de arranque necesita al usuario): una tarea al iniciar sesión que ejecute `--restore-registry` si el daemon no está corriendo.
 
+## Reposo y ciclos de abrir y cerrar el juego (2026-11-05)
+
+Daemon en la sesión del escritorio, 1 minuto en reposo y luego 6 ciclos de `drawstress` abierto 30 s y cerrado 12 s, con una lectura de proceso al final de cada fase (`cycles.sh`).
+
+| Fase | Memoria privada | Manejadores | CPU acumulada |
+| --- | --- | --- | --- |
+| Reposo | 1.8 MB | 106-107 | 0.77 s en 61 s (0.2 s en el último minuto) |
+| Con el juego abierto (ciclos 1 a 6) | 3.6-3.7 MB | 133-137 | |
+| Con el juego cerrado (ciclos 1 a 6) | 2.2 → 2.1 MB | 131 → 127 | |
+| Reposo final y tras 6 ciclos | 2.1 MB | 127 | 2.17 s en total |
+
+- Cumple el KPI (menos de 15 MB privados, casi 0% de CPU en reposo) con margen de 7 veces.
+- No hay fuga: la memoria privada con el juego abierto es constante (3.6 → 3.7 MB) y la de cerrado baja (2.2 → 2.1); los manejadores de cerrado bajan de 131 a 127 y se estabilizan; los hilos vuelven a 2-3.
+- El registro de sesión crece 788 bytes por ciclo, constante.
+- Tras el cierre limpio el daemon no queda corriendo y `doctor` no ve procesos sobrantes.
+- Límite: 6 ciclos y 8 minutos; no descarta una fuga más lenta (el reposo largo se mide aparte).
+
 ## Observaciones
 
 - El daemon no registró ninguna sesión de juego en estas corridas (`session_reports.log` no cambió en ninguna parada) porque corría en la sesión 0 (ver "Alcance"). El coste de -10.7% vino de algo que hace sin detectar un juego: el perfil de energía.

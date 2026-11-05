@@ -55,7 +55,7 @@ deploy)
     remote 'if not exist C:\dev\vf-pkg\scripts mkdir C:\dev\vf-pkg\scripts' || exit 1
     copy_to "$HERE/winbridge-package/manifest.json" "$HERE/busy.html" "$REPO/scripts/tweaks_state.ps1" "$REPO/scripts/ab_profile.ps1" \
         "$HERE/deploy_package.ps1" "testuser@${HOST#*@}:C:/dev/vf-pkg/" || exit 1
-    copy_to "$HERE"/jobs/*.ps1 "$REPO/scripts/bench.ps1" "$REPO/scripts/ab_loop_task.ps1" "testuser@${HOST#*@}:C:/dev/vf-pkg/scripts/" || exit 1
+    copy_to "$HERE"/jobs/*.ps1 "$REPO/scripts/bench.ps1" "$REPO/scripts/bench_pack.ps1" "$REPO/scripts/ab_loop_task.ps1" "testuser@${HOST#*@}:C:/dev/vf-pkg/scripts/" || exit 1
     remote "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\dev\\vf-pkg\\deploy_package.ps1" 2>&1 | LC_ALL=C tr -d '\r' | grep -v '^<\|CLIXML\|^$'
     ;;
 sync)
