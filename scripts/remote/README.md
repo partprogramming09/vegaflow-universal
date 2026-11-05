@@ -56,4 +56,4 @@ scripts/remote/vfdev stats ARCHIVO [PREFIJO]
 - Un trabajo a la vez (cola máxima de 20) y solo sesión 1: no hay trabajos de sesión 0.
 - Tras un reinicio hace falta iniciar sesión en el laptop; el inicio automático no funciona con la cuenta de Microsoft actual.
 - No ve la pantalla ni pulsa teclas (eso lo hace WinBridge).
-- El MCP `vfjob` ya no existe: si sigue registrado en Claude Code, quitarlo con `claude mcp remove vfjob`.
+- El MCP `vfjob` ya no existe y se quitó de la configuración de Claude Code el 2026-11-05.
