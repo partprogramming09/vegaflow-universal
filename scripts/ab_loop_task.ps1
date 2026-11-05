@@ -121,6 +121,12 @@ function Stop-Daemon {
     Start-Sleep -Seconds 5
 }
 
+# Si el juego no esta abierto y es drawstress, lo abre con game.ps1 (el ejecutor remoto lo instala junto a este script).
+if (-not (Get-Process $procName -ErrorAction SilentlyContinue)) {
+    $game = Join-Path $PSScriptRoot 'game.ps1'
+    if ($procName -ne 'drawstress' -or -not (Test-Path $game)) { throw "$Process no esta abierto." }
+    & $game -Api $Api | Out-Null
+}
 Write-Run "inicio api=$Api reps=$Reps seconds=$Seconds prefijo=$LabelPrefix"
 try {
     for ($i = 1; $i -le $Reps; $i++) {
