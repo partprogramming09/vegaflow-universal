@@ -1927,6 +1927,9 @@ int main(int argc, char* argv[]) {
         telemetry_monitor.StopMonitoring();
     }
     GraphicsOptimizer::SetApuLaptopPowerProfile(false, false);
+    // Devuelve el registro (GameDVR, driver de AMD, MPO, MMCSS, prioridad, paginacion) a lo que habia antes de VegaFlow.
+    const bool registry_restored = GraphicsOptimizer::RestoreAllRegistryBackups();
+    std::cout << "[INFO] Registry values restored to their original state: " << (registry_restored ? "yes" : "partially or not (see --restore-registry)") << "\n";
 
     CancelWaitableTimer(waitable_timer);
     CloseHandle(waitable_timer);
