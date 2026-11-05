@@ -21,7 +21,7 @@
     Hilos que quema la carga de fondo (1 a 12).
 .PARAMETER Topo
     Con -Mode sim simula un equipo con menos procesadores: el juego y la carga quedan limitados a 4 hilos (4c: un hilo en cada uno de 4 nucleos;
-    4t2c: 2 nucleos con SMT). Condiciones: base (carga en los 4 hilos), c1 (carga en 1 hilo) y c2 (carga en 2 hilos).
+    4t2c: 2 nucleos con SMT; 6c: 6 hilos, uno por nucleo; 4c8t: 4 nucleos con SMT). Condiciones: base (carga en los 4 hilos), c1 (carga en 1 hilo) y c2 (carga en 2 hilos).
 .PARAMETER Kind
     cpu quema ALU; mem copia buffers grandes para saturar el ancho de banda de memoria.
     Con -Mode narrow se comparan 1 y 2 hilos logicos para el fondo en el equipo completo.
@@ -36,7 +36,7 @@ param(
     [ValidateRange(5, 100)][int]$Duty = 100,
     [ValidateSet('factors', 'threads', 'confine', 'sim', 'narrow')][string]$Mode = 'factors',
     [ValidateSet('cpu', 'mem')][string]$Kind = 'cpu',
-    [ValidateSet('4c', '4t2c')][string]$Topo = '4c'
+    [ValidateSet('4c', '4t2c', '6c', '4c8t')][string]$Topo = '4c'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -84,7 +84,7 @@ function Set-Condition($cond) {
 if (Get-Process vegaflow_daemon -ErrorAction SilentlyContinue) { throw 'El daemon esta corriendo; esta prueba es con el daemon apagado.' }
 if (-not (Get-Process drawstress -ErrorAction SilentlyContinue)) { & (Join-Path $PSScriptRoot 'game.ps1') -Api d3d11 | Out-Null }
 
-$simMasks = @{ '4c' = @{ all = 0x55; c1 = 0x40; c2 = 0x50 }; '4t2c' = @{ all = 0x0F; c1 = 0x08; c2 = 0x0C } }[$Topo]
+$simMasks = @{ '4c' = @{ all = 0x55; c1 = 0x40; c2 = 0x50 }; '4t2c' = @{ all = 0x0F; c1 = 0x08; c2 = 0x0C }; '6c' = @{ all = 0x555; c1 = 0x400; c2 = 0x500 }; '4c8t' = @{ all = 0xFF; c1 = 0x80; c2 = 0xC0 } }[$Topo]
 if ($Mode -eq 'sim') { (Get-Process drawstress | Select-Object -First 1).ProcessorAffinity = [IntPtr]$simMasks.all }
 $names = switch ($Mode) { 'threads' { @('base', 'aff2', 'aff4', 'aff6', 'aff8') } 'confine' { @('base', 'aff2') } 'sim' { @('base', 'c1', 'c2') } 'narrow' { @('aff1', 'aff2') } default { @('base', 'aff', 'eco', 'io', 'all') } }
 $prefix = switch ($Mode) { 'threads' { 'bgt' } 'confine' { 'bgc' } 'sim' { "bgs$Topo" } 'narrow' { 'bgn' } default { 'bgf' } }
