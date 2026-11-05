@@ -312,6 +312,28 @@ En D3D12 confinar no cuesta FPS a carga baja (en D3D11 costaba un 5% a 0.23) y l
 
 - El daemon sufre el mismo patrón que `tweaks_state.ps1`: su `--apu-balanced` escribe valores fijos y no los que había (borró `PERFBOOSTMODE=3` y `ASPM=0` que estaban puestos tras un reinicio).
 
+## Juego real: Octopath Traveler II (2026-11-05, D3D11)
+
+Escena fija del autoguardado (personaje quieto, de noche), `Hardware: Independent Flip` en todas las capturas, 30 s por captura (5 s de calentamiento), PresentMon por `bench.ps1`, daemon lanzado con la tarea `VegaFlow-Start` (sesión 1). La escena va limitada por la GPU (overlay del juego: 43 FPS con GPU al 98 a 100%, CPU al 15 a 25%). Cada condición se midió dentro de un mismo lanzamiento del juego.
+
+| Condición | Capturas | FPS medio (mediana, rango) | 1% Low (mediana) | 0.1% Low (mediana) | Desv. frametime (ms) |
+| --- | --- | --- | --- | --- | --- |
+| Sin carga, daemon apagado | 3 | 43.06 [42.97-43.15] | 35.9 | 32.3 | 0.67-1.17 |
+| Sin carga, daemon encendido | 3 | 43.53 [43.49-43.58] | 37.4 | 35.4 | 0.76-0.86 |
+| Carga de 4 workers (Chrome sin ventana), daemon apagado | 3 | 27.33 [27.23-27.50] | 19.1 | 16.9 | 4.55-4.63 |
+| Carga de 4 workers, daemon encendido | 3 | 36.55 [36.40-37.55] | 25.7 | 18.2 | 2.18-2.51 |
+
+- Sin carga de fondo el daemon no cambia el FPS medio (+1.1%, bajo el umbral de 3%). El 1% Low y el 0.1% Low se solapan entre condiciones.
+- Con 4 workers de fondo el FPS medio sube un 34% (27.3 a 36.6) y el 1% Low un 34% (19.1 a 25.7); los rangos no se solapan. El 0.1% Low (16.9 a 18.2) se solapa y no se concluye. La desviación del frametime casi se reduce a la mitad. Sin carga el juego daba 43.1 FPS: la carga lo baja un 37% y el daemon recupera 9.2 de los 15.8 FPS perdidos.
+- GameDVR: tres fases de 3 capturas con reinicio del juego entre fases, sin daemon ni carga. `GameDVR_Enabled` y `AppCaptureEnabled` en 1: 43.10 [43.10-43.11]; en 0: 43.20 [42.79-43.21]; otra vez en 1 tras reiniciar: 43.01 [42.96-43.15]. Sin efecto en el FPS medio; los 1% Low (38.9, 36.5 y 33.3) varían entre lanzamientos más de lo que varían entre condiciones. Valores originales restaurados.
+
+Límites:
+- Una sola escena, un solo juego, 3 capturas por condición. Con 30 s a 43 FPS el 0.1% Low sale de unos 2 cuadros y el 1% Low de unos 11: los lows de estas capturas son ruido (el 0.1% Low sin carga y sin daemon fue de 23.7 a 38.4).
+- No se comprobó en `session_reports.log` que el daemon registrara una sesión de Octopath; la mejora con carga indica que sí actuó.
+- La carga es sintética (workers de CPU en Chrome sin ventana), no un navegador o launcher reales.
+- `bench.ps1` lee `MsBetweenPresents`, no `MsBetweenDisplayChange`.
+- Octopath presentó en `Legacy Flip` el 2026-11-03 y en `Independent Flip` hoy, sin daemon y con ajustes de fábrica: el modo de presentación cambia entre sesiones.
+
 ## Observaciones
 
 - El daemon no registró ninguna sesión de juego en estas corridas (`session_reports.log` no cambió en ninguna parada) porque corría en la sesión 0 (ver "Alcance"). El coste de -10.7% vino de algo que hace sin detectar un juego: el perfil de energía.

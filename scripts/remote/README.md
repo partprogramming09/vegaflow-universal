@@ -15,6 +15,7 @@ Los trabajos corren en el **ejecutor de trabajos de WinBridge** (`/Volumes/dev/w
 | `deploy_package.ps1` | laptop, administrador | Instala el paquete en el ejecutor de WinBridge y los archivos que usan las tareas `VegaFlow-*` |
 | `vfdev` | Mac | `run`, `submit`, `wait`, `status`, `cancel`, `busy`, `list` (a `winbridge jobs`), más `deploy`, `sync`, `build-test`, `stats` |
 | `vfstats.py` | Mac | Agrupa filas de resultados: n, media, mediana y rango |
+| `vfframes.py` | Mac | Compara dos condiciones con los CSV de cuadros de `bench.ps1`: cuadros agrupados, intervalo de confianza del 1% Low y veredicto con los umbrales del plan de pruebas |
 
 `bench` y `ab` salen de `scripts/bench.ps1` y `scripts/ab_loop_task.ps1`. Las tareas `VegaFlow-Start`, `-Stop`, `-State` y `-Restore` (interactivas y elevadas, instaladas una vez por el usuario) siguen en uso: las usan `daemon-start`, `daemon-stop` y `ab`.
 
@@ -33,6 +34,9 @@ scripts/remote/vfdev deploy                 # instala el paquete y el daemon com
 scripts/remote/vfdev sync                   # lleva los commits de la rama actual al repositorio del laptop (bundle + fast-forward)
 scripts/remote/vfdev build-test             # compila y ejecuta las pruebas en el laptop; sale con error si alguna falla
 scripts/remote/vfdev stats ARCHIVO [PREFIJO]
+scripts/remote/vfdev fetch PREFIJO [DESTINO]   # trae los JSON y CSV de cuadros de las capturas con esa etiqueta
+scripts/remote/vfdev frames 'A/*.csv' 'B/*.csv' # compara dos condiciones con los cuadros agrupados
+scripts/remote/vfdev run ab Api=d3d11 Process=juego.exe Reps=5 Seconds=120 Warmup=1 LabelPrefix=run1   # juego real: no se cierra al terminar
 ```
 
 `ab` y `bg-factors` abren `drawstress` solos si no está abierto y lo cierran al terminar. `build-test` se rechaza mientras hay un trabajo en curso (`VFJOB_QUEUE=1` lo salta). Variables: `VFJOB_HOST` (usuario@ip), `VFJOB_KEY` (llave SSH), `WINBRIDGE_BIN`, `VFJOB_REPO` (repositorio en el laptop), `VFJOB_MINGW` (carpeta `bin` de g++), `VFJOB_BASE` (rama base del bundle, `main`).

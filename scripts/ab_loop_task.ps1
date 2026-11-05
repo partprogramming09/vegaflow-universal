@@ -22,7 +22,8 @@ param(
     [string]$LabelPrefix = 'task',
     [ValidateSet('none', 'chrome')][string]$Load = 'none',
     [ValidateRange(1, 12)][int]$LoadWorkers = 6,
-    [ValidateSet('0', '1')][string]$Sensors = '0'
+    [ValidateSet('0', '1')][string]$Sensors = '0',
+    [ValidateSet('0', '1')][string]$Warmup = '0'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -136,8 +137,13 @@ if (-not (Get-Process $procName -ErrorAction SilentlyContinue)) {
     if ($procName -ne 'drawstress' -or -not (Test-Path $game)) { throw "$Process no esta abierto." }
     & $game -Api $Api | Out-Null
 }
-Write-Run "inicio api=$Api reps=$Reps seconds=$Seconds prefijo=$LabelPrefix"
+Write-Run "inicio api=$Api reps=$Reps seconds=$Seconds prefijo=$LabelPrefix warmup=$Warmup"
 try {
+    # Captura de calentamiento sin daemon: no cuenta (su etiqueta no coincide con el patron del resumen final).
+    if ($Warmup -eq '1') {
+        Start-Load
+        try { & $bench -Process $Process -Label "$LabelPrefix-warmup" -Seconds $Seconds -WarmupSeconds 5 | Out-Null } finally { Stop-Load }
+    }
     for ($i = 1; $i -le $Reps; $i++) {
         $order = if ($i % 2 -eq 1) { @('off', 'on') } else { @('on', 'off') }
         foreach ($cond in $order) {

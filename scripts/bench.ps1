@@ -66,6 +66,7 @@ if ($PSCmdlet.ParameterSetName -eq 'Compare') {
 
 New-Item -ItemType Directory -Force -Path $ResultsDir | Out-Null
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+$captureStart = $null
 
 if ($FromCsv) {
     $csv = (Resolve-Path $FromCsv).Path
@@ -82,6 +83,7 @@ if ($FromCsv) {
     if ($StartDelaySeconds -gt 0) { Start-Sleep -Seconds $StartDelaySeconds }
     $prevEap = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
+    $captureStart = Get-Date
     & $PresentMon --process_name $Process --output_file $csv --timed $Seconds --terminate_after_timed --no_console_stats --session_name vegaflow-bench --stop_existing_session 2>&1 | Out-Null
     $ErrorActionPreference = $prevEap
     if ($LASTEXITCODE -ne 0) { throw "PresentMon termino con codigo $LASTEXITCODE." }
@@ -100,6 +102,29 @@ $mean = ($frametimes | Measure-Object -Average).Average
 $variance = ($frametimes | ForEach-Object { ($_ - $mean) * ($_ - $mean) } | Measure-Object -Average).Average
 $modes = $rows | Group-Object PresentMode | Sort-Object Count -Descending
 
+# Tirones: cuadros que tardan mas de 2 veces la mediana, por minuto de captura.
+$medianFt = $sorted[[int][Math]::Floor($sorted.Count / 2)]
+$hitches = @($frametimes | Where-Object { $_ -gt 2 * $medianFt }).Count
+$minutes = ($frametimes | Measure-Object -Sum).Sum / 60000.0
+
+# Tiempo entre cambios de imagen en pantalla (MsBetweenDisplayChange); 0 es un cuadro que no se mostro.
+$display = [double[]]@($rows | Where-Object { $_.MsBetweenDisplayChange -and $_.MsBetweenDisplayChange -ne 'NA' } |
+        ForEach-Object { [double]$_.MsBetweenDisplayChange } | Where-Object { $_ -gt 0 })
+$displayStd = $null; $displayLate = $null
+if ($display.Count -ge 100) {
+    $dMean = ($display | Measure-Object -Average).Average
+    $displayStd = [Math]::Round([Math]::Sqrt((($display | ForEach-Object { ($_ - $dMean) * ($_ - $dMean) } | Measure-Object -Average).Average)), 3)
+    $dMedian = ($display | Sort-Object)[[int][Math]::Floor($display.Count / 2)]
+    $displayLate = [Math]::Round(100.0 * @($display | Where-Object { $_ -gt 1.5 * $dMedian }).Count / $display.Count, 3)
+}
+
+# Eventos de fallo durante la captura: 4101 (reinicio del driver gráfico), 1000 y 1001 (fallo de aplicación o informe de errores), 141 y 117 (LiveKernelEvent).
+$errors = $null
+if ($captureStart) {
+    $errors = @(Get-WinEvent -FilterHashtable @{ LogName = 'System', 'Application'; Id = 1000, 1001, 4101, 141, 117; StartTime = $captureStart } -ErrorAction SilentlyContinue |
+            ForEach-Object { if ($_.Id -eq 1000) { '1000:' + $_.Properties[0].Value } else { '{0}:{1}' -f $_.Id, $_.ProviderName } })
+}
+
 $result = [ordered]@{
     label               = $Label
     process             = $Process
@@ -114,12 +139,18 @@ $result = [ordered]@{
     present_mode        = $modes[0].Name
     present_mode_share  = [Math]::Round($modes[0].Count / $rows.Count, 3)
     clean               = (($modes[0].Count / $rows.Count) -ge 0.99)
+    hitches_2x_median   = $hitches
+    hitches_per_min     = [Math]::Round($hitches / $minutes, 2)
+    display_frames      = $display.Count
+    display_stddev_ms   = $displayStd
+    display_late_pct    = $displayLate
+    errors              = $errors
     windows_build       = [Environment]::OSVersion.Version.ToString()
 }
 
 $out = Join-Path $ResultsDir "$Label-$stamp.json"
 $result | ConvertTo-Json | Set-Content -Path $out -Encoding UTF8
-if (-not $FromCsv) { Remove-Item $csv -ErrorAction SilentlyContinue }
+if (-not $FromCsv) { Move-Item $csv (Join-Path $ResultsDir "$Label-$stamp.csv") -Force -ErrorAction SilentlyContinue }
 
 $result | ConvertTo-Json
 "Guardado en $out"
