@@ -1,0 +1,73 @@
+#!/bin/bash
+# vfdev: herramientas de desarrollo de VegaFlow para el laptop de pruebas, desde la Mac.
+# Los trabajos corren en el ejecutor de WinBridge (paquete vegaflow); sync, build-test y deploy usan SSH.
+#
+# Uso:
+#   vfdev run JOB [Clave=valor ...]   lanza un trabajo y espera su resultado (winbridge jobs run)
+#   vfdev submit|wait|status|cancel|busy|list ...   se pasan tal cual a `winbridge jobs`
+#   vfdev deploy                      instala el paquete vegaflow, las tareas y el daemon compilado (administrador por SSH, sin UAC)
+#   vfdev sync                        lleva los commits de la rama actual al repositorio del laptop (bundle + fast-forward)
+#   vfdev build-test                  compila y ejecuta las pruebas en el laptop; sale con error si alguna falla
+#   vfdev stats ARCHIVO|- [PREFIJO]   agrupa filas de resultados por condicion: n, media, mediana y rango
+# Variables: VFJOB_HOST (usuario@ip), VFJOB_KEY (llave SSH), WINBRIDGE_BIN (cliente winbridge, `winbridge` por defecto),
+#   VFJOB_REPO (repositorio en el laptop), VFJOB_MINGW (carpeta bin de g++), VFJOB_BASE (rama base del bundle, main),
+#   VFJOB_QUEUE=1 (build-test aunque haya trabajos en curso)
+set -u
+
+HOST="${VFJOB_HOST:-testuser@192.0.2.10}"
+KEY="${VFJOB_KEY:-$HOME/.ssh/id_ed25519_test}"
+WB="${WINBRIDGE_BIN:-winbridge}"
+REPO="$(cd "$(dirname "$0")/../.." && pwd)"
+HERE="$REPO/scripts/remote"
+LAPTOP_REPO="${VFJOB_REPO:-C:\\Users\\testuser\\OneDrive\\Escritorio\\proyectos\\direct}"
+MINGW="${VFJOB_MINGW:-C:\\Users\\testuser\\scoop\\apps\\mingw\\16.2.0-rt_v14-rev1\\bin}"
+
+# Ejecuta un comando en el laptop por SSH sin interaccion.
+remote() { ssh -i "$KEY" -o BatchMode=yes -o ConnectTimeout=10 "$HOST" "$@"; }
+# Copia archivos al laptop con scp sin interaccion.
+copy_to() { scp -q -i "$KEY" -o BatchMode=yes "$@"; }
+
+case "${1:-}" in
+run | submit | wait | status | cancel | busy | list)
+    exec "$WB" jobs "$@"
+    ;;
+stats)
+    shift
+    exec python3 -I "$HERE/vfstats.py" "$@"
+    ;;
+deploy)
+    remote 'if not exist C:\dev\vf-pkg\scripts mkdir C:\dev\vf-pkg\scripts' || exit 1
+    copy_to "$HERE/winbridge-package/manifest.json" "$HERE/busy.html" "$REPO/scripts/tweaks_state.ps1" "$REPO/scripts/ab_profile.ps1" \
+        "$HERE/deploy_package.ps1" "testuser@${HOST#*@}:C:/dev/vf-pkg/" || exit 1
+    copy_to "$HERE"/jobs/*.ps1 "$REPO/scripts/bench.ps1" "$REPO/scripts/ab_loop_task.ps1" "testuser@${HOST#*@}:C:/dev/vf-pkg/scripts/" || exit 1
+    remote "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\dev\\vf-pkg\\deploy_package.ps1" 2>&1 | LC_ALL=C tr -d '\r' | grep -v '^<\|CLIXML\|^$'
+    ;;
+sync)
+    tmp="$(mktemp -d)"
+    git -C "$REPO" bundle create "$tmp/vf.bundle" "${VFJOB_BASE:-main}..HEAD" >/dev/null 2>&1 || { echo "no se pudo crear el bundle"; rm -rf "$tmp"; exit 1; }
+    copy_to "$tmp/vf.bundle" "testuser@${HOST#*@}:C:/dev/vf.bundle" || { rm -rf "$tmp"; exit 1; }
+    rm -rf "$tmp"
+    want="$(git -C "$REPO" rev-parse --abbrev-ref HEAD)"
+    have="$(remote "cd /d $LAPTOP_REPO && git branch --show-current" | tr -d '\r')"
+    [ "$have" = "$want" ] || { echo "el laptop esta en la rama '$have' y la Mac en '$want'; no se sincroniza"; exit 1; }
+    remote "cd /d $LAPTOP_REPO && git fetch C:\\dev\\vf.bundle HEAD && git merge --ff-only FETCH_HEAD && git log --oneline -1" | LC_ALL=C tr -d '\r'
+    ;;
+build-test)
+    if [ "${VFJOB_QUEUE:-0}" != 1 ]; then
+        busy="$("$WB" jobs busy 2>&1)"
+        case "$busy" in
+        *"no job is queued or running"*) ;;
+        *) echo "hay trabajos en curso o en cola ($busy); espera o usa VFJOB_QUEUE=1"; exit 3 ;;
+        esac
+    fi
+    script="\$env:Path = '$MINGW;' + \$env:Path; Set-Location '$LAPTOP_REPO'; & .\\scripts\\build.ps1 -RunTests *> \$env:TEMP\\vf-build-test.log; 'exit=' + \$LASTEXITCODE; Select-String 'FAILED|PASSED|error' \$env:TEMP\\vf-build-test.log | Select-Object -Last 6 | ForEach-Object { \$_.Line }"
+    enc="$(printf '%s' "$script" | iconv -f UTF-8 -t UTF-16LE | base64 | LC_ALL=C tr -d '\n')"
+    out="$(remote "powershell -NoProfile -EncodedCommand $enc" 2>&1 | LC_ALL=C tr -d '\r' | grep -v '^<\|CLIXML\|^$')"
+    printf '%s\n' "$out"
+    printf '%s' "$out" | grep -q 'exit=0' && ! printf '%s' "$out" | grep -qE '[1-9][0-9]* FAILED'
+    ;;
+*)
+    sed -n '2,15p' "$0"
+    exit 1
+    ;;
+esac

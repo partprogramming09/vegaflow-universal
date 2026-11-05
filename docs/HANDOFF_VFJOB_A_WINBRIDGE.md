@@ -1,5 +1,7 @@
 # Entrega para la sesión de WinBridge: ejecutor de trabajos remotos (antes `vfjob`)
 
+Estado (2026-11-05): hecho. El ejecutor está en WinBridge (`docs/JOBS.md`), VegaFlow usa el paquete `vegaflow` y `vfjob` está retirado y archivado en `scripts/remote/archive/`. Lo de abajo es el documento original.
+
 Fecha: 2026-11-04. Documento autocontenido para quien lo implemente en el repositorio de `winbridge` (`/Volumes/dev/winbridge`), sin tocar VegaFlow. Lo que dice sobre WinBridge viene de sus documentos (`docs/GATEWAY.md`, `docs/AGENT-CONTRACT.md`) y de la evaluación de VegaFlow (`docs/PLAN_REDISENO_Y_ACTUALIZACION.md` §8.2); no se ha leído su código Go para esto, así que cada afirmación sobre él debe confirmarse allí.
 
 ## 1. Qué es hoy `vfjob`

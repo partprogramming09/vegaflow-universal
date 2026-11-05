@@ -4,9 +4,9 @@ Fecha: 2026-11-04. Rama `feat/ab-automation`, PR #5. Plan para terminar lo pendi
 
 ## Reglas
 
-- Solo se toca el laptop por SSH (elevado) y por el ejecutor `vfjob`; nada permanente en el sistema (ni autologon, ni instalar software, ni tareas nuevas).
+- Solo se toca el laptop por SSH (elevado) y por el ejecutor de trabajos (antes `vfjob`, desde el 2026-11-05 el de WinBridge con el paquete `vegaflow`); nada permanente en el sistema (ni autologon, ni instalar software, ni tareas nuevas).
 - Sin juegos reales. Sin cambios al registro o al plan de energía sin comprobar antes/después.
-- Un solo trabajo de medición a la vez (`vfjob busy` debe estar vacío antes de lanzar).
+- Un solo trabajo de medición a la vez (`vfdev busy` debe estar vacío antes de lanzar).
 - Medición antes de afirmar: cada cifra va a `docs/MEDICION_AB_DAEMON.md` con su límite. Lo no medido se dice como tal.
 - Español, sin atribución de IA en commits ni PR, comentarios solo del qué.
 - Tras 2 intentos fallidos de lo mismo: llamar al asesor antes de un tercero.
@@ -93,3 +93,8 @@ Solo si ocurre una de estas y no hay forma indirecta:
 | 7 | 20 min |
 
 Total: unas 6 a 7 horas, casi todo medición en el laptop.
+
+## Cambios posteriores (2026-11-05)
+
+- `vfjob` se retiró con la confirmación del usuario: los trabajos corren en el ejecutor de WinBridge (`scripts/remote/vfdev`), `VegaFlow-Run` está deshabilitada y lo antiguo está en `scripts/remote/archive/`.
+- El daemon restaura el registro al cerrarse con normalidad (verificado de extremo a extremo: al parar, el registro queda idéntico al de antes de arrancar).
