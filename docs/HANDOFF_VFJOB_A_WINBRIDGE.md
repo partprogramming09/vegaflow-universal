@@ -36,7 +36,7 @@ Además, `RunTask` de WinBridge no sirve tal cual: 60 s fijos, sin argumentos, s
 Separar lo genérico (el ejecutor) de lo específico (los trabajos de VegaFlow):
 
 - **R1.** Un ejecutor genérico, sin nada de VegaFlow: manifiesto de trabajos con script, hash, parámetros con regex y tiempo límite.
-- **R2.** Trabajos con parámetros y tiempos largos (horas), con estado `running`, `done`, `failed`, `timeout`, `rejected`, código de salida, salida y errores.
+- **R2.** Trabajos con parámetros y tiempos largos (horas), con estado `queued`, `running`, `done`, `failed`, `timeout`, `rejected`, `cancelled`, código de salida, salida y errores.
 - **R3.** Cancelar un trabajo en curso (hoy no existe; solo hay un tiempo límite).
 - **R4.** Rechazar o encolar con una regla explícita si hay un trabajo en curso; que el cliente sepa cuál (id y trabajo).
 - **R5.** Elevación sin abrir la puerta a comandos arbitrarios: tarea interactiva y elevada, registrada una vez por el administrador; el agente de WinBridge sigue sin elevar.
@@ -107,3 +107,14 @@ La sesión de WinBridge no debe modificar `scripts/remote/` de VegaFlow mientras
 - ¿`CallServerTool` falla con la pantalla bloqueada? Su documento dice que sí; los trabajos de sesión 0 no lo necesitarían.
 - ¿Conviene que el cliente use `wb-call` (que lee la clave del Llavero) en vez de `ssh`?
 - ¿El tope de 16 KB de salida afecta al registro de trabajos largos en el gateway?
+
+## 11. Respuestas de WinBridge (2026-11-04)
+
+Plan completo en `winbridge/docs/PLAN-JOBS-Y-EXE.md`.
+
+- Gateway y horas: solo se midieron 360 y 400 s; un reinicio del agente mata la llamada. Para horas, `submit` + `wait` cortos.
+- Sesión bloqueada: `CallServerTool` y `ServerTools` fallan; `RunTask` no comprueba la sesión. Esto inclina la decisión a la opción A (herramientas nativas), que WinBridge recomienda en su plan.
+- `wb-call`: sí lee la clave del Llavero (`--keychain-service`); el cliente nuevo será `winbridge jobs`, sobre la misma librería.
+- 16 KB es solo de `RunTask`; el gateway usa `max_output` (40000 por bloque). Los registros largos se leerán por tramos.
+- Elevación: el agente y el hijo del gateway corren sin elevar; con A o B hace falta el mismo ejecutor elevado e interactivo. `deny_args` no protege `args`: solo la regex del manifiesto.
+- El laptop responde hoy con el agente Python (9 herramientas, sin `Diagnose`/`RunTask`/gateway); la fase 0 del plan lo devuelve al agente Go.

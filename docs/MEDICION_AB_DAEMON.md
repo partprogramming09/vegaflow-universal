@@ -322,4 +322,5 @@ En D3D12 confinar no cuesta FPS a carga baja (en D3D11 costaba un 5% a 0.23) y l
 - El daemon corrió en la sesión 0: las optimizaciones por proceso no están medidas.
 - Una sola carga sintética limitada por CPU y driver (draw calls), en ventana. No es un juego.
 - Una sola máquina y una sola sesión de medición.
+- La condición con el fondo confinado es bimodal entre trabajos: el mismo escenario da ~100-105 o ~107-114 FPS según el trabajo (el modo es constante dentro del trabajo). Las comparaciones válidas son las de condiciones medidas dentro del mismo trabajo; la cifra absoluta de un trabajo no es comparable con la de otro más allá de ~10%.
 - La causa del coste en D3D11 no está identificada.
