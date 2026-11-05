@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 """Compares two conditions from the PresentMon frame CSVs saved by scripts/bench.ps1.
 
-Use: python3 vfframes.py GLOB_A GLOB_B [--warmup 5]
+Use: python3 vfframes.py GLOB_A GLOB_B [--warmup 5] [--min-fps 1] [--min-low 3]
      python3 vfframes.py --self-test
 
 Frames of every capture of a condition are pooled, and the 1% Low difference gets a 95%
 confidence interval from resampling one-second blocks (frames next to each other are not
-independent). The verdict applies the thresholds fixed in the test plan:
-mean FPS needs >= 3% between medians, non-overlapping ranges and >= 5 captures per condition;
-1% Low needs captures >= 120 s, a difference over 5% and an interval that excludes 0.
+independent). The verdict applies the thresholds of the test plan, set from the measured noise
+of the Octopath scenes (3 launches of 5 captures of 120 s): mean FPS needs >= --min-fps percent
+between medians, non-overlapping ranges and >= 5 captures per condition; 1% Low needs captures
+>= 120 s, a difference over --min-low percent and an interval that excludes 0. A noisier scene
+raises both thresholds to 4 times its own between-launch range.
 The 0.1% Low is never used here: it needs captures of 5 minutes or more.
 """
 import csv
@@ -67,7 +69,7 @@ def bootstrap(a, b, n=2000, seed=1):
     return d[int(0.025 * n)], d[int(0.975 * n) - 1]
 
 
-def compare(pa, ba, pb, bb):
+def compare(pa, ba, pb, bb, min_fps=1.0, min_low=3.0):
     """Prints the per-capture rows, the pooled numbers and the verdict for both thresholds."""
     for name, per in (("A", pa), ("B", pb)):
         for p, sec, frames, avg, low1 in per:
@@ -76,17 +78,17 @@ def compare(pa, ba, pb, bb):
     ma, mb = statistics.median(fa), statistics.median(fb)
     d = 100.0 * (mb - ma) / ma
     overlap = not (min(fb) > max(fa) or max(fb) < min(fa))
-    ok = abs(d) >= 3 and not overlap and len(fa) >= 5 and len(fb) >= 5
-    print("FPS medio: A %.2f [%.2f-%.2f]  B %.2f [%.2f-%.2f]  cambio %+.1f%%  -> %s" % (
+    ok = abs(d) >= min_fps and not overlap and len(fa) >= 5 and len(fb) >= 5
+    print("FPS medio: A %.2f [%.2f-%.2f]  B %.2f [%.2f-%.2f]  cambio %+.2f%%  -> %s" % (
         ma, min(fa), max(fa), mb, min(fb), max(fb), d,
-        "cuenta" if ok else "no cuenta (necesita 3%%, rangos sin solape y 5 capturas por condicion; n=%d y %d)" % (len(fa), len(fb))))
+        "cuenta" if ok else "no cuenta (necesita %g%%, rangos sin solape y 5 capturas por condicion; n=%d y %d)" % (min_fps, len(fa), len(fb))))
     la, lb = pooled(ba), pooled(bb)
     lo, hi = bootstrap(ba, bb)
     long_enough = all(r[1] >= 120 for r in pa + pb)
-    ok = long_enough and abs(100.0 * (lb - la) / la) >= 5 and not (lo <= 0 <= hi)
-    print("1%% Low agrupado: A %.2f  B %.2f  cambio %+.1f%%  IC95 [%+.1f%%, %+.1f%%]  -> %s" % (
+    ok = long_enough and abs(100.0 * (lb - la) / la) >= min_low and not (lo <= 0 <= hi)
+    print("1%% Low agrupado: A %.2f  B %.2f  cambio %+.2f%%  IC95 [%+.1f%%, %+.1f%%]  -> %s" % (
         la, lb, 100.0 * (lb - la) / la, lo, hi,
-        "cuenta" if ok else "no cuenta (necesita capturas de 120 s o mas, cambio sobre 5% y un intervalo que excluya 0)"))
+        "cuenta" if ok else "no cuenta (necesita capturas de 120 s o mas, cambio sobre %g%% y un intervalo que excluya 0)" % min_low))
 
 
 def self_test():
@@ -107,14 +109,18 @@ if __name__ == "__main__":
     if sys.argv[1:] == ["--self-test"]:
         self_test()
         sys.exit(0)
-    args = [x for x in sys.argv[1:] if not x.startswith("--")]
-    w = float(sys.argv[sys.argv.index("--warmup") + 1]) if "--warmup" in sys.argv else 5.0
-    if "--warmup" in sys.argv:
-        args.remove(sys.argv[sys.argv.index("--warmup") + 1])
+    opts = {}
+    for name, default in (("--warmup", 5.0), ("--min-fps", 1.0), ("--min-low", 3.0)):
+        opts[name] = default
+        if name in sys.argv:
+            i = sys.argv.index(name)
+            opts[name] = float(sys.argv[i + 1])
+            del sys.argv[i:i + 2]
+    args = sys.argv[1:]
     if len(args) != 2:
         sys.exit(__doc__)
-    pa, ba = load(args[0], w)
-    pb, bb = load(args[1], w)
+    pa, ba = load(args[0], opts["--warmup"])
+    pb, bb = load(args[1], opts["--warmup"])
     if not pa or not pb:
         sys.exit("ningun CSV coincide con alguno de los dos patrones")
-    compare(pa, ba, pb, bb)
+    compare(pa, ba, pb, bb, opts["--min-fps"], opts["--min-low"])

@@ -151,3 +151,42 @@ Límite: solo se probó un proceso que no es el juego; no se midió el `Sleep` d
 - El juego se presenta en `Legacy Flip`, no en borderless. Los tweaks de DirectFlip y MPO apuntan a otro modo de presentación y no se pueden evaluar con este juego tal como está configurado.
 - Escena limitada por GPU (GPU 99%, ~43 FPS).
 - `bench.ps1` marca `clean: true` cuando al menos el 99% de los cuadros comparten modo de presentación. `baseline-1` es anterior a esa marca y se considera limpia por protocolo.
+
+## Ruido de línea base por escena, 2026-11-05 (Fase 1 del plan de pruebas)
+
+Octopath Traveler II, D3D11, `Hardware: Independent Flip` en todas las capturas, ajustes de fábrica, daemon apagado, ruido ambiental de `ryzenadj.exe` (se cae cada ~20 s) presente en todas. Cada lanzamiento del juego: una captura de calentamiento que no cuenta y 5 capturas de 120 s de datos (`Seconds=125`, 5 s descartados). 3 lanzamientos por escena, 30 capturas en total, sin ventanas delante del juego.
+
+Clase de cada escena según el CSV de PresentMon (mediana en ms):
+
+| Escena | `MsBetweenPresents` | `MsCPUBusy` | `MsGPUBusy` | Lectura |
+| --- | --- | --- | --- | --- |
+| Mundo (autoguardado, el personaje quieto) | 23.16 | 5.37 | 22.94 | limitada por GPU: la GPU ocupa casi todo el cuadro |
+| Menú principal (Continuar resaltado) | 16.67 | 13.98 | 7.01 | con tope de 60 FPS; la GPU va holgada y la CPU ocupa el 84% del cuadro |
+
+Mundo, FPS medio y 1% Low (mediana y rango de las 5 capturas; 1% Low agrupado de los cuadros de las 5):
+
+| Lanzamiento | FPS medio | 1% Low | 1% Low agrupado |
+| --- | --- | --- | --- |
+| 1 | 43.10 [43.10-43.12] | 39.14 [38.67-39.35] | 39.08 |
+| 2 | 43.20 [43.18-43.22] | 39.05 [39.00-39.56] | 39.22 |
+| 3 | 43.15 [43.12-43.15] | 39.43 [38.44-39.71] | 39.24 |
+
+Menú:
+
+| Lanzamiento | FPS medio | 1% Low | 1% Low agrupado |
+| --- | --- | --- | --- |
+| 2 | 60.00 [59.99-60.00] | 52.59 [51.44-53.08] | 52.31 |
+| 3 | 60.00 [59.99-60.00] | 52.26 [51.31-52.90] | 52.13 |
+| 4 | 60.00 [60.00-60.00] | 52.25 [51.30-53.01] | 52.21 |
+
+Ruido medido:
+
+- FPS medio del mundo: rango de 0.05 a 0.09% dentro de un lanzamiento y 0.23% entre medianas de lanzamientos (43.10, 43.20, 43.15). Es 13 veces menor que el umbral de 3% del plan, así que el umbral se baja a 1%.
+- 1% Low del mundo: rango de 1.4 a 3.3% entre capturas de 120 s de un lanzamiento, contra 18 a 59% con capturas de 30 s (las tres series de 30 s de esta misma escena). Agrupando los cuadros el rango entre lanzamientos baja a 0.41%.
+- Control nulo (lanzamiento contra lanzamiento, sin nada cambiado): el 1% Low agrupado difiere entre +0.04 y +0.41% y los tres intervalos de confianza del 95% por remuestreo de bloques de un segundo incluyen 0 (de -1.1 a +1.8%). El umbral del 1% Low agrupado se baja de 5% a 3% (el doble de la semianchura de esos intervalos).
+- Desviación del frametime: rango de 26% entre medianas de lanzamientos (0.53 a 0.68 ms) y de 19 a 42% entre capturas de un lanzamiento en la desviación del tiempo en pantalla. No sirve como métrica de veredicto salvo con diferencias mucho mayores (con carga de fondo pasó de 4.6 a 2.3 ms).
+- Tirones (cuadros sobre 2 veces la mediana): 0 por minuto en el mundo y como máximo 0.5 por minuto en el menú. Cuadros tardíos (tiempo en pantalla sobre 1.5 veces la mediana): 0.0025% de media en el mundo y 0.0056% en el menú, máximo 0.028%.
+- El menú va a 60.00 FPS en todas las capturas: sin carga no tiene margen de mejora. Solo discrimina bajo carga de fondo, donde el porcentaje de cuadros tardíos puede subir.
+- La luz del mundo cambió de día (lanzamiento 1) a noche (lanzamientos 2 y 3) sin efecto visible en el FPS medio (43.10 contra 43.20 y 43.15).
+
+Límites: una sola máquina, un solo juego y 2 escenas; el mundo es una escena estática con el personaje quieto, así que no incluye streaming ni movimiento. Los umbrales nuevos se fijaron con estos datos antes de medir ninguna palanca.
