@@ -379,6 +379,16 @@ Carga `mix` de `ab_loop_task.ps1`: Chrome sin ventana con 3 pestañas al 40% de 
 - Hipótesis sin verificar: la pérdida de rendimiento depende del tipo de trabajo del fondo (el bucle de JavaScript de Chrome al 100% pesa más que los hashes y las ráfagas), no del número de procesadores lógicos que ocupa.
 - Errores en las dos condiciones: solo el ruido ambiental de `ryzenadj.exe`.
 
+Confirmación con capturas de 120 s (mismo escenario, 3 capturas por condición, ABBA, calentamiento, 4900 cuadros por captura):
+
+| Condición | FPS medio | 1% Low por captura | 1% Low agrupado | Tirones por min | Cuadros tardíos % |
+| --- | --- | --- | --- | --- | --- |
+| daemon apagado | 41.07, 40.90, 41.03 | 35.06, 29.23, 34.85 | 32.71 | 0, 3, 0 | 0.041, 0.163, 0 |
+| daemon encendido | 41.00, 41.09, 40.99 | 33.38, 35.05, 34.00 | 33.99 | 0, 0, 0 | 0.020, 0, 0.020 |
+
+- El FPS medio cambia -0.07%: la diferencia de -0.53% de las capturas de 30 s desaparece. El 1% Low agrupado sube +3.9% con un intervalo del 95% de -3.3% a +14.1% (incluye 0): no hay diferencia. La sospecha de coste del daemon en los lows no se confirma; el signo incluso se invierte. Con esta mezcla el daemon no ayuda ni daña.
+- Una captura apagada tuvo un tirón (1% Low 29.2, 0.1% Low 15.2, 3 tirones por minuto); las tres encendidas no. Con 3 capturas no se atribuye al daemon.
+
 ## Observaciones
 
 - El daemon no registró ninguna sesión de juego en estas corridas (`session_reports.log` no cambió en ninguna parada) porque corría en la sesión 0 (ver "Alcance"). El coste de -10.7% vino de algo que hace sin detectar un juego: el perfil de energía.
