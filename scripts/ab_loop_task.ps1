@@ -83,6 +83,12 @@ function Invoke-Capture($cond, $i) {
             $sensRows.Add(('sens,{0},n={1},temp_first={2:F1},temp_avg={3:F1},temp_max={4:F1},temp_last={5:F1},perf_avg={6:F0},perf_min={7:F0},mhz_eff_avg={8:F0}' -f `
                 $label, $samples.Count, $samples[0].temp, ($samples | Measure-Object temp -Average).Average, ($samples | Measure-Object temp -Maximum).Maximum, `
                 $samples[-1].temp, ($samples | Measure-Object perf -Average).Average, ($samples | Measure-Object perf -Minimum).Minimum, $eff))
+            # Media de temperatura y de rendimiento por minuto (12 muestras de 5 s), para ver la tendencia en el tiempo.
+            $minutes = for ($m = 0; $m * 12 -lt $samples.Count; $m++) {
+                $b = $samples[($m * 12)..([math]::Min($samples.Count, ($m + 1) * 12) - 1)]
+                '{0}:{1:F1}C/{2:F0}%' -f ($m + 1), ($b | Measure-Object temp -Average).Average, ($b | Measure-Object perf -Average).Average
+            }
+            $sensRows.Add("sensmin,$label,$($minutes -join ' ')")
         }
     }
 }
