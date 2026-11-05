@@ -25,6 +25,8 @@
 .PARAMETER Kind
     cpu quema ALU; mem copia buffers grandes para saturar el ancho de banda de memoria.
     Con -Mode narrow se comparan 1 y 2 hilos logicos para el fondo en el equipo completo.
+.PARAMETER Api
+    API del juego que se abre si no esta abierto (d3d11 o d3d12); tambien nombra las capturas.
 .PARAMETER Duty
     Porcentaje de cada 100 ms que cada hilo de la carga quema CPU (5 a 100); fija la carga total en Workers x Duty / 100 procesadores logicos.
     Con -Mode confine solo se miden base y aff2 (para ver desde que carga conviene confinar).
@@ -33,6 +35,7 @@ param(
     [ValidateRange(1, 6)][int]$Reps = 3,
     [ValidateRange(10, 120)][int]$Seconds = 30,
     [ValidateRange(1, 12)][int]$Workers = 6,
+    [ValidateSet('d3d11', 'd3d12')][string]$Api = 'd3d11',
     [ValidateRange(5, 100)][int]$Duty = 100,
     [ValidateSet('factors', 'threads', 'confine', 'sim', 'narrow')][string]$Mode = 'factors',
     [ValidateSet('cpu', 'mem')][string]$Kind = 'cpu',
@@ -85,7 +88,7 @@ function Set-Condition($cond) {
 }
 
 if (Get-Process vegaflow_daemon -ErrorAction SilentlyContinue) { throw 'El daemon esta corriendo; esta prueba es con el daemon apagado.' }
-if (-not (Get-Process drawstress -ErrorAction SilentlyContinue)) { & (Join-Path $PSScriptRoot 'game.ps1') -Api d3d11 | Out-Null }
+if (-not (Get-Process drawstress -ErrorAction SilentlyContinue)) { & (Join-Path $PSScriptRoot 'game.ps1') -Api $Api | Out-Null }
 
 $simMasks = @{ '4c' = @{ all = 0x55; c1 = 0x40; c2 = 0x50 }; '4t2c' = @{ all = 0x0F; c1 = 0x08; c2 = 0x0C }; '6c' = @{ all = 0x555; c1 = 0x400; c2 = 0x500 }; '4c8t' = @{ all = 0xFF; c1 = 0x80; c2 = 0xC0 } }[$Topo]
 if ($Mode -eq 'sim') { (Get-Process drawstress | Select-Object -First 1).ProcessorAffinity = [IntPtr]$simMasks.all }
@@ -109,7 +112,7 @@ try {
             Start-Sleep -Seconds 2
             $ids = @(Get-LoadProcesses | ForEach-Object { $_.Id })
             $cpu0 = Get-LoadCpu $ids
-            $label = "$prefix-$c-d3d11-w$Workers$dutyTag-$i"
+            $label = "$prefix-$c-$Api-w$Workers$dutyTag-$i"
             & $bench -Process 'drawstress.exe' -Label $label -Seconds $Seconds -WarmupSeconds 5 | Out-Null
             $bgCpu = [math]::Round((Get-LoadCpu $ids) - $cpu0, 1)
             Stop-Load
