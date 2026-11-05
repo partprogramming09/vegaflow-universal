@@ -32,6 +32,12 @@ scripts/remote/vfjob sync        # lleva los commits de la rama actual al reposi
 scripts/remote/vfjob build-test  # compila y ejecuta las pruebas en el laptop; sale con error si alguna falla
 ```
 
+```bash
+scripts/remote/vfjob stats ARCHIVO [PREFIJO]   # agrupa filas de resultados por condicion: n, media y rango (usa - para leer de la entrada)
+```
+
+`vfjob run` espera por defecto el limite del trabajo (manifiesto) mas un minuto; `VFJOB_WAIT` lo fija a mano.
+
 `ab` y `bg-factors` abren `drawstress` solos si no esta abierto. Un trabajo nuevo (y `build-test`) se rechaza mientras otro corre o espera en la bandeja; `VFJOB_QUEUE=1` (o `queue: true` en el MCP) lo encola igualmente.
 
 Variables: `VFJOB_HOST` (usuario@ip), `VFJOB_KEY` (llave SSH), `VFJOB_WAIT` (segundos de espera de `vfjob run`), `VFJOB_REPO` (ruta del repositorio en el laptop), `VFJOB_MINGW` (carpeta `bin` de g++), `VFJOB_BASE` (rama base del bundle, `main`), `VFJOB_QUEUE=1`.

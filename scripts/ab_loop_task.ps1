@@ -80,7 +80,7 @@ function Invoke-Capture($cond, $i) {
         Remove-Job $sampler -Force
         if ($samples.Count -gt 0) {
             $eff = ($samples | ForEach-Object { $_.mhz * $_.perf / 100 } | Measure-Object -Average).Average
-            $sensRows.Add(('sens,{0},n={1},temp_first={2:N1},temp_avg={3:N1},temp_max={4:N1},temp_last={5:N1},perf_avg={6:N0},perf_min={7:N0},mhz_eff_avg={8:N0}' -f `
+            $sensRows.Add(('sens,{0},n={1},temp_first={2:F1},temp_avg={3:F1},temp_max={4:F1},temp_last={5:F1},perf_avg={6:F0},perf_min={7:F0},mhz_eff_avg={8:F0}' -f `
                 $label, $samples.Count, $samples[0].temp, ($samples | Measure-Object temp -Average).Average, ($samples | Measure-Object temp -Maximum).Maximum, `
                 $samples[-1].temp, ($samples | Measure-Object perf -Average).Average, ($samples | Measure-Object perf -Minimum).Minimum, $eff))
         }
