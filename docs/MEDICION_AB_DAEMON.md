@@ -334,6 +334,36 @@ Límites:
 - `bench.ps1` lee `MsBetweenPresents`, no `MsBetweenDisplayChange`.
 - Octopath presentó en `Legacy Flip` el 2026-11-03 y en `Independent Flip` hoy, sin daemon y con ajustes de fábrica: el modo de presentación cambia entre sesiones.
 
+### Carga de fondo en las dos clases, Fase 2 reducida (2026-11-05, Octopath, D3D11)
+
+Dos celdas con `ab`: 5 capturas por condición, orden ABBA, 30 s, una captura de calentamiento que no cuenta, carga de Chrome sin ventana, dentro de un mismo lanzamiento del juego, `Independent Flip` en todas. Umbrales de `docs/MEDICION_BASE.md` (fijados con el ruido de línea base). Quedan fuera por el tope de tiempo las cargas de 1 y 6 workers en las dos escenas, la de 4 workers en el mundo repetida con este método y la de memoria.
+
+Menú principal (clase con tope de 60 FPS), 4 workers de fondo. Veredicto por cuadros tardíos (tiempo en pantalla sobre 1.5 veces la mediana):
+
+| Condición | FPS medio (mediana [rango]) | Cuadros tardíos % (mediana [rango]) | Tirones por min (mediana [rango]) |
+| --- | --- | --- | --- |
+| daemon apagado | 59.71 [50.27-59.97] | 1.808 [0.200-12.739] | 4.8 [0.0-237.8] |
+| daemon encendido | 59.99 [59.98-60.00] | 0.000 [0.000-0.000] | 0.0 [0.0-0.0] |
+
+- Cuenta como mejora con el criterio fijado (al menos 0.1 puntos porcentuales y rangos sin solape, 5 capturas por condición): el mejor resultado apagado (0.2%) es peor que el peor encendido (0%). El FPS medio sube un 0.47%, bajo el umbral del 1%, pero no es la métrica de esta clase.
+- Sin daemon la carga baja el menú a ~50 FPS en las dos primeras capturas apagadas (10.4% y 12.7% de cuadros tardíos) y a 59.7 a 60.0 en las otras tres: dos modos, como la bimodalidad entre trabajos que ya se había visto. Con daemon, las 5 capturas dan 59.98 a 60.00.
+- Los 1% Low de 30 s (apagado 17.5, 17.1, 34.3, 48.6 y 39.1; encendido 52.4, 49.4, 54.0, 47.4 y 56.3) no entran en el veredicto por la duración.
+- Errores en las dos condiciones: solo el ruido ambiental de `ryzenadj.exe` y su informe de Windows.
+
+Mundo (limitada por GPU), 2 workers de fondo:
+
+| Condición | FPS medio (mediana [rango]) | Tirones por min | 1% Low de 30 s |
+| --- | --- | --- | --- |
+| daemon apagado | 37.39 [36.79-37.72] | 0, 0, 0, 14.4, 0 | 30.4, 29.5, 28.0, 15.1, 27.0 |
+| daemon encendido | 37.03 [36.34-37.62] | 0, 0, 0, 0, 0 | 27.4, 30.4, 29.2, 31.0, 29.5 |
+
+- Sin mejora medible: el FPS medio cambia -0.98%, bajo el umbral del 1%, con rangos que se solapan. No cuenta.
+- La carga de 2 workers baja el mundo de 43.1 a ~37 FPS (-13%) con y sin daemon: el daemon no recupera esa pérdida. Con 4 workers sí la recuperaba (27.3 a 36.6, +34%, 3 capturas por condición en la medición anterior).
+- Una captura apagada tuvo un tirón (14.4 por minuto, 1% Low 15.1) y las cinco encendidas no; el intervalo de confianza del 1% Low agrupado va de -2.9% a +68.3% porque las capturas de 30 s son demasiado cortas: no hay veredicto sobre los lows.
+- Hipótesis sin verificar: con 2 workers confinados a 2 hilos el fondo consume lo mismo (2 hilos al 100%), así que confinar no le quita carga y la pérdida de la iGPU, que comparte potencia y memoria con la CPU, sigue igual; con 4 workers el fondo sí hace menos trabajo.
+
+Límites: una sola máquina, un juego, una carga sintética y 5 capturas de 30 s por condición; cada celda tarda unos 9 minutos.
+
 ## Observaciones
 
 - El daemon no registró ninguna sesión de juego en estas corridas (`session_reports.log` no cambió en ninguna parada) porque corría en la sesión 0 (ver "Alcance"). El coste de -10.7% vino de algo que hace sin detectar un juego: el perfil de energía.
