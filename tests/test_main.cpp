@@ -12,6 +12,7 @@
 #include <iomanip>
 #include <iostream>
 #include <string>
+#include <tuple>
 #include <vector>
 
 #include "privileges.hpp"
@@ -1927,6 +1928,57 @@ int main() {
                      + ", restored by toggle: " + std::string(restored_by_toggle ? "PASS" : "FAIL")
                      + ", restored by RestoreAll: " + std::string(restored_by_all ? "PASS" : "FAIL")
                      + (changed ? "" : " (original already optimized)"));
+    }
+
+    // -------------------------------------------------------------------------
+    // Test 30: los tweaks de HKLM tambien devuelven el valor original
+    // -------------------------------------------------------------------------
+    {
+        struct RegItem { const wchar_t* key; const wchar_t* name; };
+        const RegItem items[] = {
+            { L"SOFTWARE\\Microsoft\\Windows\\Dwm", L"OverlayTestMode" },
+            { L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile", L"SystemResponsiveness" },
+            { L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile\\Tasks\\Games", L"GPU Priority" },
+            { L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile\\Tasks\\Games", L"Priority" },
+            { L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile\\Tasks\\Games", L"Scheduling Category" },
+            { L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile\\Tasks\\Games", L"SFIO Priority" },
+            { L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile\\Tasks\\Games", L"Background Only" },
+            { L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile\\Tasks\\Games", L"Clock Rate" },
+            { L"SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Memory Management", L"DisablePagingExecutive" },
+            { L"SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Memory Management", L"LargeSystemCache" },
+            { L"SYSTEM\\CurrentControlSet\\Control\\PriorityControl", L"Win32PrioritySeparation" },
+        };
+        // Cada valor como (existe, tipo, bytes) para comparar antes y despues.
+        auto read_all = [&]() {
+            std::vector<std::tuple<bool, DWORD, std::vector<BYTE>>> out;
+            for (const auto& it : items) {
+                DWORD type = 0, size = 0;
+                std::vector<BYTE> data;
+                bool present = RegGetValueW(HKEY_LOCAL_MACHINE, it.key, it.name, RRF_RT_ANY | RRF_NOEXPAND, &type, nullptr, &size) == ERROR_SUCCESS;
+                if (present) {
+                    data.resize(size);
+                    present = RegGetValueW(HKEY_LOCAL_MACHINE, it.key, it.name, RRF_RT_ANY | RRF_NOEXPAND, &type, data.data(), &size) == ERROR_SUCCESS;
+                    data.resize(size);
+                }
+                out.emplace_back(present, present ? type : 0, data);
+            }
+            return out;
+        };
+
+        vegaflow::GraphicsOptimizer::RestoreAllRegistryBackups();
+        const auto before = read_all();
+
+        vegaflow::GraphicsOptimizer::SetMpoDisabled(true, false);
+        vegaflow::GraphicsOptimizer::SetMmcssGamingProfileOptimized(true, false);
+        vegaflow::GraphicsOptimizer::ApplyMmcssTaskTweaks(false);
+        vegaflow::GraphicsOptimizer::SetKernelMemoryPagingShield(true, false);
+        vegaflow::GraphicsOptimizer::SetDynamicPrioritySeparation(0x26, false);
+        const bool restored_ok = vegaflow::GraphicsOptimizer::RestoreAllRegistryBackups();
+        const bool equal = (read_all() == before);
+
+        RecordResult(restored_ok && equal,
+                     "Test 30: HKLM tweaks restore the original values",
+                     "RestoreAllRegistryBackups: " + std::string(restored_ok ? "PASS" : "FAIL") + ", values identical: " + std::string(equal ? "PASS" : "FAIL"));
     }
 
     // -------------------------------------------------------------------------

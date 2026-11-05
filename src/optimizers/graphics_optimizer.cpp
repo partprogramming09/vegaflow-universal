@@ -281,6 +281,12 @@ bool RegRestoreRecord(int hive_of_backup, const std::wstring& record) {
     return restored;
 }
 
+constexpr wchar_t kMmcssProfilePath[] = L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile";
+constexpr wchar_t kMmcssGamesPath[] = L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile\\Tasks\\Games";
+constexpr const wchar_t* kMmcssGamesValues[] = {
+    L"GPU Priority", L"Priority", L"Scheduling Category", L"SFIO Priority", L"Background Only", L"Clock Rate"
+};
+
 /// Valores del subkey UMD del driver de AMD que modifican los perfiles de arranque rapido y de teselacion.
 constexpr const wchar_t* kUmdBoostValues[] = {
     L"SurfaceFormatReplacements", L"FlipQueueSize", L"TFQ", L"Tessellation_OPTION",
@@ -1089,7 +1095,7 @@ bool GraphicsOptimizer::SetMpoDisabled(bool disable, bool dry_run) {
         0,
         nullptr,
         REG_OPTION_NON_VOLATILE,
-        KEY_SET_VALUE,
+        KEY_READ | KEY_SET_VALUE,
         nullptr,
         &hKey,
         &disposition
@@ -1099,8 +1105,10 @@ bool GraphicsOptimizer::SetMpoDisabled(bool disable, bool dry_run) {
         return false;
     }
 
+    const std::wstring dwm_path = L"SOFTWARE\\Microsoft\\Windows\\Dwm";
     bool success = false;
     if (disable) {
+        RegBackupValue(kHiveLocalMachine, dwm_path, hKey, L"OverlayTestMode");
         DWORD value = 5;
         LSTATUS set_status = RegSetValueExW(
             hKey,
@@ -1122,6 +1130,9 @@ bool GraphicsOptimizer::SetMpoDisabled(bool disable, bool dry_run) {
     }
 
     RegCloseKey(hKey);
+    if (!disable) {
+        RegRestoreValue(kHiveLocalMachine, dwm_path, L"OverlayTestMode");
+    }
     return success;
 }
 
@@ -1138,7 +1149,7 @@ bool GraphicsOptimizer::SetMmcssGamingProfileOptimized(bool optimize, bool dry_r
         0,
         nullptr,
         REG_OPTION_NON_VOLATILE,
-        KEY_SET_VALUE,
+        KEY_READ | KEY_SET_VALUE,
         nullptr,
         &hProfile,
         &disposition
@@ -1146,6 +1157,7 @@ bool GraphicsOptimizer::SetMmcssGamingProfileOptimized(bool optimize, bool dry_r
 
     bool profile_ok = false;
     if (stProfile == ERROR_SUCCESS) {
+        if (optimize) RegBackupValue(kHiveLocalMachine, kMmcssProfilePath, hProfile, L"SystemResponsiveness");
         DWORD sys_resp = optimize ? 10 : 20;
         LSTATUS s1 = RegSetValueExW(hProfile, L"SystemResponsiveness", 0, REG_DWORD, reinterpret_cast<const BYTE*>(&sys_resp), sizeof(sys_resp));
         profile_ok = (s1 == ERROR_SUCCESS);
@@ -1159,7 +1171,7 @@ bool GraphicsOptimizer::SetMmcssGamingProfileOptimized(bool optimize, bool dry_r
         0,
         nullptr,
         REG_OPTION_NON_VOLATILE,
-        KEY_SET_VALUE,
+        KEY_READ | KEY_SET_VALUE,
         nullptr,
         &hGames,
         &disposition
@@ -1167,6 +1179,9 @@ bool GraphicsOptimizer::SetMmcssGamingProfileOptimized(bool optimize, bool dry_r
 
     bool games_ok = false;
     if (stGames == ERROR_SUCCESS) {
+        if (optimize) {
+            for (const wchar_t* n : kMmcssGamesValues) RegBackupValue(kHiveLocalMachine, kMmcssGamesPath, hGames, n);
+        }
         DWORD gpu_prio = optimize ? 8 : 2;
         DWORD prio = optimize ? 6 : 2;
         const wchar_t* sched_cat = optimize ? L"High" : L"Medium";
@@ -1183,6 +1198,10 @@ bool GraphicsOptimizer::SetMmcssGamingProfileOptimized(bool optimize, bool dry_r
         RegCloseKey(hGames);
     }
 
+    if (!optimize) {
+        RegRestoreValue(kHiveLocalMachine, kMmcssProfilePath, L"SystemResponsiveness");
+        for (const wchar_t* n : kMmcssGamesValues) RegRestoreValue(kHiveLocalMachine, kMmcssGamesPath, n);
+    }
     return profile_ok && games_ok;
 }
 
@@ -1196,7 +1215,7 @@ bool GraphicsOptimizer::SetDynamicPrioritySeparation(uint32_t value, bool dry_ru
         HKEY_LOCAL_MACHINE,
         L"SYSTEM\\CurrentControlSet\\Control\\PriorityControl",
         0,
-        KEY_SET_VALUE,
+        KEY_READ | KEY_SET_VALUE,
         &hKey
     );
 
@@ -1204,6 +1223,9 @@ bool GraphicsOptimizer::SetDynamicPrioritySeparation(uint32_t value, bool dry_ru
         return false;
     }
 
+    const std::wstring prio_path = L"SYSTEM\\CurrentControlSet\\Control\\PriorityControl";
+    const bool is_default = (value == 0x02);
+    if (!is_default) RegBackupValue(kHiveLocalMachine, prio_path, hKey, L"Win32PrioritySeparation");
     DWORD dwVal = static_cast<DWORD>(value);
     LSTATUS set_status = RegSetValueExW(
         hKey,
@@ -1215,6 +1237,7 @@ bool GraphicsOptimizer::SetDynamicPrioritySeparation(uint32_t value, bool dry_ru
     );
 
     RegCloseKey(hKey);
+    if (is_default) RegRestoreValue(kHiveLocalMachine, prio_path, L"Win32PrioritySeparation");
     return (set_status == ERROR_SUCCESS);
 }
 
@@ -1228,7 +1251,7 @@ bool GraphicsOptimizer::SetKernelMemoryPagingShield(bool enable, bool dry_run) {
         HKEY_LOCAL_MACHINE,
         L"SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Memory Management",
         0,
-        KEY_SET_VALUE,
+        KEY_READ | KEY_SET_VALUE,
         &hKey
     );
 
@@ -1236,6 +1259,11 @@ bool GraphicsOptimizer::SetKernelMemoryPagingShield(bool enable, bool dry_run) {
         return false;
     }
 
+    const std::wstring mm_path = L"SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Memory Management";
+    if (enable) {
+        RegBackupValue(kHiveLocalMachine, mm_path, hKey, L"DisablePagingExecutive");
+        RegBackupValue(kHiveLocalMachine, mm_path, hKey, L"LargeSystemCache");
+    }
     DWORD disable_paging = enable ? 1 : 0;
     DWORD large_cache = 0; // Evita que la caché de archivos del sistema desplace la memoria de los juegos
 
@@ -1258,6 +1286,10 @@ bool GraphicsOptimizer::SetKernelMemoryPagingShield(bool enable, bool dry_run) {
     );
 
     RegCloseKey(hKey);
+    if (!enable) {
+        RegRestoreValue(kHiveLocalMachine, mm_path, L"DisablePagingExecutive");
+        RegRestoreValue(kHiveLocalMachine, mm_path, L"LargeSystemCache");
+    }
     return (st1 == ERROR_SUCCESS && st2 == ERROR_SUCCESS);
 }
 
@@ -1318,11 +1350,12 @@ bool GraphicsOptimizer::ApplyMmcssTaskTweaks(bool dryRun) {
     LSTATUS stProfile = RegOpenKeyExW(
         HKEY_LOCAL_MACHINE,
         L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile",
-        0, KEY_SET_VALUE, &hProfile
+        0, KEY_READ | KEY_SET_VALUE, &hProfile
     );
     if (stProfile != ERROR_SUCCESS) {
         return false;
     }
+    RegBackupValue(kHiveLocalMachine, kMmcssProfilePath, hProfile, L"SystemResponsiveness");
     const DWORD sys_resp = 10;
     stProfile = RegSetValueExW(
         hProfile,
@@ -1341,12 +1374,13 @@ bool GraphicsOptimizer::ApplyMmcssTaskTweaks(bool dryRun) {
     LSTATUS stGames = RegOpenKeyExW(
         HKEY_LOCAL_MACHINE,
         L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile\\Tasks\\Games",
-        0, KEY_SET_VALUE, &hGames
+        0, KEY_READ | KEY_SET_VALUE, &hGames
     );
     if (stGames != ERROR_SUCCESS) {
         return false;
     }
 
+    for (const wchar_t* n : kMmcssGamesValues) RegBackupValue(kHiveLocalMachine, kMmcssGamesPath, hGames, n);
     const wchar_t* sched_cat = L"High";
     const wchar_t* sfio_prio = L"High";
     const wchar_t* bg_only = L"False";
@@ -1431,6 +1465,9 @@ bool GraphicsOptimizer::RestoreMmcssTaskTweaks(bool dryRun) {
         reinterpret_cast<const BYTE*>(&prio), sizeof(prio));
 
     RegCloseKey(hGames);
+
+    RegRestoreValue(kHiveLocalMachine, kMmcssProfilePath, L"SystemResponsiveness");
+    for (const wchar_t* n : kMmcssGamesValues) RegRestoreValue(kHiveLocalMachine, kMmcssGamesPath, n);
 
     return (s1 == ERROR_SUCCESS && s2 == ERROR_SUCCESS && s3 == ERROR_SUCCESS &&
             s4 == ERROR_SUCCESS && s5 == ERROR_SUCCESS);

@@ -908,6 +908,7 @@ int main(int argc, char* argv[]) {
     bool apu_balanced_flag = false;
     bool vram_override_flag = false;
     bool vram_restore_flag = false;
+    bool restore_registry_flag = false;
     bool fsr_validate_flag = false;
     bool monitor_flag = false;
     bool gui_flag = false;
@@ -947,6 +948,8 @@ int main(int argc, char* argv[]) {
             vram_override_flag = true;
         } else if (arg == "--vram-restore") {
             vram_restore_flag = true;
+        } else if (arg == "--restore-registry") {
+            restore_registry_flag = true;
         } else if (arg == "--fsr-validate") {
             fsr_validate_flag = true;
         } else if (arg == "--dxvk-install" && i + 1 < argc) {
@@ -978,6 +981,7 @@ int main(int argc, char* argv[]) {
             std::cout << "  --apu-balanced           Restore standard Windows balanced APU power profile.\n";
             std::cout << "  --vram-override          Override AMD VRAM reporting to 4096 MB in DXGI and AMD driver.\n";
             std::cout << "  --vram-restore           Restore AMD VRAM reporting to driver default (512 MB).\n";
+            std::cout << "  --restore-registry       Restore the GameDVR and AMD driver registry values saved before VegaFlow changed them.\n";
             std::cout << "  --fsr-validate           Compile and validate embedded FSR 1.0 EASU + RCAS HLSL shaders.\n";
             std::cout << "  --dxvk-install <path>    Deploy DXVK (DirectX 11 to Vulkan with async GPL) to target game folder.\n";
             std::cout << "  --dxvk-remove <path>     Remove DXVK and restore original DirectX 11 runtime.\n";
@@ -1041,7 +1045,7 @@ int main(int argc, char* argv[]) {
             std::cout << "[INFO] Process is already running with Administrator privileges.\n";
             if (!gui_flag && !status_flag && !purge_now_flag && !monitor_flag && !mpo_disable_flag && !mpo_restore_flag
                 && !shader_cache_force_flag && !shader_cache_default_flag && !mem_compression_off_flag && !mem_compression_on_flag
-                && !apu_gpu_priority_flag && !apu_balanced_flag && !vram_override_flag && !vram_restore_flag && !fsr_validate_flag && !once_flag
+                && !apu_gpu_priority_flag && !apu_balanced_flag && !vram_override_flag && !vram_restore_flag && !restore_registry_flag && !fsr_validate_flag && !once_flag
                 && dxvk_install_path.empty() && dxvk_remove_path.empty()) {
                 return 0;
             }
@@ -1123,6 +1127,13 @@ int main(int argc, char* argv[]) {
         bool ok = vegaflow::GraphicsOptimizer::RestoreAmdVramReporting(dry_run_flag);
         std::cout << "[AMD VRAM] RestoreAmdVramReporting() " << (dry_run_flag ? "[DRY-RUN] " : "")
                   << (ok ? "SUCCEEDED. VRAM reporting restored to driver default (512 MB)." : "FAILED. Administrator privileges required.") << "\n";
+        return ok ? 0 : 1;
+    }
+
+    if (restore_registry_flag) {
+        bool ok = vegaflow::GraphicsOptimizer::RestoreAllRegistryBackups();
+        std::cout << "[Registry] RestoreAllRegistryBackups() "
+                  << (ok ? "SUCCEEDED. GameDVR and AMD driver values are back to what they were before VegaFlow." : "FAILED for at least one value (administrator privileges may be required).") << "\n";
         return ok ? 0 : 1;
     }
 
@@ -1710,6 +1721,7 @@ int main(int argc, char* argv[]) {
             GraphicsOptimizer::SetKernelMemoryPagingShield(false, false);
             GraphicsOptimizer::SetAmdTessellationCap(64, false);
             GraphicsOptimizer::RestoreAmdVramReporting(false);
+            GraphicsOptimizer::RestoreAllRegistryBackups();
             tweaks_query_countdown = 0;
             cpu_orchestrator.RestoreAll(false);
             last_isolated_count = 0;

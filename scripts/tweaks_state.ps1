@@ -49,6 +49,17 @@ $entries = @(
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if ($Restore -and $Apply -and -not $isAdmin) { throw 'Restaurar con -Apply requiere una consola de administrador.' }
 
+# Con -Restore -Apply, los valores que VegaFlow guardo antes de cambiarlos (SOFTWARE\VegaFlow\RegBackup) vuelven a lo que habia, no al valor de fabrica.
+$backedUp = @{}
+if ($Restore -and $Apply) {
+    foreach ($r in @(Get-ChildItem 'HKLM:\SOFTWARE\VegaFlow\RegBackup' -ErrorAction SilentlyContinue)) {
+        $v = Get-ItemProperty $r.PSPath
+        $backedUp[('{0}|{1}' -f $v.subkey.ToLower(), $v.name.ToLower())] = $true
+    }
+    $daemonExe = 'C:\ProgramData\VegaFlow\vegaflow_daemon.exe'
+    if ($backedUp.Count -gt 0 -and (Test-Path $daemonExe)) { & $daemonExe --restore-registry | ForEach-Object { "daemon: $_" } }
+}
+
 function Get-Current($path, $name) {
     $p = Get-ItemProperty -Path $path -Name $name -ErrorAction SilentlyContinue
     if ($null -eq $p) { return $null }
@@ -63,7 +74,10 @@ foreach ($e in $entries) {
     $state = if ($diff) { if ($safe) { 'DIFERENTE' } else { 'DIFERENTE (solo informe)' } } else { 'ok' }
     '{0,-26} {1,-14} {2,-10} {3}' -f $name, $(if ($null -eq $cur) { '(ausente)' } else { $cur }), $(if ($null -eq $stock) { '(ausente)' } else { $stock }), $state
 
-    if ($Restore -and $diff -and $safe) {
+    $key = '{0}|{1}' -f (($path -replace '^HKLM:\\', '').ToLower()), $name.ToLower()
+    if ($Restore -and $diff -and $safe -and $backedUp.ContainsKey($key)) {
+        '  -> restaurado desde la copia guardada: ' + $name
+    } elseif ($Restore -and $diff -and $safe) {
         $action = if ($null -eq $stock) { "borrar $name" } else { "escribir $name = $stock" }
         if ($Apply) {
             if ($null -eq $stock) { Remove-ItemProperty -Path $path -Name $name } else { Set-ItemProperty -Path $path -Name $name -Value $stock }
