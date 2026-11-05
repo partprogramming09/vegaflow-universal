@@ -389,6 +389,22 @@ Confirmación con capturas de 120 s (mismo escenario, 3 capturas por condición,
 - El FPS medio cambia -0.07%: la diferencia de -0.53% de las capturas de 30 s desaparece. El 1% Low agrupado sube +3.9% con un intervalo del 95% de -3.3% a +14.1% (incluye 0): no hay diferencia. La sospecha de coste del daemon en los lows no se confirma; el signo incluso se invierte. Con esta mezcla el daemon no ayuda ni daña.
 - Una captura apagada tuvo un tirón (1% Low 29.2, 0.1% Low 15.2, 3 tirones por minuto); las tres encendidas no. Con 3 capturas no se atribuye al daemon.
 
+## Fallos inyectados: matar el daemon a mitad de partida (2026-11-05)
+
+Octopath abierto, Chrome sin ventana con 4 workers como fondo, daemon lanzado con la tarea `VegaFlow-Start` (sesión 1), cada estado leído con `GetProcessInformation` y `GetProcessDefaultCpuSets` y con `tweaks_state.ps1`:
+
+| Momento | Fondo (Chrome) | Juego | Valores fuera de fábrica |
+| --- | --- | --- | --- |
+| sin daemon | 0 CPU Sets, sin EcoQoS | 0 CPU Sets, sin EcoQoS | ninguno |
+| daemon vivo | 2 CPU Sets, EcoQoS activo | 0 CPU Sets, sin EcoQoS, prioridad normal | `Win32PrioritySeparation` 40 (fábrica 2) |
+| daemon muerto con `Stop-Process -Force` | sigue con 2 CPU Sets y EcoQoS | igual | `Win32PrioritySeparation` sigue en 40 |
+| tras `--restore-registry` y `--apu-balanced` | n/d | n/d | ninguno; los dos salen con código 0 |
+
+- Con el daemon vivo el aislamiento es el esperado: el fondo confinado a 2 hilos con EcoQoS y el juego sin tocar. El daemon no modificó el `Engine.ini` de Octopath (misma fecha de modificación antes y durante).
+- Defecto: un cierre no limpio deja `Win32PrioritySeparation` en 40 y los procesos de fondo confinados y con EcoQoS mientras vivan. No hay recuperación automática si el daemon no vuelve a ejecutarse.
+- Recuperación probada: arrancar el daemon otra vez y cerrarlo con normalidad (tarea `VegaFlow-Stop`) devuelve `Win32PrioritySeparation` a 2, así que la copia de seguridad conserva el valor original tras el fallo; también sirve `vegaflow_daemon.exe --restore-registry`.
+- Corrección propuesta, no implementada (registrar una tarea de arranque necesita al usuario): una tarea al iniciar sesión que ejecute `--restore-registry` si el daemon no está corriendo.
+
 ## Observaciones
 
 - El daemon no registró ninguna sesión de juego en estas corridas (`session_reports.log` no cambió en ninguna parada) porque corría en la sesión 0 (ver "Alcance"). El coste de -10.7% vino de algo que hace sin detectar un juego: el perfil de energía.

@@ -11,6 +11,7 @@
 #   vfdev stats ARCHIVO|- [PREFIJO]   agrupa filas de resultados por condicion: n, media, mediana y rango
 #   vfdev fetch PREFIJO [DESTINO]     trae del laptop los JSON y CSV de cuadros de las capturas cuya etiqueta empieza por PREFIJO
 #   vfdev frames GLOB_A GLOB_B        compara dos condiciones con los CSV de cuadros: cuadros agrupados e intervalo de confianza
+#   vfdev regress BASE.json GLOB      puerta de regresion: compara capturas nuevas con la linea base de una escena (baselines/); --make la crea
 # Variables: VFJOB_HOST (usuario@ip), VFJOB_KEY (llave SSH), WINBRIDGE_BIN (cliente winbridge, `winbridge` por defecto),
 #   VFJOB_REPO (repositorio en el laptop), VFJOB_MINGW (carpeta bin de g++), VFJOB_BASE (rama base del bundle, main),
 #   VFJOB_QUEUE=1 (build-test aunque haya trabajos en curso)
@@ -45,6 +46,10 @@ fetch)
 frames)
     shift
     exec python3 -I "$HERE/vfframes.py" "$@"
+    ;;
+regress)
+    shift
+    exec python3 -I "$HERE/vfregress.py" "$@"
     ;;
 deploy)
     remote 'if not exist C:\dev\vf-pkg\scripts mkdir C:\dev\vf-pkg\scripts' || exit 1

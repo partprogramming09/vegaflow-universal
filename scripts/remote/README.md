@@ -36,6 +36,7 @@ scripts/remote/vfdev build-test             # compila y ejecuta las pruebas en e
 scripts/remote/vfdev stats ARCHIVO [PREFIJO]
 scripts/remote/vfdev fetch PREFIJO [DESTINO]   # trae los JSON y CSV de cuadros de las capturas con esa etiqueta
 scripts/remote/vfdev frames 'A/*.csv' 'B/*.csv' # compara dos condiciones con los cuadros agrupados
+scripts/remote/vfdev regress scripts/remote/baselines/octopath_world.json 'NUEVAS/*.csv'   # PASS o FAIL contra la linea base de la escena
 scripts/remote/vfdev run ab Api=d3d11 Process=juego.exe Reps=5 Seconds=120 Warmup=1 LabelPrefix=run1   # juego real: no se cierra al terminar
 ```
 

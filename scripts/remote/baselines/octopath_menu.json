@@ -1,0 +1,9 @@
+{
+ "scene": "Octopath Traveler II, menu principal, D3D11",
+ "launches": 3,
+ "present_mode": "Hardware: Independent Flip",
+ "avg_fps": 59.998261600799324,
+ "low1": 52.212359500891615,
+ "noise_avg_pct": 0.0010532527941677636,
+ "noise_low_pct": 0.3468189764698831
+}
