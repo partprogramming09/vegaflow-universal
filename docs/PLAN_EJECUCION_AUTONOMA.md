@@ -33,6 +33,7 @@ Fecha: 2026-11-04. Rama `feat/ab-automation`, PR #5. Plan para terminar lo pendi
 - [ ] Añadir las topologías `6c` (6 hilos, uno por núcleo) y `4c8t` (4 núcleos con SMT) a `bg_factors.ps1 -Mode sim` con condiciones base, 1 hilo y 2 hilos.
 - [ ] Medir con cargas de 1, 2 y 4 workers (3 rondas, 30 s por captura).
 - [ ] Comparar con la regla actual (un sexto de los hilos, mínimo 1: 6 hilos → 1, 8 hilos → 1). Si 2 hilos gana de forma clara en alguna, cambiar la regla con un caso nuevo en la Prueba 28 y repetir Fase 1 (compilar y probar).
+- Estado: pausada el 2026-11-04 a las 20:47 para dejar libre el laptop (instalación de WinBridge); las capturas parciales de `6c` no se analizaron. Reanudar desde la topología `6c`, 1 worker.
 - Hecho cuando: hay tabla documentada y la regla del código coincide con los datos, o queda dicho que no.
 
 ### Fase 4: térmico con serie de tiempo
