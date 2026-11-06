@@ -191,4 +191,18 @@ Ruido medido:
 
 Estado del motor, descubierto el 2026-11-05 después de estas mediciones: el `Engine.ini` de Octopath (`%LOCALAPPDATA%\Octopath_Traveler2\Saved\Config\WindowsNoEditor\`) lleva el preset UMA de VegaFlow desde el 2026-10-29 (`r.Streaming.PoolSize=3000`, `LimitPoolSizeToVRAM=0`, `FullyLoadUsedTextures=1`, `FramesForFullUpdate=1`, `MaxNumTexturesToStreamPerFrame=100`, `AmortizeCPUToGPUCopy=0`, `Boost=1.5` y `r.RDG.AsyncCompute=0`), con su copia `Engine.ini.vegaflow.bak`. `tweaks_state.ps1` solo mira el registro y no lo ve. Todas las capturas de Octopath de este documento y de `MEDICION_AB_DAEMON.md`, con daemon apagado y encendido, corrieron con ese preset, así que la línea base de motor no es la de fábrica; la comparación A/B no se ve afectada porque el archivo es igual en las dos condiciones. La fecha de modificación del archivo (2026-11-05 16:29) coincide con un arranque del juego con el daemon apagado, así que lo reescribe el propio juego.
 
+### Palanca: preset UMA del `Engine.ini` contra el original (2026-11-05)
+
+Mundo "Pueblo fantasma", daemon apagado, un lanzamiento con el `Engine.ini.vegaflow.bak` (original) y 5 capturas de 120 s, contra las 15 capturas de Phase 1 con el preset (3 lanzamientos). Umbrales del plan, fijados antes.
+
+| Condición | FPS medio | 1% Low agrupado |
+| --- | --- | --- |
+| Preset UMA (A) | 43.15 [43.10-43.22] | 39.17 |
+| Original (B) | 30.72 [30.69-30.74] | 28.19 (IC95 del cambio -29.0% a -27.1%) |
+
+El preset da +40% de FPS medio y +39% de 1% Low en este escena, y no cambia el modo de presentación (Independent Flip), 0 errores y 0 tirones en las dos. Cuenta contra los umbrales.
+
+Límites: no está intercalado (el preset viene de lanzamientos anteriores del mismo día y el original es un solo lanzamiento; el ruido entre lanzamientos medido es 0.23%, muy por debajo de la diferencia), escena limitada por GPU, un solo juego y motor UE4. No aísla qué clave del preset causa la ganancia (la sospecha es `r.RDG.AsyncCompute=0`, coherente con la sección 2.4 de CLAUDE.md, pero no está probado). El archivo quedó restaurado y se comprobó idéntico.
+
+
 Límites: una sola máquina, un solo juego y 2 escenas; el mundo es una escena estática con el personaje quieto, así que no incluye streaming ni movimiento. Los umbrales nuevos se fijaron con estos datos antes de medir ninguna palanca.
