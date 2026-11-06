@@ -424,6 +424,20 @@ Daemon en la sesión del escritorio, 1 minuto en reposo y luego 6 ciclos de `dra
 
 Reposo largo, 20 minutos sin juego, una lectura cada 2 minutos: memoria privada 1.8-1.9 MB constante, manejadores 104 constantes, hilos 1 a 4, CPU acumulada 0.5 s cada 2 minutos (0.4% de un hilo, 0.04% del procesador de 12 hilos), registro de sesión sin crecer (79226 bytes), cierre limpio y sin procesos sobrantes. Sin fuga en 20 minutos; una fuga más lenta que eso no se descarta.
 
+## Zenless Zone Zero con anti-cheat (2026-11-05, D3D11)
+
+Segundo juego real, con HoYoverse Protect activo. El proceso carga `d3d11.dll` y `dxgi.dll` y ningún módulo de D3D12, así que esta celda es D3D11, no D3D12. El juego corría como administrador (lo abrió el usuario con UAC), 1920x1080 en pantalla completa sin bordes según el registro, escena fija del mundo con el personaje quieto, tope de 60 FPS. La calidad gráfica no se pudo registrar: el menú no está en el registro y Windows bloqueó mis teclas sobre el proceso elevado. Medido con `vfdev run pack`, 1 calentamiento y 5 capturas de 120 s por condición, sin carga de fondo, sin tocar archivos del juego; el daemon solo detecta el juego y no lo modifica.
+
+| Condición | FPS medio | 1% Low agrupado |
+| --- | --- | --- |
+| Daemon apagado | 58.57 [58.50-58.68] | 41.90 |
+| Daemon encendido | 58.89 [58.60-58.96] | 41.42 (IC95 del cambio -2.4% a +0.2%) |
+
+- Sin efecto: +0.54% de FPS (umbral 1%, rangos con solape) y -1.15% de 1% Low (umbral 3%, el intervalo incluye 0). Es lo esperado sin carga de fondo.
+- Estabilidad: 5 de 5 capturas `clean` con el daemon encendido, 0 errores del sistema, el juego y el anti-cheat siguieron funcionando (sin expulsión ni cierre), modo de presentación "Hardware Composed: Independent Flip" en todas.
+- Cuadros tardíos con el daemon encendido: 1.75% a 2.39% de los cuadros (juego topado a 60 FPS); la condición apagada no se leyó para este conteo.
+- Límites: una sola escena quieta, sin carga de fondo, D3D11, calidad gráfica sin registrar, una sesión. No mide D3D12 ni un juego limitado por CPU.
+
 ## Observaciones
 
 - El daemon no registró ninguna sesión de juego en estas corridas (`session_reports.log` no cambió en ninguna parada) porque corría en la sesión 0 (ver "Alcance"). El coste de -10.7% vino de algo que hace sin detectar un juego: el perfil de energía.
