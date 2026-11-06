@@ -420,7 +420,9 @@ Daemon en la sesión del escritorio, 1 minuto en reposo y luego 6 ciclos de `dra
 - No hay fuga: la memoria privada con el juego abierto es constante (3.6 → 3.7 MB) y la de cerrado baja (2.2 → 2.1); los manejadores de cerrado bajan de 131 a 127 y se estabilizan; los hilos vuelven a 2-3.
 - El registro de sesión crece 788 bytes por ciclo, constante.
 - Tras el cierre limpio el daemon no queda corriendo y `doctor` no ve procesos sobrantes.
-- Límite: 6 ciclos y 8 minutos; no descarta una fuga más lenta (el reposo largo se mide aparte).
+- Límite: 6 ciclos y 8 minutos.
+
+Reposo largo, 20 minutos sin juego, una lectura cada 2 minutos: memoria privada 1.8-1.9 MB constante, manejadores 104 constantes, hilos 1 a 4, CPU acumulada 0.5 s cada 2 minutos (0.4% de un hilo, 0.04% del procesador de 12 hilos), registro de sesión sin crecer (79226 bytes), cierre limpio y sin procesos sobrantes. Sin fuga en 20 minutos; una fuga más lenta que eso no se descarta.
 
 ## Observaciones
 
