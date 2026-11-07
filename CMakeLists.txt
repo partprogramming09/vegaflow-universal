@@ -31,7 +31,25 @@ set(VEGAFLOW_CORE_SOURCES
     src/gui/gui_window.cpp
 )
 
+find_program(CARGO_EXECUTABLE cargo HINTS "$ENV{USERPROFILE}/.cargo/bin" REQUIRED)
+
+if(CMAKE_CROSSCOMPILING)
+    set(RUST_TARGET "x86_64-pc-windows-gnu")
+else()
+    set(RUST_TARGET "x86_64-pc-windows-gnu")
+endif()
+
+set(RUST_STATIC_LIB "${CMAKE_CURRENT_SOURCE_DIR}/rust/vegaflow-core/target/${RUST_TARGET}/release/libvegaflow_core.a")
+
+add_custom_target(vegaflow_rust_core ALL
+    COMMAND ${CARGO_EXECUTABLE} build --manifest-path "${CMAKE_CURRENT_SOURCE_DIR}/rust/vegaflow-core/Cargo.toml" --target ${RUST_TARGET} --release
+    BYPRODUCTS "${RUST_STATIC_LIB}"
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    COMMENT "Building Rust static library vegaflow-core (${RUST_TARGET})"
+)
+
 add_library(vegaflow_core STATIC ${VEGAFLOW_CORE_SOURCES})
+add_dependencies(vegaflow_core vegaflow_rust_core)
 
 target_include_directories(vegaflow_core PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -42,6 +60,7 @@ target_include_directories(vegaflow_core PUBLIC
 )
 
 target_link_libraries(vegaflow_core PUBLIC
+    "${RUST_STATIC_LIB}"
     ntdll
     dxgi
     advapi32

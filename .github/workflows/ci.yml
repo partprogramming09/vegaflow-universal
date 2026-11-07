@@ -28,6 +28,10 @@ jobs:
           persist-credentials: false
       - name: Install MinGW-w64
         run: sudo apt-get update && sudo apt-get install -y g++-mingw-w64-x86-64 cmake
+      - name: Setup Rust target x86_64-pc-windows-gnu
+        run: rustup target add x86_64-pc-windows-gnu
+      - name: Run Rust unit tests
+        run: cargo test --manifest-path rust/vegaflow-core/Cargo.toml
       - name: Configure
         run: cmake -S . -B build -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++ -DCMAKE_BUILD_TYPE=Release
       - name: Build

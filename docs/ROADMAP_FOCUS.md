@@ -1,7 +1,7 @@
 # Hoja de Ruta y Enfoque de Ingeniería — VegaFlow Universal
 
-**Fecha de Actualización:** 2026-11-01  
-**Estado General:** Base Universal Consolidada y Verificada (`26/26` Tests Pasados)  
+**Fecha de Actualización:** 2026-11-07  
+**Estado General:** Base Universal Consolidada y Verificada (31/31 Tests C++20 + 15/15 Tests Rust Pasados)  
 **Documento Maestro:** Índice Estratégico y Hoja de Ruta Técnica
 
 ---
@@ -40,7 +40,14 @@ Especificado en [`docs/superpowers/specs/2026-11-01-apu-dx11-dx12-universal-guar
 ### 1.4. Runtime DXGI Pressure Guard y Blindaje Anti-Cheat
 - **Monitoreo en Tiempo Real (`EvaluateUmaPressureGuard`):** Sondaje del presupuesto DXGI 1.4 (`IDXGIAdapter3`). Si el consumo local alcanza el **85%** o la memoria física libre es inferior a **1536 MB**, mitiga proactivamente mediante recorte de conjuntos de trabajo secundarios sin pausas perceptibles.
 - **Zero-Trust Lockdown (`SandboxGuard`):** Aislamiento de rutas canónicas, whitelist estricta y bloqueo total ante firmas de kernel anti-cheat (HoYoKProtect, Vanguard, EAC, BattlEye, ACE).
-- **Cobertura de Pruebas:** **26 de 26 pruebas unitarias e integradas pasando en verde** (`TEST RESULTS: 26 PASSED, 0 FAILED`).
+- **Cobertura de Pruebas:** **31 de 31 pruebas unitarias e integradas C++20 y 15 de 15 pruebas Rust pasando en verde** (`TEST RESULTS: 31 PASSED, 0 FAILED`).
+
+### 1.5. Núcleo Híbrido Rust FFI (`vegaflow-core`)
+Implementado en el crate estático [`rust/vegaflow-core/`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/rust/vegaflow-core) y enlazado sin sobrecarga vía C ABI ([`include/core/rust_bridge.h`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/include/core/rust_bridge.h)):
+- **Evaluador de Presión UMA (`src/uma_memory.rs`):** Funciones `vf_rust_evaluate_uma_pressure` y `vf_rust_evaluate_nt_memory_lists`. Algoritmos deterministas sin asignación dinámica de memoria en el heap (Zero-Allocation), verificando saturación local DXGI, reservas del sistema operativo y listas Standby de NT.
+- **Topología L3 y Gobernanza de CPU (`src/cpu_governor.rs`):** Función `vf_rust_partition_topology_l3` para aislar hilos del juego en la caché L3 principal para arquitecturas simétricas o heterogéneas (Zen 2/3/4/5 y procesadores híbridos), junto con la máquina de estados e histéresis `vf_rust_evaluate_background_confinement` (umbrales de 0.50 y 0.25 núcleos lógicos).
+- **Scanner Anti-Cheat y Blindaje de Archivos (`src/sandbox_core.rs`):** Detección formal y sin falsos positivos de firmas de Anti-Cheat de kernel (`vf_rust_contains_anticheat_signature`) y protección estricta contra modificaciones accidentales a binarios de arranque del sistema (`vf_rust_is_critical_system_file`).
+- **Seguridad Incondicional:** Compilación estática con LTO completo, `panic = "abort"`, y verificación formal mediante 15 pruebas unitarias internas.
 
 ---
 

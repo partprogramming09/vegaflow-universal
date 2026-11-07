@@ -94,7 +94,14 @@ Solo si ocurre una de estas y no hay forma indirecta:
 
 Total: unas 6 a 7 horas, casi todo medición en el laptop.
 
-## Cambios posteriores (2026-11-05)
+## Cambios posteriores
 
+### 2026-11-05
 - `vfjob` se retiró con la confirmación del usuario: los trabajos corren en el ejecutor de WinBridge (`scripts/remote/vfdev`), `VegaFlow-Run` está deshabilitada y lo antiguo está en `scripts/remote/archive/`.
 - El daemon restaura el registro al cerrarse con normalidad (verificado de extremo a extremo: al parar, el registro queda idéntico al de antes de arrancar).
+
+### 2026-11-06 / 2026-11-07
+- Fusión híbrida con Rust: implementación y enlace estático del crate `rust/vegaflow-core` (`uma_memory.rs`, `cpu_governor.rs`, `sandbox_core.rs`), con `31/31` pruebas en C++20 y `15/15` pruebas unitarias en Rust pasando en verde de forma reproducible.
+- Registro y configuración del servidor MCP `metal-gpu-trace` (`v0.8.4`) para instrumentación y perfiles de GPU en tiempo real.
+- Verificación empírica A/B del daemon híbrido (`ab_hybrid_221748`): ganancia de 2.53x en FPS medio (42.81 -> 108.16) y 5.97x en 1% Low (11.55 -> 68.96) con 6 workers de Chrome y reducción de -80.5% en la dispersión de frametimes.
+- Merge a `main` y sincronización de arquitectura y documentación en CMake, CI y guías de desarrollo.

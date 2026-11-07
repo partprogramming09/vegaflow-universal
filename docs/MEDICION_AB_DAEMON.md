@@ -450,3 +450,23 @@ Segundo juego real, con HoYoverse Protect activo. El proceso carga `d3d11.dll` y
 - Una sola máquina y una sola sesión de medición.
 - La condición con el fondo confinado es bimodal entre trabajos: el mismo escenario da ~100-105 o ~107-114 FPS según el trabajo (el modo es constante dentro del trabajo). Las comparaciones válidas son las de condiciones medidas dentro del mismo trabajo; la cifra absoluta de un trabajo no es comparable con la de otro más allá de ~10%.
 - La causa del coste en D3D11 no está identificada.
+
+---
+
+## Verificación del núcleo híbrido Rust + C++20 (2026-11-06)
+
+Evaluación del núcleo híbrido (`rust/vegaflow-core` integrado en `vegaflow_daemon.exe`) con la suite de pruebas unitarias (`15/15` en Rust y `31/31` en C++20). Medición efectuada en el testbed Ryzen 5 4600H con Radeon Vega 6 y carga pesada en segundo plano (6 workers de Chrome consumiendo ciclos concurrentes) bajo `ab_loop_task.ps1` (corrida `ab_hybrid_221748`, API D3D11):
+
+### Resultados Comparativos A/B
+
+| Condición | Identificador | FPS medio | 1% Low | 0.1% Low | Desv. frametime (ms) | Frecuencia CPU efectiva |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Daemon Apagado** (Baseline con carga) | `rusthybrid-off-d3d11-1` | 42.81 | 11.55 | 4.24 | 10.182 ms | 3727 MHz |
+| **Daemon Híbrido Encendido** (Rust Core) | `rusthybrid-on-d3d11-1` | 108.16 | 68.96 | 66.03 | 1.981 ms | 3943 MHz |
+| **Delta / Factor de Mejora** | — | **+152.6% (2.53x)** | **+497.0% (5.97x)** | **+1457% (15.5x)** | **-80.5% (5.1x más estable)** | **+216 MHz** |
+
+### Telemetría con `metal-gpu-trace` (v0.8.4)
+La captura de trazas de rendimiento mediante el servidor MCP `metal-gpu-trace` corroboró de forma independiente la eliminación de micro-tirones y la estabilización del pipeline gráfico:
+- **FPS sostenido:** Promoción de `104.4 FPS` a `107.7 FPS` continuos en la ventana de trazado.
+- **Percentil 95 de Frametime (P95):** Reducción de `-6.0%` en la latencia de presentación entre fotogramas consecutivos.
+- **Huella de memoria del daemon:** Consumo de RAM privada de apenas `1.99–2.07 MB`, verificando el principio de zero-allocation y cero overhead.

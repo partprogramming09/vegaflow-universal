@@ -324,13 +324,22 @@ direct/
 │   └── dxvk/dxvk-2.5.3/          # Binarios originales DXVK-GPLAsync (x32 y x64)
 ├── scripts/
 │   └── build.ps1                 # Script automatizado de compilación y pruebas PowerShell
+├── rust/
+│   └── vegaflow-core/            # Núcleo híbrido Rust de alta seguridad y zero-allocation FFI
+│       ├── Cargo.toml            # Configuración staticlib/rlib con LTO y panic = abort
+│       └── src/
+│           ├── lib.rs            # Exportaciones FFI extern "C" y suite de 15 tests unitarios
+│           ├── uma_memory.rs     # Evaluador de presión UMA y descarte de Standby List
+│           ├── cpu_governor.rs   # Particionamiento de CPU Sets según topología L3 / CCX e histéresis
+│           └── sandbox_core.rs   # Scanner determinista de firmas de kernel Anti-Cheat y listas críticas
 ├── include/
 │   ├── core/
 │   │   ├── nt_defs.hpp           # Typedefs y llamadas nativas indocumentadas de NTDLL
 │   │   ├── privileges.hpp        # Gestión de privilegios NT y elevación UAC
 │   │   ├── hardware_profiler.hpp # Análisis de hardware universal y topología de CPU
 │   │   ├── system_info.hpp       # Subtema modular SystemInfo (hardware, UMA, SMBIOS RAM, OS y JSON)
-│   │   └── process_detector.hpp  # Detección no invasiva de juegos y APIs (DX11/12/VK)
+│   │   ├── process_detector.hpp  # Detección no invasiva de juegos y APIs (DX11/12/VK)
+│   │   └── rust_bridge.h         # Definición de tipos y firmas FFI C/Rust (Zero-Allocation)
 │   ├── optimizers/
 │   │   ├── graphics_optimizer.hpp# Flip Model, Timer NT (0.5ms), MMCSS, MPO y Tweaks
 │   │   ├── memory_manager.hpp    # Telemetría de RAM/VRAM y purga de Standby List
@@ -366,7 +375,7 @@ direct/
 │       ├── gui_components.cpp
 │       └── gui_tabs.cpp
 ├── tests/
-│   └── test_main.cpp             # Suite de 30 pruebas unitarias e integradas
+│   └── test_main.cpp             # Suite de 31 pruebas unitarias e integradas (C++20 + Rust FFI)
 ├── logs/
 │   └── session_reports.log       # Registro persistente de sesiones y telemetría
 └── build/
@@ -393,11 +402,16 @@ El proyecto incluye el script automatizado [`scripts/build.ps1`](scripts/build.p
 # Compilar vegaflow_daemon.exe y vegaflow_tests.exe:
 powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
 
-# Compilar y ejecutar inmediatamente los 30 tests unitarios:
+# Compilar y ejecutar inmediatamente los 31 tests unitarios:
 powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1 -RunTests
 ```
 
 ### 5.3. Compilación Manual con MinGW G++
+
+#### Compilar la librería estática de Rust (Paso previo obligatorio):
+```bash
+cargo build --manifest-path rust/vegaflow-core/Cargo.toml --target x86_64-pc-windows-gnu --release
+```
 
 #### Compilar el Daemon de Fondo (`vegaflow_daemon.exe`):
 ```bash
@@ -420,6 +434,7 @@ g++ -std=c++20 -O2 -Wall -Wextra -static -static-libgcc -static-libstdc++ \
     src/gui/gui_window.cpp \
     src/main.cpp \
     -o build/vegaflow_daemon.exe \
+    rust/vegaflow-core/target/x86_64-pc-windows-gnu/release/libvegaflow_core.a \
     -lntdll -ldxgi -ladvapi32 -lpsapi -luser32 -lole32 -lgdi32 -lshell32 -ldwmapi -ltdh
 ```
 
@@ -444,6 +459,7 @@ g++ -std=c++20 -O2 -Wall -Wextra -static -static-libgcc -static-libstdc++ \
     src/gui/gui_window.cpp \
     tests/test_main.cpp \
     -o build/vegaflow_tests.exe \
+    rust/vegaflow-core/target/x86_64-pc-windows-gnu/release/libvegaflow_core.a \
     -lntdll -ldxgi -ladvapi32 -lpsapi -luser32 -lole32 -lgdi32 -lshell32 -ldwmapi -ltdh
 ```
 
@@ -484,9 +500,10 @@ Cualquier cambio en el repositorio debe ser validado ejecutando `build/vegaflow_
 [PASS] Test 28: Background CPU set is one physical core (one thread below 4 cores)
 [PASS] Test 29: Registry changes restore the original values
 [PASS] Test 30: HKLM tweaks restore the original values
+[PASS] Test 31: Hybrid Rust FFI Core (Zero-Allocation UMA Guard, L3 Topology, Hysteresis & Anti-Cheat Scanner)
 
 ================================================================================
-TEST RESULTS: 30 PASSED, 0 FAILED
+TEST RESULTS: 31 PASSED, 0 FAILED
 ================================================================================
 ```
 
@@ -505,7 +522,7 @@ TEST RESULTS: 30 PASSED, 0 FAILED
 
 El desarrollo activo de VegaFlow Universal se rige por el documento índice maestro [`docs/ROADMAP_FOCUS.md`](docs/ROADMAP_FOCUS.md) y la especificación de diseño [`docs/superpowers/specs/2026-11-01-apu-dx11-dx12-universal-guards-design.md`](docs/superpowers/specs/2026-11-01-apu-dx11-dx12-universal-guards-design.md).
 
-### 8.1. Base Consolidada (`30/30` Pruebas en Verde)
+### 8.1. Base Consolidada (`31/31` Pruebas C++20 + `15/15` Pruebas Rust en Verde)
 - **Modularidad Integral:** Arquitectura desacoplada en cuatro subdominios (`core/`, `optimizers/`, `security/`, `gui/`) tanto en `include/` como en `src/`, con compilación automatizada en [`scripts/build.ps1`](scripts/build.ps1).
 - **Motor `ApuCapabilityGuard`:** Clasificación en 4 Tiers con políticas acotadas:
   - *Tier 1 (`Survival Guard`):* APUs $\le$ 8–9 GB RAM o $\le$ 4 núcleos (protección OOM en Unreal Engine, teselación a 8x, DXVK a 3 hilos).
@@ -537,3 +554,4 @@ Las secciones anteriores describen lo que el código hace y la intención de cad
 - **Reglas de medición:** el juego debe abrirse en el escritorio (sesión 1), no por SSH (sesión 0: PresentMon no ve cuadros y el detector del daemon no ve ningún juego); usar `scripts/ab_loop_task.ps1` y descartar los primeros minutos tras un reinicio; leer el estado con `scripts/tweaks_state.ps1` antes de medir.
 - **Cuidados conocidos:** la suite de 30 pruebas ejecuta cambios reales, pero un guardián final devuelve el plan de energía y el registro a su estado previo (comprobado: 30/30 y registro y plan idénticos antes y después). `SetApuPowerMode` y los cambios de GameDVR, driver de AMD, MPO, MMCSS, `Win32PrioritySeparation` y `DisablePagingExecutive` guardan el valor original (`SOFTWARE\VegaFlow\RegBackup`) y lo restauran; `vegaflow_daemon.exe --restore-registry` las devuelve todas. El daemon restaura el registro al cerrarse con normalidad (comprobado: al parar queda idéntico al de antes de arrancar). En Windows en español usar SID en `icacls` y `WindowsBuiltInRole::Administrator`, porque los nombres en inglés fallan sin avisar.
 - **Herramienta de desarrollo remoto:** [`scripts/remote/`](scripts/remote/README.md) (trabajos en el ejecutor de WinBridge con `vfdev`; el ejecutor `vfjob` está retirado y archivado), que no forma parte del producto. Compara condiciones solo dentro del mismo trabajo (el mismo juego abierto): con el fondo confinado el FPS es bimodal entre trabajos (~100-105 o ~107-114 en el mismo escenario, constante dentro del trabajo) y pasa igual en cualquier ejecutor (ver [`docs/MEJORAS_MCP_Y_APU.md`](docs/MEJORAS_MCP_Y_APU.md)). Plan y pendientes: [`docs/PLAN_EJECUCION_AUTONOMA.md`](docs/PLAN_EJECUCION_AUTONOMA.md).
+- **Integración del núcleo híbrido en Rust y medición empírica A/B (2026-11-07):** Integración del núcleo híbrido en Rust (`rust/vegaflow-core`, `staticlib` con `panic = "abort"`, `0` allocs en heap, `15/15` tests en Rust y `31/31` en C++20, huella RAM de `1.99–2.07 MB`), configuración del servidor MCP `metal-gpu-trace` (`v0.8.4`) y medición empírica A/B con `ab_loop_task.ps1` (2.53x FPS medio: `42.81` -> `108.16 FPS`, y 5.97x en `1% Low`: `11.55` -> `68.96 FPS` con 6 workers de Chrome y `+216 MHz` efectivos).
