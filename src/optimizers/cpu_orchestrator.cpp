@@ -1,4 +1,5 @@
 #include "cpu_orchestrator.hpp"
+#include "rust_bridge.h"
 
 #include <algorithm>
 
@@ -89,8 +90,7 @@ bool CpuOrchestrator::UpdateBackgroundLoad(const std::vector<uint32_t>& backgrou
 
     const double logical_cpus = static_cast<double>(delta_100ns) / (static_cast<double>(elapsed_ms) * 10000.0);
     const bool before = bg_confine_active_;
-    if (!bg_confine_active_ && logical_cpus >= kConfineOnLogicalCpus) bg_confine_active_ = true;
-    else if (bg_confine_active_ && logical_cpus < kConfineOffLogicalCpus) bg_confine_active_ = false;
+    bg_confine_active_ = vf_rust_eval_bg_confinement(logical_cpus, bg_confine_active_);
     return before != bg_confine_active_;
 }
 

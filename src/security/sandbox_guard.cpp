@@ -1,4 +1,5 @@
 #include "sandbox_guard.hpp"
+#include "rust_bridge.h"
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -181,9 +182,9 @@ bool SandboxGuard::IsBlacklisted(const std::wstring& canonical_path, std::string
 
     // 2. Archivos críticos del sistema operativo
     std::wstring filename = ToLowerW(p.filename().wstring());
-    if (filename == L"bootmgr" || filename == L"pagefile.sys" ||
-        filename == L"hiberfil.sys" || filename == L"swapfile.sys" ||
-        filename == L"ntldr" || filename == L"bootsect.bak") {
+    char utf8_name[256] = {0};
+    int utf8_len = WideCharToMultiByte(CP_UTF8, 0, filename.data(), static_cast<int>(filename.size()), utf8_name, sizeof(utf8_name) - 1, nullptr, nullptr);
+    if (utf8_len > 0 && vf_rust_is_critical_system_filename(utf8_name, static_cast<size_t>(utf8_len))) {
         if (out_reason) *out_reason = "Operación denegada: Intento de modificar archivos críticos de arranque de Windows";
         return true;
     }
@@ -300,32 +301,10 @@ bool SandboxGuard::IsWhitelisted(const std::wstring& canonical_path, std::string
 bool SandboxGuard::PathContainsAntiCheatSignature(const std::wstring& path) {
     if (path.empty()) return false;
 
-    static const wchar_t* const kSignatures[] = {
-        L"easyanticheat",
-        L"battleye",
-        L"vanguard",
-        L"vgk.sys",
-        L"randgrid.sys",
-        L"anticheatexpert",
-        L"hoyokprotect",
-        L"mhyprot",
-        L"mhypbase",
-        L"acebase.dll",
-        L"beservice",
-        L"blackcipher",
-        L"equ8",
-        L"nprotect",
-        L"gameguard",
-        L"xigncode",
-        L"genshinimpact",
-        L"zenlesszonezero"
-    };
-
-    std::wstring lower = ToLowerW(path);
-    for (const wchar_t* sig : kSignatures) {
-        if (ContainsInsensitiveW(lower, sig)) {
-            return true;
-        }
+    char utf8_path[2048] = {0};
+    int utf8_len = WideCharToMultiByte(CP_UTF8, 0, path.data(), static_cast<int>(path.size()), utf8_path, sizeof(utf8_path) - 1, nullptr, nullptr);
+    if (utf8_len > 0) {
+        return vf_rust_has_anticheat_signature(utf8_path, static_cast<size_t>(utf8_len));
     }
     return false;
 }

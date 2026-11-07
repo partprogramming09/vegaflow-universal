@@ -1,4 +1,5 @@
 #include "hardware_profiler.hpp"
+#include "rust_bridge.h"
 
 #include <dxgi.h>
 #include <intrin.h>
@@ -400,6 +401,30 @@ void HardwareProfiler::PartitionCpuSetsFromTopology(CpuTopologyProfile& cpu_topo
     if (cpu_topology.all_cpu_sets.empty()) {
         return;
     }
+
+    if (cpu_topology.all_cpu_sets.size() <= VF_MAX_LOGICAL_PROCESSORS) {
+        VfCpuCoreEntry entries[VF_MAX_LOGICAL_PROCESSORS]{};
+        for (size_t i = 0; i < cpu_topology.all_cpu_sets.size(); ++i) {
+            const auto& cs = cpu_topology.all_cpu_sets[i];
+            entries[i].cpu_set_id = cs.cpu_set_id;
+            entries[i].core_index = cs.core_index;
+            entries[i].logical_processor_index = cs.logical_processor_index;
+            entries[i].last_level_cache_index = static_cast<uint8_t>(cs.last_level_cache_index);
+            entries[i].efficiency_class = cs.efficiency_class;
+        }
+
+        VfTopologyPartitionOut out{};
+        if (vf_rust_partition_cpu_topology(entries, static_cast<uint32_t>(cpu_topology.all_cpu_sets.size()), &out)) {
+            cpu_topology.logical_processors = out.logical_processors;
+            cpu_topology.physical_cores = out.physical_cores;
+            cpu_topology.has_multiple_ccx = out.has_multiple_ccx;
+            cpu_topology.has_hybrid_cores = out.has_hybrid_cores;
+            cpu_topology.game_optimal_cpu_set_ids.assign(out.game_cpu_set_ids, out.game_cpu_set_ids + out.game_count);
+            cpu_topology.background_cpu_set_ids.assign(out.background_cpu_set_ids, out.background_cpu_set_ids + out.background_count);
+            return;
+        }
+    }
+
 
     std::set<uint32_t> physical_core_indices;
     std::set<uint32_t> llc_indices;

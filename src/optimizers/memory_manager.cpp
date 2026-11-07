@@ -1,4 +1,5 @@
 #include "memory_manager.hpp"
+#include "rust_bridge.h"
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -87,30 +88,14 @@ SystemMemoryTelemetry MemoryManager::SampleTelemetry() const {
         telemetry.total_physical_bytes = memStatus.ullTotalPhys;
     }
 
-    // 2. Exact memory list information via NtQuerySystemInformation
-    static auto pfnNtQuerySystemInformation = reinterpret_cast<PFN_NtQuerySystemInformation>(
-        reinterpret_cast<void*>(GetProcAddress(GetModuleHandleW(L"ntdll.dll"), "NtQuerySystemInformation")));
-
+    // 2. Exact memory list information via Rust Core (NtQuerySystemInformation)
     bool queriedNt = false;
-    if (pfnNtQuerySystemInformation) {
-        SYSTEM_MEMORY_LIST_INFORMATION memList{};
-        ULONG returnLength = 0;
-        NTSTATUS status = pfnNtQuerySystemInformation(
-            SystemMemoryListInformationClass,
-            &memList,
-            sizeof(memList),
-            &returnLength);
-
-        if (NT_SUCCESS(status)) {
-            telemetry.free_and_zero_bytes = (static_cast<uint64_t>(memList.ZeroPageCount) + memList.FreePageCount) * 4096ULL;
-            uint64_t standby = 0;
-            for (int i = 0; i < 8; ++i) {
-                standby += static_cast<uint64_t>(memList.PageCountByPriority[i]) * 4096ULL;
-            }
-            telemetry.standby_bytes = standby;
-            telemetry.modified_bytes = static_cast<uint64_t>(memList.ModifiedPageCount) * 4096ULL;
-            queriedNt = true;
-        }
+    VfNtMemoryListSample ntSample = vf_rust_query_nt_memory_lists();
+    if (ntSample.valid) {
+        telemetry.free_and_zero_bytes = ntSample.free_and_zero_bytes;
+        telemetry.standby_bytes = ntSample.standby_bytes;
+        telemetry.modified_bytes = ntSample.modified_bytes;
+        queriedNt = true;
     }
 
     if (!queriedNt) {
@@ -379,64 +364,27 @@ uint64_t MemoryManager::GetCurrentProcessPrivateWorkingSetBytes() {
 }
 
 bool MemoryManager::PurgeStandbyList(bool dryRun) {
-    static auto pfnNtSetSystemInformation = reinterpret_cast<PFN_NtSetSystemInformation>(
-        reinterpret_cast<void*>(GetProcAddress(GetModuleHandleW(L"ntdll.dll"), "NtSetSystemInformation")));
-
-    if (!pfnNtSetSystemInformation) {
-        return false;
+    if (!dryRun) {
+        EnablePrivilege(SE_PROFILE_SINGLE_PROCESS);
+        EnablePrivilege(SE_INCREASE_QUOTA);
     }
 
-    if (dryRun) {
-        // Valida la disponibilidad de la API sin modificar la memoria física
-        return true;
-    }
-
-    // Requiere SeProfileSingleProcessPrivilege / SeIncreaseQuotaPrivilege
-    EnablePrivilege(SE_PROFILE_SINGLE_PROCESS);
-    EnablePrivilege(SE_INCREASE_QUOTA);
-
-    ULONG cmd = MemoryPurgeStandbyListCommand;
-    NTSTATUS status = pfnNtSetSystemInformation(
-        SystemMemoryListInformationClass,
-        &cmd,
-        sizeof(cmd));
-
-    if (NT_SUCCESS(status)) {
-        // Purga complementaria del conjunto de trabajo del proceso actual
+    bool success = vf_rust_purge_nt_standby_list(dryRun);
+    if (success && !dryRun) {
         K32EmptyWorkingSet(GetCurrentProcess());
-        return true;
     }
-
-    // Manejo elegante ante falta de elevación (ej. STATUS_PRIVILEGE_NOT_HELD 0xC0000061)
-    return false;
+    return success;
 }
 
 bool MemoryManager::QueryStandbyMemoryMib(uint64_t& standbyMib, uint64_t& freeMib) {
     standbyMib = 0;
     freeMib = 0;
 
-    static auto pfnNtQuerySystemInformation = reinterpret_cast<PFN_NtQuerySystemInformation>(
-        reinterpret_cast<void*>(GetProcAddress(GetModuleHandleW(L"ntdll.dll"), "NtQuerySystemInformation")));
-
-    if (pfnNtQuerySystemInformation) {
-        SYSTEM_MEMORY_LIST_INFORMATION memList{};
-        ULONG returnLength = 0;
-        NTSTATUS status = pfnNtQuerySystemInformation(
-            SystemMemoryListInformationClass,
-            &memList,
-            sizeof(memList),
-            &returnLength);
-
-        if (NT_SUCCESS(status)) {
-            uint64_t standby = 0;
-            for (int i = 0; i < 8; ++i) {
-                standby += static_cast<uint64_t>(memList.PageCountByPriority[i]) * 4096ULL;
-            }
-            uint64_t free_and_zero = (static_cast<uint64_t>(memList.ZeroPageCount) + memList.FreePageCount) * 4096ULL;
-            standbyMib = standby / (1024ULL * 1024ULL);
-            freeMib = free_and_zero / (1024ULL * 1024ULL);
-            return true;
-        }
+    VfNtMemoryListSample ntSample = vf_rust_query_nt_memory_lists();
+    if (ntSample.valid) {
+        standbyMib = ntSample.standby_bytes / (1024ULL * 1024ULL);
+        freeMib = ntSample.free_and_zero_bytes / (1024ULL * 1024ULL);
+        return true;
     }
 
     // Fallback: GetPerformanceInfo & GlobalMemoryStatusEx
@@ -463,26 +411,31 @@ UmaGuardStatus MemoryManager::EvaluateUmaPressureGuard(
     const std::vector<uint32_t>& background_pids,
     bool dry_run) {
 
+    VfUmaTelemetryInput input{};
+    input.total_physical_bytes = telem.total_physical_bytes;
+    input.free_and_zero_bytes = telem.free_and_zero_bytes;
+    input.standby_bytes = telem.standby_bytes;
+    input.local_budget_bytes = telem.vram.local_budget_bytes;
+    input.local_usage_bytes = telem.vram.local_usage_bytes;
+    input.runtime_pressure_threshold = policy.runtime_pressure_threshold;
+    input.vram_valid = telem.vram.valid;
+    input.is_discrete_tier = (policy.tier == ApuTier::Tier4_DiscreteOrCustom);
+
+    VfUmaGuardDecision dec = vf_rust_evaluate_uma_pressure(&input, guard_interventions_count_);
+    guard_interventions_count_ = dec.total_interventions;
+
     UmaGuardStatus status{};
-    status.available_os_headroom_mb = (telem.free_and_zero_bytes + telem.standby_bytes) / (1024ULL * 1024ULL);
-    status.dxgi_budget_utilization = (telem.vram.valid && telem.vram.local_budget_bytes > 0)
-        ? (static_cast<double>(telem.vram.local_usage_bytes) / static_cast<double>(telem.vram.local_budget_bytes))
-        : 0.0;
+    status.available_os_headroom_mb = dec.available_os_headroom_mb;
+    status.dxgi_budget_utilization = dec.dxgi_budget_utilization;
+    status.guard_triggered = dec.guard_triggered;
+    status.total_interventions = dec.total_interventions;
 
-    const bool is_non_discrete = (policy.tier != ApuTier::Tier4_DiscreteOrCustom);
-    const bool dxgi_over_ceiling = telem.vram.valid && (status.dxgi_budget_utilization >= policy.runtime_pressure_threshold);
-    const bool free_ram_critical = (telem.total_physical_bytes > 0) && ((telem.free_and_zero_bytes / (1024ULL * 1024ULL)) < 1536ULL);
-
-    if (is_non_discrete && (dxgi_over_ceiling || free_ram_critical)) {
-        status.guard_triggered = true;
-        guard_interventions_count_++;
-        status.total_interventions = guard_interventions_count_;
-
-        if (dxgi_over_ceiling && free_ram_critical) {
+    if (dec.guard_triggered) {
+        if (dec.dxgi_over_ceiling && dec.free_ram_critical) {
             status.active_reason = "UMA Guard Triggered: DXGI budget utilization above threshold (" +
                 std::to_string(static_cast<int>(status.dxgi_budget_utilization * 100)) + "%) and low free RAM (" +
                 std::to_string(telem.free_and_zero_bytes / (1024ULL * 1024ULL)) + " MB)";
-        } else if (dxgi_over_ceiling) {
+        } else if (dec.dxgi_over_ceiling) {
             status.active_reason = "UMA Guard Triggered: DXGI budget utilization above threshold (" +
                 std::to_string(static_cast<int>(status.dxgi_budget_utilization * 100)) + "%)";
         } else {
@@ -504,8 +457,6 @@ UmaGuardStatus MemoryManager::EvaluateUmaPressureGuard(
             }
         }
     } else {
-        status.guard_triggered = false;
-        status.total_interventions = guard_interventions_count_;
         status.active_reason = "UMA Guard Passive: Memory pressure within safe bounds";
     }
 

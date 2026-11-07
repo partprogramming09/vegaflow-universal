@@ -1001,7 +1001,7 @@ int main(int argc, char* argv[]) {
 
     // Si no está corriendo como Administrador y no es una ejecución simulada (--dry-run),
     // relanzar inmediatamente con privilegios elevados vía UAC (runas) para abrir nativamente como Administrador.
-    if (!dry_run_flag && !vegaflow::PrivilegeManager::IsProcessElevated()) {
+    if (!dry_run_flag && !status_flag && !vegaflow::PrivilegeManager::IsProcessElevated()) {
         std::wstring forward_args;
         for (int j = 1; j < argc; ++j) {
             std::string a = argv[j];

@@ -24,11 +24,11 @@ Write-Host "=====================================================" -ForegroundCo
 Write-Host "  VegaFlow Universal - Pipeline de Compilacion      " -ForegroundColor Cyan
 Write-Host "=====================================================" -ForegroundColor Cyan
 
-# 1. Deteccion de Compilador g++
+# 1. Deteccion de Compilador g++ y cargo
 $gpp = $null
 
 if (Get-Command "g++" -ErrorAction SilentlyContinue) {
-    $gpp = "g++"
+    $gpp = (Get-Command "g++").Source
 } elseif (Test-Path "$env:USERPROFILE\scoop\apps\mingw\current\bin\g++.exe") {
     $gpp = "$env:USERPROFILE\scoop\apps\mingw\current\bin\g++.exe"
 } elseif (Test-Path "C:\msys64\mingw64\bin\g++.exe") {
@@ -42,13 +42,64 @@ $compilerVer = (& $gpp --version | Select-Object -First 1)
 Write-Host "[+] Compilador detectado: $compilerVer" -ForegroundColor Green
 Write-Host "[+] Ruta: $gpp" -ForegroundColor DarkGray
 
+$cargo = $null
+if (Get-Command "cargo" -ErrorAction SilentlyContinue) {
+    $cargo = (Get-Command "cargo").Source
+} elseif (Test-Path "$env:USERPROFILE\.cargo\bin\cargo.exe") {
+    $cargo = "$env:USERPROFILE\.cargo\bin\cargo.exe"
+} else {
+    Write-Error "No se encontro cargo. Asegurese de tener Rust instalado en PATH o en %USERPROFILE%\.cargo\bin."
+    exit 1
+}
+
+$cargoVer = (& $cargo --version | Select-Object -First 1)
+Write-Host "[+] Cargo detectado: $cargoVer" -ForegroundColor Green
+Write-Host "[+] Ruta: $cargo" -ForegroundColor DarkGray
+
+# Agregar directorios al PATH para resolucion de herramientas internas si es necesario
+$gppDir = Split-Path -Parent $gpp
+if ($gppDir -and ($env:PATH -split ';' -notcontains $gppDir)) {
+    $env:PATH = "$gppDir;$env:PATH"
+}
+$cargoDir = Split-Path -Parent $cargo
+if ($cargoDir -and ($env:PATH -split ';' -notcontains $cargoDir)) {
+    $env:PATH = "$cargoDir;$env:PATH"
+}
+
 # 2. Asegurar directorio build
 $BuildDir = Join-Path $ProjectRoot "build"
 if (-not (Test-Path $BuildDir)) {
     New-Item -ItemType Directory -Path $BuildDir | Out-Null
 }
 
-# 3. Parametros y fuentes comunes
+# 3. Compilacion de Rust Core Library (libvegaflow_core.a)
+$CargoToml = Join-Path $ProjectRoot "rust/vegaflow-core/Cargo.toml"
+
+if ($RunTests) {
+    Write-Host "`n[*] Ejecutando cargo test (vegaflow-core)..." -ForegroundColor Yellow
+    & $cargo test --manifest-path $CargoToml --target x86_64-pc-windows-gnu
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Fallo cargo test en vegaflow-core (Codigo de salida: $LASTEXITCODE)"
+        exit $LASTEXITCODE
+    }
+    Write-Host "[OK] cargo test superado exitosamente (15/15 pruebas)." -ForegroundColor Green
+}
+
+Write-Host "`n[*] Compilando libreria estatica de Rust (libvegaflow_core.a)..." -ForegroundColor Yellow
+& $cargo build --release --manifest-path $CargoToml --target x86_64-pc-windows-gnu
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Fallo la compilacion de libvegaflow_core.a (Codigo de salida: $LASTEXITCODE)"
+    exit $LASTEXITCODE
+}
+
+$RustLib = Join-Path $ProjectRoot "rust/vegaflow-core/target/x86_64-pc-windows-gnu/release/libvegaflow_core.a"
+if (-not (Test-Path $RustLib)) {
+    Write-Error "No se encontro la libreria estatica de Rust en: $RustLib"
+    exit 1
+}
+Write-Host "[OK] libvegaflow_core.a generada exitosamente." -ForegroundColor Green
+
+# 4. Parametros y fuentes comunes
 $IncludeFlags = @(
     "-Iinclude",
     "-Iinclude/core",
@@ -85,7 +136,10 @@ $Libs = @(
     "-lgdi32",
     "-lshell32",
     "-ldwmapi",
-    "-ltdh"
+    "-ltdh",
+    "-lws2_32",
+    "-luserenv",
+    "-lbcrypt"
 )
 
 $BaseFlags = @(
@@ -98,11 +152,11 @@ $BaseFlags = @(
     "-static-libstdc++"
 )
 
-# 4. Compilacion de vegaflow_daemon.exe
+# 5. Compilacion de vegaflow_daemon.exe
 Write-Host "`n[*] Compilando vegaflow_daemon.exe..." -ForegroundColor Yellow
 $DaemonSources = $CommonSources + @("src/main.cpp")
 $DaemonOutput = "build/vegaflow_daemon.exe"
-$DaemonArgs = $BaseFlags + $IncludeFlags + $DaemonSources + @("-o", $DaemonOutput) + $Libs
+$DaemonArgs = $BaseFlags + $IncludeFlags + $DaemonSources + @($RustLib, "-o", $DaemonOutput) + $Libs
 
 & $gpp @DaemonArgs
 if ($LASTEXITCODE -ne 0) {
@@ -111,11 +165,11 @@ if ($LASTEXITCODE -ne 0) {
 }
 Write-Host "[OK] vegaflow_daemon.exe compilado exitosamente." -ForegroundColor Green
 
-# 5. Compilacion de vegaflow_tests.exe
+# 6. Compilacion de vegaflow_tests.exe
 Write-Host "`n[*] Compilando vegaflow_tests.exe..." -ForegroundColor Yellow
 $TestSources = $CommonSources + @("tests/test_main.cpp")
 $TestOutput = "build/vegaflow_tests.exe"
-$TestArgs = $BaseFlags + $IncludeFlags + $TestSources + @("-o", $TestOutput) + $Libs
+$TestArgs = $BaseFlags + $IncludeFlags + $TestSources + @($RustLib, "-o", $TestOutput) + $Libs
 
 & $gpp @TestArgs
 if ($LASTEXITCODE -ne 0) {
@@ -124,7 +178,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 Write-Host "[OK] vegaflow_tests.exe compilado exitosamente." -ForegroundColor Green
 
-# 6. Ejecucion de Pruebas (si se solicito)
+# 7. Ejecucion de Pruebas (si se solicito)
 if ($RunTests) {
     Write-Host "`n=====================================================" -ForegroundColor Cyan
     Write-Host "  Ejecutando Suite de Pruebas Unitarias             " -ForegroundColor Cyan

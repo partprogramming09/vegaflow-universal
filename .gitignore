@@ -7,6 +7,7 @@ build/*.prev*
 build/*.running.exe
 build/*.log
 build/test_session_report.log
+/rust/**/target/
 
 # CMake artifacts
 CMakeFiles/
