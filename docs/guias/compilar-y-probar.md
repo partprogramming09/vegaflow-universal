@@ -29,6 +29,9 @@ scripts/build-cross.sh                      # genera build/vegaflow_daemon.exe y
 ```
 Usa las mismas banderas y bibliotecas que `build.ps1`, y compila en paralelo (unos 15 segundos en un Mac con 10 núcleos). Los fuentes se buscan con un comodín sobre `src/`, así que un `.cpp` nuevo se incluye sin editar ninguna lista. Los `.exe` se prueban en un equipo Windows; no hace falta compilar allí.
 
+#### Integración continua (GitHub Actions)
+El archivo `.github/workflows/ci.yml` ejecuta, en los equipos de GitHub, las pruebas del núcleo Rust y la compilación cruzada del daemon y de la suite. Las 31 pruebas de C++ no corren allí: cambian el registro y el plan de energía de un Windows real y necesitan GPU, así que se ejecutan a mano en el laptop de pruebas. No se debe registrar ese laptop como runner propio de un repositorio público, porque cualquier fork podría ejecutar código en él.
+
 #### Probar solo el núcleo Rust (en cualquier equipo, también en un Mac)
 ```bash
 cargo test --manifest-path rust/vegaflow-core/Cargo.toml

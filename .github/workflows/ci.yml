@@ -1,0 +1,45 @@
+# Continuous integration on GitHub-hosted runners only.
+#
+# What runs here: the Rust core tests and a cross-compile of the Windows daemon and test suite. The 31 C++
+# tests change the registry and the power plan of a real Windows machine and need a GPU, so they are run by hand
+# on the test laptop (scripts/remote/vfdev cross-test), never on a self-hosted runner: a public repository lets
+# any fork run code on such a runner.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rust-core:
+    name: Rust core tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run the tests
+        run: cargo test --manifest-path rust/vegaflow-core/Cargo.toml --locked
+
+  windows-cross-build:
+    name: Cross-compile for Windows
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install mingw-w64 (POSIX threads) and the Rust target
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends g++-mingw-w64-x86-64-posix
+          rustup target add x86_64-pc-windows-gnu
+      - name: Build the daemon and the test suite
+        run: scripts/build-cross.sh
+        env:
+          VF_CXX: x86_64-w64-mingw32-g++-posix
