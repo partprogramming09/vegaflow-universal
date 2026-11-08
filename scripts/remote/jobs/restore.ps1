@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Interruptor de emergencia: para el daemon con cierre limpio, restaura el perfil de energia y los valores de fabrica, y cierra drawstress.
+    Emergency switch: stops the daemon with a clean shutdown, restores the power profile and stock values, and closes drawstress.
 #>
 $ErrorActionPreference = 'Continue'
 $root = 'C:\ProgramData\VegaFlow'

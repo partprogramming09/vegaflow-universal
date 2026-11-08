@@ -72,7 +72,7 @@ Fuentes de verdad para cualquier cambio de la opción 1, en orden de confianza:
 | Fuente | Qué cubre | Estado en la propuesta |
 | --- | --- | --- |
 | Las 23 banderas de `main.cpp` | Interfaz de línea de comandos | Igual (no se toca) |
-| `include/core/rust_bridge.h` (7 funciones, 5 estructuras) | Contrato C++ ↔ Rust | Igual; solo se añaden funciones, no cambia ninguna |
+| `src/bridge/rust_bridge.h` (7 funciones, 5 estructuras) | Contrato C++ ↔ Rust | Igual; solo se añaden funciones, no cambia ninguna |
 | Test 17 (SandboxGuard) y Test 25 (Tiers) | Comportamiento actual de lo que se movería | Es la medida: el Rust nuevo debe dar las mismas respuestas con los mismos vectores |
 | 31 pruebas de C++ y 15 de Rust | Regresión | Igual: deben seguir en 31/31 y 15/15 (más las nuevas) |
 | `scripts/tweaks_state.ps1` antes y después | Que no queden valores fuera de fábrica | Igual |

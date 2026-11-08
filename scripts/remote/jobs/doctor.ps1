@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Comprobacion previa: conectividad, sesion, energia, disco, procesos sobrantes y valores fuera de fabrica.
+    Pre-flight check: connectivity, session, power, disk, leftover processes and non-stock values.
 #>
 $ErrorActionPreference = 'SilentlyContinue'
 $os = Get-CimInstance Win32_OperatingSystem
@@ -17,7 +17,7 @@ $explorer = Get-Process explorer | Select-Object -First 1
 'servicios=' + ((Get-Service sshd, Tailscale | ForEach-Object { "$($_.Name):$($_.Status)" }) -join ' ')
 'sobrantes=' + ((Get-Process drawstress, vegaflow_daemon, PresentMon* | ForEach-Object { "$($_.ProcessName):$($_.Id)" }) -join ' ')
 'pantalla_bloqueada=' + [bool](Get-Process LogonUI)
-# Usuarios (S-1-5-32-545), Todos (S-1-1-0) o Autenticados (S-1-5-11) con permiso de escritura sobre la carpeta protegida.
+# Users (S-1-5-32-545), Everyone (S-1-1-0) or Authenticated Users (S-1-5-11) with write permission on the protected folder.
 $writeRights = [Security.AccessControl.FileSystemRights]'WriteData,AppendData,Delete,WriteAttributes,WriteExtendedAttributes,ChangePermissions,TakeOwnership'
 $weak = (Get-Acl 'C:\ProgramData\VegaFlow').Access | Where-Object {
     $_.AccessControlType -eq 'Allow' -and

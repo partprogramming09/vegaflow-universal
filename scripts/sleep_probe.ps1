@@ -1,11 +1,11 @@
 <#
 .SYNOPSIS
-    Mide cuanto dura realmente Sleep(1) en este proceso.
+    Measures how long Sleep(1) really takes in this process.
 .DESCRIPTION
-    Sirve para comprobar si una resolucion de temporizador pedida por OTRO proceso
-    (scripts\hold_timer.ps1) cambia la planificacion de este. No requiere administrador.
+    Used to check whether a timer resolution requested by ANOTHER process
+    (scripts\hold_timer.ps1) changes the scheduling of this one. Does not require administrator.
 .PARAMETER Iterations
-    Numero de Sleep(1) medidos.
+    Number of Sleep(1) calls measured.
 #>
 param([int]$Iterations = 1000)
 

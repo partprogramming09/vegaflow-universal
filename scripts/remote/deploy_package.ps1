@@ -1,21 +1,21 @@
 <#
 .SYNOPSIS
-    Instala o actualiza el paquete vegaflow en el ejecutor de trabajos de WinBridge y los archivos de VegaFlow que usan sus trabajos.
+    Installs or updates the vegaflow package in the WinBridge job runner and the VegaFlow files its jobs use.
 .DESCRIPTION
-    Requiere administrador (una sesion SSH elevada sirve; no hay UAC). Desde una carpeta de paso (Staging) con
-    manifest.json, scripts\*.ps1, tweaks_state.ps1, ab_profile.ps1 y busy.html:
-      - copia el manifiesto y los scripts a packages\vegaflow del ejecutor y ejecuta Install-WinBridgeJobs -Update
-        (recalcula los hashes; no registra tareas);
-      - copia tweaks_state.ps1 y ab_profile.ps1 a C:\ProgramData\VegaFlow (los usan las tareas VegaFlow-*) y busy.html a tools\;
-      - copia el daemon compilado del repositorio si no esta corriendo.
+    Requires administrator (an elevated SSH session works; there is no UAC). From a staging folder with
+    manifest.json, scripts\*.ps1, tweaks_state.ps1, ab_profile.ps1 and busy.html:
+      - copies the manifest and scripts to the runner's packages\vegaflow and runs Install-WinBridgeJobs -Update
+        (recomputes the hashes; does not register tasks);
+      - copies tweaks_state.ps1 and ab_profile.ps1 to C:\ProgramData\VegaFlow (used by the VegaFlow-* tasks) and busy.html to tools\;
+      - copies the repository's compiled daemon if it is not running.
 .PARAMETER Staging
-    Carpeta con los archivos a instalar.
+    Folder with the files to install.
 .PARAMETER Repo
-    Repositorio de VegaFlow en el laptop (de donde se toma el daemon compilado).
+    VegaFlow repository on the laptop (where the compiled daemon is taken from).
 .PARAMETER JobsRoot
-    Carpeta del ejecutor de WinBridge que contiene Install-WinBridgeJobs.ps1 y packages\.
+    WinBridge runner folder containing Install-WinBridgeJobs.ps1 and packages\.
 .PARAMETER Root
-    Instalacion de VegaFlow con las tareas VegaFlow-* y las herramientas.
+    VegaFlow installation with the VegaFlow-* tasks and the tools.
 #>
 param(
     [string]$Staging = 'C:\dev\vf-pkg',

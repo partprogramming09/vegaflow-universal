@@ -1,17 +1,17 @@
 <#
 .SYNOPSIS
-    Espera a bgfx drawstress (lanzado en el escritorio), lo mide con bench.ps1 (PresentMon) y lo cierra.
+    Waits for bgfx drawstress (launched on the desktop), measures it with bench.ps1 (PresentMon) and closes it.
 .DESCRIPTION
-    Una captura de una condicion A/B. Anota en ab_runs.log la etiqueta, la API, si el daemon de
-    VegaFlow estaba corriendo y los valores del informe de estado que no estan en fabrica.
+    One capture of an A/B condition. Writes to ab_runs.log the label, the API, whether the VegaFlow daemon
+    was running and the status-report values that differ from stock.
 .PARAMETER Api
-    d3d11 o d3d12.
+    d3d11 or d3d12.
 .PARAMETER Label
-    Nombre de la corrida (ej. off-d3d11-1).
+    Run name (e.g. off-d3d11-1).
 .PARAMETER Dim
-    Lado de la cuadricula de cubos: dim^3 draw calls por cuadro.
+    Side of the cube grid: dim^3 draw calls per frame.
 .PARAMETER Seconds
-    Duracion de la captura de PresentMon.
+    Duration of the PresentMon capture.
 #>
 param(
     [Parameter(Mandatory)][ValidateSet('d3d11', 'd3d12')][string]$Api,
@@ -32,7 +32,7 @@ $drift = (& $stateScript 2>&1 | Where-Object { $_ -match '\S' -and $_ -notmatch 
 
 $game = $null
 try {
-    # El juego debe correr en la sesion interactiva (PresentMon no ve presents en la sesion 0): se lanza desde el escritorio.
+    # The game must run in the interactive session (PresentMon sees no presents in session 0): it is launched from the desktop.
     $deadline = (Get-Date).AddSeconds(90)
     while (-not $game -and (Get-Date) -lt $deadline) {
         $game = Get-Process drawstress -ErrorAction SilentlyContinue | Select-Object -First 1

@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Para el daemon de VegaFlow con cierre limpio (tarea VegaFlow-Stop) y espera a que salga.
+    Stops the VegaFlow daemon with a clean shutdown (VegaFlow-Stop task) and waits for it to exit.
 #>
 $ErrorActionPreference = 'Stop'
 Start-ScheduledTask -TaskName 'VegaFlow-Stop'

@@ -1,10 +1,10 @@
 <#
 .SYNOPSIS
-    Abre bgfx drawstress en el escritorio (sesion 1) con la API y el tamano indicados.
+    Opens bgfx drawstress on the desktop (session 1) with the given API and size.
 .PARAMETER Api
-    d3d11 o d3d12.
+    d3d11 or d3d12.
 .PARAMETER Dim
-    Lado de la cuadricula de cubos: dim^3 draw calls por cuadro.
+    Side of the cube grid: dim^3 draw calls per frame.
 #>
 param([string]$Api = 'd3d11', [int]$Dim = 30)
 

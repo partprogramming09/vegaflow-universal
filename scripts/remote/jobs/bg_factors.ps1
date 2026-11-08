@@ -1,37 +1,37 @@
 <#
 .SYNOPSIS
-    Aisla que accion del aislamiento de fondo protege al juego: con el daemon apagado, aplica a mano cada accion a la carga de fondo.
+    Isolates which background-isolation action protects the game: with the daemon off, applies each action by hand to the background load.
 .DESCRIPTION
-    Con drawstress abierto en el escritorio y el daemon apagado, arranca una carga de fondo (Chrome sin ventana
-    quemando CPU) y mide el juego con PresentMon bajo cinco condiciones, rotadas en cada ronda:
-      base : sin tocar la carga
-      aff  : carga limitada a 2 hilos logicos (equivale a los CPU Sets de fondo del daemon)
-      eco  : carga en modo de eficiencia (EcoQoS, PROCESS_POWER_THROTTLING_EXECUTION_SPEED)
-      io   : carga con prioridad de I/O muy baja
-      all  : las tres acciones juntas
-    Con -Mode threads mide en cambio cuantos hilos dar al fondo: base (sin limite), aff2, aff4, aff6 y aff8
-    (carga limitada a los 2, 4, 6 u 8 ultimos hilos logicos; los hilos van de dos en dos por nucleo con SMT).
-    Imprime una fila por captura: etiqueta, FPS medio, 1% Low, 0.1% Low, desviacion del frametime, procesos
-    tocados y segundos de CPU que consiguio la carga de fondo durante la captura (bg_cpu_s).
+    With drawstress open on the desktop and the daemon off, starts a background load (windowless Chrome
+    burning CPU) and measures the game with PresentMon under five conditions, rotated each round:
+      base : load left untouched
+      aff  : load limited to 2 logical threads (equivalent to the daemon's background CPU Sets)
+      eco  : load in efficiency mode (EcoQoS, PROCESS_POWER_THROTTLING_EXECUTION_SPEED)
+      io   : load with very low I/O priority
+      all  : the three actions together
+    With -Mode threads it instead measures how many threads to give the background: base (no limit), aff2, aff4, aff6 and aff8
+    (load limited to the last 2, 4, 6 or 8 logical threads; threads come in pairs per core with SMT).
+    Prints one row per capture: label, average FPS, 1% Low, 0.1% Low, frametime deviation, processes
+    touched and CPU seconds the background load obtained during the capture (bg_cpu_s).
 .PARAMETER Reps
-    Rondas; cada ronda mide las cinco condiciones.
+    Rounds; each round measures the five conditions.
 .PARAMETER Seconds
-    Duracion de cada captura de PresentMon.
+    Duration of each PresentMon capture.
 .PARAMETER Workers
-    Hilos que quema la carga de fondo (1 a 12).
+    Threads the background load burns (1 to 12).
 .PARAMETER Topo
-    Con -Mode sim simula un equipo con menos procesadores: el juego y la carga quedan limitados a 4 hilos (4c: un hilo en cada uno de 4 nucleos;
-    4t2c: 2 nucleos con SMT; 6c: 6 hilos, uno por nucleo; 4c8t: 4 nucleos con SMT). Condiciones: base (carga en los 4 hilos), c1 (carga en 1 hilo) y c2 (carga en 2 hilos).
+    With -Mode sim simulates a machine with fewer processors: the game and the load are limited to 4 threads (4c: one thread on each of 4 cores;
+    4t2c: 2 cores with SMT; 6c: 6 threads, one per core; 4c8t: 4 cores with SMT). Conditions: base (load on the 4 threads), c1 (load on 1 thread) and c2 (load on 2 threads).
 .PARAMETER Kind
-    cpu quema ALU; mem copia buffers grandes para saturar el ancho de banda de memoria.
-    Con -Mode narrow se comparan 1 y 2 hilos logicos para el fondo en el equipo completo.
+    cpu burns ALU; mem copies large buffers to saturate memory bandwidth.
+    With -Mode narrow, 1 and 2 logical threads for the background are compared on the full machine.
 .PARAMETER Api
-    API del juego que se abre si no esta abierto (d3d11 o d3d12); tambien nombra las capturas.
+    API of the game that is opened if it is not open (d3d11 or d3d12); also names the captures.
 .PARAMETER Diag
-    1 anade por captura dos filas: diag (prioridad, afinidad, ahorro de energia y CPU Sets del juego, de PresentMon y de Chrome) y cpu (uso medio de cada hilo logico durante la captura).
+    1 adds two rows per capture: diag (priority, affinity, power saving and CPU Sets of the game, PresentMon and Chrome) and cpu (average usage of each logical thread during the capture).
 .PARAMETER Duty
-    Porcentaje de cada 100 ms que cada hilo de la carga quema CPU (5 a 100); fija la carga total en Workers x Duty / 100 procesadores logicos.
-    Con -Mode confine solo se miden base y aff2 (para ver desde que carga conviene confinar).
+    Percentage of every 100 ms that each load thread burns CPU (5 to 100); sets the total load at Workers x Duty / 100 logical processors.
+    With -Mode confine only base and aff2 are measured (to see from what load confining is worthwhile).
 #>
 param(
     [ValidateRange(1, 6)][int]$Reps = 3,
@@ -57,7 +57,7 @@ Add-Type -Namespace VF -Name Bg -MemberDefinition @'
 [DllImport("kernel32.dll", SetLastError = true)] public static extern bool GetProcessDefaultCpuSets(IntPtr h, uint[] ids, uint count, out uint required);
 '@
 
-# Resume prioridad, afinidad, ahorro de energia (EcoQoS) y CPU Sets por defecto de un proceso, en una cadena.
+# Summarizes priority, affinity, power saving (EcoQoS) and default CPU Sets of a process, in one string.
 function Get-ProcDiag($p) {
     try {
         $eco = [uint32[]](1, 0, 0)
@@ -68,16 +68,16 @@ function Get-ProcDiag($p) {
     } catch { "$($p.ProcessName):$($p.Id) n/d" }
 }
 
-# Devuelve los procesos de Chrome que arranco la carga de fondo (los identifica por su carpeta de perfil).
+# Returns the Chrome processes started by the background load (identified by their profile folder).
 function Get-LoadProcesses {
     Get-CimInstance Win32_Process -Filter "Name='chrome.exe'" | Where-Object { $_.CommandLine -match 'vf-chrome-bgf' } |
         ForEach-Object { Get-Process -Id $_.ProcessId -ErrorAction SilentlyContinue }
 }
 
-# Carpeta del perfil de Chrome y de busy.html: el area del usuario, no el TEMP del ejecutor (con el TEMP protegido de WinBridge Chrome no arranca).
+# Chrome profile folder and busy.html: the user area, not the runner's TEMP (Chrome does not start with WinBridge's protected TEMP).
 $loadTemp = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'Temp'
 
-# Arranca la carga de fondo y espera a que Chrome cree sus procesos.
+# Starts the background load and waits for Chrome to create its processes.
 function Start-Load {
     $page = Join-Path $loadTemp 'vf-busy.html'
     Copy-Item (Join-Path $root 'tools\busy.html') $page -Force
@@ -85,10 +85,10 @@ function Start-Load {
     Start-Sleep -Seconds 8
 }
 
-# Cierra solo los procesos de Chrome de la carga de fondo.
+# Closes only the Chrome processes of the background load.
 function Stop-Load { Get-LoadProcesses | ForEach-Object { Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue } }
 
-# Aplica una condicion a todos los procesos de la carga y devuelve cuantos tocó.
+# Applies a condition to all the load's processes and returns how many it touched.
 function Set-Condition($cond) {
     $n = 0
     foreach ($p in Get-LoadProcesses) {
@@ -112,7 +112,7 @@ $names = switch ($Mode) { 'threads' { @('base', 'aff2', 'aff4', 'aff6', 'aff8') 
 $prefix = switch ($Mode) { 'threads' { 'bgt' } 'confine' { 'bgc' } 'sim' { "bgs$Topo" } 'narrow' { 'bgn' } default { 'bgf' } }
 $dutyTag = "$(if ($Duty -lt 100) { "-d$Duty" })$(if ($Kind -eq 'mem') { '-mem' })"
 
-# Suma los segundos de CPU de los procesos de la carga de fondo cuyo id se pasa.
+# Sums the CPU seconds of the background-load processes whose id is passed in.
 function Get-LoadCpu($ids) {
     $sum = 0.0
     foreach ($id in $ids) { $p = Get-Process -Id $id -ErrorAction SilentlyContinue; if ($p) { $sum += $p.TotalProcessorTime.TotalSeconds } }

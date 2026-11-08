@@ -198,9 +198,9 @@ Especificado en [`hardware-y-tiers.md`](hardware-y-tiers.md) e implementado en [
 
 #### 1.5. Núcleo Híbrido Rust FFI (`vegaflow-core`)
 Implementado en el crate estático [`rust/vegaflow-core/`](../../rust/vegaflow-core) y enlazado sin sobrecarga vía C ABI ([`src/bridge/rust_bridge.h`](../../src/bridge/rust_bridge.h)):
-- **Evaluador de Presión UMA (`src/uma_memory.rs`):** Funciones `vf_rust_evaluate_uma_pressure` y `vf_rust_evaluate_nt_memory_lists`. Algoritmos deterministas sin asignación dinámica de memoria en el heap (Zero-Allocation), verificando saturación local DXGI, reservas del sistema operativo y listas Standby de NT.
-- **Topología L3 y Gobernanza de CPU (`src/cpu_governor.rs`):** Función `vf_rust_partition_topology_l3` para aislar hilos del juego en la caché L3 principal para arquitecturas simétricas o heterogéneas (Zen 2/3/4/5 y procesadores híbridos), junto con la máquina de estados e histéresis `vf_rust_evaluate_background_confinement` (umbrales de 0.50 y 0.25 núcleos lógicos).
-- **Scanner Anti-Cheat y Blindaje de Archivos (`src/sandbox_core.rs`):** Detección formal y sin falsos positivos de firmas de Anti-Cheat de kernel (`vf_rust_contains_anticheat_signature`) y protección estricta contra modificaciones accidentales a binarios de arranque del sistema (`vf_rust_is_critical_system_file`).
+- **Evaluador de Presión UMA (`rust/vegaflow-core/src/uma_memory.rs`):** Funciones `vf_rust_evaluate_uma_pressure` y `vf_rust_evaluate_nt_memory_lists`. Algoritmos deterministas sin asignación dinámica de memoria en el heap (Zero-Allocation), verificando saturación local DXGI, reservas del sistema operativo y listas Standby de NT.
+- **Topología L3 y Gobernanza de CPU (`rust/vegaflow-core/src/cpu_governor.rs`):** Función `vf_rust_partition_topology_l3` para aislar hilos del juego en la caché L3 principal para arquitecturas simétricas o heterogéneas (Zen 2/3/4/5 y procesadores híbridos), junto con la máquina de estados e histéresis `vf_rust_evaluate_background_confinement` (umbrales de 0.50 y 0.25 núcleos lógicos).
+- **Scanner Anti-Cheat y Blindaje de Archivos (`rust/vegaflow-core/src/sandbox_core.rs`):** Detección formal y sin falsos positivos de firmas de Anti-Cheat de kernel (`vf_rust_contains_anticheat_signature`) y protección estricta contra modificaciones accidentales a binarios de arranque del sistema (`vf_rust_is_critical_system_file`).
 - **Seguridad Incondicional:** Compilación estática con LTO completo, `panic = "abort"`, y verificación formal mediante 15 pruebas unitarias internas.
 
 ---

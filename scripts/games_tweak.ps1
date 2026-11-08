@@ -1,12 +1,12 @@
 <#
 .SYNOPSIS
-    Activa o desactiva el perfil MMCSS de juegos (Tasks\Games) usado en las pruebas A/B.
+    Turns the MMCSS games profile (Tasks\Games) used in the A/B tests on or off.
 .DESCRIPTION
     -On  : Priority=6, Scheduling Category=High, SFIO Priority=High.
-    -Off : valores de fabrica de Windows 11 (Priority=2, Medium, Normal).
-    Requiere administrador. Escribe el resultado en C:\ProgramData\VegaFlow\games.log.
-    MMCSS lee estos valores cuando un hilo se registra, asi que el juego debe reiniciarse
-    tras cambiarlos.
+    -Off : Windows 11 stock values (Priority=2, Medium, Normal).
+    Requires administrator. Writes the result to C:\ProgramData\VegaFlow\games.log.
+    MMCSS reads these values when a thread registers, so the game must be restarted
+    after changing them.
 #>
 param(
     [switch]$On,

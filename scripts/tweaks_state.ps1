@@ -1,14 +1,14 @@
 <#
 .SYNOPSIS
-    Muestra el estado de los tweaks de registro de VegaFlow frente al valor de fabrica de Windows.
+    Shows the state of the VegaFlow registry tweaks against the Windows stock value.
 .DESCRIPTION
-    Por defecto solo lee. Con -Restore simula la restauracion de los valores marcados como seguros;
-    con -Restore -Apply la ejecuta (requiere administrador). Los valores sin valor de fabrica
-    confirmado solo se informan y nunca se tocan.
+    Read-only by default. With -Restore it simulates restoring the values marked as safe;
+    with -Restore -Apply it performs the restore (requires administrator). Values without a confirmed
+    stock value are only reported and never touched.
 .PARAMETER Restore
-    Calcula que valores se restaurarian.
+    Computes which values would be restored.
 .PARAMETER Apply
-    Con -Restore, escribe los cambios en el registro.
+    With -Restore, writes the changes to the registry.
 #>
 param(
     [switch]$Restore,
@@ -25,7 +25,7 @@ $prio = 'HKLM:\SYSTEM\CurrentControlSet\Control\PriorityControl'
 $tcp = 'HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters'
 $amd0 = 'HKLM:\SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}\0000'
 
-# Path, Name, Stock (valor de fabrica; $null = no existe), Restorable (seguro de restaurar)
+# Path, Name, Stock (stock value; $null = does not exist), Restorable (safe to restore)
 $entries = @(
     @($dwm, 'OverlayTestMode', $null, $true),
     @($mem, 'DisablePagingExecutive', 0, $true),
@@ -49,7 +49,7 @@ $entries = @(
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if ($Restore -and $Apply -and -not $isAdmin) { throw 'Restaurar con -Apply requiere una consola de administrador.' }
 
-# Con -Restore -Apply, los valores que VegaFlow guardo antes de cambiarlos (SOFTWARE\VegaFlow\RegBackup) vuelven a lo que habia, no al valor de fabrica.
+# With -Restore -Apply, the values VegaFlow saved before changing them (SOFTWARE\VegaFlow\RegBackup) go back to what was there, not to the stock value.
 $backedUp = @{}
 if ($Restore -and $Apply) {
     foreach ($r in @(Get-ChildItem 'HKLM:\SOFTWARE\VegaFlow\RegBackup' -ErrorAction SilentlyContinue)) {
@@ -115,13 +115,13 @@ if ($ugp) {
     "UserGpuPreferences: $(@($names).Count) entradas (solo informe)"
 }
 
-# Lee el valor de corriente alterna de un ajuste del plan activo: son las dos ultimas cifras 0x (AC y DC), sin depender del idioma.
+# Reads the AC value of a setting in the active plan: the last two 0x figures (AC and DC), independent of language.
 function Get-PowerAc($subgroup, $alias) {
     $hex = @(powercfg /qh SCHEME_CURRENT $subgroup $alias | Select-String '0x[0-9a-fA-F]+' | ForEach-Object { $_.Matches[0].Value })
     if ($hex.Count -lt 2) { return $null }
     [Convert]::ToInt32($hex[-2], 16)
 }
-# Subgrupo, alias, valor del plan Equilibrado de esta laptop (solo informe: no hay valor de fabrica confirmado en otros equipos).
+# Subgroup, alias, value of this laptop's Balanced plan (report only: no confirmed stock value on other machines).
 $powerEntries = @(
     @('SUB_PROCESSOR', 'CPMINCORES', 50),
     @('SUB_PROCESSOR', 'PERFEPP', 50),

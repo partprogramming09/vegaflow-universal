@@ -1,20 +1,20 @@
 #!/bin/bash
-# vfdev: herramientas de desarrollo de VegaFlow para el laptop de pruebas, desde la Mac.
-# Los trabajos corren en el ejecutor de WinBridge (paquete vegaflow); sync, build-test y deploy usan SSH.
+# vfdev: VegaFlow development tools for the test laptop, from the Mac.
+# Jobs run in the WinBridge runner (vegaflow package); sync, build-test and deploy use SSH.
 #
-# Uso:
-#   vfdev run JOB [Clave=valor ...]   lanza un trabajo y espera su resultado (winbridge jobs run)
-#   vfdev submit|wait|status|cancel|busy|list ...   se pasan tal cual a `winbridge jobs`
-#   vfdev deploy                      instala el paquete vegaflow, las tareas y el daemon compilado (administrador por SSH, sin UAC)
-#   vfdev sync                        lleva los commits de la rama actual al repositorio del laptop (bundle + fast-forward)
-#   vfdev build-test                  compila y ejecuta las pruebas en el laptop; sale con error si alguna falla
-#   vfdev stats ARCHIVO|- [PREFIJO]   agrupa filas de resultados por condicion: n, media, mediana y rango
-#   vfdev fetch PREFIJO [DESTINO]     trae del laptop los JSON y CSV de cuadros de las capturas cuya etiqueta empieza por PREFIJO
-#   vfdev frames GLOB_A GLOB_B        compara dos condiciones con los CSV de cuadros: cuadros agrupados e intervalo de confianza
-#   vfdev regress BASE.json GLOB      puerta de regresion: compara capturas nuevas con la linea base de una escena (baselines/); --make la crea
-# Variables: VFJOB_HOST (usuario@ip), VFJOB_KEY (llave SSH), WINBRIDGE_BIN (cliente winbridge, `winbridge` por defecto),
-#   VFJOB_REPO (repositorio en el laptop), VFJOB_MINGW (carpeta bin de g++), VFJOB_BASE (rama base del bundle, main),
-#   VFJOB_QUEUE=1 (build-test aunque haya trabajos en curso)
+# Usage:
+#   vfdev run JOB [Key=value ...]   launches a job and waits for its result (winbridge jobs run)
+#   vfdev submit|wait|status|cancel|busy|list ...   passed as-is to `winbridge jobs`
+#   vfdev deploy                      installs the vegaflow package, the tasks and the compiled daemon (administrator over SSH, no UAC)
+#   vfdev sync                        brings the current branch's commits to the repository on the laptop (bundle + fast-forward)
+#   vfdev build-test                  builds and runs the tests on the laptop; exits with an error if any fails
+#   vfdev stats FILE|- [PREFIX]       groups result rows by condition: n, mean, median and range
+#   vfdev fetch PREFIX [DEST]         fetches from the laptop the JSON and frame CSVs of captures whose label starts with PREFIX
+#   vfdev frames GLOB_A GLOB_B        compares two conditions using the frame CSVs: grouped frames and confidence interval
+#   vfdev regress BASE.json GLOB      regression gate: compares new captures with a scene's baseline (baselines/); --make creates it
+# Variables: VFJOB_HOST (user@ip), VFJOB_KEY (SSH key), WINBRIDGE_BIN (winbridge client, `winbridge` by default),
+#   VFJOB_REPO (repository on the laptop), VFJOB_MINGW (g++ bin folder), VFJOB_BASE (bundle base branch, main),
+#   VFJOB_QUEUE=1 (build-test even if jobs are running)
 set -u
 
 HOST="${VFJOB_HOST:-testuser@192.0.2.10}"
@@ -25,9 +25,9 @@ HERE="$REPO/scripts/remote"
 LAPTOP_REPO="${VFJOB_REPO:-C:\\Users\\testuser\\OneDrive\\Escritorio\\proyectos\\direct}"
 MINGW="${VFJOB_MINGW:-C:\\Users\\testuser\\scoop\\apps\\mingw\\16.2.0-rt_v14-rev1\\bin}"
 
-# Ejecuta un comando en el laptop por SSH sin interaccion.
+# Runs a command on the laptop over SSH without interaction.
 remote() { ssh -i "$KEY" -o BatchMode=yes -o ConnectTimeout=10 "$HOST" "$@"; }
-# Copia archivos al laptop con scp sin interaccion.
+# Copies files to the laptop with scp without interaction.
 copy_to() { scp -q -i "$KEY" -o BatchMode=yes "$@"; }
 
 case "${1:-}" in

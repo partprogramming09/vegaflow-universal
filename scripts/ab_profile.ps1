@@ -1,14 +1,14 @@
 <#
 .SYNOPSIS
-    Arranca o detiene el daemon de VegaFlow como condicion "aplicado" de las pruebas A/B.
+    Starts or stops the VegaFlow daemon as the "applied" condition of the A/B tests.
 .DESCRIPTION
-    -Start : lanza vegaflow_daemon.exe oculto desde C:\ProgramData\VegaFlow, guarda su PID y se queda
-             esperando hasta que el daemon sale (la tarea queda "Running" mientras haya daemon).
-    -Stop  : pide un cierre limpio con el evento Global\VegaFlowStop (el daemon ejecuta RestoreAll),
-             espera hasta 20 s, restaura el perfil de energia APU y deja el estado en ab.log.
-    Si el daemon no sale en 20 s, -Stop falla y no lo mata: matar el proceso saltaria RestoreAll.
-    Requiere administrador. Por defecto usa la copia protegida de C:\ProgramData\VegaFlow; -Dir permite
-    otra carpeta con vegaflow_daemon.exe, config\config.json, logs\ y tweaks_state.ps1 (sesion SSH elevada, sin tareas).
+    -Start : launches vegaflow_daemon.exe hidden from C:\ProgramData\VegaFlow, saves its PID and keeps
+             waiting until the daemon exits (the task stays "Running" while the daemon is alive).
+    -Stop  : requests a clean shutdown with the Global\VegaFlowStop event (the daemon runs RestoreAll),
+             waits up to 20 s, restores the APU power profile and leaves the state in ab.log.
+    If the daemon does not exit within 20 s, -Stop fails and does not kill it: killing the process would skip RestoreAll.
+    Requires administrator. By default it uses the protected copy in C:\ProgramData\VegaFlow; -Dir allows
+    another folder with vegaflow_daemon.exe, config\config.json, logs\ and tweaks_state.ps1 (elevated SSH session, no tasks).
 #>
 param(
     [switch]$Start,
@@ -27,14 +27,14 @@ $exe = Join-Path $dir 'vegaflow_daemon.exe'
 $pidFile = Join-Path $dir 'ab.pid'
 $log = Join-Path $dir 'ab.log'
 
-# Escribe una linea con marca de tiempo en ab.log y en la salida.
+# Writes a timestamped line to ab.log and to the output.
 function Write-Ab($msg) {
     $line = '{0} {1}' -f (Get-Date -Format o), $msg
     Add-Content -Path $log -Value $line
     $line
 }
 
-# Devuelve el proceso del daemon guardado en ab.pid, o $null si no corre.
+# Returns the daemon process saved in ab.pid, or $null if it is not running.
 function Get-AbDaemon {
     if (-not (Test-Path $pidFile)) { return $null }
     $id = [int](Get-Content $pidFile -Raw)

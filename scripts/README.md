@@ -29,6 +29,10 @@ Solo Windows (PowerShell) salvo `remote/`, que corre en la Mac. Ninguno forma pa
 | `hold_timer.ps1` | Pide una resolución de temporizador NT y la mantiene |
 | `sleep_probe.ps1` | Mide cuánto dura `Sleep(1)` de verdad |
 
+## Por qué la carpeta es plana
+
+Los scripts no se agrupan en subcarpetas a propósito. Se buscan entre sí con `$PSScriptRoot`, y existe una copia plana instalada en `C:\ProgramData\VegaFlow` (la que usan las tareas programadas y `scripts/remote/`), así que cada script debe funcionar con las dos disposiciones. Moverlos exige reescribir esas rutas y volver a desplegar como administrador, y no se puede comprobar sin un juego abierto. Por eso el orden por tema vive en las tablas de arriba y no en carpetas.
+
 ## `remote/`: operar el laptop desde la Mac
 
 Herramienta de desarrollo con `vfdev`, los trabajos en `jobs/`, las referencias en `baselines/` y el paquete de WinBridge. Su guía completa está en [`remote/README.md`](remote/README.md). `remote/archive/` es el ejecutor `vfjob` ya retirado.

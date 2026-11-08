@@ -1,27 +1,27 @@
 <#
 .SYNOPSIS
-    Mide FPS medio, 1% Low y 0.1% Low de un proceso con PresentMon y guarda el resultado en JSON.
+    Measures average FPS, 1% Low and 0.1% Low of a process with PresentMon and saves the result as JSON.
 .DESCRIPTION
-    Independiente del daemon: usa PresentMon directamente, así que sirve para comparar
-    "daemon/tweak apagado" contra "encendido" sin que la medición dependa del código medido.
-    1% Low y 0.1% Low usan la misma definición que FrameTelemetryMonitor: promedio del frametime
-    del 1% (0.1%) de cuadros más lentos, convertido a FPS.
+    Independent of the daemon: it uses PresentMon directly, so it can compare
+    "daemon/tweak off" against "on" without the measurement depending on the code being measured.
+    1% Low and 0.1% Low use the same definition as FrameTelemetryMonitor: average frametime
+    of the slowest 1% (0.1%) of frames, converted to FPS.
 .PARAMETER Process
-    Nombre del ejecutable a medir (ej. game.exe).
+    Name of the executable to measure (e.g. game.exe).
 .PARAMETER Label
-    Nombre de la condición medida (ej. baseline, timer-on, mpo-off).
+    Name of the measured condition (e.g. baseline, timer-on, mpo-off).
 .PARAMETER Seconds
-    Duración de la captura. Por defecto 60.
+    Capture duration. Defaults to 60.
 .PARAMETER WarmupSeconds
-    Segundos iniciales que se descartan. Por defecto 5.
+    Initial seconds that are discarded. Defaults to 5.
 .PARAMETER PresentMon
-    Ruta a PresentMon.exe (2.x). Por defecto busca la variable PRESENTMON_EXE y luego el PATH.
+    Path to PresentMon.exe (2.x). By default it looks for the PRESENTMON_EXE variable and then the PATH.
 .PARAMETER FromCsv
-    Analiza un CSV de PresentMon ya capturado en vez de ejecutar PresentMon.
+    Analyzes an already-captured PresentMon CSV instead of running PresentMon.
 .PARAMETER StartDelaySeconds
-    Espera antes de capturar, para dar tiempo a poner el juego en primer plano.
+    Wait before capturing, to leave time to bring the game to the foreground.
 .PARAMETER Compare
-    Dos archivos JSON de resultados: imprime la diferencia entre el segundo y el primero.
+    Two JSON result files: prints the difference between the second and the first.
 .EXAMPLE
     .\scripts\bench.ps1 -Process game.exe -Label baseline
 .EXAMPLE
@@ -102,12 +102,12 @@ $mean = ($frametimes | Measure-Object -Average).Average
 $variance = ($frametimes | ForEach-Object { ($_ - $mean) * ($_ - $mean) } | Measure-Object -Average).Average
 $modes = $rows | Group-Object PresentMode | Sort-Object Count -Descending
 
-# Tirones: cuadros que tardan mas de 2 veces la mediana, por minuto de captura.
+# Stutters: frames that take more than 2 times the median, per minute of capture.
 $medianFt = $sorted[[int][Math]::Floor($sorted.Count / 2)]
 $hitches = @($frametimes | Where-Object { $_ -gt 2 * $medianFt }).Count
 $minutes = ($frametimes | Measure-Object -Sum).Sum / 60000.0
 
-# Tiempo entre cambios de imagen en pantalla (MsBetweenDisplayChange); 0 es un cuadro que no se mostro.
+# Time between on-screen image changes (MsBetweenDisplayChange); 0 is a frame that was not displayed.
 $display = [double[]]@($rows | Where-Object { $_.MsBetweenDisplayChange -and $_.MsBetweenDisplayChange -ne 'NA' } |
         ForEach-Object { [double]$_.MsBetweenDisplayChange } | Where-Object { $_ -gt 0 })
 $displayStd = $null; $displayLate = $null
@@ -118,7 +118,7 @@ if ($display.Count -ge 100) {
     $displayLate = [Math]::Round(100.0 * @($display | Where-Object { $_ -gt 1.5 * $dMedian }).Count / $display.Count, 3)
 }
 
-# Eventos de fallo durante la captura: 4101 (reinicio del driver gráfico), 1000 y 1001 (fallo de aplicación o informe de errores), 141 y 117 (LiveKernelEvent).
+# Failure events during the capture: 4101 (graphics driver reset), 1000 and 1001 (application crash or error report), 141 and 117 (LiveKernelEvent).
 $errors = $null
 if ($captureStart) {
     $errors = @(Get-WinEvent -FilterHashtable @{ LogName = 'System', 'Application'; Id = 1000, 1001, 4101, 141, 117; StartTime = $captureStart } -ErrorAction SilentlyContinue |

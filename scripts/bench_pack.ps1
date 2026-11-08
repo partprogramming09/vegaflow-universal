@@ -1,23 +1,23 @@
 <#
 .SYNOPSIS
-    Mide una escena con el protocolo del plan de pruebas y empaqueta los resultados con la huella del equipo.
+    Measures a scene with the test-plan protocol and packages the results with the machine fingerprint.
 .DESCRIPTION
-    Para compartir mediciones entre equipos: con el juego abierto en la escena a medir, hace una captura de
-    calentamiento que no cuenta y N capturas con bench.ps1, guarda el estado de los ajustes de VegaFlow y la
-    informacion del equipo (vegaflow_daemon.exe --system-info) y lo comprime en bench\pack-ETIQUETA-FECHA.zip.
-    El zip trae los JSON y CSV de cuadros de cada captura: se analiza con `vfdev frames` o `vfdev regress`.
-    No enciende ni apaga el daemon: mide el equipo tal como esta. Mide una sola condicion; para comparar el
-    daemon apagado y encendido se corre dos veces o se usa ab_loop_task.ps1.
+    For sharing measurements between machines: with the game open on the scene to measure, it does a
+    warm-up capture that does not count and N captures with bench.ps1, saves the state of the VegaFlow settings and the
+    machine information (vegaflow_daemon.exe --system-info) and compresses it into bench\pack-LABEL-DATE.zip.
+    The zip contains the JSON and frame CSV of each capture: analyze it with `vfdev frames` or `vfdev regress`.
+    It does not turn the daemon on or off: it measures the machine as it is. It measures a single condition; to compare
+    daemon off and on, run it twice or use ab_loop_task.ps1.
 .PARAMETER Process
-    Ejecutable del juego abierto (ej. game.exe).
+    Executable of the open game (e.g. game.exe).
 .PARAMETER Label
-    Nombre de la escena y condicion (ej. octopath-mundo-daemon-off). Solo letras, numeros, punto, guion y guion bajo.
+    Name of the scene and condition (e.g. octopath-mundo-daemon-off). Only letters, digits, dot, hyphen and underscore.
 .PARAMETER Captures
-    Capturas que cuentan. Por defecto 5.
+    Captures that count. Defaults to 5.
 .PARAMETER Seconds
-    Duracion de cada captura, con 5 s de calentamiento descartados. Por defecto 125 (120 s de datos).
+    Duration of each capture, with 5 s of warm-up discarded. Defaults to 125 (120 s of data).
 .PARAMETER Daemon
-    Ruta de vegaflow_daemon.exe para leer la informacion del equipo. Por defecto C:\ProgramData\VegaFlow o build.
+    Path to vegaflow_daemon.exe for reading the machine information. Defaults to C:\ProgramData\VegaFlow or build.
 #>
 param(
     [Parameter(Mandatory)][string]$Process,

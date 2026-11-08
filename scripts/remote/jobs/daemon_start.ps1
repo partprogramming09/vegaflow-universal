@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Arranca el daemon de VegaFlow con la tarea VegaFlow-Start (sesion del escritorio, elevado) y espera a que corra.
+    Starts the VegaFlow daemon with the VegaFlow-Start task (desktop session, elevated) and waits for it to run.
 #>
 $ErrorActionPreference = 'Stop'
 Start-ScheduledTask -TaskName 'VegaFlow-Start'

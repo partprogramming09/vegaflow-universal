@@ -1,13 +1,13 @@
 <#
 .SYNOPSIS
-    Pide una resolucion de temporizador NT y la mantiene mientras el script vive.
+    Requests an NT timer resolution and holds it while the script lives.
 .DESCRIPTION
-    Condicion aislada para medir el efecto del temporizador de 0.5 ms sin el resto del daemon.
-    La peticion se libera al terminar el script. Escribe la resolucion vista en bench\timer.log.
+    Isolated condition to measure the effect of the 0.5 ms timer without the rest of the daemon.
+    The request is released when the script ends. Writes the observed resolution to bench\timer.log.
 .PARAMETER Ns100
-    Resolucion pedida en unidades de 100 ns. 5000 = 0.5 ms.
+    Requested resolution in units of 100 ns. 5000 = 0.5 ms.
 .PARAMETER Seconds
-    Tiempo que mantiene la peticion.
+    How long the request is held.
 #>
 param(
     [uint32]$Ns100 = 5000,

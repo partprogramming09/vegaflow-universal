@@ -1,13 +1,13 @@
 <#
 .SYNOPSIS
-    Crea dos tareas programadas elevadas y acotadas para restaurar y revisar los tweaks de VegaFlow.
+    Creates two elevated, scoped scheduled tasks to restore and review the VegaFlow tweaks.
 .DESCRIPTION
-    Debe ejecutarse una vez como administrador. Copia tweaks_state.ps1 a C:\ProgramData\VegaFlow,
-    una carpeta que solo un administrador puede escribir, y registra:
-      VegaFlow-State   : informe de solo lectura  -> state.log
-      VegaFlow-Restore : restauracion a valores de fabrica (-Restore -Apply) -> restore.log
-    Las tareas solo se ejecutan bajo demanda y apuntan a la copia protegida, no a la carpeta del proyecto.
-    Para cambiar el script hay que volver a ejecutar este instalador como administrador.
+    Must be run once as administrator. Copies tweaks_state.ps1 to C:\ProgramData\VegaFlow,
+    a folder only an administrator can write to, and registers:
+      VegaFlow-State   : read-only report  -> state.log
+      VegaFlow-Restore : restore to stock values (-Restore -Apply) -> restore.log
+    The tasks only run on demand and point to the protected copy, not to the project folder.
+    To change the script, run this installer again as administrator.
 #>
 #requires -RunAsAdministrator
 $ErrorActionPreference = 'Stop'
@@ -17,7 +17,7 @@ $source = Join-Path $PSScriptRoot 'tweaks_state.ps1'
 $setupLog = Join-Path $dir 'setup.log'
 
 New-Item -ItemType Directory -Force -Path $dir | Out-Null
-# SID de SYSTEM, Administradores y Usuarios: los nombres en texto fallan en Windows en otro idioma.
+# SIDs for SYSTEM, Administrators and Users: text names fail on Windows in another language.
 icacls $dir /grant:r '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-32-545:(OI)(CI)RX' | Out-Null
 if ($LASTEXITCODE -ne 0) { throw 'icacls no pudo fijar los permisos de la carpeta protegida.' }
 icacls $dir /inheritance:r | Out-Null
@@ -31,7 +31,7 @@ $hashGames = (Get-FileHash (Join-Path $dir 'games_tweak.ps1') -Algorithm SHA256)
 Copy-Item (Join-Path $PSScriptRoot 'ab_profile.ps1') (Join-Path $dir 'ab_profile.ps1') -Force
 $hashAb = (Get-FileHash (Join-Path $dir 'ab_profile.ps1') -Algorithm SHA256).Hash
 
-# El daemon y su config se copian a la carpeta protegida: la tarea elevada no ejecuta nada de una carpeta escribible por el usuario.
+# The daemon and its config are copied to the protected folder: the elevated task runs nothing from a user-writable folder.
 $daemonSrc = Join-Path $PSScriptRoot '..\build\vegaflow_daemon.exe'
 if (-not (Test-Path $daemonSrc)) { throw "Falta $daemonSrc; compila con scripts\build.ps1." }
 Copy-Item $daemonSrc (Join-Path $dir 'vegaflow_daemon.exe') -Force

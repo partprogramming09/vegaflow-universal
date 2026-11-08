@@ -1,17 +1,17 @@
 <#
 .SYNOPSIS
-    A/B intercalado (ABBA) del daemon corriendo en la sesion del escritorio, con las tareas VegaFlow-Start y VegaFlow-Stop.
+    Interleaved A/B (ABBA) of the daemon running in the desktop session, using the VegaFlow-Start and VegaFlow-Stop tasks.
 .DESCRIPTION
-    Como ab_loop.ps1, pero el daemon se arranca con la tarea programada interactiva y elevada VegaFlow-Start,
-    que corre en la sesion 1 y puede ver el juego (el detector solo ve el escritorio de su sesion).
-    Con el juego ya abierto en el escritorio, alterna capturas con el daemon apagado y encendido, en orden
-    A,B / B,A / A,B ... Antes de cada captura anota el estado en ab_runs.log; tras cada parada anota si el
-    daemon registro una sesion de juego, y aborta si el daemon encendido corre fuera de la sesion 1.
+    Like ab_loop.ps1, but the daemon is started by the interactive, elevated scheduled task VegaFlow-Start,
+    which runs in session 1 and can see the game (the detector only sees its own session's desktop).
+    With the game already open on the desktop, it alternates captures with the daemon off and on, in the order
+    A,B / B,A / A,B ... Before each capture it logs the state to ab_runs.log; after each stop it logs whether the
+    daemon recorded a game session, and aborts if the running daemon is outside session 1.
 .PARAMETER Api
-    Etiqueta de la API del juego abierto (d3d11 o d3d12); solo nombra las capturas.
+    Label of the open game's API (d3d11 or d3d12); only used to name the captures.
 .PARAMETER Sensors
-    1 muestrea cada 5 s la temperatura de la zona termica ACPI y el rendimiento de la CPU durante cada captura y
-    anade al final una fila sens por captura (la potencia no se mide: el equipo no expone contadores de potencia).
+    1 samples the ACPI thermal-zone temperature and CPU performance every 5 s during each capture and
+    appends one sens row per capture at the end (power is not measured: the machine exposes no power counters).
 #>
 param(
     [Parameter(Mandatory)][string]$Api,
@@ -33,19 +33,19 @@ $sessionLog = Join-Path $Dir 'logs\session_reports.log'
 $procName = [IO.Path]::GetFileNameWithoutExtension($Process)
 $sensRows = [System.Collections.Generic.List[string]]::new()
 
-# Anota una linea con marca de tiempo en ab_runs.log.
+# Appends a timestamped line to ab_runs.log.
 function Write-Run($msg) { Add-Content -Path $runsLog -Value ('{0} {1}' -f (Get-Date -Format o), $msg) }
 
-# Devuelve los valores del informe de estado que no estan en fabrica, en una sola linea.
+# Returns the status-report values that differ from stock, on a single line.
 function Get-Drift {
     (& (Join-Path $Dir 'tweaks_state.ps1') 2>&1 | Where-Object { $_ -match '\S' -and $_ -notmatch ' ok$' -and $_ -notmatch '^(valor|AMD|  |UserGpu|integridad|admin)' }) -join '; '
 }
 
-# Carpeta del perfil de Chrome y de busy.html: el area del usuario, no el TEMP del ejecutor (con el TEMP protegido de WinBridge Chrome no arranca).
+# Chrome profile folder and busy.html: the user area, not the runner's TEMP (Chrome does not start with WinBridge's protected TEMP).
 $loadTemp = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'Temp'
 
-# Arranca la carga de fondo y espera a que se asiente. 'chrome': Chrome sin ventana quemando CPU con LoadWorkers workers.
-# 'mix': 3 pestañas de Chrome al 40% de ciclo de trabajo (rafagas) y 2 procesos que calculan hashes de archivos del sistema sin parar (como un launcher verificando archivos).
+# Starts the background load and waits for it to settle. 'chrome': windowless Chrome burning CPU with LoadWorkers workers.
+# 'mix': 3 Chrome tabs at a 40% duty cycle (bursts) and 2 processes that endlessly hash system files (like a launcher verifying files).
 function Start-Load {
     if ($Load -eq 'none') { return }
     $page = Join-Path $loadTemp 'vf-busy.html'
@@ -60,7 +60,7 @@ function Start-Load {
     Start-Sleep -Seconds 8
 }
 
-# Cierra solo los procesos que arranco Start-Load: los de Chrome por su carpeta de perfil y los de hashes por su marca.
+# Closes only the processes Start-Load started: Chrome ones by their profile folder and hashing ones by their marker.
 function Stop-Load {
     Get-CimInstance Win32_Process -Filter "Name='chrome.exe'" | Where-Object { $_.CommandLine -match 'vf-chrome-load' } |
         ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
@@ -68,7 +68,7 @@ function Stop-Load {
         ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 }
 
-# Captura una condicion: comprueba que el juego sigue vivo, anota el estado y mide con PresentMon, con la carga de fondo si se pidio.
+# Captures one condition: checks the game is still alive, logs the state and measures with PresentMon, with the background load if requested.
 function Invoke-Capture($cond, $i) {
     if (-not (Get-Process $procName -ErrorAction SilentlyContinue)) { throw "$Process ya no esta corriendo." }
     $label = "$LabelPrefix-$cond-$Api-$i"
@@ -96,7 +96,7 @@ function Invoke-Capture($cond, $i) {
             $sensRows.Add(('sens,{0},n={1},temp_first={2:F1},temp_avg={3:F1},temp_max={4:F1},temp_last={5:F1},perf_avg={6:F0},perf_min={7:F0},mhz_eff_avg={8:F0}' -f `
                 $label, $samples.Count, $samples[0].temp, ($samples | Measure-Object temp -Average).Average, ($samples | Measure-Object temp -Maximum).Maximum, `
                 $samples[-1].temp, ($samples | Measure-Object perf -Average).Average, ($samples | Measure-Object perf -Minimum).Minimum, $eff))
-            # Media de temperatura y de rendimiento por minuto (12 muestras de 5 s), para ver la tendencia en el tiempo.
+            # Per-minute average of temperature and performance (12 samples of 5 s), to see the trend over time.
             $minutes = for ($m = 0; $m * 12 -lt $samples.Count; $m++) {
                 $b = $samples[($m * 12)..([math]::Min($samples.Count, ($m + 1) * 12) - 1)]
                 '{0}:{1:F1}C/{2:F0}%' -f ($m + 1), ($b | Measure-Object temp -Average).Average, ($b | Measure-Object perf -Average).Average
@@ -106,7 +106,7 @@ function Invoke-Capture($cond, $i) {
     }
 }
 
-# Lanza la tarea VegaFlow-Start y espera a que el daemon corra en la sesion 1 y aplique sus optimizaciones.
+# Launches the VegaFlow-Start task and waits for the daemon to run in session 1 and apply its optimizations.
 function Start-Daemon {
     Start-ScheduledTask -TaskName 'VegaFlow-Start'
     $deadline = (Get-Date).AddSeconds(40)
@@ -117,7 +117,7 @@ function Start-Daemon {
     Start-Sleep -Seconds 10
 }
 
-# Espera a que las tareas VegaFlow-Start y VegaFlow-Stop dejen de correr; devuelve falso si pasa el limite.
+# Waits for the VegaFlow-Start and VegaFlow-Stop tasks to stop running; returns false if the limit is exceeded.
 function Wait-TasksIdle($seconds) {
     $deadline = (Get-Date).AddSeconds($seconds)
     while ((Get-Date) -lt $deadline) {
@@ -128,7 +128,7 @@ function Wait-TasksIdle($seconds) {
     return $false
 }
 
-# Lanza la tarea VegaFlow-Stop, espera a que terminen las tareas (el cierre lanza un proceso breve --apu-balanced) y anota si registro una sesion de juego.
+# Launches the VegaFlow-Stop task, waits for the tasks to finish (shutdown launches a brief --apu-balanced process) and logs whether it recorded a game session.
 function Stop-Daemon {
     $before = if (Test-Path $sessionLog) { (Get-Item $sessionLog).Length } else { 0 }
     Start-ScheduledTask -TaskName 'VegaFlow-Stop'
@@ -140,7 +140,7 @@ function Stop-Daemon {
     Start-Sleep -Seconds 5
 }
 
-# Si el juego no esta abierto y es drawstress, lo abre con game.ps1 (el ejecutor remoto lo instala junto a este script).
+# If the game is not open and it is drawstress, opens it with game.ps1 (the remote runner installs it next to this script).
 if (-not (Get-Process $procName -ErrorAction SilentlyContinue)) {
     $game = Join-Path $PSScriptRoot 'game.ps1'
     if ($procName -ne 'drawstress' -or -not (Test-Path $game)) { throw "$Process no esta abierto." }
@@ -148,7 +148,7 @@ if (-not (Get-Process $procName -ErrorAction SilentlyContinue)) {
 }
 Write-Run "inicio api=$Api reps=$Reps seconds=$Seconds prefijo=$LabelPrefix warmup=$Warmup"
 try {
-    # Captura de calentamiento sin daemon: no cuenta (su etiqueta no coincide con el patron del resumen final).
+    # Warm-up capture without the daemon: it does not count (its label does not match the final summary pattern).
     if ($Warmup -eq '1') {
         Start-Load
         try { & $bench -Process $Process -Label "$LabelPrefix-warmup" -Seconds $Seconds -WarmupSeconds 5 | Out-Null } finally { Stop-Load }
