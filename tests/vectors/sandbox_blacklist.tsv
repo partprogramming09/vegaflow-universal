@@ -1,0 +1,58 @@
+# SandboxGuard blacklist vectors, shared by the C++ suite (Test 33) and the Rust core tests.
+# Columns (tab separated): name, path, expected category.
+# Categories: allowed, empty, drive_root, critical_file, windows_dir, windows_other_drive, common_files, system_volume_information.
+# "<empty>" stands for the empty path. The vectors assume Windows lives in C:\Windows (the C++ test checks it).
+# Several rows record behaviour that looks odd but is what the C++ code does today (e.g. C:\WindowsApps is blocked
+# by prefix); the Rust implementation must reproduce it exactly, not "fix" it.
+empty_path	<empty>	empty
+drive_root_with_slash	C:\	drive_root
+drive_letter_only	C:	drive_root
+file_in_drive_root	C:\payload.exe	drive_root
+folder_in_drive_root	D:\Games	drive_root
+windows_folder_is_a_root_child	C:\Windows	drive_root
+other_drive_windows_folder_is_a_root_child	D:\Windows	drive_root
+nested_user_file	C:\Users\Public\notes.txt	allowed
+steam_game_path	D:\SteamLibrary\steamapps\common\Game\game.ini	allowed
+program_files_normal	C:\Program Files\Game\game.exe	allowed
+system32_file	C:\Windows\System32\drivers\etc\hosts	windows_dir
+syswow64_file	C:\Windows\SysWOW64\bad.dll	windows_dir
+winsxs_on_another_drive	D:\Windows\WinSxS\x\y.dll	windows_dir
+windows_prefix_without_boundary_is_blocked	C:\WindowsApps\x\y.exe	windows_dir
+uppercase_system32	C:\WINDOWS\SYSTEM32\X.DLL	windows_dir
+other_drive_windows_temp	D:\Windows\Temp\x.tmp	windows_other_drive
+other_drive_windows_trailing_slash	D:\Windows\	windows_other_drive
+common_files	C:\Program Files\Common Files\bad.dll	common_files
+common_files_x86	C:\Program Files (x86)\Common Files\x\y	common_files
+system_volume_information	D:\System Volume Information\x\y	system_volume_information
+critical_pagefile	D:\data\pagefile.sys	critical_file
+critical_name_uppercase	D:\data\HIBERFIL.SYS	critical_file
+critical_name_with_forward_slashes	D:/data/pagefile.sys	critical_file
+critical_name_as_a_folder_is_allowed	D:\data\bootmgr\x.txt	allowed
+critical_name_must_match_exactly	D:\data\mybootmgr	allowed
+unc_share_is_not_treated_as_a_root_child	\\server\share	allowed
+unc_nested_file	\\server\share\dir\file.txt	allowed
+relative_single_name	notes.txt	drive_root
+relative_nested_name	dir\notes.txt	allowed
+extended_length_prefix	\\?\C:\Users\x\y.txt	allowed
+trailing_slash_on_a_folder	D:\data\	allowed
+double_separator_after_drive	C:\\foo	drive_root
+drive_relative_name	C:foo	drive_root
+rooted_without_drive_single	\foo	drive_root
+rooted_without_drive_nested	\foo\bar	allowed
+forward_slash_drive_child	C:/foo	drive_root
+unc_with_forward_slashes	//server/share/x	allowed
+double_separator_inside_a_path	C:\a\\b	allowed
+short_nested_path_on_a_drive	D:\a\b\c\d	allowed
+digit_counts_as_a_drive_letter	1:\foo	drive_root
+symbol_counts_as_a_drive_letter	$:\foo	drive_root
+colon_counts_as_a_drive_letter	::\foo	drive_root
+odd_drive_prefix_still_gets_critical_file_rule	$:\data\pagefile.sys	critical_file
+separator_then_colon_is_not_a_drive	\:\foo	allowed
+separator_then_colon_still_gets_critical_file_rule	\:\data\pagefile.sys	critical_file
+forward_separator_then_colon_is_not_a_drive	/:/foo	allowed
+extended_prefix_drive_root	\\?\C:\	allowed
+extended_prefix_drive_letter_only	\\?\C:	allowed
+device_prefix_drive_root	\\.\C:\	allowed
+unc_server_only	\\srv	drive_root
+unc_share_nested_file	\\srv\share\f	allowed
+critical_name_with_trailing_slash	D:\x\bootmgr\	allowed

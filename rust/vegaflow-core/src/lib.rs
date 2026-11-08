@@ -2,11 +2,13 @@
 
 pub mod apu_tier;
 pub mod cpu_governor;
+pub mod path_policy;
 pub mod sandbox_core;
 pub mod uma_memory;
 
 pub use apu_tier::*;
 pub use cpu_governor::*;
+pub use path_policy::*;
 pub use sandbox_core::*;
 pub use uma_memory::*;
 

@@ -98,6 +98,26 @@ typedef struct VfTierInput {
 /* Returns the APU tier: 1 entry, 2 mid, 3 advanced, 4 discrete or custom. */
 uint8_t vf_rust_classify_apu_tier(const VfTierInput* input);
 
+/* SandboxGuard blacklist verdicts. */
+enum VfPathVerdict {
+    VF_PATH_ALLOWED = 0,
+    VF_PATH_EMPTY = 1,
+    VF_PATH_DRIVE_ROOT = 2,
+    VF_PATH_CRITICAL_FILE = 3,
+    VF_PATH_WINDOWS_DIR = 4,
+    VF_PATH_WINDOWS_OTHER_DRIVE = 5,
+    VF_PATH_COMMON_FILES = 6,
+    VF_PATH_SYSTEM_VOLUME_INFORMATION = 7
+};
+
+/* Classifies a canonical path against the blacklist. The path and both directories are UTF-16 and must already be
+   lower-cased by the caller (towlower); the verdict is VF_PATH_ALLOWED when no rule matches. */
+uint32_t vf_rust_classify_blacklisted_path(
+    const uint16_t* path, size_t path_len,
+    const uint16_t* win_dir, size_t win_dir_len,
+    const uint16_t* sys_dir, size_t sys_dir_len
+);
+
 #ifdef __cplusplus
 }
 #endif

@@ -143,85 +143,50 @@ std::wstring SandboxGuard::CanonicalizePath(const std::wstring& path) {
     return res;
 }
 
-bool SandboxGuard::IsDriveRootOrDirectChild(const std::filesystem::path& canonical_path) {
-    if (canonical_path.empty()) return false;
+namespace {
 
-    // Check whether the path is exactly the root (e.g. "C:\")
-    if (canonical_path == canonical_path.root_path()) {
-        return true;
+const char* BlacklistReason(uint32_t verdict) {
+    switch (verdict) {
+        case VF_PATH_EMPTY:
+            return "Ruta vacía";
+        case VF_PATH_DRIVE_ROOT:
+            return "Operación denegada: Prohibido escribir en la raíz del disco o sobre archivos raíz directos";
+        case VF_PATH_CRITICAL_FILE:
+            return "Operación denegada: Intento de modificar archivos críticos de arranque de Windows";
+        case VF_PATH_WINDOWS_DIR:
+            return "Operación denegada: Acceso a directorios del sistema de Windows bloqueado por seguridad";
+        case VF_PATH_WINDOWS_OTHER_DRIVE:
+            return "Operación denegada: Acceso a carpeta de Windows bloqueado";
+        case VF_PATH_COMMON_FILES:
+            return "Operación denegada: Modificación de Common Files de Program Files bloqueada";
+        case VF_PATH_SYSTEM_VOLUME_INFORMATION:
+            return "Operación denegada: System Volume Information protegido";
+        default:
+            return "Operación denegada";
     }
-
-    // Check whether the path is a file or folder directly under the root (e.g. "C:\bootmgr" or "C:\test.txt")
-    if (canonical_path.parent_path() == canonical_path.root_path()) {
-        return true;
-    }
-
-    std::wstring str = canonical_path.wstring();
-    if (str.size() <= 3 && str.find(L':') != std::wstring::npos) {
-        return true;
-    }
-
-    return false;
 }
 
+} // namespace
+
+// The rules live in the Rust core (path_policy.rs). Case folding stays here with towlower, as before, so the
+// verdict cannot differ from the old C++ code for non-ASCII paths.
 bool SandboxGuard::IsBlacklisted(const std::wstring& canonical_path, std::string* out_reason) {
-    if (canonical_path.empty()) {
-        if (out_reason) *out_reason = "Ruta vacía";
-        return true;
+    static_assert(sizeof(wchar_t) == sizeof(uint16_t), "the Rust core reads Windows wchar_t as UTF-16");
+
+    const std::wstring lower = ToLowerW(canonical_path);
+    const std::wstring win_dir = ToLowerW(GetWindowsDirectoryPath());
+    const std::wstring sys_dir = ToLowerW(GetSystemDirectoryPath());
+
+    const uint32_t verdict = vf_rust_classify_blacklisted_path(
+        reinterpret_cast<const uint16_t*>(lower.data()), lower.size(),
+        reinterpret_cast<const uint16_t*>(win_dir.data()), win_dir.size(),
+        reinterpret_cast<const uint16_t*>(sys_dir.data()), sys_dir.size());
+
+    if (verdict == VF_PATH_ALLOWED) {
+        return false;
     }
-
-    std::filesystem::path p(canonical_path);
-
-    // 1. Drive root protection
-    if (IsDriveRootOrDirectChild(p)) {
-        if (out_reason) *out_reason = "Operación denegada: Prohibido escribir en la raíz del disco o sobre archivos raíz directos";
-        return true;
-    }
-
-    std::wstring lower = ToLowerW(canonical_path);
-
-    // 2. Critical operating system files
-    std::wstring filename = ToLowerW(p.filename().wstring());
-    char utf8_name[256] = {0};
-    int utf8_len = WideCharToMultiByte(CP_UTF8, 0, filename.data(), static_cast<int>(filename.size()), utf8_name, sizeof(utf8_name) - 1, nullptr, nullptr);
-    if (utf8_len > 0 && vf_rust_is_critical_system_filename(utf8_name, static_cast<size_t>(utf8_len))) {
-        if (out_reason) *out_reason = "Operación denegada: Intento de modificar archivos críticos de arranque de Windows";
-        return true;
-    }
-
-    // 3. Windows and System directories
-    std::wstring winDir = ToLowerW(GetWindowsDirectoryPath());
-    std::wstring sysDir = ToLowerW(GetSystemDirectoryPath());
-
-    if (StartsWithInsensitiveW(lower, winDir) ||
-        StartsWithInsensitiveW(lower, sysDir) ||
-        ContainsInsensitiveW(lower, L"\\windows\\system32") ||
-        ContainsInsensitiveW(lower, L"\\windows\\syswow64") ||
-        ContainsInsensitiveW(lower, L"\\windows\\winsxs")) {
-        if (out_reason) *out_reason = "Operación denegada: Acceso a directorios del sistema de Windows bloqueado por seguridad";
-        return true;
-    }
-
-    // Check any other drive letter with \windows (e.g. D:\windows)
-    if (lower.size() >= 10 && lower[1] == L':' && lower.substr(2, 9) == L"\\windows\\") {
-        if (out_reason) *out_reason = "Operación denegada: Acceso a carpeta de Windows bloqueado";
-        return true;
-    }
-
-    // 4. Program Files / Common Files
-    if (ContainsInsensitiveW(lower, L"\\program files\\common files") ||
-        ContainsInsensitiveW(lower, L"\\program files (x86)\\common files")) {
-        if (out_reason) *out_reason = "Operación denegada: Modificación de Common Files de Program Files bloqueada";
-        return true;
-    }
-
-    // 5. System Volume Information
-    if (ContainsInsensitiveW(lower, L"\\system volume information")) {
-        if (out_reason) *out_reason = "Operación denegada: System Volume Information protegido";
-        return true;
-    }
-
-    return false;
+    if (out_reason) *out_reason = BlacklistReason(verdict);
+    return true;
 }
 
 bool SandboxGuard::IsWhitelisted(const std::wstring& canonical_path, std::string* out_reason) {

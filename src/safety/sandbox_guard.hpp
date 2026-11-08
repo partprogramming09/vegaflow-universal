@@ -68,7 +68,6 @@ public:
     // Evaluation rules
     static bool IsBlacklisted(const std::wstring& canonical_path, std::string* out_reason = nullptr);
     static bool IsWhitelisted(const std::wstring& canonical_path, std::string* out_reason = nullptr);
-    static bool IsDriveRootOrDirectChild(const std::filesystem::path& canonical_path);
 
     // Anti-Cheat detection and inspection
     static bool DirectoryContainsAntiCheat(const std::filesystem::path& dir);

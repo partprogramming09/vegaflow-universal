@@ -17,7 +17,7 @@ El proyecto incluye el script automatizado [`scripts/build.ps1`](../../scripts/b
 # Compilar vegaflow_daemon.exe y vegaflow_tests.exe:
 powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
 
-# Compilar y ejecutar inmediatamente los 32 tests unitarios:
+# Compilar y ejecutar inmediatamente los 33 tests unitarios:
 powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1 -RunTests
 ```
 
@@ -25,7 +25,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1 -RunTests
 ```bash
 cargo test --manifest-path rust/vegaflow-core/Cargo.toml
 ```
-Fuera de Windows no existe `ntdll`, así que las funciones que lo llaman devuelven error y el resto de la lógica (Tiers, topología de CPU, confinamiento, firmas anti-cheat) se prueba igual. Los casos de clasificación de Tiers salen del archivo `tests/vectors/apu_tier.tsv`, que usan tanto estas pruebas como la prueba 32 de C++: si las dos implementaciones difieren, una de las dos falla.
+Fuera de Windows no existe `ntdll`, así que las funciones que lo llaman devuelven error y el resto de la lógica (Tiers, topología de CPU, confinamiento, firmas anti-cheat) se prueba igual. Los casos de clasificación de Tiers y de la blacklist de rutas salen de `tests/vectors/apu_tier.tsv` y `tests/vectors/sandbox_blacklist.tsv`, que usan tanto estas pruebas como las pruebas 32 y 33 de C++: si las dos implementaciones difieren, una de las dos falla.
 
 ### 5.3. Compilación Manual con MinGW G++
 
@@ -123,9 +123,10 @@ Cualquier cambio en el repositorio debe ser validado ejecutando `build/vegaflow_
 [PASS] Test 30: HKLM tweaks restore the original values
 [PASS] Test 31: Hybrid Rust FFI Core (Zero-Allocation UMA Guard, L3 Topology, Hysteresis & Anti-Cheat Scanner)
 [PASS] Test 32: APU tier classification matches the shared vector file
+[PASS] Test 33: SandboxGuard blacklist matches the shared vector file
 
 ================================================================================
-TEST RESULTS: 32 PASSED, 0 FAILED
+TEST RESULTS: 33 PASSED, 0 FAILED
 ================================================================================
 ```
 

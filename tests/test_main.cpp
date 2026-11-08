@@ -2142,6 +2142,51 @@ int main() {
     }
 
     // -------------------------------------------------------------------------
+    // Test 33: SandboxGuard blacklist against the shared vector file (same vectors as the Rust core)
+    // -------------------------------------------------------------------------
+    {
+        auto category_of = [](const std::wstring& path) -> std::string {
+            std::string reason;
+            if (!vegaflow::SandboxGuard::IsBlacklisted(path, &reason)) return "allowed";
+            if (reason.find("Ruta v") != std::string::npos) return "empty";
+            if (reason.find("del disco") != std::string::npos) return "drive_root";
+            if (reason.find("arranque") != std::string::npos) return "critical_file";
+            if (reason.find("directorios del sistema") != std::string::npos) return "windows_dir";
+            if (reason.find("carpeta de Windows") != std::string::npos) return "windows_other_drive";
+            if (reason.find("Common Files") != std::string::npos) return "common_files";
+            if (reason.find("System Volume Information") != std::string::npos) return "system_volume_information";
+            return "unknown: " + reason;
+        };
+
+        wchar_t win_dir[MAX_PATH] = {0};
+        GetWindowsDirectoryW(win_dir, MAX_PATH);
+        const bool windows_on_c = (_wcsicmp(win_dir, L"C:\\Windows") == 0);
+
+        std::ifstream vectors("tests/vectors/sandbox_blacklist.tsv");
+        int total = 0;
+        std::string mismatches;
+        std::string line;
+        while (vectors && std::getline(vectors, line)) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            if (line.empty() || line[0] == '#') continue;
+            std::vector<std::string> col;
+            std::stringstream ss(line);
+            std::string cell;
+            while (std::getline(ss, cell, '\t')) col.push_back(cell);
+            if (col.size() != 3) { mismatches += " [bad row: " + line + "]"; continue; }
+
+            const std::wstring path = (col[1] == "<empty>") ? std::wstring() : std::wstring(col[1].begin(), col[1].end());
+            const std::string actual = category_of(path);
+            ++total;
+            if (actual != col[2]) mismatches += " [" + col[0] + ": expected " + col[2] + ", got " + actual + "]";
+        }
+        bool t33_ok = windows_on_c && (total >= 52) && mismatches.empty();
+        RecordResult(t33_ok, "Test 33: SandboxGuard blacklist matches the shared vector file",
+                     std::to_string(total) + " vectors" + (windows_on_c ? "" : ", Windows is not in C:\\Windows") +
+                     (mismatches.empty() ? ", 0 mismatches" : "; mismatches:" + mismatches));
+    }
+
+    // -------------------------------------------------------------------------
     // FINAL SUMMARY
     // -------------------------------------------------------------------------
     std::cout << "\n================================================================================\n";
