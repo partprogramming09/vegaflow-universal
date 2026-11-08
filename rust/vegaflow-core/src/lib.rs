@@ -132,6 +132,14 @@ mod tests {
         assert!(purge_dry, "Dry run purge must always succeed");
     }
 
+    #[cfg(not(windows))]
+    #[test]
+    fn test_nt_memory_calls_report_failure_without_ntdll() {
+        // There is no ntdll outside Windows: the query must say "invalid" and a real purge must fail.
+        assert!(!vf_rust_query_nt_memory_lists().valid);
+        assert!(!vf_rust_purge_nt_standby_list(false));
+    }
+
     #[test]
     fn test_topology_symmetric_ryzen_4600h() {
         // Ryzen 5 4600H: 6C/12T, 2 CCX (Cores 0..2 on LLC 0, Cores 3..5 on LLC 1)

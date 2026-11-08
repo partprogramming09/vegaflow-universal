@@ -47,6 +47,7 @@ const SYSTEM_MEMORY_LIST_INFORMATION_CLASS: u32 = 80;
 const MEMORY_PURGE_STANDBY_LIST_COMMAND: u32 = 4;
 const PAGE_SIZE_BYTES: u64 = 4096;
 
+#[cfg(windows)]
 #[link(name = "ntdll")]
 extern "system" {
     fn NtQuerySystemInformation(
@@ -61,6 +62,25 @@ extern "system" {
         info: *mut core::ffi::c_void,
         len: u32,
     ) -> i32;
+}
+
+// Outside Windows there is no ntdll. These stand-ins return a negative NTSTATUS (failure) so the
+// core still builds and its pure logic can be tested on any host; on Windows the real calls above are used.
+#[cfg(not(windows))]
+#[allow(non_snake_case)]
+unsafe fn NtQuerySystemInformation(
+    _class: u32,
+    _info: *mut core::ffi::c_void,
+    _len: u32,
+    _ret_len: *mut u32,
+) -> i32 {
+    -1
+}
+
+#[cfg(not(windows))]
+#[allow(non_snake_case)]
+unsafe fn NtSetSystemInformation(_class: u32, _info: *mut core::ffi::c_void, _len: u32) -> i32 {
+    -1
 }
 
 #[no_mangle]
