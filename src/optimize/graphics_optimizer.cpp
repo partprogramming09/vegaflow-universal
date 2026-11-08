@@ -1,8 +1,8 @@
-#include "graphics_optimizer.hpp"
-#include "hardware_profiler.hpp"
+#include "optimize/graphics_optimizer.hpp"
+#include "detect/hardware_profiler.hpp"
 
-#if __has_include("nt_defs.hpp")
-#include "nt_defs.hpp"
+#if __has_include("windows/nt_defs.hpp")
+#include "windows/nt_defs.hpp"
 #else
 #ifndef NTSTATUS
 typedef LONG NTSTATUS;

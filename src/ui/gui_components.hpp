@@ -20,7 +20,7 @@
 #include <vector>
 #include <utility>
 
-#include "gui_window.hpp"
+#include "ui/gui_window.hpp"
 
 #ifndef GET_X_LPARAM
 #define GET_X_LPARAM(lp) ((int)(short)LOWORD(lp))

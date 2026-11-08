@@ -93,7 +93,7 @@
 - **Perfil de Energía APU Térmicamente Eficiente:** Limita el modo boost agresivo de la CPU y estabiliza frecuencias en 3.2 GHz, cediendo ~20W de presupuesto térmico continuo a la GPU integrada para mantener sus 1500 MHz de forma ininterrumpida.
 
 ### 2.7. Subsistema SandboxGuard (Aislamiento de Archivos & Cuarentena Anti-Cheat)
-El subsistema [`SandboxGuard`](../../include/security/sandbox_guard.hpp) implementa una arquitectura estricta de aislamiento de archivos con modelo de confianza cero (**Zero-Trust File Access**):
+El subsistema [`SandboxGuard`](../../src/safety/sandbox_guard.hpp) implementa una arquitectura estricta de aislamiento de archivos con modelo de confianza cero (**Zero-Trust File Access**):
 - **Normalización Canónica Antifraude:** Neutraliza ataques o desbordamientos por *Path Traversal* (`..`, `.`, dobles barras invertidas y symlinks). Combina la API Win32 `GetFullPathNameW` con `std::filesystem::weakly_canonical` para resolver de forma anticipada enlaces simbólicos y junctions antes de cualquier chequeo de acceso.
 - **Whitelist Estricta vs Blacklist Inviolable:**
   - *Blacklist (Prioridad Máxima):* Bloqueo categórico de escrituras en la raíz de unidades (`C:\`, `D:\`) y archivos hijo directos (`C:\bootmgr`), archivos de paginación (`pagefile.sys`, `hiberfil.sys`, `swapfile.sys`), carpetas del núcleo del sistema operativo (`C:\Windows`, `System32`, `SysWOW64`, `WinSxS`), `Program Files\Common Files` y `System Volume Information`.
@@ -104,7 +104,7 @@ El subsistema [`SandboxGuard`](../../include/security/sandbox_guard.hpp) impleme
 - **Auditoría Forense en Tiempo Real:** Cada rechazo de acceso se almacena en memoria con sello de tiempo milimétrico (`timestamp_ms`), código de infracción (`SandboxDenialReason`) y mensaje descriptivo para diagnóstico.
 
 ### 2.8. Subsistema SystemInfo (Telemetría de Hardware & Exportación JSON)
-El subsistema [`SystemInfo`](../../include/core/system_info.hpp) desacopla la detección profunda de hardware y sistema operativo en un módulo autónomo y de alta precisión:
+El subsistema [`SystemInfo`](../../src/detect/system_info.hpp) desacopla la detección profunda de hardware y sistema operativo en un módulo autónomo y de alta precisión:
 - **Detección de CPU Zen 2:** Extrae el *Brand String* mediante instrucciones `CPUID` nativas (*AMD Ryzen 5 4600H with Radeon Graphics*), calcula topología de 6 núcleos físicos / 12 lógicos, arquitectura Renoir de 7nm, tamaño de caché L3 de 8 MB y frecuencia objetivo APU STAPM a 3.4 GHz sostenidos.
 - **Topología de Gráficos & Memoria UMA (Vega 6):** Contrasta el reporte ficticio de BIOS (512 MB) con la memoria UMA compartida real del sistema (~7.7 GB) y sondea presupuestos dinámicos de VRAM en tiempo real mediante `IDXGIAdapter3::QueryVideoMemoryInfo`.
 - **Topología de Memoria RAM por Firmware (SMBIOS Type 17):** Inspecciona las tablas SMBIOS `RSMB` (`GetSystemFirmwareTable`), identificando la presencia de 2 módulos DIMM poblados y verificando el bus de 128 bits en **Dual-Channel** (~42 GB/s de ancho de banda). Presenta desglose de memoria libre real, Standby List y páginas modificadas.
@@ -112,7 +112,7 @@ El subsistema [`SystemInfo`](../../include/core/system_info.hpp) desacopla la de
 - **Exportación CLI Estándar JSON:** Soporta el comando `--system-info`, emitiendo la totalidad del perfil de hardware y sistema en formato JSON estándar para consumo externo.
 
 ### 2.9. Rediseño Visual de la GUI (Clean Slate / Nordic Dark Mode)
-La interfaz gráfica Win32/GDI ([`gui_window.cpp`](../../src/gui/gui_window.cpp)) ha sido completamente renovada bajo estándares ergonómicos y de diseño moderno de instrumentación:
+La interfaz gráfica Win32/GDI ([`gui_window.cpp`](../../src/ui/gui_window.cpp)) ha sido completamente renovada bajo estándares ergonómicos y de diseño moderno de instrumentación:
 - **Paleta Slate/Zinc Neutra:** Se sustituyeron los gradientes chillones por tonalidades carbón elegantes (`#111317` fondo principal, `#16191E` barra lateral, `#1B1E24` tarjetas, bordes finos `#2B303C` de 1px) y acentos cromáticos sobrios y moderados (Azul acero `#3B82F6`, Verde esmeralda `#10B981`, Ámbar `#F59E0B`, Rojo crítico `#EF4444`).
 - **Geometría y Espaciados Simétricos:** Márgenes exteriores exactos de 16px, gutters uniformes de 12px entre tarjetas y divisores horizontales nítidos de 1px.
 - **Subtítulos Técnicos Educativos:** Cada tarjeta de telemetría y control interactivo incorpora micro-subtítulos explicativos que educan al usuario sobre el impacto físico real en el silicio (mitigación de contención L3 en CCX, erradicación de texturas borrosas en UMA, latencia de interrupciones DPC en kernel NT).

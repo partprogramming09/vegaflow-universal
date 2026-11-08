@@ -1,5 +1,5 @@
-#include "hardware_profiler.hpp"
-#include "rust_bridge.h"
+#include "detect/hardware_profiler.hpp"
+#include "bridge/rust_bridge.h"
 
 #include <dxgi.h>
 #include <intrin.h>

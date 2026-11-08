@@ -1,5 +1,5 @@
-#include "memory_manager.hpp"
-#include "rust_bridge.h"
+#include "optimize/memory_manager.hpp"
+#include "bridge/rust_bridge.h"
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN

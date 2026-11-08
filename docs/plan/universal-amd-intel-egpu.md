@@ -11,10 +11,10 @@ Las líneas son aproximadas y corresponden al commit indicado.
 | # | Brecha | Dónde | Qué hace hoy | Cambio propuesto |
 | --- | --- | --- | --- | --- |
 | 1 | Intel híbrido (12ª a 14ª gen y Core Ultra) | `rust/vegaflow-core/src/cpu_governor.rs`, rama híbrida (~l.101-128) | Todos los núcleos de menor eficiencia (8 a 16 E-Cores en un i7 o i9) van al fondo, y los P-Cores al juego | Con 4 o más E-Cores, confinar el fondo a los últimos 2 (si hay 4 o menos) o a los últimos 4 (si hay 8 o más); dejar P-Cores y el resto de E-Cores al juego |
-| 2 | Preset de Unreal en GPU dedicada o externa | `src/main.cpp` (~l.698-710) y `src/optimizers/steam_engine_optimizer.cpp` (~l.781-802) | `ApplyEngineUmaPreset` se aplica a cualquier juego Unreal sin mirar el tier; escribe `r.AOQuality=0`, `r.SSR.Quality=0` y `r.Shadow.DistanceScale=0.6` | Tres perfiles: UMA (el actual), dGPU interna sin pérdida visual y eGPU sin pérdida visual con amortiguación de copias |
-| 3 | Interconexión gráfica | `include/core/hardware_profiler.hpp` y `src/core/hardware_profiler.cpp` (`DetectGpu`) | Solo mira `DedicatedVideoMemory > 2 GB`; no distingue iGPU más dGPU, ni un PCIe interno de una eGPU por Thunderbolt o USB4 | Añadir `GpuInterconnectType`: `UMA_Internal`, `PCIe_Internal_Discrete` y `External_eGPU_Tunnel` |
+| 2 | Preset de Unreal en GPU dedicada o externa | `src/app/main.cpp` (~l.698-710) y `src/optimize/steam_engine_optimizer.cpp` (~l.781-802) | `ApplyEngineUmaPreset` se aplica a cualquier juego Unreal sin mirar el tier; escribe `r.AOQuality=0`, `r.SSR.Quality=0` y `r.Shadow.DistanceScale=0.6` | Tres perfiles: UMA (el actual), dGPU interna sin pérdida visual y eGPU sin pérdida visual con amortiguación de copias |
+| 3 | Interconexión gráfica | `src/detect/hardware_profiler.hpp` y `src/detect/hardware_profiler.cpp` (`DetectGpu`) | Solo mira `DedicatedVideoMemory > 2 GB`; no distingue iGPU más dGPU, ni un PCIe interno de una eGPU por Thunderbolt o USB4 | Añadir `GpuInterconnectType`: `UMA_Internal`, `PCIe_Internal_Discrete` y `External_eGPU_Tunnel` |
 | 4 | AMD multi-CCD y 3D V-Cache | `cpu_governor.rs` (~l.192-251) | Con 2 islas L3 simétricas de 6 o más núcleos toma un solo núcleo para el fondo y deja ambos CCD al juego | Ver el riesgo de la sección 3 antes de implementar |
-| 5 | Más de 64 hilos y drivers de varios fabricantes | `include/core/rust_bridge.h` (`VF_MAX_LOGICAL_PROCESSORS = 64`) y `src/optimizers/graphics_optimizer.cpp` | Límite rígido de 64 procesadores lógicos; parte de los ajustes de gráficos depende de claves del driver AMD (`UMD`) | Subir el límite a 128 sin memoria dinámica; comprobar que las directivas de Windows funcionan sin `UMD` y reportar el fabricante real (AMD, Intel o NVIDIA) |
+| 5 | Más de 64 hilos y drivers de varios fabricantes | `src/bridge/rust_bridge.h` (`VF_MAX_LOGICAL_PROCESSORS = 64`) y `src/optimize/graphics_optimizer.cpp` | Límite rígido de 64 procesadores lógicos; parte de los ajustes de gráficos depende de claves del driver AMD (`UMD`) | Subir el límite a 128 sin memoria dinámica; comprobar que las directivas de Windows funcionan sin `UMD` y reportar el fabricante real (AMD, Intel o NVIDIA) |
 
 ## 2. Perfiles propuestos
 
@@ -45,7 +45,7 @@ Las líneas son aproximadas y corresponden al commit indicado.
 
 ### Tarea 1 (pendiente): núcleo Rust, topologías universales de CPU
 
-Archivos: `include/core/rust_bridge.h`, `rust/vegaflow-core/src/cpu_governor.rs`, `rust/vegaflow-core/src/lib.rs`.
+Archivos: `src/bridge/rust_bridge.h`, `rust/vegaflow-core/src/cpu_governor.rs`, `rust/vegaflow-core/src/lib.rs`.
 
 1. Subir `VF_MAX_LOGICAL_PROCESSORS` de 64 a 128.
 2. Regla para Intel híbrido con 4 o más E-Cores: fondo en los últimos 2 (si hay 4 o menos) o 4 (si hay 8 o más); con 1 o 2 E-Cores, usar esos para el fondo.
@@ -54,7 +54,7 @@ Archivos: `include/core/rust_bridge.h`, `rust/vegaflow-core/src/cpu_governor.rs`
 
 ### Tarea 2 (pendiente): detección y políticas de GPU en C++20
 
-Archivos: `include/core/hardware_profiler.hpp`, `src/core/hardware_profiler.cpp`, `src/optimizers/steam_engine_optimizer.cpp`, `src/main.cpp`.
+Archivos: `src/detect/hardware_profiler.hpp`, `src/detect/hardware_profiler.cpp`, `src/optimize/steam_engine_optimizer.cpp`, `src/app/main.cpp`.
 
 1. `GpuInterconnectType` y detección de varias GPU (iGPU más dGPU o eGPU) con DXGI, el registro PCI y las propiedades del dispositivo.
 2. Un tier o indicador para eGPU (`is_external_egpu`, `preserve_ultra_quality`).
@@ -112,7 +112,7 @@ Concluida la fase de soporte universal de silicio, los desarrollos posteriores c
 ```
 
 #### Pilar 1: Integración Visual del `ApuCapabilityGuard` y Telemetría DX11/DX12 en la GUI
-**Objetivo:** Elevar la instrumentación visual en la GUI nativa Win32/GDI ([`src/gui/gui_window.cpp`](../../src/gui/gui_window.cpp), [`src/gui/gui_tabs.cpp`](../../src/gui/gui_tabs.cpp)) para que el usuario visualice la toma de decisiones del motor en tiempo real.
+**Objetivo:** Elevar la instrumentación visual en la GUI nativa Win32/GDI ([`src/ui/gui_window.cpp`](../../src/ui/gui_window.cpp), [`src/ui/gui_tabs.cpp`](../../src/ui/gui_tabs.cpp)) para que el usuario visualice la toma de decisiones del motor en tiempo real.
 
 - **Componentes a Implementar:**
   1. **Badge de Tier y Guard Activo en el Dashboard:** Mostrar en la tarjeta de Gráficos/UMA el Tier detectado (`Tier 1: Entry UMA`, `Tier 2: Mid Vega`, `Tier 3: Advanced UMA`, `Tier 4: Discrete`, `Tier 5: External eGPU`).
@@ -121,10 +121,10 @@ Concluida la fase de soporte universal de silicio, los desarrollos posteriores c
   4. **Panel de Especialización DX11 vs DX12 en Pestaña Gráfica:** Detalle de hilos DXVK activos, estado de teselación AMD (8x/16x/32x) y protección de `AsyncCompute`.
 
 #### Pilar 2: Perfiles Dinámicos por Juego y Detección Automática de Cuello de Botella
-**Objetivo:** Desarrollar un subsistema adaptativo dentro de [`FrameTelemetryMonitor`](../../include/security/frame_telemetry.hpp) y [`ProcessDetector`](../../include/core/process_detector.hpp) que identifique si el juego está limitado por CPU (*CPU-Bound*) o por GPU (*GPU-Bound*).
+**Objetivo:** Desarrollar un subsistema adaptativo dentro de [`FrameTelemetryMonitor`](../../src/safety/frame_telemetry.hpp) y [`ProcessDetector`](../../src/detect/process_detector.hpp) que identifique si el juego está limitado por CPU (*CPU-Bound*) o por GPU (*GPU-Bound*).
 
 #### Pilar 3: Topología Híbrida para APUs de Nueva Generación (`CpuOrchestrator`)
-**Objetivo:** Adaptar el subsistema de afinidad y asignación de CPU Sets ([`src/optimizers/cpu_orchestrator.cpp`](../../src/optimizers/cpu_orchestrator.cpp)) para arquitecturas de núcleos heterogéneos (Zen 5/Zen 5c, Intel Core Ultra) conectándose con las nuevas reglas universales de `vegaflow-core`.
+**Objetivo:** Adaptar el subsistema de afinidad y asignación de CPU Sets ([`src/optimize/cpu_orchestrator.cpp`](../../src/optimize/cpu_orchestrator.cpp)) para arquitecturas de núcleos heterogéneos (Zen 5/Zen 5c, Intel Core Ultra) conectándose con las nuevas reglas universales de `vegaflow-core`.
 
 #### Pilar 4: Telemetría In-Game Zero-Hook sobre DirectFlip
 **Objetivo:** Proveer una superposición en pantalla (*HUD / Overlay*) ultraligera que informe FPS, 1% Lows, 0.1% Lows, consumo de presupuesto UMA y estado del Guard, **sin requerir inyección de DLLs ni hooking de APIs gráficas** (100% Anti-Cheat Seguro).

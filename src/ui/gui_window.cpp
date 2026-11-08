@@ -1,5 +1,5 @@
-#include "gui_window.hpp"
-#include "gui_components.hpp"
+#include "ui/gui_window.hpp"
+#include "ui/gui_components.hpp"
 
 #include <psapi.h>
 #include <shellapi.h>

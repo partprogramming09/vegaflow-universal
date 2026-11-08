@@ -1,4 +1,4 @@
-#include "gui_components.hpp"
+#include "ui/gui_components.hpp"
 
 #include <algorithm>
 #include <cmath>

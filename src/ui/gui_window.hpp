@@ -19,7 +19,7 @@
 #include <string>
 #include <vector>
 
-#include "system_info.hpp"
+#include "detect/system_info.hpp"
 
 namespace vegaflow {
 

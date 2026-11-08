@@ -1,5 +1,5 @@
-#include "cpu_orchestrator.hpp"
-#include "rust_bridge.h"
+#include "optimize/cpu_orchestrator.hpp"
+#include "bridge/rust_bridge.h"
 
 #include <algorithm>
 

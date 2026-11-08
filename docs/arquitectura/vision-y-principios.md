@@ -97,7 +97,7 @@ flowchart TD
 
 ### Detalle de las 4 Barreras:
 1. **Barrera 1 — Confinamiento Espacial de CPU (`SetProcessDefaultCpuSets` / `SetProcessAffinityMask`):**  
-   El orquestador en [`cpu_orchestrator.cpp`](../../src/optimizers/cpu_orchestrator.cpp) y el evaluador en [`cpu_governor.rs`](../../rust/vegaflow-core/src/cpu_governor.rs) analizan la topología física. En lugar de encerrar al juego (lo cual le restaba rendimiento multihilo), **el juego se mantiene libre en todos los núcleos disponibles**, mientras que los procesos clasificados como ruidosos que superan el umbral de actividad (`>= 0.5` procesadores lógicos) se confinan estrictamente al último núcleo físico (hilos lógicos 10 y 11, máscara `0xC00` en procesadores de 6 núcleos / 12 hilos). La liberación se rige por **histéresis** determinista (liberación solo si desciende de `0.25`), previniendo vibración en el planificador.
+   El orquestador en [`cpu_orchestrator.cpp`](../../src/optimize/cpu_orchestrator.cpp) y el evaluador en [`cpu_governor.rs`](../../rust/vegaflow-core/src/cpu_governor.rs) analizan la topología física. En lugar de encerrar al juego (lo cual le restaba rendimiento multihilo), **el juego se mantiene libre en todos los núcleos disponibles**, mientras que los procesos clasificados como ruidosos que superan el umbral de actividad (`>= 0.5` procesadores lógicos) se confinan estrictamente al último núcleo físico (hilos lógicos 10 y 11, máscara `0xC00` en procesadores de 6 núcleos / 12 hilos). La liberación se rige por **histéresis** determinista (liberación solo si desciende de `0.25`), previniendo vibración en el planificador.
 2. **Barrera 2 — Eficiencia Energética Forzada (`EcoQoS` Power Throttling):**  
    Mediante la API `SetProcessInformation(ProcessPowerThrottling)` con la bandera `PROCESS_POWER_THROTTLING_EXECUTION_SPEED`, el kernel de Windows fuerza a la CPU a ejecutar dichos procesos en sus estados de energía más eficientes (*Energy Performance Preference* - EPP alto), reduciendo el calor generado y transfiriendo presupuesto térmico al juego.
 3. **Barrera 3 — Prioridad de Entrada/Salida y Paginación NT (`NtSetInformationProcess`):**  
@@ -172,7 +172,7 @@ VegaFlow Universal ha alcanzado la madurez de su núcleo de optimización y arqu
 - **Control de Versiones y Limpieza:** Directorio `build/` libre de residuos (`*.o`, `*.old*`, logs) y `.gitignore` estandarizado.
 
 #### 1.2. Motor Universal de Clasificación y Guards (`ApuCapabilityGuard`)
-Especificado en [`hardware-y-tiers.md`](hardware-y-tiers.md) e implementado en [`src/core/hardware_profiler.cpp`](../../src/core/hardware_profiler.cpp):
+Especificado en [`hardware-y-tiers.md`](hardware-y-tiers.md) e implementado en [`src/detect/hardware_profiler.cpp`](../../src/detect/hardware_profiler.cpp):
 1. **Tier 1: Entry UMA (`Survival Guard`):**
    - Destinado a APUs con $\le$ 8–9 GB de RAM o $\le$ 4 núcleos físicos (Vega 3/6/8 básica, Athlon Mobile, Intel Gen 9–11 UHD).
    - Impone techo rígido de textura en Unreal Engine (1536 a 2048 MB) para evitar caídas OOM, limita DXVK a 3 hilos de compilación, teselación a 8x y techo STAPM a 3000 MHz.
@@ -195,7 +195,7 @@ Especificado en [`hardware-y-tiers.md`](hardware-y-tiers.md) e implementado en [
 - **Cobertura de Pruebas:** **31 de 31 pruebas unitarias e integradas C++20 y 15 de 15 pruebas Rust pasando en verde** (`TEST RESULTS: 31 PASSED, 0 FAILED`).
 
 #### 1.5. Núcleo Híbrido Rust FFI (`vegaflow-core`)
-Implementado en el crate estático [`rust/vegaflow-core/`](../../rust/vegaflow-core) y enlazado sin sobrecarga vía C ABI ([`include/core/rust_bridge.h`](../../include/core/rust_bridge.h)):
+Implementado en el crate estático [`rust/vegaflow-core/`](../../rust/vegaflow-core) y enlazado sin sobrecarga vía C ABI ([`src/bridge/rust_bridge.h`](../../src/bridge/rust_bridge.h)):
 - **Evaluador de Presión UMA (`src/uma_memory.rs`):** Funciones `vf_rust_evaluate_uma_pressure` y `vf_rust_evaluate_nt_memory_lists`. Algoritmos deterministas sin asignación dinámica de memoria en el heap (Zero-Allocation), verificando saturación local DXGI, reservas del sistema operativo y listas Standby de NT.
 - **Topología L3 y Gobernanza de CPU (`src/cpu_governor.rs`):** Función `vf_rust_partition_topology_l3` para aislar hilos del juego en la caché L3 principal para arquitecturas simétricas o heterogéneas (Zen 2/3/4/5 y procesadores híbridos), junto con la máquina de estados e histéresis `vf_rust_evaluate_background_confinement` (umbrales de 0.50 y 0.25 núcleos lógicos).
 - **Scanner Anti-Cheat y Blindaje de Archivos (`src/sandbox_core.rs`):** Detección formal y sin falsos positivos de firmas de Anti-Cheat de kernel (`vf_rust_contains_anticheat_signature`) y protección estricta contra modificaciones accidentales a binarios de arranque del sistema (`vf_rust_is_critical_system_file`).

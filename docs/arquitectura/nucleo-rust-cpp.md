@@ -152,7 +152,7 @@ La migración progresiva hacia una **arquitectura híbrida Rust + C++20** median
 |                    Enlace Estático MinGW-w64 (g++ 16.2 + Rust)                    |
 +-----------------------------------------------------------------------------------+
 |  Capa C++20 (GUI Win32/GDI, DXGI/D3D COM, Registro Windows, Orquestación Win32)   |
-|    - MemoryManager        --->  include/core/rust_bridge.h  --->  uma_memory.rs   |
+|    - MemoryManager        --->  src/bridge/rust_bridge.h  --->  uma_memory.rs   |
 |    - HardwareProfiler     --->  (Contrato #[repr(C)] FFI)   --->  cpu_governor.rs |
 |    - CpuOrchestrator      --->  (Cero Heap / Zero-Copy)     --->  cpu_governor.rs |
 |    - SandboxGuard         --->                              --->  sandbox_core.rs |
@@ -176,7 +176,7 @@ La migración progresiva hacia una **arquitectura híbrida Rust + C++20** median
 
 ---
 
-### 3. Contrato FFI (`include/core/rust_bridge.h`) y Módulos en Rust
+### 3. Contrato FFI (`src/bridge/rust_bridge.h`) y Módulos en Rust
 
 #### 3.1. Módulo `uma_memory`: Presión DXGI y Listas de Memoria NT
 - **Estructuras `#[repr(C)]`**:

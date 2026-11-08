@@ -31,23 +31,23 @@ cargo build --manifest-path rust/vegaflow-core/Cargo.toml --target x86_64-pc-win
 #### Compilar el Daemon de Fondo (`vegaflow_daemon.exe`):
 ```bash
 g++ -std=c++20 -O2 -Wall -Wextra -static -static-libgcc -static-libstdc++ \
-    -Iinclude -Iinclude/core -Iinclude/optimizers -Iinclude/security -Iinclude/gui \
-    src/core/privileges.cpp \
-    src/core/hardware_profiler.cpp \
-    src/core/process_detector.cpp \
-    src/core/system_info.cpp \
-    src/optimizers/graphics_optimizer.cpp \
-    src/optimizers/dxvk_manager.cpp \
-    src/optimizers/steam_engine_optimizer.cpp \
-    src/optimizers/fsr_scaler.cpp \
-    src/optimizers/cpu_orchestrator.cpp \
-    src/optimizers/memory_manager.cpp \
-    src/security/sandbox_guard.cpp \
-    src/security/frame_telemetry.cpp \
-    src/gui/gui_components.cpp \
-    src/gui/gui_tabs.cpp \
-    src/gui/gui_window.cpp \
-    src/main.cpp \
+    -Isrc \
+    src/windows/privileges.cpp \
+    src/detect/hardware_profiler.cpp \
+    src/detect/process_detector.cpp \
+    src/detect/system_info.cpp \
+    src/optimize/graphics_optimizer.cpp \
+    src/optimize/dxvk_manager.cpp \
+    src/optimize/steam_engine_optimizer.cpp \
+    src/optimize/fsr_scaler.cpp \
+    src/optimize/cpu_orchestrator.cpp \
+    src/optimize/memory_manager.cpp \
+    src/safety/sandbox_guard.cpp \
+    src/safety/frame_telemetry.cpp \
+    src/ui/gui_components.cpp \
+    src/ui/gui_tabs.cpp \
+    src/ui/gui_window.cpp \
+    src/app/main.cpp \
     -o build/vegaflow_daemon.exe \
     rust/vegaflow-core/target/x86_64-pc-windows-gnu/release/libvegaflow_core.a \
     -lntdll -ldxgi -ladvapi32 -lpsapi -luser32 -lole32 -lgdi32 -lshell32 -ldwmapi -ltdh
@@ -56,22 +56,22 @@ g++ -std=c++20 -O2 -Wall -Wextra -static -static-libgcc -static-libstdc++ \
 #### Compilar la Suite de Pruebas Unitarias (`vegaflow_tests.exe`):
 ```bash
 g++ -std=c++20 -O2 -Wall -Wextra -static -static-libgcc -static-libstdc++ \
-    -Iinclude -Iinclude/core -Iinclude/optimizers -Iinclude/security -Iinclude/gui \
-    src/core/privileges.cpp \
-    src/core/hardware_profiler.cpp \
-    src/core/process_detector.cpp \
-    src/core/system_info.cpp \
-    src/optimizers/graphics_optimizer.cpp \
-    src/optimizers/dxvk_manager.cpp \
-    src/optimizers/steam_engine_optimizer.cpp \
-    src/optimizers/fsr_scaler.cpp \
-    src/optimizers/cpu_orchestrator.cpp \
-    src/optimizers/memory_manager.cpp \
-    src/security/sandbox_guard.cpp \
-    src/security/frame_telemetry.cpp \
-    src/gui/gui_components.cpp \
-    src/gui/gui_tabs.cpp \
-    src/gui/gui_window.cpp \
+    -Isrc \
+    src/windows/privileges.cpp \
+    src/detect/hardware_profiler.cpp \
+    src/detect/process_detector.cpp \
+    src/detect/system_info.cpp \
+    src/optimize/graphics_optimizer.cpp \
+    src/optimize/dxvk_manager.cpp \
+    src/optimize/steam_engine_optimizer.cpp \
+    src/optimize/fsr_scaler.cpp \
+    src/optimize/cpu_orchestrator.cpp \
+    src/optimize/memory_manager.cpp \
+    src/safety/sandbox_guard.cpp \
+    src/safety/frame_telemetry.cpp \
+    src/ui/gui_components.cpp \
+    src/ui/gui_tabs.cpp \
+    src/ui/gui_window.cpp \
     tests/test_main.cpp \
     -o build/vegaflow_tests.exe \
     rust/vegaflow-core/target/x86_64-pc-windows-gnu/release/libvegaflow_core.a \

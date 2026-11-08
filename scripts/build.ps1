@@ -100,30 +100,24 @@ if (-not (Test-Path $RustLib)) {
 Write-Host "[OK] libvegaflow_core.a generada exitosamente." -ForegroundColor Green
 
 # 4. Parametros y fuentes comunes
-$IncludeFlags = @(
-    "-Iinclude",
-    "-Iinclude/core",
-    "-Iinclude/optimizers",
-    "-Iinclude/security",
-    "-Iinclude/gui"
-)
+$IncludeFlags = @("-Isrc")
 
 $CommonSources = @(
-    "src/core/privileges.cpp",
-    "src/core/hardware_profiler.cpp",
-    "src/core/process_detector.cpp",
-    "src/core/system_info.cpp",
-    "src/optimizers/graphics_optimizer.cpp",
-    "src/optimizers/dxvk_manager.cpp",
-    "src/optimizers/steam_engine_optimizer.cpp",
-    "src/optimizers/fsr_scaler.cpp",
-    "src/optimizers/cpu_orchestrator.cpp",
-    "src/optimizers/memory_manager.cpp",
-    "src/security/sandbox_guard.cpp",
-    "src/security/frame_telemetry.cpp",
-    "src/gui/gui_components.cpp",
-    "src/gui/gui_tabs.cpp",
-    "src/gui/gui_window.cpp"
+    "src/windows/privileges.cpp",
+    "src/detect/hardware_profiler.cpp",
+    "src/detect/process_detector.cpp",
+    "src/detect/system_info.cpp",
+    "src/optimize/graphics_optimizer.cpp",
+    "src/optimize/dxvk_manager.cpp",
+    "src/optimize/steam_engine_optimizer.cpp",
+    "src/optimize/fsr_scaler.cpp",
+    "src/optimize/cpu_orchestrator.cpp",
+    "src/optimize/memory_manager.cpp",
+    "src/safety/sandbox_guard.cpp",
+    "src/safety/frame_telemetry.cpp",
+    "src/ui/gui_components.cpp",
+    "src/ui/gui_tabs.cpp",
+    "src/ui/gui_window.cpp"
 )
 
 $Libs = @(
@@ -154,7 +148,7 @@ $BaseFlags = @(
 
 # 5. Compilacion de vegaflow_daemon.exe
 Write-Host "`n[*] Compilando vegaflow_daemon.exe..." -ForegroundColor Yellow
-$DaemonSources = $CommonSources + @("src/main.cpp")
+$DaemonSources = $CommonSources + @("src/app/main.cpp")
 $DaemonOutput = "build/vegaflow_daemon.exe"
 $DaemonArgs = $BaseFlags + $IncludeFlags + $DaemonSources + @($RustLib, "-o", $DaemonOutput) + $Libs
 

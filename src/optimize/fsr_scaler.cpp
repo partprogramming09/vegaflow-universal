@@ -1,4 +1,4 @@
-#include "fsr_scaler.hpp"
+#include "optimize/fsr_scaler.hpp"
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN

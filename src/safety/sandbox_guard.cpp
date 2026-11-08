@@ -1,5 +1,5 @@
-#include "sandbox_guard.hpp"
-#include "rust_bridge.h"
+#include "safety/sandbox_guard.hpp"
+#include "bridge/rust_bridge.h"
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN

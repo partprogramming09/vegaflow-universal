@@ -18,19 +18,19 @@
 #include <string>
 #include <vector>
 
-#include "privileges.hpp"
-#include "hardware_profiler.hpp"
-#include "process_detector.hpp"
-#include "graphics_optimizer.hpp"
-#include "memory_manager.hpp"
-#include "cpu_orchestrator.hpp"
-#include "frame_telemetry.hpp"
-#include "gui_window.hpp"
-#include "fsr_scaler.hpp"
-#include "steam_engine_optimizer.hpp"
-#include "dxvk_manager.hpp"
-#include "sandbox_guard.hpp"
-#include "system_info.hpp"
+#include "windows/privileges.hpp"
+#include "detect/hardware_profiler.hpp"
+#include "detect/process_detector.hpp"
+#include "optimize/graphics_optimizer.hpp"
+#include "optimize/memory_manager.hpp"
+#include "optimize/cpu_orchestrator.hpp"
+#include "safety/frame_telemetry.hpp"
+#include "ui/gui_window.hpp"
+#include "optimize/fsr_scaler.hpp"
+#include "optimize/steam_engine_optimizer.hpp"
+#include "optimize/dxvk_manager.hpp"
+#include "safety/sandbox_guard.hpp"
+#include "detect/system_info.hpp"
 #include <filesystem>
 #include <tlhelp32.h>
 

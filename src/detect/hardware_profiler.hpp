@@ -1,6 +1,6 @@
 #pragma once
 
-#include "nt_defs.hpp"
+#include "windows/nt_defs.hpp"
 
 #include <cstdint>
 #include <string>

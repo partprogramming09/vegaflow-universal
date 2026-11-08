@@ -1,6 +1,6 @@
-#include "dxvk_manager.hpp"
-#include "hardware_profiler.hpp"
-#include "sandbox_guard.hpp"
+#include "optimize/dxvk_manager.hpp"
+#include "detect/hardware_profiler.hpp"
+#include "safety/sandbox_guard.hpp"
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN

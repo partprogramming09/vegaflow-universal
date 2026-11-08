@@ -1,4 +1,4 @@
-#include "process_detector.hpp"
+#include "detect/process_detector.hpp"
 
 #include <tlhelp32.h>
 #include <algorithm>

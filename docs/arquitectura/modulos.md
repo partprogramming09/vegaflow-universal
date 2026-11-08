@@ -1,7 +1,7 @@
 # Módulos y estructura del repositorio
 
 ### 3.2. Subsistema `SystemInfo`: Telemetría Desacoplada y Detección de Hardware
-Implementado en [`include/core/system_info.hpp`](../../include/core/system_info.hpp) y [`src/core/system_info.cpp`](../../src/core/system_info.cpp), este módulo aísla toda la lógica de recopilación de hardware y sistema operativo en una biblioteca reutilizable:
+Implementado en [`src/detect/system_info.hpp`](../../src/detect/system_info.hpp) y [`src/detect/system_info.cpp`](../../src/detect/system_info.cpp), este módulo aísla toda la lógica de recopilación de hardware y sistema operativo en una biblioteca reutilizable:
 - **Detección de CPU**:
   - Lectura de marca mediante la instrucción x86 `CPUID` (registros EAX, EBX, ECX, EDX) reportando el procesador completo (e.g. *AMD Ryzen 5 4600H with Radeon Graphics*).
   - Conteo riguroso de núcleos físicos (6) y procesadores lógicos (12) mediante `GetLogicalProcessorInformationEx`.
@@ -25,7 +25,7 @@ Implementado en [`include/core/system_info.hpp`](../../include/core/system_info.
   - Función `SystemInfo::ToJson()` que exporta toda la telemetría en un esquema estructurado para interoperabilidad con scripts, frontends web o herramientas CLI externas (`--system-info`).
 
 ### 3.3. Arquitectura y Rediseño Visual de la GUI (Clean Slate / Nordic Dark Mode)
-Implementado en [`include/gui/gui_window.hpp`](../../include/gui/gui_window.hpp) y [`src/gui/gui_window.cpp`](../../src/gui/gui_window.cpp):
+Implementado en [`src/ui/gui_window.hpp`](../../src/ui/gui_window.hpp) y [`src/ui/gui_window.cpp`](../../src/ui/gui_window.cpp):
 - **Cero Dependencias & Ultra Bajo Consumo**: GUI construida enteramente sobre la API pura de Win32/GDI con doble búfer (`BitBlt`), sin marcos pesados (Qt, WPF, Electron). Consume menos de **15 MB de RAM privada** y **0.0% de CPU** en reposo. Al detectar un juego en primer plano, la interfaz suspende sus llamadas gráficas de telemetría para ceder el 100% de los ciclos a la GPU.
 - **Paleta Slate / Zinc Neutra ("Clean Slate / Nordic Dark Mode")**:
   - Fondo principal: `#111317` (`RGB(17, 19, 23)`).
@@ -55,7 +55,7 @@ Implementado en [`include/gui/gui_window.hpp`](../../include/gui/gui_window.hpp)
        - **DirectFlip / AutoFlip**: Indicador de derivación directa de swap chain (0ms de latencia, bypass de cola DWM).
 
 ### 3.4. Suite Moderna para Juegos 3D (EcoQoS, Jerarquía I/O NT y DirectFlip)
-Implementada de forma coordinada en [`src/optimizers/cpu_orchestrator.cpp`](../../src/optimizers/cpu_orchestrator.cpp), [`src/optimizers/graphics_optimizer.cpp`](../../src/optimizers/graphics_optimizer.cpp), [`src/main.cpp`](../../src/main.cpp) y [`src/gui/gui_window.cpp`](../../src/gui/gui_window.cpp):
+Implementada de forma coordinada en [`src/optimize/cpu_orchestrator.cpp`](../../src/optimize/cpu_orchestrator.cpp), [`src/optimize/graphics_optimizer.cpp`](../../src/optimize/graphics_optimizer.cpp), [`src/app/main.cpp`](../../src/app/main.cpp) y [`src/ui/gui_window.cpp`](../../src/ui/gui_window.cpp):
 
 1. **Background EcoQoS (Power Throttling en Procesos de Fondo)**:
    - **Explicación técnica y física:** En procesadores con arquitectura APU como el Ryzen 5 4600H, el presupuesto térmico STAPM (Skin Temperature Aware Power Management) está limitado dinámicamente entre 35W y 45W para todo el encapsulado. Cuando procesos secundarios (navegadores web, launchers, Discord, tareas de indexación) ejecutan ráfagas de cómputo en núcleos Zen 2 a voltajes altos, sustraen entre 3W y 5W de este presupuesto unificado. La unidad SMU de AMD se ve forzada a reducir la frecuencia de la GPU Vega 6 a 1100–1200 MHz para mantenerse dentro del umbral térmico.
@@ -95,7 +95,7 @@ Implementada de forma coordinada en [`src/optimizers/cpu_orchestrator.cpp`](../.
    - Esto habilita la promoción directa a **DirectFlip** en Windows 11, desacoplando la swap chain de la cola de copiado de DWM. El motor gráfico proyecta sus fotogramas directamente a la controladora de vídeo, logrando **0ms de latencia de entrada adicional** (equivalente a pantalla completa exclusiva) preservando la comodidad de la multitarea borderless y la compatibilidad con superposiciones de sistema.
 
 ### 3.5. Suite de Silicio APU & Blindaje de Memoria de Kernel NT (DisablePagingExecutive & Smart Tessellation 16x)
-Implementada en [`src/optimizers/graphics_optimizer.cpp`](../../src/optimizers/graphics_optimizer.cpp), [`src/main.cpp`](../../src/main.cpp) y [`src/gui/gui_window.cpp`](../../src/gui/gui_window.cpp):
+Implementada en [`src/optimize/graphics_optimizer.cpp`](../../src/optimize/graphics_optimizer.cpp), [`src/app/main.cpp`](../../src/app/main.cpp) y [`src/ui/gui_window.cpp`](../../src/ui/gui_window.cpp):
 
 1. **Blindaje de Memoria de Kernel NT (`DisablePagingExecutive=1` & `LargeSystemCache=0`)**:
    - **Explicación técnica y física:** En sistemas APU con arquitectura de memoria unificada (UMA), Windows NT por defecto traslada al archivo de paginación (`pagefile.sys`) el código ejecutable de drivers y subsistemas del kernel inactivos temporalmente. Cuando la GPU integrada Vega 6 o el pipeline D3D demanda recursos de inmediato, un fallo de página duro (*hard page fault*) al disco NVMe provoca un congelamiento perceptible (micro-stutter) de 50 a 200 ms.

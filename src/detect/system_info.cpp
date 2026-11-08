@@ -1,7 +1,7 @@
-#include "system_info.hpp"
-#include "hardware_profiler.hpp"
-#include "memory_manager.hpp"
-#include "graphics_optimizer.hpp"
+#include "detect/system_info.hpp"
+#include "detect/hardware_profiler.hpp"
+#include "optimize/memory_manager.hpp"
+#include "optimize/graphics_optimizer.hpp"
 
 #include <intrin.h>
 #include <iomanip>

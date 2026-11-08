@@ -1,8 +1,8 @@
-#include "steam_engine_optimizer.hpp"
-#include "hardware_profiler.hpp"
-#include "graphics_optimizer.hpp"
-#include "dxvk_manager.hpp"
-#include "sandbox_guard.hpp"
+#include "optimize/steam_engine_optimizer.hpp"
+#include "detect/hardware_profiler.hpp"
+#include "optimize/graphics_optimizer.hpp"
+#include "optimize/dxvk_manager.hpp"
+#include "safety/sandbox_guard.hpp"
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
