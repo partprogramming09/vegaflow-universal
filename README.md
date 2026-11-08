@@ -22,7 +22,7 @@ En una APU la CPU y la iGPU comparten la RAM y el presupuesto térmico, y el sis
 - **Reversible:** cada cambio guarda una copia (`.vegaflow.bak`, o el valor original del registro); `--restore-registry` los devuelve todos.
 - **Ligero:** sin frameworks pesados; GUI Win32/GDI y menos de 15 MB en reposo.
 
-El detalle de cada función está en [`docs/guias/funciones.md`](docs/guias/funciones.md).
+El detalle de cada función está en [`docs/guias/uso-y-funciones.md`](docs/guias/uso-y-funciones.md).
 
 ## Resultados medidos
 
@@ -36,11 +36,27 @@ Solo en Windows, con MinGW-w64 g++ 13+ y cargo con el objetivo `x86_64-pc-window
 powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1 -RunTests
 ```
 
-Guías: [compilar y probar](docs/guias/compilar-y-probar.md) y [uso del daemon](docs/guias/uso-del-daemon.md).
+Guías: [compilar y probar](docs/guias/compilar-y-probar.md) y [uso del daemon](docs/guias/uso-y-funciones.md).
+
+## Estructura del repositorio
+
+```
+src/ + include/     código del daemon en C++20, espejo una de otra
+  core/               privilegios, hardware, procesos, SystemInfo
+  optimizers/         las palancas: gráficos, memoria, CPU, DXVK, FSR, motores
+  security/           SandboxGuard y telemetría de cuadros
+  gui/                ventana Win32/GDI
+rust/vegaflow-core/ reglas puras en Rust (presión UMA, topología, confinamiento, firmas)
+tests/              la suite de 31 pruebas de C++
+scripts/            compilar, medir y operar el laptop de pruebas (ver scripts/README.md)
+assets/dxvk/        DLL de DXVK que el daemon instala en los juegos
+config/             valores por defecto del daemon
+docs/               toda la documentación (ver docs/README.md)
+```
 
 ## Documentación
 
-[`docs/README.md`](docs/README.md) indica qué hay y qué leer primero: arquitectura, mediciones, plan y guías. Lo que falta por hacer está en [`docs/plan/universal-amd-intel-egpu.md`](docs/plan/universal-amd-intel-egpu.md).
+Empieza por [`docs/README.md`](docs/README.md): una tabla "¿Qué quieres hacer?" te lleva al documento que necesitas. Lo que falta por hacer está en [`docs/plan/`](docs/plan/).
 
 ## Seguridad
 

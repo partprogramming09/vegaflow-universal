@@ -1,40 +1,47 @@
 # Documentación de VegaFlow Universal
 
-Cada carpeta responde una pregunta. Las reglas y los comandos del proyecto están en [`CLAUDE.md`](../CLAUDE.md); la presentación del producto, en el [`README.md`](../README.md) de la raíz.
+Empieza aquí. Cada documento responde una sola pregunta; busca la tuya.
 
-| Carpeta | Pregunta que responde | Qué hay |
-| --- | --- | --- |
-| [`arquitectura/`](arquitectura/) | ¿Cómo funciona? | Visión e invariantes, núcleo híbrido C++20 y Rust, hardware APU y Tiers, seguridad y SandboxGuard, patrón universal AMD e Intel, módulos y estructura del repo, base consolidada, las dos especificaciones de diseño |
-| [`mediciones/`](mediciones/) | ¿Qué se midió? | Informes fechados, con método y límites: línea base, A/B del daemon, juegos reales, Octopath II factorial, y el estado de verificación (qué está medido y qué no). Las capturas están en [`assets/`](assets/octopath2/) |
-| [`plan/`](plan/) | ¿Qué falta? | Plan universal AMD, Intel, dGPU y eGPU (verificado contra el código), los pilares de GUI, perfiles y telemetría, y la propuesta de reestructura (¿más Rust?, estructura de archivos, qué se commitea) |
-| [`guias/`](guias/) | ¿Cómo se hace? | Compilar y probar, usar el daemon, qué hace cada función |
-| [`archivo/`](archivo/) | ¿Qué hubo antes? | Documentos superados o ya hechos; solo consulta |
+## ¿Qué quieres hacer?
 
-## Cuál leer primero
+| Quiero... | Leo |
+| --- | --- |
+| Entender qué es VegaFlow y por qué existe | [`arquitectura/vision-y-principios.md`](arquitectura/vision-y-principios.md) |
+| Compilar y correr las pruebas | [`guias/compilar-y-probar.md`](guias/compilar-y-probar.md) |
+| Usar el daemon o saber qué hace cada función | [`guias/uso-y-funciones.md`](guias/uso-y-funciones.md) |
+| Cambiar una optimización de GPU, memoria o energía | [`arquitectura/hardware-y-tiers.md`](arquitectura/hardware-y-tiers.md), y antes de tocarla, qué se midió en [`mediciones/estado-de-verificacion.md`](mediciones/estado-de-verificacion.md) |
+| Tocar el núcleo Rust o la frontera C++ ↔ Rust | [`arquitectura/nucleo-rust-cpp.md`](arquitectura/nucleo-rust-cpp.md) |
+| Tocar el anti-cheat o el aislamiento de archivos | [`arquitectura/seguridad.md`](arquitectura/seguridad.md) |
+| Saber qué hace cada módulo o dónde está un archivo | [`arquitectura/modulos.md`](arquitectura/modulos.md) |
+| Dar soporte a otro hardware (Intel, AMD multi-CCD, dGPU, eGPU) | [`plan/universal-amd-intel-egpu.md`](plan/universal-amd-intel-egpu.md), con el porqué en [`arquitectura/patron-universal.md`](arquitectura/patron-universal.md) |
+| Saber qué falta por hacer | [`plan/`](plan/) |
+| Ver cifras y cómo se midieron | [`mediciones/`](mediciones/) |
+| Usar los scripts de medición o los trabajos remotos | [`../scripts/README.md`](../scripts/README.md) |
 
-- Cambiar una optimización: [`arquitectura/hardware-apu-y-tiers.md`](arquitectura/hardware-apu-y-tiers.md) y las mediciones de la palanca.
-- Trabajar con el núcleo Rust: [`arquitectura/nucleo-hibrido.md`](arquitectura/nucleo-hibrido.md).
-- Soporte para otro hardware: [`plan/universal-amd-intel-egpu.md`](plan/universal-amd-intel-egpu.md).
-- Compilar: [`guias/compilar-y-probar.md`](guias/compilar-y-probar.md).
+## Los 16 documentos, por carpeta
+
+**`arquitectura/`: cómo funciona**
+
+| Documento | Qué contiene |
+| --- | --- |
+| `vision-y-principios.md` | Resumen, invariantes del daemon, principios de ingeniería y lo ya construido |
+| `nucleo-rust-cpp.md` | Puente FFI C++ ↔ Rust, ciclo de vida del daemon y la especificación del guardián UMA |
+| `hardware-y-tiers.md` | UMA, falso límite de 512 MB, GPL, STAPM, los 4 Tiers y su especificación DX11/DX12 |
+| `seguridad.md` | Política anti-cheat y aislamiento Zero-Trust de `SandboxGuard` |
+| `modulos.md` | SystemInfo, GUI, suite 3D, silicio y el árbol del repo |
+| `patron-universal.md` | Por qué pasa en cualquier procesador y qué cambia entre Ryzen e Intel Core |
+
+**`mediciones/`: qué se midió.** Informes fechados que no se reescriben: `2026-11-base.md` (línea base), `2026-11-ab-daemon.md` (daemon apagado contra encendido), `2026-11-juegos-reales.md`, `2026-11-octopath2-factorial.md`, y `estado-de-verificacion.md`, que resume qué está medido y qué no. Las capturas están en `assets/`.
+
+**`plan/`: qué falta.** `universal-amd-intel-egpu.md` (brechas para otro hardware y pilares de GUI y telemetría) y `reestructura-proyecto.md` (propuesta sobre Rust, estructura y política de commits).
+
+**`guias/`: cómo se hace.** `compilar-y-probar.md` y `uso-y-funciones.md`.
 
 ## Reglas
 
 1. Una medición lleva fecha y no se reescribe; si cambia el método, va un archivo nuevo.
-2. Un plan hecho pasa a `archivo/`.
+2. Un plan hecho se borra: git guarda el historial (los documentos viejos, como la PARTE IV original o los planes de implementación, están en el commit `d59739f`, carpeta `docs/archivo/`).
 3. Cada cifra vive en un solo sitio y los demás la enlazan.
-
-## Archivo
-
-| Documento | Por qué está archivado |
-| --- | --- |
-| `INVENTARIO_TECNICO_Y_HOJA_DE_RUTA.md` | Inventario de 28 módulos de la versión 1.2, anterior al núcleo Rust; sus enlaces apuntan a archivos que ya no existen |
-| `PLAN_REDISENO_Y_ACTUALIZACION.md` | Borrador del 2026-11-04; incluye el ejecutor `vfjob`, ya retirado |
-| `HANDOFF_VFJOB_A_WINBRIDGE.md` | Entrega a la sesión de WinBridge, hecha el 2026-11-05 |
-| `2026-11-01-apu-dx11-dx12-universal-guards.md` | Plan de implementación de los guardianes por Tier, ya implementado |
-| `2026-11-06-rust-hybrid-uma-and-mcp.md` | Plan de implementación del núcleo híbrido Rust, ya implementado |
-| `PARTE_IV_plan_original_sin_verificar.md` | Texto original del plan universal, sin verificar; vale el de `plan/` |
-| `MEJORAS_MCP_Y_APU.md` | Mejoras pendientes de las herramientas remotas y la APU; `vfjob` ya está retirado |
-| `PLAN_EJECUCION_AUTONOMA.md` | Plan de ejecución autónoma de la sesión de medición, ya cerrado |
-| `README_casos_de_estudio_sin_medir.md` | Cifras del README antiguo que las mediciones no respaldan (Zenless) |
+4. Un documento nuevo solo se crea si ninguno de los 16 responde su pregunta.
 
 Los docs privados (entorno, decisiones, estado, pruebas) no están en git: viven en `.claude/`.

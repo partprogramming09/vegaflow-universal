@@ -85,7 +85,7 @@ Falta: ninguna de las dos funciones nuevas (política de rutas y Tiers) tiene ho
 | Ruta | Hoy | Propuesta | Estado |
 | --- | --- | --- | --- |
 | `CLAUDE.md`, `README.md`, `.gitignore` | versionados | igual | Igual |
-| `docs/` (5 carpetas) | versionado | igual | Igual |
+| `docs/` (4 carpetas, 16 documentos) | versionado | igual | Igual |
 | `rust/vegaflow-core/` | lib con `ntdll` en `uma_memory.rs` | `ntdll` detrás de `cfg(windows)`; módulos de política de rutas y Tiers | Distinto |
 | `src/`, `include/` | C++ de acciones y GUI | igual; `sandbox_guard` y `hardware_profiler` llaman al Rust para decidir | Igual salvo las dos llamadas |
 | `tests/test_main.cpp` | 31 pruebas | igual | Igual |
