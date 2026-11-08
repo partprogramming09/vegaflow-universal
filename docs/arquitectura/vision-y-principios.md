@@ -13,7 +13,7 @@
 ### Invariantes del Runtime Demostrados en Pruebas Automatizadas
 * **Consumo de Memoria Privada (*Private Working Set*):** `<= 2.00 MB` en régimen estacionario (el presupuesto de diseño permitía hasta `15.00 MB`).
 * **Sobrecarga de CPU en Reposo (*Zero-Overhead Idle*):** `0.00%` sostenido; el daemon hiberna mediante `WaitForSingleObjectEx` y timers de alta precisión NT.
-* **Conjunto de Pruebas Automatizadas:** `23/23` tests unitarios deterministas en Rust (`vegaflow-core`, 24 en un Mac) y `33/33` tests de regresión y cobertura en C++20 pasando al 100%.
+* **Conjunto de Pruebas Automatizadas:** `25/25` tests unitarios deterministas en Rust (`vegaflow-core`, 26 en un Mac) y `33/33` tests de regresión y cobertura en C++20 pasando al 100%.
 * **Reversibilidad Garantizada (`RestoreAll`):** Cada modificación de afinidad, clase de prioridad, estado `EcoQoS` o claves en el Registro de Windows (`HKCU\Software\VegaFlow\RegBackup`) se restaura estrictamente al estado de fábrica al cerrar el daemon o terminar la sesión de juego.
 * **Seguridad Anti-Cheat en Tiempo Constante (*Zero-Tamper Boundary*):** Detección determinista de firmas de controladores anti-cheat (*HoYoKProtect*, *EasyAntiCheat*, *BattlEye*, *Vanguard*) con aislamiento de ruta en UTF-16 sobre pila (`stack-only`), impidiendo cualquier inyección o modificación sobre ejecutables protegidos.
 
@@ -203,6 +203,6 @@ Implementado en el crate estático [`rust/vegaflow-core/`](../../rust/vegaflow-c
 - **Evaluador de Presión UMA (`rust/vegaflow-core/src/uma_memory.rs`):** Funciones `vf_rust_evaluate_uma_pressure` y `vf_rust_evaluate_nt_memory_lists`. Algoritmos deterministas sin asignación dinámica de memoria en el heap (Zero-Allocation), verificando saturación local DXGI, reservas del sistema operativo y listas Standby de NT.
 - **Topología L3 y Gobernanza de CPU (`rust/vegaflow-core/src/cpu_governor.rs`):** Función `vf_rust_partition_topology_l3` para aislar hilos del juego en la caché L3 principal para arquitecturas simétricas o heterogéneas (Zen 2/3/4/5 y procesadores híbridos), junto con la máquina de estados e histéresis `vf_rust_evaluate_background_confinement` (umbrales de 0.50 y 0.25 núcleos lógicos).
 - **Scanner Anti-Cheat y Blindaje de Archivos (`rust/vegaflow-core/src/sandbox_core.rs`):** Detección formal y sin falsos positivos de firmas de Anti-Cheat de kernel (`vf_rust_contains_anticheat_signature`) y protección estricta contra modificaciones accidentales a binarios de arranque del sistema (`vf_rust_is_critical_system_file`).
-- **Seguridad Incondicional:** Compilación estática con LTO completo, `panic = "abort"`, y verificación formal mediante 15 pruebas unitarias internas.
+- **Seguridad Incondicional:** Compilación estática con LTO completo, `panic = "unwind"` con captura de pánicos en la frontera (`ffi_guard`), y las pruebas unitarias del crate.
 
 ---

@@ -128,7 +128,7 @@ En arquitecturas APU con memoria unificada (UMA), la CPU y la iGPU comparten el 
 
 La migración progresiva hacia una **arquitectura híbrida Rust + C++20** mediante enlace estático (`staticlib`, `x86_64-pc-windows-gnu`) permite:
 1. **Cero Asignaciones en Heap (Zero-Allocation Hot Path):** Evaluar presión de memoria UMA (`EvaluateUmaPressureGuard`), histéresis de confinamiento de CPU (`CpuOrchestrator`), particionamiento topológico de islas L3/CCX (`PartitionCpuSetsFromTopology`) y validación de firmas Anti-Cheat (`SandboxGuard`) utilizando arreglos en pila (*stack arrays*), tipos escalares `#[repr(C)]` y contadores atómicos sin invocar al asignador dinámico en cada ciclo del daemon.
-2. **Seguridad de Memoria y Frontera FFI Blindada:** `panic = "abort"`, validación estricta de punteros/longitudes antes de construir slices y ausencia total de excepciones a través de `extern "C"`.
+2. **Seguridad de Memoria y Frontera FFI Blindada:** `panic = "unwind"` con `ffi_guard` en cada función exportada, validación estricta de punteros/longitudes antes de construir slices y ausencia total de excepciones a través de `extern "C"`. Si el cuerpo de una función falla (un error de programación), `ffi_guard` captura el pánico en la frontera y devuelve la respuesta cautelosa de esa función: denegar la ruta, asumir que hay anti-cheat, no confinar el fondo, no purgar memoria, Tier 1. Así un fallo en Rust nunca cruza a C++ ni mata el daemon. El crate se niega a compilar con `panic = "abort"`.
 3. **Telemetría y Control en Laptop Integrados:** Registrar el servidor MCP `metal-gpu-trace` (`C:\dev\metal-gpu-trace\metal_trace_mcp.py` con `PresentMon.exe`) en `~/.gemini/config/mcp_config.json` y verificar la salud del equipo con el paquete de trabajos `scripts/remote/jobs/doctor.ps1`.
 4. **Desarrollo Guiado por Pruebas (TDD Estricto):** Todo módulo en Rust se construye bajo el ciclo **RED $\to$ GREEN $\to$ REFACTOR** con `cargo test` y se verifica de extremo a extremo en la suite de integración `vegaflow_tests.exe` (`31 PASSED, 0 FAILED`).
 
@@ -147,7 +147,7 @@ La migración progresiva hacia una **arquitectura híbrida Rust + C++20** median
 |    - CpuOrchestrator      --->  (Cero Heap / Zero-Copy)     --->  cpu_governor.rs |
 |    - SandboxGuard         --->                              --->  sandbox_core.rs |
 +-----------------------------------------------------------------------------------+
-|  Crate Rust: rust/vegaflow-core (staticlib + rlib, panic="abort", opt-level=3)    |
+|  Crate Rust: rust/vegaflow-core (staticlib + rlib, panic="unwind", opt-level=3)   |
 |    - Llamadas nativas NTDLL (NtQuerySystemInformation / NtSetSystemInformation)   |
 |    - Cálculos deterministas en pila sin std::vector / std::string en bucle activo |
 +-----------------------------------------------------------------------------------+
@@ -160,7 +160,7 @@ La migración progresiva hacia una **arquitectura híbrida Rust + C++20** median
   - `opt-level = 3`
   - `lto = true`
   - `codegen-units = 1`
-  - `panic = "abort"`
+  - `panic = "unwind"` (cada función exportada va envuelta en `ffi_guard`; el crate no compila con `abort`)
   - `strip = false` (el linker de `g++` gestiona los símbolos finales sin romper el archivo `.a`).
 - **Cero dependencias externas pesadas:** Interacción directa con `ntdll.dll` mediante bloques `extern "system"` en Rust puro, evitando inflar tiempos de compilación o tamaño de binario.
 
@@ -256,7 +256,7 @@ La migración progresiva hacia una **arquitectura híbrida Rust + C++20** median
 #### 3.2c. Módulo `path_policy`: Política de Rutas de la Blacklist
 - **Función exportada (`extern "C"`)**:
   - `uint32_t vf_rust_classify_blacklisted_path(const uint16_t* path, size_t path_len, const uint16_t* win_dir, size_t win_dir_len, const uint16_t* sys_dir, size_t sys_dir_len);`
-    - Devuelve `VF_PATH_ALLOWED` (0) si ninguna regla coincide, o el código de la primera que coincide, en este orden: vacía (1), raíz de disco (2), archivo crítico (3), carpeta de Windows (4), Windows de otra unidad (5), Common Files (6), System Volume Information (7). El orden forma parte del contrato.
+    - Devuelve `VF_PATH_ALLOWED` (0) si ninguna regla coincide, o el código de la primera que coincide, en este orden: vacía (1), raíz de disco (2), archivo crítico (3), carpeta de Windows (4), Windows de otra unidad (5), Common Files (6), System Volume Information (7); si el propio clasificador falla devuelve `VF_PATH_INTERNAL_ERROR` (8), que también deniega la ruta. El orden forma parte del contrato.
     - Un directorio de Windows vacío coincide con toda ruta (prefijo vacío), igual que el código anterior de C++; en la práctica nunca llega vacío.
 
 #### 3.3. Módulo `sandbox_core`: Escáner Zero-Allocation de Firmas Anti-Cheat y Rutas Críticas

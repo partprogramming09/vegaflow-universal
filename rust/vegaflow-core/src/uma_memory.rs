@@ -1,3 +1,4 @@
+use crate::ffi_guard;
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct VfUmaTelemetryInput {
@@ -88,116 +89,122 @@ pub extern "C" fn vf_rust_evaluate_uma_pressure(
     input: *const VfUmaTelemetryInput,
     prev_interventions: u32,
 ) -> VfUmaGuardDecision {
-    if input.is_null() {
-        return VfUmaGuardDecision {
-            available_os_headroom_mb: 0,
-            dxgi_budget_utilization: 0.0,
-            guard_triggered: false,
-            dxgi_over_ceiling: false,
-            free_ram_critical: false,
-            total_interventions: prev_interventions,
+    ffi_guard(unsafe { core::mem::zeroed() }, || {
+        if input.is_null() {
+            return VfUmaGuardDecision {
+                available_os_headroom_mb: 0,
+                dxgi_budget_utilization: 0.0,
+                guard_triggered: false,
+                dxgi_over_ceiling: false,
+                free_ram_critical: false,
+                total_interventions: prev_interventions,
+            };
+        }
+
+        let telem = unsafe { &*input };
+        let available_os_headroom_mb =
+            telem.free_and_zero_bytes.saturating_add(telem.standby_bytes) / (1024 * 1024);
+
+        let dxgi_budget_utilization = if telem.vram_valid && telem.local_budget_bytes > 0 {
+            (telem.local_usage_bytes as f64) / (telem.local_budget_bytes as f64)
+        } else {
+            0.0
         };
-    }
 
-    let telem = unsafe { &*input };
-    let available_os_headroom_mb =
-        telem.free_and_zero_bytes.saturating_add(telem.standby_bytes) / (1024 * 1024);
+        let threshold = if telem.runtime_pressure_threshold > 0.0 {
+            telem.runtime_pressure_threshold
+        } else {
+            0.85
+        };
 
-    let dxgi_budget_utilization = if telem.vram_valid && telem.local_budget_bytes > 0 {
-        (telem.local_usage_bytes as f64) / (telem.local_budget_bytes as f64)
-    } else {
-        0.0
-    };
+        let dxgi_over_ceiling = telem.vram_valid
+            && telem.local_budget_bytes > 0
+            && dxgi_budget_utilization >= threshold;
 
-    let threshold = if telem.runtime_pressure_threshold > 0.0 {
-        telem.runtime_pressure_threshold
-    } else {
-        0.85
-    };
+        let free_ram_critical =
+            (telem.total_physical_bytes > 0) && ((telem.free_and_zero_bytes / (1024 * 1024)) < 1536);
 
-    let dxgi_over_ceiling = telem.vram_valid
-        && telem.local_budget_bytes > 0
-        && dxgi_budget_utilization >= threshold;
+        let guard_triggered = if telem.is_discrete_tier {
+            false
+        } else {
+            dxgi_over_ceiling || free_ram_critical
+        };
 
-    let free_ram_critical =
-        (telem.total_physical_bytes > 0) && ((telem.free_and_zero_bytes / (1024 * 1024)) < 1536);
+        let total_interventions = if guard_triggered {
+            prev_interventions.saturating_add(1)
+        } else {
+            prev_interventions
+        };
 
-    let guard_triggered = if telem.is_discrete_tier {
-        false
-    } else {
-        dxgi_over_ceiling || free_ram_critical
-    };
-
-    let total_interventions = if guard_triggered {
-        prev_interventions.saturating_add(1)
-    } else {
-        prev_interventions
-    };
-
-    VfUmaGuardDecision {
-        available_os_headroom_mb,
-        dxgi_budget_utilization,
-        guard_triggered,
-        dxgi_over_ceiling,
-        free_ram_critical,
-        total_interventions,
-    }
+        VfUmaGuardDecision {
+            available_os_headroom_mb,
+            dxgi_budget_utilization,
+            guard_triggered,
+            dxgi_over_ceiling,
+            free_ram_critical,
+            total_interventions,
+        }
+    })
 }
 
 #[no_mangle]
 pub extern "C" fn vf_rust_query_nt_memory_lists() -> VfNtMemoryListSample {
-    let mut mem_info = core::mem::MaybeUninit::<SystemMemoryListInformation>::uninit();
-    let mut return_length: u32 = 0;
+    ffi_guard(unsafe { core::mem::zeroed() }, || {
+        let mut mem_info = core::mem::MaybeUninit::<SystemMemoryListInformation>::uninit();
+        let mut return_length: u32 = 0;
 
-    let status = unsafe {
-        NtQuerySystemInformation(
-            SYSTEM_MEMORY_LIST_INFORMATION_CLASS,
-            mem_info.as_mut_ptr() as *mut core::ffi::c_void,
-            core::mem::size_of::<SystemMemoryListInformation>() as u32,
-            &mut return_length,
-        )
-    };
+        let status = unsafe {
+            NtQuerySystemInformation(
+                SYSTEM_MEMORY_LIST_INFORMATION_CLASS,
+                mem_info.as_mut_ptr() as *mut core::ffi::c_void,
+                core::mem::size_of::<SystemMemoryListInformation>() as u32,
+                &mut return_length,
+            )
+        };
 
-    if status >= 0 {
-        let info = unsafe { mem_info.assume_init() };
-        let free_and_zero =
-            (info.zero_page_count as u64 + info.free_page_count as u64) * PAGE_SIZE_BYTES;
-        let mut standby: u64 = 0;
-        for count in info.page_count_by_priority.iter() {
-            standby += *count as u64 * PAGE_SIZE_BYTES;
-        }
-        let modified = info.modified_page_count as u64 * PAGE_SIZE_BYTES;
+        if status >= 0 {
+            let info = unsafe { mem_info.assume_init() };
+            let free_and_zero =
+                (info.zero_page_count as u64 + info.free_page_count as u64) * PAGE_SIZE_BYTES;
+            let mut standby: u64 = 0;
+            for count in info.page_count_by_priority.iter() {
+                standby += *count as u64 * PAGE_SIZE_BYTES;
+            }
+            let modified = info.modified_page_count as u64 * PAGE_SIZE_BYTES;
 
-        VfNtMemoryListSample {
-            free_and_zero_bytes: free_and_zero,
-            standby_bytes: standby,
-            modified_bytes: modified,
-            valid: true,
+            VfNtMemoryListSample {
+                free_and_zero_bytes: free_and_zero,
+                standby_bytes: standby,
+                modified_bytes: modified,
+                valid: true,
+            }
+        } else {
+            VfNtMemoryListSample {
+                free_and_zero_bytes: 0,
+                standby_bytes: 0,
+                modified_bytes: 0,
+                valid: false,
+            }
         }
-    } else {
-        VfNtMemoryListSample {
-            free_and_zero_bytes: 0,
-            standby_bytes: 0,
-            modified_bytes: 0,
-            valid: false,
-        }
-    }
+    })
 }
 
 #[no_mangle]
 pub extern "C" fn vf_rust_purge_nt_standby_list(dry_run: bool) -> bool {
-    if dry_run {
-        return true;
-    }
+    ffi_guard(false, || {
+        if dry_run {
+            return true;
+        }
 
-    let mut cmd = MEMORY_PURGE_STANDBY_LIST_COMMAND;
-    let status = unsafe {
-        NtSetSystemInformation(
-            SYSTEM_MEMORY_LIST_INFORMATION_CLASS,
-            &mut cmd as *mut u32 as *mut core::ffi::c_void,
-            core::mem::size_of::<u32>() as u32,
-        )
-    };
+        let mut cmd = MEMORY_PURGE_STANDBY_LIST_COMMAND;
+        let status = unsafe {
+            NtSetSystemInformation(
+                SYSTEM_MEMORY_LIST_INFORMATION_CLASS,
+                &mut cmd as *mut u32 as *mut core::ffi::c_void,
+                core::mem::size_of::<u32>() as u32,
+            )
+        };
 
-    status >= 0
+        status >= 0
+    })
 }

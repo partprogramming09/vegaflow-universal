@@ -1,5 +1,17 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
 
+// The exported functions catch panics with `ffi_guard`, which only works when panics unwind. With
+// panic = "abort" a bug in the core would kill the whole daemon, so refuse to build that way.
+#[cfg(not(panic = "unwind"))]
+compile_error!("vegaflow-core must be built with panic = \"unwind\" so ffi_guard can catch panics at the C boundary");
+
+/// Runs `f` for an `extern "C"` function and returns `fallback` if it panics. A panic must never cross into C++ (that is
+/// undefined behaviour) and must not take the daemon down; every fallback is the cautious answer for its function
+/// (deny, assume anti-cheat present, do not confine, do not purge).
+pub(crate) fn ffi_guard<T>(fallback: T, f: impl FnOnce() -> T) -> T {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(f)).unwrap_or(fallback)
+}
+
 pub mod apu_tier;
 pub mod cpu_governor;
 pub mod path_policy;
@@ -16,6 +28,16 @@ pub use uma_memory::*;
 mod tests {
     use super::*;
     use std::ffi::CString;
+
+    #[test]
+    fn ffi_guard_returns_the_fallback_when_the_body_panics() {
+        assert_eq!(ffi_guard(7u32, || -> u32 { panic!("simulated bug") }), 7);
+    }
+
+    #[test]
+    fn ffi_guard_passes_the_value_through_when_nothing_goes_wrong() {
+        assert_eq!(ffi_guard(7u32, || 42u32), 42);
+    }
 
     #[test]
     fn test_uma_healthy_telemetry() {

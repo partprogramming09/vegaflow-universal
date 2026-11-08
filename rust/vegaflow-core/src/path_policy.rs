@@ -5,6 +5,8 @@
 //! this module never changes case and cannot disagree with C++ about non-ASCII text.
 //! The shared vector file `tests/vectors/sandbox_blacklist.tsv` is checked here and by C++ Test 33.
 
+use crate::ffi_guard;
+
 pub const VF_PATH_ALLOWED: u32 = 0;
 pub const VF_PATH_EMPTY: u32 = 1;
 pub const VF_PATH_DRIVE_ROOT: u32 = 2;
@@ -13,6 +15,8 @@ pub const VF_PATH_WINDOWS_DIR: u32 = 4;
 pub const VF_PATH_WINDOWS_OTHER_DRIVE: u32 = 5;
 pub const VF_PATH_COMMON_FILES: u32 = 6;
 pub const VF_PATH_SYSTEM_VOLUME_INFORMATION: u32 = 7;
+/// Returned if the classifier itself fails (a bug): not zero, so the path is refused.
+pub const VF_PATH_INTERNAL_ERROR: u32 = 8;
 
 const BACKSLASH: u16 = b'\\' as u16;
 const SLASH: u16 = b'/' as u16;
@@ -132,31 +136,33 @@ pub extern "C" fn vf_rust_classify_blacklisted_path(
     sys_dir: *const u16,
     sys_dir_len: usize,
 ) -> u32 {
-    let (path, win_dir, sys_dir) = unsafe {
-        (
-            slice_or_empty(path, path_len),
-            slice_or_empty(win_dir, win_dir_len),
-            slice_or_empty(sys_dir, sys_dir_len),
-        )
-    };
+    ffi_guard(VF_PATH_INTERNAL_ERROR, || {
+        let (path, win_dir, sys_dir) = unsafe {
+            (
+                slice_or_empty(path, path_len),
+                slice_or_empty(win_dir, win_dir_len),
+                slice_or_empty(sys_dir, sys_dir_len),
+            )
+        };
 
-    if path.is_empty() {
-        VF_PATH_EMPTY
-    } else if is_drive_root_or_direct_child(path) {
-        VF_PATH_DRIVE_ROOT
-    } else if is_critical_file(path) {
-        VF_PATH_CRITICAL_FILE
-    } else if is_windows_dir(path, win_dir, sys_dir) {
-        VF_PATH_WINDOWS_DIR
-    } else if is_other_drive_windows(path) {
-        VF_PATH_WINDOWS_OTHER_DRIVE
-    } else if COMMON_FILES_FRAGMENTS.iter().any(|f| contains_ascii(path, f)) {
-        VF_PATH_COMMON_FILES
-    } else if contains_ascii(path, SYSTEM_VOLUME_INFORMATION) {
-        VF_PATH_SYSTEM_VOLUME_INFORMATION
-    } else {
-        VF_PATH_ALLOWED
-    }
+        if path.is_empty() {
+            VF_PATH_EMPTY
+        } else if is_drive_root_or_direct_child(path) {
+            VF_PATH_DRIVE_ROOT
+        } else if is_critical_file(path) {
+            VF_PATH_CRITICAL_FILE
+        } else if is_windows_dir(path, win_dir, sys_dir) {
+            VF_PATH_WINDOWS_DIR
+        } else if is_other_drive_windows(path) {
+            VF_PATH_WINDOWS_OTHER_DRIVE
+        } else if COMMON_FILES_FRAGMENTS.iter().any(|f| contains_ascii(path, f)) {
+            VF_PATH_COMMON_FILES
+        } else if contains_ascii(path, SYSTEM_VOLUME_INFORMATION) {
+            VF_PATH_SYSTEM_VOLUME_INFORMATION
+        } else {
+            VF_PATH_ALLOWED
+        }
+    })
 }
 
 #[cfg(test)]
@@ -254,9 +260,10 @@ mod tests {
                 VF_PATH_WINDOWS_DIR,
                 VF_PATH_WINDOWS_OTHER_DRIVE,
                 VF_PATH_COMMON_FILES,
-                VF_PATH_SYSTEM_VOLUME_INFORMATION
+                VF_PATH_SYSTEM_VOLUME_INFORMATION,
+                VF_PATH_INTERNAL_ERROR
             ],
-            [0, 1, 2, 3, 4, 5, 6, 7]
+            [0, 1, 2, 3, 4, 5, 6, 7, 8]
         );
     }
 

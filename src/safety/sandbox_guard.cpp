@@ -147,7 +147,7 @@ namespace {
 // verdict to the wrong rule and message without any other error.
 static_assert(VF_PATH_ALLOWED == 0 && VF_PATH_EMPTY == 1 && VF_PATH_DRIVE_ROOT == 2 && VF_PATH_CRITICAL_FILE == 3 &&
               VF_PATH_WINDOWS_DIR == 4 && VF_PATH_WINDOWS_OTHER_DRIVE == 5 && VF_PATH_COMMON_FILES == 6 &&
-              VF_PATH_SYSTEM_VOLUME_INFORMATION == 7,
+              VF_PATH_SYSTEM_VOLUME_INFORMATION == 7 && VF_PATH_INTERNAL_ERROR == 8,
               "VfPathVerdict must match path_policy.rs");
 
 const char* BlacklistReason(uint32_t verdict) {

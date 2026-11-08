@@ -107,7 +107,8 @@ enum VfPathVerdict {
     VF_PATH_WINDOWS_DIR = 4,
     VF_PATH_WINDOWS_OTHER_DRIVE = 5,
     VF_PATH_COMMON_FILES = 6,
-    VF_PATH_SYSTEM_VOLUME_INFORMATION = 7
+    VF_PATH_SYSTEM_VOLUME_INFORMATION = 7,
+    VF_PATH_INTERNAL_ERROR = 8 /* the Rust classifier failed: refuse the path */
 };
 
 /* Classifies a canonical path against the blacklist. The path and both directories are UTF-16 and must already be

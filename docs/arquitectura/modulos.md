@@ -120,7 +120,7 @@ direct/
 │   └── build.ps1                 # Script automatizado de compilación y pruebas PowerShell
 ├── rust/
 │   └── vegaflow-core/            # Núcleo híbrido Rust de alta seguridad y zero-allocation FFI
-│       ├── Cargo.toml            # Configuración staticlib/rlib con LTO y panic = abort
+│       ├── Cargo.toml            # staticlib/rlib con LTO y panic = unwind (ffi_guard captura los pánicos)
 │       └── src/
 │           ├── lib.rs            # Exportaciones FFI extern "C" y suite de 15 tests unitarios
 │           ├── uma_memory.rs     # Evaluador de presión UMA y descarte de Standby List
