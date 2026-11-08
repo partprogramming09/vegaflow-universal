@@ -6,7 +6,7 @@ Cada carpeta responde una pregunta. Las reglas y los comandos del proyecto está
 | --- | --- | --- |
 | [`arquitectura/`](arquitectura/) | ¿Cómo funciona? | Visión e invariantes, núcleo híbrido C++20 y Rust, hardware APU y Tiers, seguridad y SandboxGuard, patrón universal AMD e Intel, módulos y estructura del repo, base consolidada, las dos especificaciones de diseño |
 | [`mediciones/`](mediciones/) | ¿Qué se midió? | Informes fechados, con método y límites: línea base, A/B del daemon, juegos reales, Octopath II factorial, y el estado de verificación (qué está medido y qué no). Las capturas están en [`assets/`](assets/octopath2/) |
-| [`plan/`](plan/) | ¿Qué falta? | Plan universal AMD, Intel, dGPU y eGPU (verificado contra el código) y los pilares de GUI, perfiles y telemetría |
+| [`plan/`](plan/) | ¿Qué falta? | Plan universal AMD, Intel, dGPU y eGPU (verificado contra el código), los pilares de GUI, perfiles y telemetría, y la propuesta de reestructura (¿más Rust?, estructura de archivos, qué se commitea) |
 | [`guias/`](guias/) | ¿Cómo se hace? | Compilar y probar, usar el daemon, qué hace cada función |
 | [`archivo/`](archivo/) | ¿Qué hubo antes? | Documentos superados o ya hechos; solo consulta |
 
