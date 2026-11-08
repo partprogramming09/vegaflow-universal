@@ -30,27 +30,27 @@ Maximizar los FPS sostenidos, estabilizar los **1% Low y 0.1% Low FPS** (erradic
 
 ## 2. Inventario Exhaustivo de los 28 Módulos y Subsistemas
 
-A continuación se detalla **absolutamente todo lo que existe en el código**, verificado con la suite de pruebas unitarias [`tests/test_main.cpp`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/tests/test_main.cpp):
+A continuación se detalla **absolutamente todo lo que existe en el código**, verificado con la suite de pruebas unitarias [`tests/test_main.cpp`](../../tests/test_main.cpp):
 
 ### Grupo A: Privilegios, Seguridad y Detección de Hardware
 * **Módulo 1: Gestor de Privilegios NT (`PrivilegeManager`)**  
-  * *Archivo:* [`src/privileges.cpp`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/src/privileges.cpp)  
+  * *Archivo:* [`src/privileges.cpp`](../../src/privileges.cpp)  
   * *Funciones:* `IsProcessElevated()`, `EnableRequiredPrivileges()`, `RelaunchAsAdmin()`.  
   * *Detalle:* Habilita los privilegios de token NT `SeProfileSingleProcessPrivilege` (requerido para purgar Standby RAM en el kernel), `SeIncreaseBasePriorityPrivilege` y `SeDebugPrivilege`. Soporta auto-elevación vía UAC (`runas`).
 * **Módulo 2: Perfilador de Topología Hardware (`HardwareProfiler`)**  
-  * *Archivo:* [`src/hardware_profiler.cpp`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/src/hardware_profiler.cpp)  
+  * *Archivo:* [`src/hardware_profiler.cpp`](../../src/hardware_profiler.cpp)  
   * *Funciones:* `DetectHardware()`, `DetectCpuTopology()`, `DetectGpus()`.  
   * *Detalle:* Detecta arquitectura Zen 2, número de CCX, núcleos físicos/lógicos y asigna automáticamente los grupos de CPU Sets: hilos de juego óptimos (hilos 0 a 7 en CCX primario) e hilos de fondo (hilos 8 a 11).
 * **Módulo 3: Detector Seguro de Juegos y APIs 3D (`ProcessDetector`)**  
-  * *Archivo:* [`src/process_detector.cpp`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/src/process_detector.cpp)  
+  * *Archivo:* [`src/process_detector.cpp`](../../src/process_detector.cpp)  
   * *Funciones:* `DetectActiveGame()`, `InspectProcess()`, `FindBackgroundNoisyProcesses()`, `RenderApiToString()`.  
   * *Detalle:* Inspecciona procesos en primer plano usando únicamente `PROCESS_QUERY_LIMITED_INFORMATION` (100% seguro contra anti-cheat). Detecta la API de renderizado (DirectX 9/10/11/12 o Vulkan) mediante los módulos gráficos cargados (`d3d11.dll`, `d3d12.dll`, `vulkan-1.dll`, `amdxc64.dll`, `atidxx64.dll`). Identifica procesos ruidosos en segundo plano (navegadores, Discord, Spotify).
 * **Módulo 4: Cuarentena y Guardián del Sandbox (`SandboxGuard`)**  
-  * *Archivo:* [`src/sandbox_guard.cpp`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/src/sandbox_guard.cpp)  
+  * *Archivo:* [`src/sandbox_guard.cpp`](../../src/sandbox_guard.cpp)  
   * *Funciones:* `SafeWriteFile()`, `SafeCopyFile()`, `SafeRemoveFile()`, `CanModifyGamePath()`, `GetViolationCount()`.  
   * *Detalle:* Resuelve rutas canónicas de Windows, bloquea intentos de *Path Traversal*, prohíbe modificaciones en carpetas del sistema (`System32`, `Windows`, `Program Files`) y bloquea cualquier intento de escribir en juegos protegidos con Anti-Cheat a nivel kernel.
 * **Módulo 5: Telemetría Exhaustiva del Sistema (`SystemInfo`)**  
-  * *Archivo:* [`src/system_info.cpp`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/src/system_info.cpp)  
+  * *Archivo:* [`src/system_info.cpp`](../../src/system_info.cpp)  
   * *Funciones:* `Gather()`, `ToJson()`.  
   * *Detalle:* Captura instantáneas completas de microarquitectura CPU, presupuesto de VRAM en DXGI 1.4, memoria física/standby y versión del kernel NT.
 
@@ -58,11 +58,11 @@ A continuación se detalla **absolutamente todo lo que existe en el código**, v
 
 ### Grupo B: Subsistema de Memoria UMA y Rendimiento de Kernel
 * **Módulo 6: Gestor de Memoria UMA y Purga de Standby (`MemoryManager`)**  
-  * *Archivo:* [`src/memory_manager.cpp`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/src/memory_manager.cpp)  
+  * *Archivo:* [`src/memory_manager.cpp`](../../src/memory_manager.cpp)  
   * *Funciones:* `SampleTelemetry()`, `PurgeStandbyList()`, `QueryStandbyMemoryMib()`, `ForcePurgeNow()`, `GetCurrentProcessPrivateWorkingSetBytes()`.  
   * *Detalle:* Consulta el estado de memoria vía `SYSTEM_MEMORY_LIST_INFORMATION` (clase 80 en `ntdll.dll`). Cuando el juego está en reposo de I/O de disco (< 15 MB/s), ejecuta la purga de la lista de espera con `NtSetSystemInformation(80, cmd=4)` y realiza `K32EmptyWorkingSet` en procesos innecesarios. Libera cientos de megabytes de RAM física inmediatamente para la GPU Vega 6.
 * **Módulo 7: Temporizador de Alta Precisión Submilisegundo 0.500 ms**  
-  * *Archivo:* [`src/graphics_optimizer.cpp`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/src/graphics_optimizer.cpp)  
+  * *Archivo:* [`src/graphics_optimizer.cpp`](../../src/graphics_optimizer.cpp)  
   * *Llamada NT:* `NtSetTimerResolution(5000, TRUE, &curRes)`  
   * *Detalle:* Reduce la granularidad del reloj del kernel de Windows de 15.625 ms a 0.500 ms (5000 ns100). Sincroniza despachos de cuadros D3D y llamadas `Sleep()`, suprimiendo la variabilidad de frametime.
 * **Módulo 8: Blindaje de Paging de Kernel (`RAM Lock`)**  
@@ -111,23 +111,23 @@ A continuación se detalla **absolutamente todo lo que existe en el código**, v
 
 ### Grupo D: Sombras y Escalado
 * **Módulo 24: Optimizador de Sombras APU y Cascadas CSM**  
-  * *Archivo:* [`src/steam_engine_optimizer.cpp`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/src/steam_engine_optimizer.cpp) (`ApplyApuShadowConfig`)  
+  * *Archivo:* [`src/steam_engine_optimizer.cpp`](../../src/steam_engine_optimizer.cpp) (`ApplyApuShadowConfig`)  
   * *Variables:* `r.Shadow.CSM.MaxCascades = 2`, `r.Shadow.DistanceScale = 0.7`, `r.Shadow.RadiusThreshold = 0.04`, `r.AOHalfRes = 1`, `r.VolumetricFog = 0`.  
   * *Detalle:* Modifica los ajustes del motor gráfico para reducir la resolución y complejidad de las sombras y apagar la niebla volumétrica pesada, recortando drásticamente el consumo de ancho de banda DDR4.
 * **Módulo 25: Escalador Espacial FSR 1.0 con Nitidez Atómica RCAS**  
-  * *Archivo:* [`src/fsr_scaler.cpp`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/src/fsr_scaler.cpp)  
+  * *Archivo:* [`src/fsr_scaler.cpp`](../../src/fsr_scaler.cpp)  
   * *Funciones:* `StartScaling()`, `StopScaling()`, `SetSharpness(float)`.  
   * *Detalle:* Shaders HLSL compilados para escalado espacial y filtro de nitidez contrast-adaptive (RCAS) con ajuste atómico en vivo (`std::atomic<float>`).
 * **Módulo 26: Despliegue y Perfil APU de DXVK 2.5.3 (DirectX 11 to Vulkan)**  
-  * *Archivo:* [`src/dxvk_manager.cpp`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/src/dxvk_manager.cpp)  
+  * *Archivo:* [`src/dxvk_manager.cpp`](../../src/dxvk_manager.cpp)  
   * *Funciones:* `DeployDxvk()`, `RemoveDxvk()`, `ConfigureApuProfile()`.  
   * *Detalle:* Traduce llamadas D3D11 a Vulkan utilizando compilación asíncrona de shaders (GPL / `dxvk.enableAsync = true`, `dxvk.numCompilerThreads = 4`). Si detecta anti-cheat a nivel de kernel, aborta la instalación para proteger al usuario.
 * **Módulo 27: Aislamiento CCX y EcoQoS en Núcleos CPU (`CpuOrchestrator`)**  
-  * *Archivo:* [`src/cpu_orchestrator.cpp`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/src/cpu_orchestrator.cpp)  
+  * *Archivo:* [`src/cpu_orchestrator.cpp`](../../src/cpu_orchestrator.cpp)  
   * *Funciones:* `ApplyOptimizations()`, `RestoreAll()`.  
   * *Detalle:* Asigna el hilo `IDXGISwapChain::Present` a `THREAD_PRIORITY_HIGHEST` para despachar fotogramas de inmediato. Aplica `EcoQoS` y afinidad en núcleos secundarios a procesos molestos de fondo.
 * **Módulo 28: Monitor Estadístico de Frametimes en Tiempo Real (`FrameTelemetryMonitor`)**  
-  * *Archivo:* [`src/frame_telemetry.cpp`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/src/frame_telemetry.cpp)  
+  * *Archivo:* [`src/frame_telemetry.cpp`](../../src/frame_telemetry.cpp)  
   * *Detalle:* Búfer circular de 3000 cuadros con cálculo en tiempo real de media, desviación estándar (jitter en ms), 1% Low y 0.1% Low.
 
 ---

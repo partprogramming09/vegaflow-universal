@@ -8,7 +8,7 @@
 
 **Tech Stack:** Rust 1.98 (`x86_64-pc-windows-gnu`, `panic = "abort"`), C++20 (MinGW-w64 `g++ 16.2.0`), Windows NT Native API (`ntdll.dll`), PowerShell (`scripts/build.ps1`), Python 3.12 (`metal-gpu-trace` MCP + `PresentMon.exe`).
 
-**Spec:** `docs/superpowers/specs/2026-11-06-rust-hybrid-uma-and-mcp-design.md`
+**Spec:** `.claude/docs/ARQUITECTURA/spec-rust-hibrido-uma-mcp.md`
 
 ## Global Constraints
 

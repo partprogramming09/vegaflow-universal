@@ -25,7 +25,7 @@ Aunque **VegaFlow Universal** nació como un framework de optimización para arq
 
 ## 2. Arquitectura del Subsistema `ApuCapabilityGuard`
 
-Se introduce una estructura determinista de clasificación y políticas en [`include/core/hardware_profiler.hpp`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/include/core/hardware_profiler.hpp) e [`include/optimizers/graphics_optimizer.hpp`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/include/optimizers/graphics_optimizer.hpp) que actúa como **única fuente de verdad** para los límites de DX11, DX12, memoria UMA y energía.
+Se introduce una estructura determinista de clasificación y políticas en [`include/core/hardware_profiler.hpp`](../../include/core/hardware_profiler.hpp) e [`include/optimizers/graphics_optimizer.hpp`](../../include/optimizers/graphics_optimizer.hpp) que actúa como **única fuente de verdad** para los límites de DX11, DX12, memoria UMA y energía.
 
 ### 2.1. Enumeración de Tiers (`ApuTier`) y Generación de Arquitectura (`GpuArchitectureGen`)
 
@@ -125,23 +125,23 @@ struct ApuOptimizationPolicy {
 ## 4. Integración en los Módulos Existentes
 
 ### 4.1. `HardwareProfiler` y `SystemInfo`
-- En [`include/core/hardware_profiler.hpp`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/include/core/hardware_profiler.hpp) y [`src/core/hardware_profiler.cpp`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/src/core/hardware_profiler.cpp):
+- En [`include/core/hardware_profiler.hpp`](../../include/core/hardware_profiler.hpp) y [`src/core/hardware_profiler.cpp`](../../src/core/hardware_profiler.cpp):
   - Añadir `ApuTier`, `GpuArchitectureGen` y `ApuOptimizationPolicy`.
   - Añadir campos `arch_gen` y `apu_tier` a `SystemHardwareProfile`.
   - Implementar `HardwareProfiler::BuildOptimizationPolicy(const SystemHardwareProfile& profile, uint64_t live_dxgi_local_budget_bytes = 0)` y funciones auxiliares `ApuTierToString` y `ArchGenToString`.
-- En [`src/core/system_info.cpp`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/src/core/system_info.cpp) e [`include/core/system_info.hpp`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/include/core/system_info.hpp):
+- En [`src/core/system_info.cpp`](../../src/core/system_info.cpp) e [`include/core/system_info.hpp`](../../include/core/system_info.hpp):
   - En `GatherGpu()`: Reemplazar el sufijo fijo `" (Vega 6 / GCN 5.0)"` por el sufijo real según `arch_gen` (ej. mantiene `" (Vega 6 / GCN 5.0)"` cuando es Renoir 4600H / GCN5 para preservar compatibilidad total con los reportes actuales, pero muestra `" (RDNA 2 UMA)"`, `" (RDNA 3/3.5 UMA)"` o `" (Intel Xe/Arc UMA)"` en otros equipos).
   - En `GatherCpu()`: Ajustar `boost_target_ghz` y `stapm_target` según la política (`3.4 GHz` en Tier 2, `3.0 GHz` en Tier 1, `"Dynamic Boost (Efficient Aggressive / Uncapped Guard)"` en Tier 3).
   - Exportar en `SystemInfo::ToJson()` un bloque adicional `"apu_guard"` con `tier`, `guard_mode`, `safe_vram_pool_mb`, `dx12_async_compute_allowed`, `dxvk_compiler_threads` y `tessellation_cap`.
 
 ### 4.2. `DxvkManager` (Especialización DirectX 11 -> Vulkan)
-- En [`src/optimizers/dxvk_manager.cpp`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/src/optimizers/dxvk_manager.cpp):
+- En [`src/optimizers/dxvk_manager.cpp`](../../src/optimizers/dxvk_manager.cpp):
   - En `DeployDxvk()` y `ConfigureApuProfile()`: Consultar `HardwareProfiler::BuildOptimizationPolicy(HardwareProfiler::DetectHardware())`.
   - Escribir `dxvk.numCompilerThreads`, `dxgi.maxDeviceMemory` y `dxgi.maxSharedMemory` usando los valores de la política (`policy.dxvk_compiler_threads`, `policy.safe_vram_pool_mb`, `policy.safe_shared_pool_mb`).
   - En `ValidateDxvkApuProfile()`: Aceptar como válido cualquier `compilerThreads` entre `1` y `16` que coincida con la política del sistema (en el Ryzen 5 4600H seguirá siendo `6`, pasando el Test 24 sin cambios).
 
 ### 4.3. `SteamEngineOptimizer` (Especialización DirectX 11 y DirectX 12 en Motores)
-- En [`src/optimizers/steam_engine_optimizer.cpp`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/src/optimizers/steam_engine_optimizer.cpp):
+- En [`src/optimizers/steam_engine_optimizer.cpp`](../../src/optimizers/steam_engine_optimizer.cpp):
   - En `ApplyEngineUmaPreset()`:
     - Consultar la política `ApuOptimizationPolicy`.
     - Si `vram_pool_mb == 0`, usar `policy.safe_vram_pool_mb`. Si el usuario o llamador pasa un `vram_pool_mb` explícito, acotarlo con el Guard si estamos en `Tier1_EntryUMA` para nunca exceder la reserva del SO.
@@ -149,7 +149,7 @@ struct ApuOptimizationPolicy {
     - **DirectX 12 Guard:** Si `policy.disable_dx12_async_compute == true` (Tier 1 y Tier 2), escribir `r.RDG.AsyncCompute=0` y `D3D12.AsyncCompute=0`. Si es `false` (**Tier 3 Advanced APU Guard**), escribir `r.RDG.AsyncCompute=1` y `D3D12.AsyncCompute=1` para permitir que los motores RDNA2/RDNA3 aprovechen sus colas de cómputo asíncrono en DX12.
 
 ### 4.4. `GraphicsOptimizer` (Límites de Driver, Teselación y STAPM)
-- En [`src/optimizers/graphics_optimizer.cpp`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/src/optimizers/graphics_optimizer.cpp):
+- En [`src/optimizers/graphics_optimizer.cpp`](../../src/optimizers/graphics_optimizer.cpp):
   - En `SetApuPowerMode(ApuPowerMode::GpuPrioritySustained)`:
     - Consultar `policy.cpu_stapm_cap_mhz`.
     - En Tier 1 (`3000 MHz`) y Tier 2 (`3400 MHz`), aplica el techo de frecuencia para ceder presupuesto térmico STAPM a la iGPU.
@@ -158,7 +158,7 @@ struct ApuOptimizationPolicy {
     - Usar `policy.amd_tessellation_cap` (`8`, `16` o `32`) en lugar de forzar `16` en todas las generaciones.
 
 ### 4.5. Guard Reactivo en Tiempo Real (`MemoryManager::EvaluateUmaPressureGuard`)
-- En [`include/optimizers/memory_manager.hpp`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/include/optimizers/memory_manager.hpp) y [`src/optimizers/memory_manager.cpp`](file:///C:/Users/testuser/OneDrive/Escritorio/proyectos/direct/src/optimizers/memory_manager.cpp):
+- En [`include/optimizers/memory_manager.hpp`](../../include/optimizers/memory_manager.hpp) y [`src/optimizers/memory_manager.cpp`](../../src/optimizers/memory_manager.cpp):
   - Añadir estructura `UmaGuardStatus`:
     ```cpp
     struct UmaGuardStatus {

@@ -39,6 +39,10 @@ logs/*.log
 __pycache__/
 *.py[cod]
 
+# Private agent notes and tool state (kept out of git by the repo itself)
+.claude/
+.DS_Store
+
 # OS generated files
 Thumbs.db
 Desktop.ini

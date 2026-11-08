@@ -8,7 +8,7 @@
 
 **Tech Stack:** C++20, Win32 API, NTDLL, DXGI 1.4 (`IDXGIAdapter3`), MinGW-w64 (`g++ -std=c++20 -O2 -Wall -Wextra -static`).
 
-**Spec:** `docs/superpowers/specs/2026-11-01-apu-dx11-dx12-universal-guards-design.md`
+**Spec:** `.claude/docs/ARQUITECTURA/spec-guards-apu-dx11-dx12.md`
 
 ## Global Constraints
 

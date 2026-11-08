@@ -77,7 +77,7 @@ Reglas: los argumentos son datos, nunca una línea de comandos; el trabajo y sus
 - `vfjob sync` y `vfjob build-test`: son del proyecto (rutas del repositorio y del compilador). El ejecutor genérico no los conoce.
 - Las mediciones y sus documentos.
 
-La sesión de WinBridge no debe modificar `scripts/remote/` de VegaFlow mientras se ejecuta el plan de `docs/PLAN_EJECUCION_AUTONOMA.md`: esa sesión usa el ejecutor actual y no debe quedarse sin él.
+La sesión de WinBridge no debe modificar `scripts/remote/` de VegaFlow mientras se ejecuta el plan de medición (`.claude/docs/PLAN.md`): esa sesión usa el ejecutor actual y no debe quedarse sin él.
 
 ## 7. Cómo no interferir
 
@@ -112,7 +112,7 @@ La sesión de WinBridge no debe modificar `scripts/remote/` de VegaFlow mientras
 
 ## 11. Respuestas de WinBridge (2026-11-04)
 
-Plan completo en `winbridge/docs/PLAN-JOBS-Y-EXE.md`.
+Plan completo en los docs privados de winbridge: `winbridge/.claude/docs/PLAN/jobs-diseno.md` y `jobs-fases.md`.
 
 - Gateway y horas: solo se midieron 360 y 400 s; un reinicio del agente mata la llamada. Para horas, `submit` + `wait` cortos.
 - Sesión bloqueada: `CallServerTool` y `ServerTools` fallan; `RunTask` no comprueba la sesión. Esto inclina la decisión a la opción A (herramientas nativas), que WinBridge recomienda en su plan.
