@@ -76,7 +76,9 @@ build-test)
         *) echo "hay trabajos en curso o en cola ($busy); espera o usa VFJOB_QUEUE=1"; exit 3 ;;
         esac
     fi
-    script="\$env:Path = '$MINGW;' + \$env:Path; Set-Location '$LAPTOP_REPO'; & .\\scripts\\build.ps1 -RunTests *> \$env:TEMP\\vf-build-test.log; 'exit=' + \$LASTEXITCODE; Select-String 'FAILED|PASSED|error' \$env:TEMP\\vf-build-test.log | Select-Object -Last 6 | ForEach-Object { \$_.Line }"
+    # The log is redirected by cmd (process level): redirecting inside PowerShell turns cargo's stderr into a
+    # terminating error because build.ps1 sets $ErrorActionPreference = "Stop".
+    script="\$env:Path = '$MINGW;' + \$env:Path; Set-Location '$LAPTOP_REPO'; cmd /c \"powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\build.ps1 -RunTests > \$env:TEMP\\vf-build-test.log 2>&1\"; 'exit=' + \$LASTEXITCODE; Select-String 'FAILED|PASSED|error' \$env:TEMP\\vf-build-test.log | Select-Object -Last 6 | ForEach-Object { \$_.Line }"
     enc="$(printf '%s' "$script" | iconv -f UTF-8 -t UTF-16LE | base64 | LC_ALL=C tr -d '\n')"
     out="$(remote "powershell -NoProfile -EncodedCommand $enc" 2>&1 | LC_ALL=C tr -d '\r' | grep -v '^<\|CLIXML\|^$')"
     printf '%s\n' "$out"
