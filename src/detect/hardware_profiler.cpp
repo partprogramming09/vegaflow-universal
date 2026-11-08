@@ -449,7 +449,7 @@ void HardwareProfiler::PartitionCpuSetsFromTopology(CpuTopologyProfile& cpu_topo
     cpu_topology.has_multiple_ccx = (llc_indices.size() > 1);
     cpu_topology.has_hybrid_cores = (min_eff != max_eff);
 
-    // Con 4 o mas nucleos el fondo recibe un nucleo fisico completo (sus hilos SMT); con menos, un solo hilo.
+    // With 4 or more cores the background gets one full physical core (its SMT threads); with fewer, a single thread.
     const size_t threads_per_core = std::max<size_t>(1, cpu_topology.logical_processors / std::max<uint32_t>(1, cpu_topology.physical_cores));
     const size_t bg_limit = (cpu_topology.physical_cores >= 4) ? threads_per_core : 1;
 
@@ -496,7 +496,7 @@ void HardwareProfiler::PartitionCpuSetsFromTopology(CpuTopologyProfile& cpu_topo
         }
 
         if (llc_counts[secondary_llc] <= (cpu_topology.logical_processors / 3)) {
-            // Isla compacta asimétrica (Zen 4c/5c)
+            // Asymmetric compact island (Zen 4c/5c)
             const bool exclude_core_zero = (cpu_topology.physical_cores >= 4);
             std::vector<CpuCoreSetInfo> candidate_game_sets;
             for (const auto& cs : cpu_topology.all_cpu_sets) {
@@ -527,7 +527,7 @@ void HardwareProfiler::PartitionCpuSetsFromTopology(CpuTopologyProfile& cpu_topo
             return;
         }
 
-        // Islas L3 simétricas (ej. 2 CCX de 3 núcleos / 6 hilos en Ryzen 5 4600H)
+        // Symmetric L3 islands (e.g. 2 CCX of 3 cores / 6 threads on Ryzen 5 4600H)
         const uint32_t last_core_index = *physical_core_indices.rbegin();
         const bool exclude_core_zero = (cpu_topology.physical_cores >= 4);
 
@@ -582,7 +582,7 @@ void HardwareProfiler::PartitionCpuSetsFromTopology(CpuTopologyProfile& cpu_topo
         return;
     }
 
-    // Default / Monolítico / Uniforme o fallback
+    // Default / Monolithic / Uniform or fallback
     const uint32_t last_core_index = *physical_core_indices.rbegin();
     const bool exclude_core_zero = (cpu_topology.physical_cores >= 4);
 

@@ -163,11 +163,13 @@ VegaFlow Universal nace de un principio fundamental de ingeniería de software y
 VegaFlow Universal ha alcanzado la madurez de su núcleo de optimización y arquitectura de software, validado en hardware real y suites sintéticas:
 
 #### 1.1. Arquitectura Modular Limpia y Pipeline de Compilación
-- **Desacoplamiento Estructural:** El código base se organiza en cuatro dominios modulares estrictos:
-  - [`include/core/`](../../include/core) y [`src/core/`](../../src/core): Hardware profiler, llamadas indocumentadas NTDLL, privilegios de seguridad y telemetría de sistema.
-  - [`include/optimizers/`](../../include/optimizers) y [`src/optimizers/`](../../src/optimizers): Orquestación de CPU, optimizadores gráficos y de temporizador NT, DXVK, escalador FSR 1.0/NIS, gestión de memoria UMA y presets de motores.
-  - [`include/security/`](../../include/security) y [`src/security/`](../../src/security): Subsistema Zero-Trust `SandboxGuard` y telemetría matemática de frametimes.
-  - [`include/gui/`](../../include/gui) y [`src/gui/`](../../src/gui): Ventana nativa Win32/GDI en modo Slate/Zinc Dark, pestañas y componentes.
+- **Desacoplamiento Estructural:** El código base se organiza en dominios modulares por función, con cada `.hpp` junto a su `.cpp`:
+  - [`src/detect/`](../../src/detect): hardware, topología de CPU y detección de juegos.
+  - [`src/optimize/`](../../src/optimize): Orquestación de CPU, optimizadores gráficos y de temporizador NT, DXVK, escalador FSR 1.0/NIS, gestión de memoria UMA y presets de motores.
+  - [`src/safety/`](../../src/safety): Subsistema Zero-Trust `SandboxGuard` y telemetría matemática de frametimes.
+  - [`src/ui/`](../../src/ui): Ventana nativa Win32/GDI en modo Slate/Zinc Dark, pestañas y componentes.
+  - [`src/windows/`](../../src/windows): llamadas indocumentadas NTDLL y privilegios de seguridad.
+  - [`src/app/`](../../src/app) y [`src/bridge/`](../../src/bridge): punto de entrada del daemon y contrato C++ ↔ Rust.
 - **Automatización de Build:** Script [`scripts/build.ps1`](../../scripts/build.ps1) con detección inteligente del compilador MinGW-w64 `g++` (en PATH o en Scoop), flags C++20 con enlace estático total (`-static -static-libgcc -static-libstdc++`) y ejecución opcional de pruebas con `-RunTests`.
 - **Control de Versiones y Limpieza:** Directorio `build/` libre de residuos (`*.o`, `*.old*`, logs) y `.gitignore` estandarizado.
 

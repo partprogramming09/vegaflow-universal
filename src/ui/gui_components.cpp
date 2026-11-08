@@ -137,7 +137,7 @@ void DrawTabButton(HDC hdc, const RECT& rc, const std::wstring& text, bool is_ac
 
     DrawRoundedCard(hdc, rc, bgCol, borderCol, 6);
 
-    // Indicador vertical a la izquierda si la pestaña está activa
+    // Vertical indicator on the left if the tab is active
     if (is_active) {
         RECT rcIndicator = { rc.left + 3, rc.top + 6, rc.left + 7, rc.bottom - 6 };
         HBRUSH hbrInd = CreateSolidBrush(CLR_TAB_INDICATOR);

@@ -47,8 +47,8 @@ typedef NTSTATUS(NTAPI* PFN_NtSetInformationProcess)(
 #define PROCESS_POWER_THROTTLING_IGNORE_TIMER_RESOLUTION 0x4
 #endif
 
-// Consumo de CPU del fondo (en procesadores logicos) a partir del cual se confina, y por debajo del cual se libera.
-// shortcut: umbrales sin medir por separado (la ganancia medida existe desde 1 worker de fondo), ajustar con datos.
+// Background CPU usage (in logical processors) above which it is confined, and below which it is released.
+// shortcut: thresholds not measured separately (the measured gain exists from 1 background worker), tune with data.
 constexpr double kConfineOnLogicalCpus = 0.5;
 constexpr double kConfineOffLogicalCpus = 0.25;
 constexpr ULONGLONG kMinSampleMs = 1000;
@@ -240,7 +240,7 @@ CpuOptimizationResult CpuOrchestrator::ApplyOptimizations(
 
     // 3. Background EcoQoS Throttling, I/O & Memory Priority Confinement, and CPU Sets
     if (!background_pids.empty()) {
-        // Fuera de simulacion el fondo solo se confina mientras consume CPU de forma apreciable.
+        // Outside simulation the background is only confined while it consumes a noticeable amount of CPU.
         static const std::vector<ULONG> no_sets;
         if (!dry_run && !background_cpu_sets.empty() && UpdateBackgroundLoad(background_pids, game_pid)) {
             SetModifiedBackgroundCpuSets(bg_confine_active_ ? background_cpu_sets : no_sets);

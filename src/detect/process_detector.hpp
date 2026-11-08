@@ -32,16 +32,16 @@ struct DetectedGameProcess {
 
 class ProcessDetector {
 public:
-    // Detecta si la ventana en primer plano (o algún proceso de una lista objetivo opcional) es un juego con DX9/10/11/12/Vulkan
+    // Detects whether the foreground window (or any process in an optional target list) is a DX9/10/11/12/Vulkan game
     static std::optional<DetectedGameProcess> DetectActiveGame(const std::vector<std::wstring>& custom_game_exes = {});
 
-    // Inspecciona un PID específico de forma 100% segura frente a Anti-Cheat (solo PROCESS_QUERY_LIMITED_INFORMATION y TH32CS_SNAPMODULE)
+    // Inspects a specific PID 100% safely with respect to Anti-Cheat (only PROCESS_QUERY_LIMITED_INFORMATION and TH32CS_SNAPMODULE)
     static std::optional<DetectedGameProcess> InspectProcess(uint32_t pid, HWND hwnd_hint = nullptr);
 
-    // Devuelve los PIDs de procesos ruidosos en segundo plano (navegadores, Discord, launchers) excluyendo el PID del juego activo
+    // Returns the PIDs of noisy background processes (browsers, Discord, launchers), excluding the active game's PID
     static std::vector<uint32_t> FindBackgroundNoisyProcesses(uint32_t active_game_pid = 0);
 
-    // Comprueba si un proceso sigue activo mediante PROCESS_QUERY_LIMITED_INFORMATION y GetExitCodeProcess
+    // Checks whether a process is still alive using PROCESS_QUERY_LIMITED_INFORMATION and GetExitCodeProcess
     static bool IsProcessAlive(uint32_t pid);
 
     static const char* RenderApiToString(RenderApi api);

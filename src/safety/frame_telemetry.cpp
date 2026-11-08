@@ -23,7 +23,7 @@ namespace vegaflow {
 
 namespace {
 
-// GUID para el proveedor Microsoft-Windows-DXGI: {CA11C036-0102-4A2D-A6AD-F03CFED5D3C9}
+// GUID for the Microsoft-Windows-DXGI provider: {CA11C036-0102-4A2D-A6AD-F03CFED5D3C9}
 static const GUID kDxgiProviderGuid = {
     0xca11c036, 0x0102, 0x4a2d, { 0xa6, 0xad, 0xf0, 0x3c, 0xfe, 0xd5, 0xd3, 0xc9 }
 };
@@ -45,7 +45,7 @@ static VOID WINAPI EtwEventRecordCallback(PEVENT_RECORD pEventRecord) {
         return;
     }
 
-    // Filtrar por el PID objetivo (si target_pid != 0)
+    // Filter by the target PID (if target_pid != 0)
     uint32_t event_pid = pEventRecord->EventHeader.ProcessId;
     if (ctx->target_pid != 0 && event_pid != ctx->target_pid) {
         return;
@@ -118,7 +118,7 @@ void FrameTelemetryMonitor::StopMonitoring() {
         props->Wnode.Flags = WNODE_FLAG_TRACED_GUID;
         props->LoggerNameOffset = sizeof(EVENT_TRACE_PROPERTIES);
 
-        // ControlTraceW con EVENT_TRACE_CONTROL_STOP detiene inmediatamente el trace y desbloquea ProcessTrace
+        // ControlTraceW with EVENT_TRACE_CONTROL_STOP stops the trace immediately and unblocks ProcessTrace
         ControlTraceW(0, session_name.c_str(), props, EVENT_TRACE_CONTROL_STOP);
     }
 
@@ -171,7 +171,7 @@ FrameMetricsSnapshot FrameTelemetryMonitor::GetSnapshot() const {
         if (sample_count_ < kMaxSamplesWindow) {
             samples.insert(samples.end(), ring_buffer_.begin(), ring_buffer_.begin() + sample_count_);
         } else {
-            // Buffer circular lleno: el orden cronológico inicia en write_index_
+            // Circular buffer full: chronological order starts at write_index_
             samples.insert(samples.end(), ring_buffer_.begin() + write_index_, ring_buffer_.end());
             samples.insert(samples.end(), ring_buffer_.begin(), ring_buffer_.begin() + write_index_);
         }
@@ -245,7 +245,7 @@ FrameMetricsSnapshot FrameTelemetryMonitor::ComputeMetricsFromSamples(
     snapshot.total_frames_captured = total_frames;
     snapshot.etw_active = etw_active;
 
-    // 1. Filtrar valores fuera de rango (<= 0.1 ms o > 2000.0 ms)
+    // 1. Filter out-of-range values (<= 0.1 ms or > 2000.0 ms)
     std::vector<double> valid_samples;
     valid_samples.reserve(frametimes_ms.size());
     for (double dt : frametimes_ms) {
@@ -264,7 +264,7 @@ FrameMetricsSnapshot FrameTelemetryMonitor::ComputeMetricsFromSamples(
     }
     snapshot.valid = true;
 
-    // 2. Promedio de frametime y FPS
+    // 2. Average frametime and FPS
     const double n = static_cast<double>(valid_samples.size());
     double sum_frametime = 0.0;
     for (double dt : valid_samples) {
@@ -273,7 +273,7 @@ FrameMetricsSnapshot FrameTelemetryMonitor::ComputeMetricsFromSamples(
     snapshot.avg_frametime_ms = sum_frametime / n;
     snapshot.avg_fps = (snapshot.avg_frametime_ms > 0.0) ? (1000.0 / snapshot.avg_frametime_ms) : 0.0;
 
-    // 3. Desviación estándar del tiempo de cuadro (frametime_stddev_ms)
+    // 3. Frame time standard deviation (frametime_stddev_ms)
     double variance_sum = 0.0;
     for (double dt : valid_samples) {
         double diff = dt - snapshot.avg_frametime_ms;
@@ -281,14 +281,14 @@ FrameMetricsSnapshot FrameTelemetryMonitor::ComputeMetricsFromSamples(
     }
     snapshot.frametime_stddev_ms = std::sqrt(variance_sum / n);
 
-    // 4. Mínimo, Máximo, y Percentiles ordenando una copia
+    // 4. Minimum, maximum and percentiles by sorting a copy
     std::sort(valid_samples.begin(), valid_samples.end());
     snapshot.min_frametime_ms = valid_samples.front();
     snapshot.max_frametime_ms = valid_samples.back();
 
     const size_t sample_size = valid_samples.size();
 
-    // 1% Low FPS: promedio del 1% de cuadros más lentos (índice floor(0.99 * N) hasta N - 1)
+    // 1% Low FPS: average of the slowest 1% of frames (index floor(0.99 * N) to N - 1)
     size_t idx_99 = static_cast<size_t>(std::floor(0.99 * static_cast<double>(sample_size)));
     if (idx_99 >= sample_size) {
         idx_99 = sample_size - 1;
@@ -302,7 +302,7 @@ FrameMetricsSnapshot FrameTelemetryMonitor::ComputeMetricsFromSamples(
     double frametime_99th = (count_1_pct > 0) ? (sum_slowest_1_pct / static_cast<double>(count_1_pct)) : valid_samples[idx_99];
     snapshot.fps_1_percent_low = (frametime_99th > 0.0) ? (1000.0 / frametime_99th) : 0.0;
 
-    // 0.1% Low FPS: promedio del 0.1% de cuadros más lentos (índice floor(0.999 * N) hasta N - 1)
+    // 0.1% Low FPS: average of the slowest 0.1% of frames (index floor(0.999 * N) to N - 1)
     size_t idx_99_9 = static_cast<size_t>(std::floor(0.999 * static_cast<double>(sample_size)));
     if (idx_99_9 >= sample_size) {
         idx_99_9 = sample_size - 1;
@@ -326,12 +326,12 @@ void FrameTelemetryMonitor::WorkerLoop() {
     auto* props = reinterpret_cast<EVENT_TRACE_PROPERTIES*>(prop_buf.data());
     props->Wnode.BufferSize = static_cast<ULONG>(buf_size);
     props->Wnode.Flags = WNODE_FLAG_TRACED_GUID;
-    props->Wnode.ClientContext = 1; // Resolución QPC
+    props->Wnode.ClientContext = 1; // QPC resolution
     props->LogFileMode = EVENT_TRACE_REAL_TIME_MODE;
     props->LoggerNameOffset = sizeof(EVENT_TRACE_PROPERTIES);
     props->LogFileNameOffset = 0;
 
-    // Detener cualquier sesión previa huérfana con el mismo nombre
+    // Stop any orphaned previous session with the same name
     ControlTraceW(0, session_name.c_str(), props, EVENT_TRACE_CONTROL_STOP);
 
     LARGE_INTEGER qpc_freq;
@@ -383,7 +383,7 @@ void FrameTelemetryMonitor::WorkerLoop() {
                 etw_session_active_.store(true, std::memory_order_release);
                 etw_active = true;
 
-                // ProcessTrace bloquea hasta que ControlTraceW(..., EVENT_TRACE_CONTROL_STOP) es invocado
+                // ProcessTrace blocks until ControlTraceW(..., EVENT_TRACE_CONTROL_STOP) is invoked
                 ProcessTrace(&trace_handle, 1, nullptr, nullptr);
 
                 CloseTrace(trace_handle);
@@ -394,7 +394,7 @@ void FrameTelemetryMonitor::WorkerLoop() {
         ControlTraceW(session_handle, session_name.c_str(), props, EVENT_TRACE_CONTROL_STOP);
     }
 
-    // Muestreador de respaldo (Fallback): cuando no hay elevación ETW o mientras el monitor esté activo
+    // Fallback sampler: when there is no ETW elevation or while the monitor is active
     if (!etw_active && running_.load(std::memory_order_relaxed)) {
         HMODULE dwmapi_mod = LoadLibraryW(L"dwmapi.dll");
         typedef HRESULT (WINAPI *PFN_DwmGetCompositionTimingInfo)(HWND, DWM_TIMING_INFO*);
@@ -471,7 +471,7 @@ void FrameTelemetryMonitor::WorkerLoop() {
                 }
             }
 
-            // Pausas cortas (~4 ms en fragmentos de 1 ms) para responder a StopMonitoring en < 5 ms
+            // Short sleeps (~4 ms in 1 ms slices) to respond to StopMonitoring in < 5 ms
             for (int i = 0; i < 4 && running_.load(std::memory_order_relaxed); ++i) {
                 Sleep(1);
             }

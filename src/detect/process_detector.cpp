@@ -303,8 +303,8 @@ std::optional<DetectedGameProcess> ProcessDetector::DetectActiveGame(const std::
         }
     }
 
-    // 2. Resiliencia al Alt+Tab: Si la ventana en primer plano NO es un juego,
-    // enumerar ventanas visibles con EnumWindows
+    // 2. Alt+Tab resilience: if the foreground window is NOT a game,
+    // enumerate visible windows with EnumWindows
     struct BackgroundSearchContext {
         const std::vector<std::wstring>* custom_game_exes = nullptr;
         std::set<DWORD>* inspected_pids = nullptr;
@@ -377,7 +377,7 @@ std::optional<DetectedGameProcess> ProcessDetector::DetectActiveGame(const std::
 
             if (inspected->api != RenderApi::Unknown && (!inspected->driver_dll_loaded.empty() || in_custom)) {
                 c->found_game = inspected;
-                return FALSE; // Detener la enumeración, juego encontrado
+                return FALSE; // Stop enumeration, game found
             }
         }
 

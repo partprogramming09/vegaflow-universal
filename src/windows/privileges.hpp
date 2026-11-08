@@ -25,8 +25,8 @@ public:
     static PrivilegeStatus EnableRequiredPrivileges(bool enable_debug = false);
     static bool IsProcessElevated();
 
-    // Relanza el ejecutable actual solicitando elevación UAC ("runas") con los argumentos indicados.
-    // Si dry_run == true, solo verifica que puede obtener la ruta del ejecutable y devuelve true sin abrir ventana UAC.
+    // Relaunches the current executable requesting UAC elevation ("runas") with the given arguments.
+    // If dry_run == true, it only checks that it can obtain the executable path and returns true without opening a UAC window.
     static bool RelaunchAsAdmin(const std::wstring& arguments = L"", bool dry_run = false);
 
 private:

@@ -53,40 +53,40 @@ struct SandboxViolationRecord {
 
 class SandboxGuard {
 public:
-    // Operaciones seguras de I/O
+    // Safe I/O operations
     static bool SafeWriteFile(const std::wstring& path, const std::string& content, bool is_anticheat_protected = false);
     static bool SafeCopyFile(const std::wstring& src, const std::wstring& dst, bool overwrite, bool is_anticheat_protected = false);
     static bool SafeRemoveFile(const std::wstring& path, bool is_anticheat_protected = false);
     static bool SafeReadFile(const std::wstring& path, std::string& out_content);
 
-    // Validación de límites y seguridad de rutas
+    // Boundary validation and path security
     static SandboxValidationResult ValidatePath(const std::wstring& path, SandboxAction action, bool is_anticheat_protected = false);
 
-    // Normalización canónica (GetFullPathNameW + weakly_canonical, resuelve '..', '.', symlinks)
+    // Canonical normalization (GetFullPathNameW + weakly_canonical, resolves '..', '.', symlinks)
     static std::wstring CanonicalizePath(const std::wstring& path);
 
-    // Reglas de evaluación
+    // Evaluation rules
     static bool IsBlacklisted(const std::wstring& canonical_path, std::string* out_reason = nullptr);
     static bool IsWhitelisted(const std::wstring& canonical_path, std::string* out_reason = nullptr);
     static bool IsDriveRootOrDirectChild(const std::filesystem::path& canonical_path);
 
-    // Detección e inspección de Anti-Cheat
+    // Anti-Cheat detection and inspection
     static bool DirectoryContainsAntiCheat(const std::filesystem::path& dir);
     static bool PathContainsAntiCheatSignature(const std::wstring& path);
     static bool CanModifyGamePath(const std::filesystem::path& targetDir);
 
-    // Whitelist dinámica (para bibliotecas de juegos registradas o directorios de prueba)
+    // Dynamic whitelist (for registered game libraries or test directories)
     static void AddAllowedPath(const std::wstring& path);
     static void RemoveAllowedPath(const std::wstring& path);
     static void ClearCustomAllowedPaths();
     static std::vector<std::wstring> GetAllowedPaths();
 
-    // Registro de violaciones de seguridad
+    // Security violation log
     static std::vector<SandboxViolationRecord> GetViolations();
     static void ClearViolations();
     static size_t GetViolationCount();
 
-    // Utilidades de depuración
+    // Debugging utilities
     static const char* ActionToString(SandboxAction action);
     static const char* DenialReasonToString(SandboxDenialReason reason);
 

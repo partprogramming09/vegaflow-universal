@@ -48,51 +48,51 @@ struct EngineOptimizationReport {
 struct ApuShadowConfig {
     uint32_t max_cascades = 2;          // r.Shadow.CSM.MaxCascades
     float distance_scale = 0.7f;        // r.Shadow.DistanceScale
-    float radius_threshold = 0.04f;     // r.Shadow.RadiusThreshold (poda sombras microscópicas lejanas)
+    float radius_threshold = 0.04f;     // r.Shadow.RadiusThreshold (prunes distant microscopic shadows)
     bool half_res_ao = true;            // r.AOHalfRes
-    uint32_t volumetric_fog = 0;        // r.VolumetricFog (0 = desactivado, 1 = activo)
+    uint32_t volumetric_fog = 0;        // r.VolumetricFog (0 = disabled, 1 = active)
 };
 
 class SteamEngineOptimizer {
 public:
-    // Lee HKCU\Software\Valve\Steam -> RunningAppID (0 si no hay ningún juego de Steam en ejecución)
+    // Reads HKCU\Software\Valve\Steam -> RunningAppID (0 if no Steam game is running)
     static uint32_t GetRunningSteamAppId();
 
-    // Obtiene la ruta de instalación de Steam desde HKCU\Software\Valve\Steam (SteamPath) o HKLM\SOFTWARE\WOW6432Node\Valve\Steam
+    // Gets the Steam install path from HKCU\Software\Valve\Steam (SteamPath) or HKLM\SOFTWARE\WOW6432Node\Valve\Steam
     static std::wstring GetSteamInstallPath();
 
-    // Escanea libraryfolders.vdf y todos los appmanifest_*.acf para descubrir juegos instalados, su ejecutable real, motor y anti-cheat
+    // Scans libraryfolders.vdf and every appmanifest_*.acf to discover installed games, their real executable, engine and anti-cheat
     static std::vector<SteamGameEntry> ScanSteamLibrary();
 
-    // Inspecciona una carpeta de instalación de juego arbitraria para determinar su ejecutable principal, motor gráfico y presencia de Anti-Cheat
+    // Inspects an arbitrary game install folder to determine its main executable, graphics engine and Anti-Cheat presence
     static SteamGameEntry InspectGameDirectory(const std::wstring& install_dir, uint32_t app_id = 0, const std::string& name = "");
 
-    // Genera el bloque de configuración UMA para Engine.ini según la política de hardware y VRAM pool
+    // Generates the UMA configuration block for Engine.ini according to the hardware policy and VRAM pool
     static std::string GenerateUnrealUmaBlock(const ApuOptimizationPolicy& policy, uint32_t vram_pool_mb_override = 0);
 
-    // Aplica el preset oculto del motor para APU UMA (y DXGI Flip Model).
-    // Si has_anticheat == true, bloquea la edición de archivos del motor y solo aplica DXGI Flip Model seguro.
-    // Crea siempre copia de seguridad .vegaflow.bak antes de modificar Engine.ini o boot.config.
+    // Applies the hidden engine preset for APU UMA (and DXGI Flip Model).
+    // If has_anticheat == true, blocks editing of engine files and only applies the safe DXGI Flip Model.
+    // Always creates a .vegaflow.bak backup before modifying Engine.ini or boot.config.
     static EngineOptimizationReport ApplyEngineUmaPreset(
         const SteamGameEntry& game,
         uint32_t vram_pool_mb = 4096,
         bool dry_run = false,
         const std::wstring& custom_config_dir_override = L"");
 
-    // Restaura la configuración original del motor a partir del archivo .vegaflow.bak
+    // Restores the original engine configuration from the .vegaflow.bak file
     static EngineOptimizationReport RestoreEngineOriginalConfig(
         const SteamGameEntry& game,
         bool dry_run = false,
         const std::wstring& custom_config_dir_override = L"");
 
-    // Inyecta o actualiza configuración de sombras optimizada para el APU Vega 6 en [SystemSettings] de iniPath.
-    // Valida la ruta mediante SandboxGuard::CanModifyGamePath y bloquea si detecta Anti-Cheat a nivel kernel.
+    // Injects or updates shadow settings optimized for the Vega 6 APU in [SystemSettings] of iniPath.
+    // Validates the path via SandboxGuard::CanModifyGamePath and blocks if kernel-level Anti-Cheat is detected.
     static bool ApplyApuShadowConfig(const std::filesystem::path& iniPath, const ApuShadowConfig& config, bool dryRun = false);
 
-    // Restaura la configuración de sombras a partir del respaldo .bak o elimina las claves inyectadas.
+    // Restores the shadow settings from the .bak backup or removes the injected keys.
     static bool RestoreApuShadowConfig(const std::filesystem::path& iniPath, bool dryRun = false);
 
-    // Parsea [SystemSettings] de iniPath y extrae los valores actuales de las 5 variables de sombras optimizadas.
+    // Parses [SystemSettings] of iniPath and extracts the current values of the 5 optimized shadow variables.
     static bool QueryApuShadowConfig(const std::filesystem::path& iniPath, ApuShadowConfig& currentConfig);
 
     static const char* EngineTypeToString(GameEngineType type);

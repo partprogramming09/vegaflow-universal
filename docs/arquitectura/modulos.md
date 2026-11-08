@@ -55,7 +55,7 @@ Implementado en [`src/ui/gui_window.hpp`](../../src/ui/gui_window.hpp) y [`src/u
        - **DirectFlip / AutoFlip**: Indicador de derivación directa de swap chain (0ms de latencia, bypass de cola DWM).
 
 ### 3.4. Suite Moderna para Juegos 3D (EcoQoS, Jerarquía I/O NT y DirectFlip)
-Implementada de forma coordinada en [`src/optimize/cpu_orchestrator.cpp`](../../src/optimize/cpu_orchestrator.cpp), [`src/optimize/graphics_optimizer.cpp`](../../src/optimize/graphics_optimizer.cpp), [`src/app/main.cpp`](../../src/app/main.cpp) y [`src/ui/gui_window.cpp`](../../src/ui/gui_window.cpp):
+Implementada de forma coordinada en [`src/optimize/cpu_orchestrator.cpp`](../../src/optimize/cpu_orchestrator.cpp), [`src/optimize/graphics/`](../../src/optimize/graphics/), [`src/app/main.cpp`](../../src/app/main.cpp) y [`src/ui/gui_window.cpp`](../../src/ui/gui_window.cpp):
 
 1. **Background EcoQoS (Power Throttling en Procesos de Fondo)**:
    - **Explicación técnica y física:** En procesadores con arquitectura APU como el Ryzen 5 4600H, el presupuesto térmico STAPM (Skin Temperature Aware Power Management) está limitado dinámicamente entre 35W y 45W para todo el encapsulado. Cuando procesos secundarios (navegadores web, launchers, Discord, tareas de indexación) ejecutan ráfagas de cómputo en núcleos Zen 2 a voltajes altos, sustraen entre 3W y 5W de este presupuesto unificado. La unidad SMU de AMD se ve forzada a reducir la frecuencia de la GPU Vega 6 a 1100–1200 MHz para mantenerse dentro del umbral térmico.
@@ -95,7 +95,7 @@ Implementada de forma coordinada en [`src/optimize/cpu_orchestrator.cpp`](../../
    - Esto habilita la promoción directa a **DirectFlip** en Windows 11, desacoplando la swap chain de la cola de copiado de DWM. El motor gráfico proyecta sus fotogramas directamente a la controladora de vídeo, logrando **0ms de latencia de entrada adicional** (equivalente a pantalla completa exclusiva) preservando la comodidad de la multitarea borderless y la compatibilidad con superposiciones de sistema.
 
 ### 3.5. Suite de Silicio APU & Blindaje de Memoria de Kernel NT (DisablePagingExecutive & Smart Tessellation 16x)
-Implementada en [`src/optimize/graphics_optimizer.cpp`](../../src/optimize/graphics_optimizer.cpp), [`src/app/main.cpp`](../../src/app/main.cpp) y [`src/ui/gui_window.cpp`](../../src/ui/gui_window.cpp):
+Implementada en [`src/optimize/graphics/`](../../src/optimize/graphics/), [`src/app/main.cpp`](../../src/app/main.cpp) y [`src/ui/gui_window.cpp`](../../src/ui/gui_window.cpp):
 
 1. **Blindaje de Memoria de Kernel NT (`DisablePagingExecutive=1` & `LargeSystemCache=0`)**:
    - **Explicación técnica y física:** En sistemas APU con arquitectura de memoria unificada (UMA), Windows NT por defecto traslada al archivo de paginación (`pagefile.sys`) el código ejecutable de drivers y subsistemas del kernel inactivos temporalmente. Cuando la GPU integrada Vega 6 o el pipeline D3D demanda recursos de inmediato, un fallo de página duro (*hard page fault*) al disco NVMe provoca un congelamiento perceptible (micro-stutter) de 50 a 200 ms.
@@ -111,7 +111,6 @@ Implementada en [`src/optimize/graphics_optimizer.cpp`](../../src/optimize/graph
 
 ```
 direct/
-├── CMakeLists.txt                # Configuración de compilación para CMake 3.20+
 ├── .gitignore                    # Reglas de exclusión para Git (artefactos, temporales, logs)
 ├── config/
 │   └── config.json               # Configuración persistente del daemon y lista de juegos
@@ -127,48 +126,64 @@ direct/
 │           ├── uma_memory.rs     # Evaluador de presión UMA y descarte de Standby List
 │           ├── cpu_governor.rs   # Particionamiento de CPU Sets según topología L3 / CCX e histéresis
 │           └── sandbox_core.rs   # Scanner determinista de firmas de kernel Anti-Cheat y listas críticas
-├── include/
-│   ├── core/
+├── src/                          # Cada .hpp vive junto a su .cpp, agrupado por función
+│   ├── app/                      # Arranque del daemon (main.cpp solo orquesta)
+│   │   ├── main.cpp              # Punto de entrada: lee la línea de comandos y elige el modo
+│   │   ├── cli.*                 # Banderas y órdenes de un solo uso (--status, --purge-now, ...)
+│   │   ├── config.*              # config.json y lista de juegos
+│   │   ├── daemon_loop.*         # Modo por defecto: bucle del daemon y apagado limpio
+│   │   ├── gui_mode.*            # --gui: ventana nativa con bandeja
+│   │   ├── monitor.*             # --monitor: panel de consola en vivo
+│   │   ├── reports.*             # --status, --dry-run y --purge-now
+│   │   ├── run_cycle.*           # Un ciclo de evaluación: detectar juego, aplicar o soltar
+│   │   ├── app_state.*           # Estado compartido y manejador de Ctrl+C
+│   │   └── text_convert.*        # UTF-8 <-> UTF-16
+│   ├── detect/                   # Qué hardware y qué juego hay
+│   │   ├── hardware_profiler.*   # Análisis de hardware universal y topología de CPU
+│   │   ├── system_info.*         # Subsistema SystemInfo (hardware, UMA, SMBIOS RAM, OS y JSON)
+│   │   └── process_detector.*    # Detección no invasiva de juegos y APIs (DX11/12/VK)
+│   ├── optimize/                 # Las optimizaciones
+│   │   ├── graphics/             # Ajustes de Windows y del driver (un tema por archivo)
+│   │   │   ├── graphics_optimizer.hpp   # API pública (clase GraphicsOptimizer)
+│   │   │   ├── timer.cpp                # Resolución del temporizador NT (0.5 ms)
+│   │   │   ├── dxgi_flip.cpp            # Flip Model y DirectFlip por juego
+│   │   │   ├── tweaks_query.cpp         # Lectura del estado de todos los ajustes
+│   │   │   ├── kernel_tweaks.cpp        # Compresión de memoria, prioridad y paging shield
+│   │   │   ├── display_tweaks.cpp       # MPO, GameDVR y pantalla completa
+│   │   │   ├── mmcss.cpp                # Perfil MMCSS de juegos
+│   │   │   ├── amd_driver_tweaks.cpp    # Teselación y boost del driver AMD
+│   │   │   ├── power_mode.cpp           # Perfil de energía de la APU
+│   │   │   ├── vram_reporting.cpp       # Reporte de VRAM de la UMA
+│   │   │   ├── shader_cache.cpp         # Caché de shaders
+│   │   │   ├── registry_backup.cpp      # Copia y restauración de valores del registro
+│   │   │   └── graphics_internal.hpp    # Ayudantes compartidos (no es API pública)
+│   │   ├── steam/                # Biblioteca de Steam y presets por motor
+│   │   │   ├── steam_engine_optimizer.hpp  # API pública
+│   │   │   ├── steam_library.cpp       # Instalación de Steam y escaneo de juegos
+│   │   │   ├── engine_detection.cpp    # Qué motor usa cada juego
+│   │   │   ├── engine_presets.cpp      # Aplicar y restaurar presets de UE/Unity
+│   │   │   ├── apu_shadow_config.cpp   # Configuración "sombra" para APU
+│   │   │   └── steam_internal.*        # Ayudantes compartidos
+│   │   ├── fsr/                  # Escalador espacial
+│   │   │   ├── fsr_scaler.hpp          # API pública
+│   │   │   ├── fsr_scaler.cpp          # Ciclo de vida y estado
+│   │   │   ├── render_loop.cpp         # Bucle de render D3D11
+│   │   │   └── fsr_internal.*          # Shaders HLSL y ayudantes de D3D
+│   │   ├── memory_manager.*      # Telemetría de RAM/VRAM y purga de Standby List
+│   │   ├── cpu_orchestrator.*    # Asignación de CPU Sets y aislamiento de procesos
+│   │   └── dxvk_manager.*        # Despliegue seguro de DXVK-GPLAsync y backups
+│   ├── safety/                   # Lo que protege al sistema y al juego
+│   │   ├── sandbox_guard.*       # Aislamiento Zero-Trust, normalización canónica, whitelist y cuarentena anti-cheat
+│   │   └── frame_telemetry.*     # Monitoreo estadístico de frametimes (1% y 0.1% Lows)
+│   ├── ui/                       # Ventana nativa Win32/GDI
+│   │   ├── gui_window.*          # Interfaz Slate/Zinc y System Tray
+│   │   ├── gui_components.*      # Componentes modulares de UI y renderizado gráfico
+│   │   └── gui_tabs.cpp          # Contenido de cada pestaña
+│   ├── windows/                  # Envolturas de la API de Windows
 │   │   ├── nt_defs.hpp           # Typedefs y llamadas nativas indocumentadas de NTDLL
-│   │   ├── privileges.hpp        # Gestión de privilegios NT y elevación UAC
-│   │   ├── hardware_profiler.hpp # Análisis de hardware universal y topología de CPU
-│   │   ├── system_info.hpp       # Subtema modular SystemInfo (hardware, UMA, SMBIOS RAM, OS y JSON)
-│   │   ├── process_detector.hpp  # Detección no invasiva de juegos y APIs (DX11/12/VK)
-│   │   └── rust_bridge.h         # Definición de tipos y firmas FFI C/Rust (Zero-Allocation)
-│   ├── optimizers/
-│   │   ├── graphics_optimizer.hpp# Flip Model, Timer NT (0.5ms), MMCSS, MPO y Tweaks
-│   │   ├── memory_manager.hpp    # Telemetría de RAM/VRAM y purga de Standby List
-│   │   ├── cpu_orchestrator.hpp  # Asignación de CPU Sets y aislamiento de procesos
-│   │   ├── fsr_scaler.hpp        # Escalador espacial zero-hook (FSR 1.0, NIS, Anime4K)
-│   │   ├── steam_engine_optimizer.hpp # Detección de juegos Steam, motores (UE/Unity) y presets
-│   │   └── dxvk_manager.hpp      # Despliegue seguro de DXVK-GPLAsync y backups
-│   ├── security/
-│   │   ├── sandbox_guard.hpp     # Aislamiento Zero-Trust, normalización canónica, whitelist y cuarentena anti-cheat
-│   │   └── frame_telemetry.hpp   # Monitoreo estadístico de frametimes (1% y 0.1% Lows)
-│   └── gui/
-│       ├── gui_window.hpp        # Interfaz gráfica moderna Win32/GDI Slate/Zinc y System Tray
-│       └── gui_components.hpp    # Componentes modulares de UI y renderizado gráfico
-├── src/
-│   ├── main.cpp                  # Punto de entrada del daemon, CLI handler y bucle
-│   ├── core/
-│   │   ├── privileges.cpp
-│   │   ├── hardware_profiler.cpp
-│   │   ├── process_detector.cpp
-│   │   └── system_info.cpp
-│   ├── optimizers/
-│   │   ├── graphics_optimizer.cpp
-│   │   ├── memory_manager.cpp
-│   │   ├── cpu_orchestrator.cpp
-│   │   ├── fsr_scaler.cpp
-│   │   ├── steam_engine_optimizer.cpp
-│   │   └── dxvk_manager.cpp
-│   ├── security/
-│   │   ├── sandbox_guard.cpp
-│   │   └── frame_telemetry.cpp
-│   └── gui/
-│       ├── gui_window.cpp
-│       ├── gui_components.cpp
-│       └── gui_tabs.cpp
+│   │   └── privileges.*          # Gestión de privilegios NT y elevación UAC
+│   └── bridge/
+│       └── rust_bridge.h         # Definición de tipos y firmas FFI C/Rust (Zero-Allocation)
 ├── tests/
 │   └── test_main.cpp             # Suite de 31 pruebas unitarias e integradas (C++20 + Rust FFI)
 ├── logs/

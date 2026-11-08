@@ -14,14 +14,14 @@ namespace vegaflow {
 namespace {
 
 // =============================================================================
-// Pintado Principal del Dashboard (Sidebar + Despacho de Pestañas + Barra de Estado)
+// Main Dashboard painting (Sidebar + Tab Dispatch + Status Bar)
 // =============================================================================
 void PaintDashboard(HDC hdcMem, const RECT& rcClient, GuiWindowState* state) {
     if (!state) return;
 
     state->hit_boxes.clear();
 
-    // 1. Fondo general de la ventana
+    // 1. Overall window background
     HBRUSH hbrMainBg = CreateSolidBrush(CLR_BG_MAIN);
     FillRect(hdcMem, &rcClient, hbrMainBg);
     DeleteObject(hbrMainBg);
@@ -29,14 +29,14 @@ void PaintDashboard(HDC hdcMem, const RECT& rcClient, GuiWindowState* state) {
     SetBkMode(hdcMem, TRANSPARENT);
 
     // =========================================================================
-    // 2. Menú Lateral Izquierdo (Sidebar de 250 px)
+    // 2. Left Side Menu (250 px sidebar)
     // =========================================================================
     RECT rcSidebar = { 0, 0, SIDEBAR_WIDTH, rcClient.bottom - STATUSBAR_HEIGHT };
     HBRUSH hbrSidebar = CreateSolidBrush(CLR_BG_SIDEBAR);
     FillRect(hdcMem, &rcSidebar, hbrSidebar);
     DeleteObject(hbrSidebar);
 
-    // Divisor lateral vertical
+    // Vertical side divider
     HPEN hPenSidebarDiv = CreatePen(PS_SOLID, 1, CLR_SIDEBAR_BORDER);
     HPEN hOldPen = static_cast<HPEN>(SelectObject(hdcMem, hPenSidebarDiv));
     MoveToEx(hdcMem, SIDEBAR_WIDTH, 0, nullptr);
@@ -44,14 +44,14 @@ void PaintDashboard(HDC hdcMem, const RECT& rcClient, GuiWindowState* state) {
     SelectObject(hdcMem, hOldPen);
     DeleteObject(hPenSidebarDiv);
 
-    // Logotipo y título en el sidebar
+    // Logo and title in the sidebar
     DrawTextAt(hdcMem, 22, 18, L"VEGAFLOW", CLR_ACCENT_CYAN, state->hFontTitle);
     DrawTextAt(hdcMem, 22, 44, L"UNIVERSAL TUNING", CLR_TEXT_MUTED, state->hFontSmall);
 
     RECT rcChip = { 158, 22, 234, 42 };
     DrawBadge(hdcMem, rcChip, L"v1.2 UMA", CLR_ACCENT_AMBER, RGB(36, 30, 20), CLR_ACCENT_AMBER, state->hFontSmallBold);
 
-    // Línea divisoria bajo el logo
+    // Divider line under the logo
     HPEN hPenHeadDiv = CreatePen(PS_SOLID, 1, CLR_SIDEBAR_BORDER);
     hOldPen = static_cast<HPEN>(SelectObject(hdcMem, hPenHeadDiv));
     MoveToEx(hdcMem, 16, 70, nullptr);
@@ -59,7 +59,7 @@ void PaintDashboard(HDC hdcMem, const RECT& rcClient, GuiWindowState* state) {
     SelectObject(hdcMem, hOldPen);
     DeleteObject(hPenHeadDiv);
 
-    // 6 Botones de pestaña en el menú lateral
+    // 6 tab buttons in the side menu
     const wchar_t* tabTitles[6] = {
         L"1. Dashboard & Telemetría",
         L"2. Ajustes Kernel & Sistema",
@@ -77,7 +77,7 @@ void PaintDashboard(HDC hdcMem, const RECT& rcClient, GuiWindowState* state) {
         DrawTabButton(hdcMem, rcTab, tabTitles[i], isActive, isHovered, ID_TAB_0 + i, state);
     }
 
-    // Parte inferior del sidebar (UAC, bandeja, consumo de memoria)
+    // Bottom of the sidebar (UAC, tray, memory usage)
     int sideBottomY = rcClient.bottom - STATUSBAR_HEIGHT;
     HPEN hPenSideLowDiv = CreatePen(PS_SOLID, 1, CLR_SIDEBAR_BORDER);
     hOldPen = static_cast<HPEN>(SelectObject(hdcMem, hPenSideLowDiv));
@@ -86,7 +86,7 @@ void PaintDashboard(HDC hdcMem, const RECT& rcClient, GuiWindowState* state) {
     SelectObject(hdcMem, hOldPen);
     DeleteObject(hPenSideLowDiv);
 
-    // Estado UAC
+    // UAC status
     RECT rcElevBadge = { 14, sideBottomY - 136, SIDEBAR_WIDTH - 14, sideBottomY - 110 };
     if (state->data.is_elevated) {
         DrawBadge(hdcMem, rcElevBadge, L"ADMINISTRADOR", CLR_ACCENT_GREEN, RGB(20, 36, 28), CLR_ACCENT_GREEN, state->hFontSmallBold);
@@ -94,19 +94,19 @@ void PaintDashboard(HDC hdcMem, const RECT& rcClient, GuiWindowState* state) {
         DrawBadge(hdcMem, rcElevBadge, L"USUARIO ESTÁNDAR", CLR_ACCENT_AMBER, RGB(36, 30, 20), CLR_ACCENT_AMBER, state->hFontSmallBold);
     }
 
-    // Botón Minimizar a Bandeja
+    // Minimize to Tray button
     RECT rcTrayBtn = { 14, sideBottomY - 102, SIDEBAR_WIDTH - 14, sideBottomY - 76 };
     bool isTrayHover = (state->hovered_id == ID_ACT_MINIMIZE_TRAY);
     DrawActionButton(hdcMem, rcTrayBtn, L"Minimizar a Bandeja", isTrayHover, CLR_ACCENT_CYAN, state->hFontSmall, ID_ACT_MINIMIZE_TRAY, state);
 
-    // Consumo del proceso demonio
+    // Daemon process usage
     wchar_t wsBuf[64];
     swprintf_s(wsBuf, L"Daemon WS: %llu KB", static_cast<unsigned long long>(state->data.daemon_private_ws_kb));
     DrawTextAt(hdcMem, 16, sideBottomY - 68, wsBuf, CLR_TEXT_MUTED, state->hFontSmall);
     DrawTextAt(hdcMem, 16, sideBottomY - 50, L"Auto-Suspensión: ACTIVA", CLR_ACCENT_CYAN, state->hFontSmall);
 
     // =========================================================================
-    // 3. Área de Contenido Principal (Despacho Modular de Pestañas)
+    // 3. Main Content Area (modular tab dispatch)
     // =========================================================================
     int padX = 16;
     int padY = 16;
@@ -141,7 +141,7 @@ void PaintDashboard(HDC hdcMem, const RECT& rcClient, GuiWindowState* state) {
     }
 
     // =========================================================================
-    // 4. Barra de Estado Inferior (Status Bar)
+    // 4. Bottom Status Bar
     // =========================================================================
     RECT rcStatusBar = { 0, rcClient.bottom - STATUSBAR_HEIGHT, rcClient.right, rcClient.bottom };
     HBRUSH hbrStatus = CreateSolidBrush(CLR_STATUSBAR_BG);
@@ -155,7 +155,7 @@ void PaintDashboard(HDC hdcMem, const RECT& rcClient, GuiWindowState* state) {
     SelectObject(hdcMem, hOldPen);
     DeleteObject(hPenStatusDiv);
 
-    // Indicador circular verde
+    // Green circular indicator
     HBRUSH hbrDot = CreateSolidBrush(CLR_ACCENT_GREEN);
     HPEN hPenDot = CreatePen(PS_SOLID, 1, CLR_ACCENT_GREEN);
     HBRUSH hOldDotBr = static_cast<HBRUSH>(SelectObject(hdcMem, hbrDot));
@@ -181,12 +181,12 @@ void PaintDashboard(HDC hdcMem, const RECT& rcClient, GuiWindowState* state) {
 }
 
 // =============================================================================
-// Despacho de Acciones Interactivas (Manejo de Clics en Hit-Boxes)
+// Interactive Action Dispatch (click handling on hit-boxes)
 // =============================================================================
 void HandleActionClick(HWND hwnd, GuiWindowState* state, int id) {
     if (!state) return;
 
-    // Conmutación de pestaña
+    // Tab switching
     if (id >= ID_TAB_0 && id <= ID_TAB_5) {
         state->current_tab = id - ID_TAB_0;
         InvalidateRect(hwnd, nullptr, FALSE);
@@ -486,7 +486,7 @@ void HandleActionClick(HWND hwnd, GuiWindowState* state, int id) {
 }
 
 // =============================================================================
-// Procedimiento de Ventana Win32 (DashboardWndProc)
+// Win32 Window Procedure (DashboardWndProc)
 // =============================================================================
 LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     auto* state = reinterpret_cast<GuiWindowState*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
@@ -502,7 +502,7 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
             state = reinterpret_cast<GuiWindowState*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
             if (!state) return -1;
 
-            // Fuentes Segoe UI con ClearType
+            // Segoe UI fonts with ClearType
             state->hFontTitle = CreateFontW(-20, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
                                             DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
                                             CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
@@ -535,10 +535,10 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                                                 DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
                                                 CLEARTYPE_QUALITY, FIXED_PITCH | FF_MODERN, L"Consolas");
 
-            // Atajo global Alt + F11 para FSR 1.0
+            // Global Alt + F11 hotkey for FSR 1.0
             RegisterHotKey(hwnd, ID_HOTKEY_FSR, MOD_ALT, VK_F11);
 
-            // Icono en System Tray
+            // System Tray icon
             state->nid.cbSize = sizeof(NOTIFYICONDATAW);
             state->nid.hWnd = hwnd;
             state->nid.uID = ID_TRAY_ICON;
@@ -548,12 +548,12 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
             wcscpy_s(state->nid.szTip, L"VegaFlow Universal Optimizer - UXTU Dashboard");
             state->tray_registered = (Shell_NotifyIconW(NIM_ADD, &state->nid) == TRUE);
 
-            // Temporizador de telemetría de 1500 ms
+            // 1500 ms telemetry timer
             SetTimer(hwnd, TIMER_TELEMETRY_ID, TIMER_TELEMETRY_INTERVAL, nullptr);
 
             ChangeWindowMessageFilterEx(hwnd, WM_COMMAND, MSGFLT_ALLOW, nullptr);
 
-            // Consulta inicial
+            // Initial query
             if (state->callbacks.on_PollTelemetry) {
                 state->data = state->callbacks.on_PollTelemetry();
             }
@@ -574,7 +574,7 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
         }
 
         case WM_ERASEBKGND:
-            return 1; // WM_PAINT maneja todo con doble búfer
+            return 1; // WM_PAINT handles everything with double buffering
 
         case WM_PAINT: {
             PAINTSTRUCT ps;
@@ -811,7 +811,7 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 } // namespace
 
 int GuiWindow::RunGuiLoop(const GuiCallbacks& callbacks) {
-    // High-DPI V2 si está disponible
+    // High-DPI V2 if available
     HMODULE hUser32 = GetModuleHandleW(L"user32.dll");
     if (hUser32) {
         using SetProcessDpiAwarenessContextProc = BOOL (WINAPI *)(HANDLE);
@@ -848,7 +848,7 @@ int GuiWindow::RunGuiLoop(const GuiCallbacks& callbacks) {
 
     RegisterClassExW(&wc);
 
-    // Ventana amplia de 1120 x 740 centrada
+    // Wide 1120 x 740 window, centered
     RECT rc = { 0, 0, 1120, 740 };
     DWORD dwStyle = WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN;
     AdjustWindowRect(&rc, dwStyle, FALSE);
@@ -883,7 +883,7 @@ int GuiWindow::RunGuiLoop(const GuiCallbacks& callbacks) {
     ShowWindow(hwnd, SW_SHOW);
     UpdateWindow(hwnd);
 
-    // Bucle de mensajes estándar
+    // Standard message loop
     MSG msg = {};
     while (GetMessageW(&msg, nullptr, 0, 0)) {
         TranslateMessage(&msg);

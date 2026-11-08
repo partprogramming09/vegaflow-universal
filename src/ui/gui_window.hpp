@@ -50,7 +50,7 @@ struct GuiDashboardData {
     uint64_t vram_local_used_mb = 0;
     uint64_t vram_local_budget_mb = 0;
 
-    // Resultados de la última purga
+    // Results of the last purge
     uint64_t last_purge_before_free_mb = 0;
     uint64_t last_purge_after_free_mb = 0;
     uint32_t last_trimmed_processes = 0;
@@ -71,7 +71,7 @@ struct GuiDashboardData {
     uint32_t active_game_pid = 0;
     bool flip_model_applied = false;
 
-    // Telemetría moderna para juegos 3D (EcoQoS, jerarquía I/O y DirectFlip)
+    // Modern telemetry for 3D games (EcoQoS, I/O hierarchy and DirectFlip)
     uint32_t ecoqos_processes_count = 0;
     bool io_priority_active = false;
     bool directflip_active = false;
@@ -83,7 +83,7 @@ struct GuiDashboardData {
 
     bool fsr_active = false;
     float fsr_sharpness = 0.2f;
-    int fsr_mode = 0; // 0 = FSR 1.0 Ultra-Clean, 1 = NIS / Bicúbico 16-Tap, 2 = Anime4K (JRPG/Cel)
+    int fsr_mode = 0; // 0 = FSR 1.0 Ultra-Clean, 1 = NIS / Bicubic 16-Tap, 2 = Anime4K (JRPG/Cel)
     std::string fsr_status_text;
     uint32_t d3dscache_mb = 0;
     uint32_t amd_dxcache_mb = 0;
@@ -101,22 +101,22 @@ struct GuiDashboardData {
     uint32_t win32_priority_separation = 2;
     bool apu_gpu_priority_active = false;
 
-    // Suite de Silicio APU & Blindaje de Memoria de Kernel NT
+    // APU Silicon Suite & NT Kernel Memory Hardening
     bool kernel_paging_shield_active = false;
     uint32_t amd_tessellation_max = 16;
 
-    // Optimizaciones Ronda 2 y Grupo 2B
+    // Round 2 and Group 2B optimizations
     bool mmcss_task_active = false;          // Tasks\Games GPU Priority == 8 && Clock Rate == 10000
-    bool apu_shadows_active = false;         // Perfil de sombras APU cargado
-    bool amd_vram_override_active = false;   // Sobrescritura VRAM UMA (4 GB DXGI/AMD)
-    uint32_t amd_vram_reported_mb = 0;       // Presupuesto reportado en MB (ej. 4096)
+    bool apu_shadows_active = false;         // APU shadow profile loaded
+    bool amd_vram_override_active = false;   // UMA VRAM override (4 GB DXGI/AMD)
+    uint32_t amd_vram_reported_mb = 0;       // Reported budget in MB (e.g. 4096)
 
-    // Subtema SystemInfo & Seguridad SandboxGuard
+    // SystemInfo & SandboxGuard security subtopic
     SystemInfoSnapshot system_info{};
     size_t sandbox_violations = 0;
     bool sandbox_guard_active = true;
 
-    // Telemetría en tiempo real de ApuCapabilityGuard
+    // Real-time ApuCapabilityGuard telemetry
     double dxgi_pressure_ratio = 0.0;
     uint32_t uma_guard_interventions = 0;
     bool uma_guard_triggered_live = false;
@@ -129,7 +129,7 @@ struct GuiCallbacks {
     std::function<bool()> on_RequestElevate;
     std::function<std::string()> on_ToggleFsr;
     std::function<std::string()> on_ToggleMemCompression;
-    // Nuevos callbacks estilo UXTU:
+    // New UXTU-style callbacks:
     std::function<std::string()> on_ToggleTimerForce;
     std::function<std::string()> on_ToggleShaderCache;
     std::function<std::string(float)> on_SetFsrSharpness;

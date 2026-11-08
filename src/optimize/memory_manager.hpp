@@ -20,7 +20,7 @@ struct VideoMemoryTelemetry {
 struct SystemMemoryTelemetry {
     uint64_t total_physical_bytes = 0;
     uint64_t free_and_zero_bytes = 0;  // (ZeroPageCount + FreePageCount) * 4096
-    uint64_t standby_bytes = 0;        // Suma de PageCountByPriority[0..7] * 4096
+    uint64_t standby_bytes = 0;        // Sum of PageCountByPriority[0..7] * 4096
     uint64_t modified_bytes = 0;       // ModifiedPageCount * 4096
     VideoMemoryTelemetry vram;
 };
@@ -64,7 +64,7 @@ public:
     explicit MemoryManager(const MemoryPurgeConfig& config = {});
     SystemMemoryTelemetry SampleTelemetry() const;
 
-    // Evalúa la histéresis, verifica que el juego no esté en pico de lectura de disco y ejecuta trim de procesos de fondo + purga de Standby List
+    // Evaluates hysteresis, checks that the game is not at a disk-read peak, and trims background processes + purges the Standby List
     MemoryActionReport EvaluateAndOptimize(
         uint32_t active_game_pid,
         const std::vector<uint32_t>& background_pids,
@@ -72,7 +72,7 @@ public:
 
     ManualPurgeReport ForcePurgeNow(const std::vector<uint32_t>& background_pids, bool dry_run = false);
 
-    // Guard de presión en tiempo real de presupuesto UMA (DXGI Budget y RAM libre)
+    // Real-time pressure guard for the UMA budget (DXGI Budget and free RAM)
     UmaGuardStatus EvaluateUmaPressureGuard(
         const SystemMemoryTelemetry& telem,
         const ApuOptimizationPolicy& policy,

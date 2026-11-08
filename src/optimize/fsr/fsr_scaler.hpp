@@ -43,28 +43,28 @@ public:
     FsrSpatialScaler(const FsrSpatialScaler&) = delete;
     FsrSpatialScaler& operator=(const FsrSpatialScaler&) = delete;
 
-    // Inicia el escalador espacial capturando la ventana del juego y proyectando un overlay click-through a pantalla completa con FSR 1.0 (EASU + RCAS)
-    // Si dry_run == true, valida dimensiones, compila los shaders HLSL de EASU y RCAS en memoria y actualiza el estado sin abrir el bucle de ventana/overlay.
+    // Starts the spatial scaler, capturing the game window and projecting a full-screen click-through overlay with FSR 1.0 (EASU + RCAS)
+    // If dry_run == true, validates dimensions, compiles the EASU and RCAS HLSL shaders in memory and updates the state without opening the window/overlay loop.
     bool StartScaling(HWND target_game_hwnd, float sharpness = 0.2f, bool dry_run = false);
 
-    // Detiene el escalador y destruye el 100% de los recursos D3D11/DXGI y la ventana overlay (restaurando el consumo a 0 MB de VRAM)
+    // Stops the scaler and destroys 100% of the D3D11/DXGI resources and the overlay window (restoring consumption to 0 MB of VRAM)
     void StopScaling();
 
-    // Alterna entre encendido y apagado
+    // Toggles between on and off
     bool ToggleScaling(HWND target_game_hwnd, float sharpness = 0.2f, bool dry_run = false);
 
-    // Actualiza la nitidez RCAS (0.0f = máxima nitidez, 1.0f = suave) en vivo sin recrear el dispositivo D3D11
+    // Updates RCAS sharpness (0.0f = maximum sharpness, 1.0f = soft) live without recreating the D3D11 device
     void SetSharpness(float sharpness);
 
-    // Cambia el algoritmo de reescalado HLSL en vivo (FSR 1.0 Ultra-Clean, NIS Bicúbico 16-Tap o Anime4K)
+    // Switches the HLSL upscaling algorithm live (FSR 1.0 Ultra-Clean, NIS Bicubic 16-Tap or Anime4K)
     void SetAlgorithm(UpscaleAlgorithm algo);
     UpscaleAlgorithm GetAlgorithm() const;
     static const char* AlgorithmToString(UpscaleAlgorithm algo);
 
-    // Devuelve el estado actual de forma thread-safe
+    // Returns the current state in a thread-safe way
     FsrScalerStatus GetStatus() const;
 
-    // Compila y valida únicamente los shaders HLSL de EASU (Pass 1) y RCAS (Pass 2) con D3DCompile (para pruebas automatizadas sin requerir juego abierto)
+    // Compiles and validates only the EASU (Pass 1) and RCAS (Pass 2) HLSL shaders with D3DCompile (for automated tests without needing an open game)
     static bool CompileAndValidateShadersOnly(std::string* out_error = nullptr);
 
 private:

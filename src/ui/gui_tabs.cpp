@@ -9,13 +9,13 @@
 namespace vegaflow {
 
 // =============================================================================
-// TAB 0: DASHBOARD & TELEMETRÍA EN VIVO
+// TAB 0: DASHBOARD & LIVE TELEMETRY
 // =============================================================================
 void RenderTabDashboard(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* state,
                         int contentLeft, int contentRight, int contentTop, int contentBottom, int contentW) {
     if (!state) return;
 
-    // 1. Header Superior Limpio
+    // 1. Clean top header
     DrawTextAt(hdcMem, contentLeft, contentTop, L"VEGAFLOW APU TUNER v1.2", CLR_ACCENT_CYAN, state->hFontHeader);
 
     std::wstring hwLine = L"AMD Ryzen 5 4600H  |  Radeon Vega 6 (UMA)";
@@ -29,7 +29,7 @@ void RenderTabDashboard(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* st
     }
     DrawTextAt(hdcMem, contentLeft, contentTop + 22, hwLine, CLR_TEXT_MUTED, state->hFontSmall);
 
-    // Badge APU Guard activo a la izquierda del badge UAC
+    // APU Guard badge (active) to the left of the UAC badge
     RECT rcGuardBadge = { contentRight - 335, contentTop + 2, contentRight - 142, contentTop + 26 };
     std::string guardMode = state->data.system_info.apu_guard.guard_mode.empty()
         ? "SWEET-SPOT GUARD"
@@ -44,7 +44,7 @@ void RenderTabDashboard(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* st
         DrawBadge(hdcMem, rcGuardBadge, wGuardMode, CLR_ACCENT_CYAN, RGB(18, 32, 38), CLR_ACCENT_CYAN, state->hFontSmallBold);
     }
 
-    // Badge UAC superior derecho
+    // Top-right UAC badge
     RECT rcUacBadge = { contentRight - 135, contentTop + 2, contentRight, contentTop + 26 };
     if (state->data.is_elevated) {
         DrawBadge(hdcMem, rcUacBadge, L"ADMINISTRADOR", CLR_ACCENT_GREEN, RGB(20, 36, 28), CLR_ACCENT_GREEN, state->hFontSmallBold);
@@ -52,7 +52,7 @@ void RenderTabDashboard(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* st
         DrawBadge(hdcMem, rcUacBadge, L"ESTÁNDAR", CLR_ACCENT_AMBER, RGB(36, 30, 20), CLR_ACCENT_AMBER, state->hFontSmallBold);
     }
 
-    // Divisor superior sutil
+    // Subtle top divider
     HPEN hPenTopDiv = CreatePen(PS_SOLID, 1, CLR_CARD_BORDER);
     HPEN hOldPen = static_cast<HPEN>(SelectObject(hdcMem, hPenTopDiv));
     MoveToEx(hdcMem, contentLeft, contentTop + 46, nullptr);
@@ -61,7 +61,7 @@ void RenderTabDashboard(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* st
     DeleteObject(hPenTopDiv);
 
     // -------------------------------------------------------------------------
-    // 2. Top KPIs (4 Tarjetas Compactas)
+    // 2. Top KPIs (4 cards Compactas)
     // -------------------------------------------------------------------------
     int kpiY = contentTop + 54;
     int kpiH = 68;
@@ -115,7 +115,7 @@ void RenderTabDashboard(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* st
     DrawTextAt(hdcMem, rcK4.left + 12, rcK4.top + 28, ramBuf, CLR_ACCENT_PURPLE, state->hFontMetric);
 
     // -------------------------------------------------------------------------
-    // 3. Rejilla de Estado de Optimizaciones (4 Tarjetas 2x2)
+    // 3. Optimization Status Grid (4 cards, 2x2)
     // -------------------------------------------------------------------------
     int gridY = kpiY + kpiH + 12;
     int rowH = 50;
@@ -162,35 +162,35 @@ void RenderTabDashboard(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* st
     }
 
     // -------------------------------------------------------------------------
-    // 4. Barra de Acciones Rápidas (Botones 1-Clic con Hit-Test)
+    // 4. Quick Actions Bar (1-click buttons with hit-test)
     // -------------------------------------------------------------------------
     int actY = gridY + 2 * (rowH + rowGutter) + 4;
     int actH = 38;
     int btnGutter = 10;
     int btnW = (contentW - 3 * btnGutter) / 4;
 
-    // Botón 1: Purgar Standby RAM
+    // Button 1: Purge Standby RAM
     RECT rcBtn1 = { contentLeft, actY, contentLeft + btnW, actY + actH };
     bool isP1Hover = (state->hovered_id == ID_ACT_PURGE_RAM);
     DrawActionButton(hdcMem, rcBtn1, L"Purgar Standby RAM", isP1Hover, CLR_ACCENT_CYAN, state->hFontSmallBold, ID_ACT_PURGE_RAM, state);
 
-    // Botón 2: Aplicar Combo Gaming 2B
+    // Button 2: Apply Gaming Combo 2B
     RECT rcBtn2 = { rcBtn1.right + btnGutter, actY, rcBtn1.right + btnGutter + btnW, actY + actH };
     bool isP2Hover = (state->hovered_id == ID_ACT_APPLY_ALL_2B);
     DrawActionButton(hdcMem, rcBtn2, L"Aplicar Combo Gaming 2B", isP2Hover, CLR_ACCENT_GREEN, state->hFontSmallBold, ID_ACT_APPLY_ALL_2B, state);
 
-    // Botón 3: Revertir Ajustes
+    // Button 3: Revert Settings
     RECT rcBtn3 = { rcBtn2.right + btnGutter, actY, rcBtn2.right + btnGutter + btnW, actY + actH };
     bool isP3Hover = (state->hovered_id == ID_ACT_RESTORE_DEFAULTS);
     DrawActionButton(hdcMem, rcBtn3, L"Revertir Ajustes", isP3Hover, CLR_ACCENT_AMBER, state->hFontSmallBold, ID_ACT_RESTORE_DEFAULTS, state);
 
-    // Botón 4: Minimizar a Bandeja
+    // Button 4: Minimize to Tray
     RECT rcBtn4 = { rcBtn3.right + btnGutter, actY, contentRight, actY + actH };
     bool isP4Hover = (state->hovered_id == ID_ACT_MINIMIZE_TRAY);
     DrawActionButton(hdcMem, rcBtn4, L"Minimizar a Bandeja", isP4Hover, CLR_TEXT_MUTED, state->hFontSmallBold, ID_ACT_MINIMIZE_TRAY, state);
 
     // -------------------------------------------------------------------------
-    // 5. Panel Inferior: Monitor de Juego / Telemetría en Tiempo Real
+    // 5. Bottom Panel: Game Monitor / Real-Time Telemetry
     // -------------------------------------------------------------------------
     int botY = actY + actH + 10;
     RECT rcBotCard = { contentLeft, botY, contentRight, contentBottom };
@@ -263,13 +263,13 @@ void RenderTabDashboard(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* st
 }
 
 // =============================================================================
-// TAB 1: AJUSTES KERNEL & SISTEMA (MINIMALISTA - 6 TARJETAS COMPACTAS CON SWITCH)
+// TAB 1: KERNEL & SYSTEM TWEAKS (MINIMALIST - 6 COMPACT CARDS WITH SWITCH)
 // =============================================================================
 void RenderTabKernel(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* state,
                      int contentLeft, int contentRight, int contentTop, int /*contentBottom*/, int /*contentW*/) {
     if (!state) return;
 
-    // Header Superior Limpio
+    // Clean top header
     DrawTextAt(hdcMem, contentLeft, contentTop, L"AJUSTES DE KERNEL & SISTEMA", CLR_ACCENT_CYAN, state->hFontHeader);
     DrawTextAt(hdcMem, contentLeft, contentTop + 20, L"Optimización de baja latencia con conmutación dinámica instantánea", CLR_TEXT_MUTED, state->hFontSmall);
 
@@ -387,13 +387,13 @@ void RenderTabKernel(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* state
 
         DrawRoundedCard(hdcMem, rcCard, CLR_CARD_BG, CLR_CARD_BORDER, 8);
 
-        // Título del tweak
+        // Tweak title
         DrawTextAt(hdcMem, rcCard.left + 16, rcCard.top + 10, tweaks[i].title, CLR_TEXT_TITLE, state->hFontBold);
 
-        // Propósito conciso (4-6 palabras)
+        // Concise purpose (4-6 words)
         DrawTextAt(hdcMem, rcCard.left + 16, rcCard.top + 32, tweaks[i].purpose, CLR_TEXT_MUTED, state->hFontSmall);
 
-        // Badge de estado a la izquierda del switch
+        // Status badge to the left of the switch
         RECT rcBadge = { rcCard.right - 265, rcCard.top + (cardH - 24) / 2, rcCard.right - 105, rcCard.top + (cardH - 24) / 2 + 24 };
         if (tweaks[i].isActive) {
             DrawBadge(hdcMem, rcBadge, tweaks[i].activeBadge, tweaks[i].activeColor, RGB(20, 36, 28), tweaks[i].activeColor, state->hFontSmallBold);
@@ -401,7 +401,7 @@ void RenderTabKernel(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* state
             DrawBadge(hdcMem, rcBadge, tweaks[i].inactiveBadge, CLR_TEXT_MUTED, RGB(33, 38, 48), CLR_CARD_BORDER, state->hFontSmallBold);
         }
 
-        // Toggle Switch ON/OFF interactivo
+        // Interactive ON/OFF toggle switch
         RECT rcSw = { rcCard.right - 90, rcCard.top + (cardH - 28) / 2, rcCard.right - 20, rcCard.top + (cardH - 28) / 2 + 28 };
         bool isHovered = (state->hovered_id == tweaks[i].id);
         DrawToggleSwitch(hdcMem, rcSw, tweaks[i].isActive, isHovered, tweaks[i].id, state);
@@ -409,18 +409,18 @@ void RenderTabKernel(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* state
 }
 
 // =============================================================================
-// TAB 2: MEMORIA UMA & NÚCLEOS CPU (CON BARRAS COMPACTAS Y BOTÓN DIRECTO)
+// TAB 2: UMA MEMORY & CPU CORES (WITH COMPACT BARS AND DIRECT BUTTON)
 // =============================================================================
 void RenderTabMemory(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* state,
                      int contentLeft, int contentRight, int contentTop, int contentBottom, int /*contentW*/) {
     if (!state) return;
 
-    // Header Superior Limpio
+    // Clean top header
     DrawTextAt(hdcMem, contentLeft, contentTop, L"MEMORIA UNIFICADA UMA & ASIGNACIÓN DE NÚCLEOS", CLR_ACCENT_CYAN, state->hFontHeader);
     DrawTextAt(hdcMem, contentLeft, contentTop + 20, L"Gestión en tiempo real de Standby List y afinidad de procesos de fondo", CLR_TEXT_MUTED, state->hFontSmall);
 
     // -------------------------------------------------------------------------
-    // 1. Tarjeta Superior: Gestor de Memoria UMA & Purga
+    // 1. Top Card: UMA Memory Manager & Purge
     // -------------------------------------------------------------------------
     int topMemY = contentTop + 46;
     int topMemH = 138;
@@ -461,7 +461,7 @@ void RenderTabMemory(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* state
                activePoolMb);
     DrawTextAt(hdcMem, rcTopMem.left + 16, rcTopMem.top + 38, mLine, CLR_TEXT_TITLE, state->hFontRegular);
 
-    // Barra de progreso multi-segmento estilizada
+    // Styled multi-segment progress bar
     RECT rcBar = { rcTopMem.left + 16, rcTopMem.top + 62, rcTopMem.right - 16, rcTopMem.top + 76 };
     double totalRam = static_cast<double>(state->data.total_ram_mb > 0 ? state->data.total_ram_mb : 16384);
     double freeFrac = static_cast<double>(state->data.free_ram_mb) / totalRam;
@@ -477,7 +477,7 @@ void RenderTabMemory(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* state
     };
     DrawMultiSegmentBar(hdcMem, rcBar, segments, CLR_BAR_BG, CLR_CARD_BORDER);
 
-    // Línea inferior: Info de última purga + Botón directo
+    // Bottom line: last purge info + direct button
     int botRowY = rcTopMem.top + 88;
     if (state->data.last_purge_after_free_mb > 0) {
         wchar_t repBuf[256];
@@ -501,7 +501,7 @@ void RenderTabMemory(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* state
     DrawActionButton(hdcMem, rcPurgeBtn, L"VACIAR STANDBY RAM AHORA", isPurgeHov, CLR_ACCENT_CYAN, state->hFontSmallBold, ID_ACT_PURGE_RAM, state);
 
     // -------------------------------------------------------------------------
-    // 2. Tarjeta Inferior: Mapa Visual de CPU y Aislamiento de Procesos
+    // 2. Bottom Card: CPU Visual Map & Process Isolation
     // -------------------------------------------------------------------------
     int botCpuY = topMemY + topMemH + 12;
     RECT rcBotCpu = { contentLeft, botCpuY, contentRight, contentBottom };
@@ -509,7 +509,7 @@ void RenderTabMemory(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* state
 
     DrawTextAt(hdcMem, rcBotCpu.left + 16, rcBotCpu.top + 12, L"MAPA DE TOPOLOGÍA CPU & AISLAMIENTO (CPU SETS)", CLR_ACCENT_CYAN, state->hFontBold);
 
-    // Leyenda compacta
+    // Compact legend
     DrawTextAt(hdcMem, rcBotCpu.left + 16, rcBotCpu.top + 34,
                L"[ ■ Juego (Cian) ]    [ ■ Segundo Plano (Morado) ]    [ ■ DPC / ISR (Ámbar) ]    [ ■ Estándar ]",
                CLR_TEXT_MUTED, state->hFontSmall);
@@ -578,7 +578,7 @@ void RenderTabMemory(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* state
                state->data.noisy_bg_processes_count, state->data.isolated_bg_processes_count);
     DrawTextAt(hdcMem, rcBotCpu.left + 16, afterBoxesY, bgStatsBuf, CLR_TEXT_BODY, state->hFontRegular);
 
-    // Botones de acción limpios
+    // Clean action buttons
     int actBtnsY = afterBoxesY + 24;
     RECT rcIsolateBtn = { rcBotCpu.left + 16, actBtnsY, rcBotCpu.left + 330, actBtnsY + 38 };
     bool isIsoHov = (state->hovered_id == ID_ACT_ISOLATE_BG);
@@ -590,18 +590,18 @@ void RenderTabMemory(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* state
 }
 
 // =============================================================================
-// TAB 3: ESCALADOR ESPACIAL FSR 1.0 & DXGI (SELECTOR DIRECTO DE ALGORITMO Y NITIDEZ)
+// TAB 3: FSR 1.0 SPATIAL UPSCALER & DXGI (DIRECT ALGORITHM AND SHARPNESS SELECTOR)
 // =============================================================================
 void RenderTabScaler(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* state,
                      int contentLeft, int contentRight, int contentTop, int contentBottom, int /*contentW*/) {
     if (!state) return;
 
-    // Header Superior Limpio
+    // Clean top header
     DrawTextAt(hdcMem, contentLeft, contentTop, L"ESCALADOR ESPACIAL & PRESENTACIÓN DXGI", CLR_ACCENT_CYAN, state->hFontHeader);
     DrawTextAt(hdcMem, contentLeft, contentTop + 20, L"Reescalado de fotogramas sin latencia y actualización de cadena de intercambio", CLR_TEXT_MUTED, state->hFontSmall);
 
     // -------------------------------------------------------------------------
-    // 1. Tarjeta Superior: Motor de Reescalado Espacial
+    // 1. Top Card: Spatial Upscaling Engine
     // -------------------------------------------------------------------------
     int topFsrY = contentTop + 46;
     int topFsrH = 210;
@@ -617,29 +617,29 @@ void RenderTabScaler(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* state
         DrawBadge(hdcMem, rcFsrBadge, L"ESCALADOR: DESACTIVADO (OFF)", CLR_TEXT_MUTED, RGB(33, 38, 48), CLR_CARD_BORDER, state->hFontSmallBold);
     }
 
-    // Fila 1: Selector directo de Algoritmo
+    // Row 1: Direct Algorithm selector
     DrawTextAt(hdcMem, rcTopFsr.left + 16, rcTopFsr.top + 46, L"Algoritmo de Reescalado:", CLR_TEXT_TITLE, state->hFontSmallBold);
 
     int algBtnW = 220;
     int algBtnH = 32;
     int algBtnY = rcTopFsr.top + 68;
 
-    // Algoritmo 0: FSR 1.0 Ultra-Clean
+    // Algorithm 0: FSR 1.0 Ultra-Clean
     RECT rcAlg0 = { rcTopFsr.left + 16, algBtnY, rcTopFsr.left + 16 + algBtnW, algBtnY + algBtnH };
     bool isMode0 = (state->data.fsr_mode == 0);
     DrawActionButton(hdcMem, rcAlg0, L"FSR 1.0 Ultra-Clean", (state->hovered_id == ID_ACT_FSR_MODE_0), isMode0 ? CLR_ACCENT_CYAN : CLR_CARD_BORDER, state->hFontSmallBold, ID_ACT_FSR_MODE_0, state);
 
-    // Algoritmo 1: NIS / Bicúbico 16-Tap
+    // Algorithm 1: NIS / Bicubic 16-Tap
     RECT rcAlg1 = { rcAlg0.right + 10, algBtnY, rcAlg0.right + 10 + algBtnW, algBtnY + algBtnH };
     bool isMode1 = (state->data.fsr_mode == 1);
     DrawActionButton(hdcMem, rcAlg1, L"NIS / Bicúbico 16-Tap", (state->hovered_id == ID_ACT_FSR_MODE_1), isMode1 ? CLR_ACCENT_CYAN : CLR_CARD_BORDER, state->hFontSmallBold, ID_ACT_FSR_MODE_1, state);
 
-    // Algoritmo 2: Anime4K Cel-Shading
+    // Algorithm 2: Anime4K Cel-Shading
     RECT rcAlg2 = { rcAlg1.right + 10, algBtnY, rcAlg1.right + 10 + algBtnW, algBtnY + algBtnH };
     bool isMode2 = (state->data.fsr_mode == 2);
     DrawActionButton(hdcMem, rcAlg2, L"Anime4K Cel-Shading", (state->hovered_id == ID_ACT_FSR_MODE_2), isMode2 ? CLR_ACCENT_CYAN : CLR_CARD_BORDER, state->hFontSmallBold, ID_ACT_FSR_MODE_2, state);
 
-    // Fila 2: Selector directo de Nitidez (Sharpness) + Botón Principal de Escalador
+    // Row 2: Direct Sharpness selector + main Upscaler button
     DrawTextAt(hdcMem, rcTopFsr.left + 16, rcTopFsr.top + 112, L"Nitidez Adaptativa RCAS:", CLR_TEXT_TITLE, state->hFontSmallBold);
 
     int sharpBtnW = 105;
@@ -663,20 +663,20 @@ void RenderTabScaler(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* state
     bool isAct4 = (std::abs(state->data.fsr_sharpness - 0.70f) < 0.05f);
     DrawActionButton(hdcMem, rcS4, L"0.70 Ultra", (state->hovered_id == ID_ACT_FSR_SHARP_70), isAct4 ? selSharpCol : CLR_CARD_BORDER, state->hFontSmall, ID_ACT_FSR_SHARP_70, state);
 
-    // Botón directo para Activar / Desactivar Escalador
+    // Direct button to enable / disable the upscaler
     RECT rcFsrToggleBtn = { rcS4.right + 20, sharpBtnY - 4, rcTopFsr.right - 16, sharpBtnY + sharpBtnH + 4 };
     bool isFsrTogHov = (state->hovered_id == ID_ACT_TOGGLE_FSR);
     std::wstring fsrBtnText = state->data.fsr_active ? L"DESACTIVAR ESCALADOR (Alt+F11)" : L"ACTIVAR ESCALADOR (Alt+F11)";
     DrawActionButton(hdcMem, rcFsrToggleBtn, fsrBtnText, isFsrTogHov, state->data.fsr_active ? CLR_ACCENT_RED : CLR_ACCENT_GREEN, state->hFontSmallBold, ID_ACT_TOGGLE_FSR, state);
 
-    // Estado en una sola línea
+    // Status on a single line
     std::wstring fsrStatusLine = state->data.fsr_active
         ? (L"Estado: " + (state->data.fsr_status_text.empty() ? L"Reescalado activo en tiempo real" : Utf8ToWide(state->data.fsr_status_text)))
         : L"Estado: En reposo (Juego 100% nativo - 0 MB VRAM)";
     DrawTextAt(hdcMem, rcTopFsr.left + 16, rcTopFsr.top + 178, fsrStatusLine, state->data.fsr_active ? CLR_ACCENT_GREEN : CLR_TEXT_MUTED, state->hFontSmallBold);
 
     // -------------------------------------------------------------------------
-    // 2. Tarjeta Inferior: DXGI Flip Model & Caché Shaders
+    // 2. Bottom Card: DXGI Flip Model & Shader Cache
     // -------------------------------------------------------------------------
     int botDxgiY = topFsrY + topFsrH + 12;
     RECT rcBotDxgi = { contentLeft, botDxgiY, contentRight, contentBottom };
@@ -703,17 +703,17 @@ void RenderTabScaler(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* state
 }
 
 // =============================================================================
-// TAB 4: BIBLIOTECA STEAM & MOTORES (TARJETAS COMPACTAS Y BOTONES DIRECTOS)
+// TAB 4: STEAM LIBRARY & ENGINES (COMPACT CARDS AND DIRECT BUTTONS)
 // =============================================================================
 void RenderTabSteam(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* state,
                     int contentLeft, int contentRight, int contentTop, int contentBottom, int /*contentW*/) {
     if (!state) return;
 
-    // Header Superior Limpio
+    // Clean top header
     DrawTextAt(hdcMem, contentLeft, contentTop, L"BIBLIOTECA STEAM & MOTORES DE JUEGO", CLR_ACCENT_CYAN, state->hFontHeader);
     DrawTextAt(hdcMem, contentLeft, contentTop + 20, L"Optimización de archivos de configuración y capa Vulkan DXVK por título", CLR_TEXT_MUTED, state->hFontSmall);
 
-    // Barra de control superior
+    // Top control bar
     int topBarY = contentTop + 46;
     int topBarH = 42;
     RECT rcTopBar = { contentLeft, topBarY, contentRight, topBarY + topBarH };
@@ -776,12 +776,12 @@ void RenderTabSteam(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* state,
             RECT rcGameCard = { contentLeft, cardY, contentRight, cardY + cardH };
             DrawRoundedCard(hdcMem, rcGameCard, CLR_CARD_BG, CLR_CARD_BORDER, 8);
 
-            // Título del juego
+            // Game title
             std::wstring wGameName = Utf8ToWide(game.name);
             if (wGameName.length() > 36) wGameName = wGameName.substr(0, 33) + L"...";
             DrawTextAt(hdcMem, rcGameCard.left + 16, rcGameCard.top + 12, wGameName, CLR_TEXT_TITLE, state->hFontBold);
 
-            // Badges en una fila compacta
+            // Badges in a compact row
             int badgeX = rcGameCard.left + 16;
             int badgeY = rcGameCard.top + 38;
 
@@ -801,7 +801,7 @@ void RenderTabSteam(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* state,
                 DrawBadge(hdcMem, rcAcB, L"Sin Anti-Cheat (Motor + DXGI)", CLR_ACCENT_GREEN, RGB(20, 36, 28), CLR_ACCENT_GREEN, state->hFontSmall);
             }
 
-            // Subtítulo: Ejecutable y estado
+            // Subtitle: executable and status
             std::wstring exeLine = L"Ejecutable: " + Utf8ToWide(game.exe_name) + L"   |   Estado: " +
                 (game.engine_preset_applied ? L"OPTIMIZADO (Preset UMA)" : L"STOCK");
             if (game.dxvk_installed) {
@@ -809,13 +809,13 @@ void RenderTabSteam(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* state,
             }
             DrawTextAt(hdcMem, rcGameCard.left + 16, rcGameCard.top + 70, exeLine, CLR_TEXT_MUTED, state->hFontSmall);
 
-            // Botones interactivos directos a la derecha
+            // Direct interactive buttons on the right
             int btnW = 180;
             int btnH = 26;
             int btnRightX = rcGameCard.right - 16;
             int btnLeftX = btnRightX - btnW;
 
-            // Botón 1: DXVK Vulkan
+            // Button 1: DXVK Vulkan
             RECT rcDxvkBtn = { btnLeftX, rcGameCard.top + 10, btnRightX, rcGameCard.top + 10 + btnH };
             if (game.has_anticheat) {
                 DrawBadge(hdcMem, rcDxvkBtn, L"DXVK BLOQUEADO (AC)", CLR_TEXT_MUTED, CLR_BTN_BG, CLR_CARD_BORDER, state->hFontSmall);
@@ -828,12 +828,12 @@ void RenderTabSteam(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* state,
                 }
             }
 
-            // Botón 2: Aplicar Preset APU
+            // Button 2: Apply APU Preset
             RECT rcApplyBtn = { btnLeftX, rcGameCard.top + 42, btnRightX, rcGameCard.top + 42 + btnH };
             bool isApplyHov = (state->hovered_id == (ID_ACT_STEAM_APPLY_0 + idx));
             DrawActionButton(hdcMem, rcApplyBtn, L"Aplicar Preset APU", isApplyHov, CLR_ACCENT_GREEN, state->hFontSmallBold, ID_ACT_STEAM_APPLY_0 + idx, state);
 
-            // Botón 3: Restaurar Original
+            // Button 3: Restore Original
             RECT rcRestBtn = { btnLeftX, rcGameCard.top + 74, btnRightX, rcGameCard.top + 74 + btnH };
             bool isRestHov = (state->hovered_id == (ID_ACT_STEAM_RESTORE_0 + idx));
             DrawActionButton(hdcMem, rcRestBtn, L"Restaurar Backup (.bak)", isRestHov, CLR_ACCENT_AMBER, state->hFontSmall, ID_ACT_STEAM_RESTORE_0 + idx, state);
@@ -842,13 +842,13 @@ void RenderTabSteam(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* state,
 }
 
 // =============================================================================
-// TAB 5: HISTORIAL DE CAMBIOS EN VIVO (AUDIT LOG LIMPIO EN MONOSPACE)
+// TAB 5: LIVE CHANGE HISTORY (CLEAN MONOSPACE AUDIT LOG)
 // =============================================================================
 void RenderTabAuditLog(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* state,
                        int contentLeft, int contentRight, int contentTop, int contentBottom, int /*contentW*/) {
     if (!state) return;
 
-    // Header Superior Limpio
+    // Clean top header
     DrawTextAt(hdcMem, contentLeft, contentTop, L"HISTORIAL DE CAMBIOS Y AUDITORÍA EN VIVO", CLR_ACCENT_CYAN, state->hFontHeader);
     DrawTextAt(hdcMem, contentLeft, contentTop + 20, L"Registro cronológico detallado de todas las modificaciones y eventos del sistema", CLR_TEXT_MUTED, state->hFontSmall);
 
@@ -856,7 +856,7 @@ void RenderTabAuditLog(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* sta
     int logBoxH = contentBottom - logBoxY - 52;
     RECT rcLogBox = { contentLeft, logBoxY, contentRight, logBoxY + logBoxH };
 
-    // Terminal oscuro para logs
+    // Dark terminal for logs
     DrawRoundedCard(hdcMem, rcLogBox, CLR_BAR_BG, CLR_CARD_BORDER, 8);
 
     RECT rcLogHeader = { rcLogBox.left + 14, rcLogBox.top + 8, rcLogBox.right - 14, rcLogBox.top + 28 };
@@ -869,7 +869,7 @@ void RenderTabAuditLog(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* sta
     SelectObject(hdcMem, hOldPen);
     DeleteObject(hPenLogDiv);
 
-    // Listado en fuente monospace
+    // Listing in monospace font
     int lineHeight = 18;
     int maxLines = std::max<int>(1, (logBoxH - 42) / lineHeight);
     int startIdx = 0;
@@ -894,7 +894,7 @@ void RenderTabAuditLog(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* sta
         }
     }
 
-    // Botón inferior de reversión completa
+    // Bottom full-revert button
     RECT rcRestoreBtn = { contentLeft, contentBottom - 44, contentRight, contentBottom };
     bool isRestHov = (state->hovered_id == ID_ACT_RESTORE_DEFAULTS);
     DrawActionButton(hdcMem, rcRestoreBtn, L"REVERTIR TODOS LOS AJUSTES A VALORES ORIGINALES DE WINDOWS", isRestHov, CLR_ACCENT_AMBER, state->hFontBold, ID_ACT_RESTORE_DEFAULTS, state);

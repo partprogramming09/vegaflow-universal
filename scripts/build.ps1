@@ -107,10 +107,26 @@ $CommonSources = @(
     "src/detect/hardware_profiler.cpp",
     "src/detect/process_detector.cpp",
     "src/detect/system_info.cpp",
-    "src/optimize/graphics_optimizer.cpp",
+    "src/optimize/graphics/amd_driver_tweaks.cpp",
+    "src/optimize/graphics/display_tweaks.cpp",
+    "src/optimize/graphics/dxgi_flip.cpp",
+    "src/optimize/graphics/kernel_tweaks.cpp",
+    "src/optimize/graphics/mmcss.cpp",
+    "src/optimize/graphics/power_mode.cpp",
+    "src/optimize/graphics/registry_backup.cpp",
+    "src/optimize/graphics/shader_cache.cpp",
+    "src/optimize/graphics/timer.cpp",
+    "src/optimize/graphics/tweaks_query.cpp",
+    "src/optimize/graphics/vram_reporting.cpp",
     "src/optimize/dxvk_manager.cpp",
-    "src/optimize/steam_engine_optimizer.cpp",
-    "src/optimize/fsr_scaler.cpp",
+    "src/optimize/steam/apu_shadow_config.cpp",
+    "src/optimize/steam/engine_detection.cpp",
+    "src/optimize/steam/engine_presets.cpp",
+    "src/optimize/steam/steam_internal.cpp",
+    "src/optimize/steam/steam_library.cpp",
+    "src/optimize/fsr/fsr_internal.cpp",
+    "src/optimize/fsr/fsr_scaler.cpp",
+    "src/optimize/fsr/render_loop.cpp",
     "src/optimize/cpu_orchestrator.cpp",
     "src/optimize/memory_manager.cpp",
     "src/safety/sandbox_guard.cpp",
@@ -148,7 +164,18 @@ $BaseFlags = @(
 
 # 5. Compilacion de vegaflow_daemon.exe
 Write-Host "`n[*] Compilando vegaflow_daemon.exe..." -ForegroundColor Yellow
-$DaemonSources = $CommonSources + @("src/app/main.cpp")
+$DaemonSources = $CommonSources + @(
+    "src/app/main.cpp",
+    "src/app/app_state.cpp",
+    "src/app/cli.cpp",
+    "src/app/daemon_loop.cpp",
+    "src/app/gui_mode.cpp",
+    "src/app/config.cpp",
+    "src/app/monitor.cpp",
+    "src/app/reports.cpp",
+    "src/app/run_cycle.cpp",
+    "src/app/text_convert.cpp"
+)
 $DaemonOutput = "build/vegaflow_daemon.exe"
 $DaemonArgs = $BaseFlags + $IncludeFlags + $DaemonSources + @($RustLib, "-o", $DaemonOutput) + $Libs
 

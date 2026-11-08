@@ -124,7 +124,7 @@ Aunque **VegaFlow Universal** nació como un framework de optimización para arq
 
 ### 2. Arquitectura del Subsistema `ApuCapabilityGuard`
 
-Se introduce una estructura determinista de clasificación y políticas en [`src/detect/hardware_profiler.hpp`](../../src/detect/hardware_profiler.hpp) e [`src/optimize/graphics_optimizer.hpp`](../../src/optimize/graphics_optimizer.hpp) que actúa como **única fuente de verdad** para los límites de DX11, DX12, memoria UMA y energía.
+Se introduce una estructura determinista de clasificación y políticas en [`src/detect/hardware_profiler.hpp`](../../src/detect/hardware_profiler.hpp) e [`src/optimize/graphics/graphics_optimizer.hpp`](../../src/optimize/graphics/graphics_optimizer.hpp) que actúa como **única fuente de verdad** para los límites de DX11, DX12, memoria UMA y energía.
 
 #### 2.1. Enumeración de Tiers (`ApuTier`) y Generación de Arquitectura (`GpuArchitectureGen`)
 
@@ -240,7 +240,7 @@ struct ApuOptimizationPolicy {
   - En `ValidateDxvkApuProfile()`: Aceptar como válido cualquier `compilerThreads` entre `1` y `16` que coincida con la política del sistema (en el Ryzen 5 4600H seguirá siendo `6`, pasando el Test 24 sin cambios).
 
 #### 4.3. `SteamEngineOptimizer` (Especialización DirectX 11 y DirectX 12 en Motores)
-- En [`src/optimize/steam_engine_optimizer.cpp`](../../src/optimize/steam_engine_optimizer.cpp):
+- En [`src/optimize/steam/`](../../src/optimize/steam/):
   - En `ApplyEngineUmaPreset()`:
     - Consultar la política `ApuOptimizationPolicy`.
     - Si `vram_pool_mb == 0`, usar `policy.safe_vram_pool_mb`. Si el usuario o llamador pasa un `vram_pool_mb` explícito, acotarlo con el Guard si estamos en `Tier1_EntryUMA` para nunca exceder la reserva del SO.
@@ -248,7 +248,7 @@ struct ApuOptimizationPolicy {
     - **DirectX 12 Guard:** Si `policy.disable_dx12_async_compute == true` (Tier 1 y Tier 2), escribir `r.RDG.AsyncCompute=0` y `D3D12.AsyncCompute=0`. Si es `false` (**Tier 3 Advanced APU Guard**), escribir `r.RDG.AsyncCompute=1` y `D3D12.AsyncCompute=1` para permitir que los motores RDNA2/RDNA3 aprovechen sus colas de cómputo asíncrono en DX12.
 
 #### 4.4. `GraphicsOptimizer` (Límites de Driver, Teselación y STAPM)
-- En [`src/optimize/graphics_optimizer.cpp`](../../src/optimize/graphics_optimizer.cpp):
+- En [`src/optimize/graphics/`](../../src/optimize/graphics/):
   - En `SetApuPowerMode(ApuPowerMode::GpuPrioritySustained)`:
     - Consultar `policy.cpu_stapm_cap_mhz`.
     - En Tier 1 (`3000 MHz`) y Tier 2 (`3400 MHz`), aplica el techo de frecuencia para ceder presupuesto térmico STAPM a la iGPU.

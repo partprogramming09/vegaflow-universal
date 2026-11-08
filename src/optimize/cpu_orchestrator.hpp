@@ -15,7 +15,7 @@
 namespace vegaflow {
 
 struct CpuOptimizationResult {
-    bool game_handle_full_access = false; // true si PROCESS_SET_INFORMATION fue permitido, false si Anti-Cheat lo degradó
+    bool game_handle_full_access = false; // true if PROCESS_SET_INFORMATION was allowed, false if Anti-Cheat degraded it
     bool power_throttling_disabled = false;
     bool io_priority_elevated = false;
     bool memory_priority_elevated = false;
@@ -37,7 +37,7 @@ public:
     CpuOrchestrator(CpuOrchestrator&&) noexcept = default;
     CpuOrchestrator& operator=(CpuOrchestrator&&) noexcept = default;
 
-    // Aplica optimizaciones al proceso del juego (con fallback seguro ante Anti-Cheat) y confina procesos de fondo
+    // Applies optimizations to the game process (with a safe fallback under Anti-Cheat) and confines background processes
     CpuOptimizationResult ApplyOptimizations(
         uint32_t game_pid,
         uint32_t presenter_thread_id,
@@ -47,20 +47,20 @@ public:
         const std::vector<uint32_t>& background_pids,
         bool dry_run = false);
 
-    // Restaura los CPU Sets de los procesos de fondo al salir del juego
+    // Restores the CPU Sets of background processes when the game exits
     void RestoreAll(bool dry_run = false);
 
     uint32_t GetIsolatedBackgroundCount() const noexcept { return static_cast<uint32_t>(modified_background_pids_.size()); }
     uint32_t GetThrottledBackgroundCount() const noexcept { return static_cast<uint32_t>(modified_background_pids_.size()); }
 
-    // Indica si el fondo esta confinado a los CPU Sets de fondo (solo cuando su consumo de CPU lo justifica).
+    // Whether the background is confined to the background CPU Sets (only when its CPU usage justifies it).
     bool IsBackgroundConfined() const noexcept { return bg_confine_active_; }
 
 private:
-    // Mide el consumo de CPU del fondo desde la llamada anterior y actualiza bg_confine_active_ con histeresis.
-    // Devuelve true si el estado cambio.
+    // Measures background CPU usage since the previous call and updates bg_confine_active_ with hysteresis.
+    // Returns true if the state changed.
     bool UpdateBackgroundLoad(const std::vector<uint32_t>& background_pids, uint32_t game_pid);
-    // Aplica (sets no vacio) o quita (sets vacio) los CPU Sets de los procesos de fondo ya modificados.
+    // Applies (non-empty sets) or removes (empty sets) the CPU Sets of the already-modified background processes.
     void SetModifiedBackgroundCpuSets(const std::vector<ULONG>& sets);
 
     std::vector<uint32_t> modified_background_pids_;

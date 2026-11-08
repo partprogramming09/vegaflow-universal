@@ -107,19 +107,19 @@ uint64_t GetCurrentTimeMs() {
 std::wstring SandboxGuard::CanonicalizePath(const std::wstring& path) {
     if (path.empty()) return L"";
 
-    // 1. Limpieza de comillas y separadores
+    // 1. Strip quotes and separators
     std::wstring cleaned = path;
     if (cleaned.size() >= 2 && cleaned.front() == L'"' && cleaned.back() == L'"') {
         cleaned = cleaned.substr(1, cleaned.size() - 2);
     }
     std::replace(cleaned.begin(), cleaned.end(), L'/', L'\\');
 
-    // 2. Resolver componentes relativos (. y ..) mediante GetFullPathNameW
+    // 2. Resolve relative components (. and ..) via GetFullPathNameW
     wchar_t fullPath[MAX_PATH * 4] = {0};
     DWORD ret = GetFullPathNameW(cleaned.c_str(), _countof(fullPath), fullPath, nullptr);
     std::wstring resolvedStr = (ret > 0 && ret < _countof(fullPath)) ? fullPath : cleaned;
 
-    // 3. Normalización canónica débil (resuelve symlinks y normaliza segmentos que no existan aún)
+    // 3. Weak canonical normalization (resolves symlinks and normalizes segments that do not exist yet)
     std::error_code ec;
     std::filesystem::path p(resolvedStr);
     std::filesystem::path canonical = std::filesystem::weakly_canonical(p, ec);
@@ -130,12 +130,12 @@ std::wstring SandboxGuard::CanonicalizePath(const std::wstring& path) {
     std::wstring res = canonical.wstring();
     std::replace(res.begin(), res.end(), L'/', L'\\');
 
-    // Convertir la letra de la unidad a mayúscula si aplica (e.g. c:\ -> C:\)
+    // Uppercase the drive letter if applicable (e.g. c:\ -> C:\)
     if (res.size() >= 2 && res[1] == L':' && std::iswlower(res[0])) {
         res[0] = static_cast<wchar_t>(std::towupper(res[0]));
     }
 
-    // Quitar barra invertida final si no es la raíz de la unidad (e.g. C:\)
+    // Remove the trailing backslash unless it is the drive root (e.g. C:\)
     if (res.size() > 3 && res.back() == L'\\') {
         res.pop_back();
     }
@@ -146,12 +146,12 @@ std::wstring SandboxGuard::CanonicalizePath(const std::wstring& path) {
 bool SandboxGuard::IsDriveRootOrDirectChild(const std::filesystem::path& canonical_path) {
     if (canonical_path.empty()) return false;
 
-    // Comprobar si la ruta es exactamente la raíz (e.g. "C:\")
+    // Check whether the path is exactly the root (e.g. "C:\")
     if (canonical_path == canonical_path.root_path()) {
         return true;
     }
 
-    // Comprobar si la ruta es un archivo o carpeta hijo directo de la raíz (e.g. "C:\bootmgr" o "C:\test.txt")
+    // Check whether the path is a file or folder directly under the root (e.g. "C:\bootmgr" or "C:\test.txt")
     if (canonical_path.parent_path() == canonical_path.root_path()) {
         return true;
     }
@@ -172,7 +172,7 @@ bool SandboxGuard::IsBlacklisted(const std::wstring& canonical_path, std::string
 
     std::filesystem::path p(canonical_path);
 
-    // 1. Protección de la raíz de unidad
+    // 1. Drive root protection
     if (IsDriveRootOrDirectChild(p)) {
         if (out_reason) *out_reason = "Operación denegada: Prohibido escribir en la raíz del disco o sobre archivos raíz directos";
         return true;
@@ -180,7 +180,7 @@ bool SandboxGuard::IsBlacklisted(const std::wstring& canonical_path, std::string
 
     std::wstring lower = ToLowerW(canonical_path);
 
-    // 2. Archivos críticos del sistema operativo
+    // 2. Critical operating system files
     std::wstring filename = ToLowerW(p.filename().wstring());
     char utf8_name[256] = {0};
     int utf8_len = WideCharToMultiByte(CP_UTF8, 0, filename.data(), static_cast<int>(filename.size()), utf8_name, sizeof(utf8_name) - 1, nullptr, nullptr);
@@ -189,7 +189,7 @@ bool SandboxGuard::IsBlacklisted(const std::wstring& canonical_path, std::string
         return true;
     }
 
-    // 3. Directorios de Windows y del Sistema
+    // 3. Windows and System directories
     std::wstring winDir = ToLowerW(GetWindowsDirectoryPath());
     std::wstring sysDir = ToLowerW(GetSystemDirectoryPath());
 
@@ -202,7 +202,7 @@ bool SandboxGuard::IsBlacklisted(const std::wstring& canonical_path, std::string
         return true;
     }
 
-    // Comprobar cualquier otra letra de disco con \windows (e.g. D:\windows)
+    // Check any other drive letter with \windows (e.g. D:\windows)
     if (lower.size() >= 10 && lower[1] == L':' && lower.substr(2, 9) == L"\\windows\\") {
         if (out_reason) *out_reason = "Operación denegada: Acceso a carpeta de Windows bloqueado";
         return true;
@@ -229,13 +229,13 @@ bool SandboxGuard::IsWhitelisted(const std::wstring& canonical_path, std::string
 
     std::wstring lower = ToLowerW(canonical_path);
 
-    // 1. Carpeta del ejecutable de VegaFlow y directorio de trabajo actual
+    // 1. VegaFlow executable folder and current working directory
     std::wstring exeDir = ToLowerW(GetVegaFlowExecutableDirectory());
     if (!exeDir.empty() && StartsWithInsensitiveW(lower, exeDir)) {
         return true;
     }
 
-    // Si el ejecutable está dentro de un subdirectorio build/ o bin/, permitir la raíz del proyecto
+    // If the executable is inside a build/ or bin/ subdirectory, allow the project root
     std::error_code ec;
     std::filesystem::path exeDirPath(GetVegaFlowExecutableDirectory());
     if (!exeDirPath.empty()) {
@@ -250,19 +250,19 @@ bool SandboxGuard::IsWhitelisted(const std::wstring& canonical_path, std::string
         return true;
     }
 
-    // 2. Bibliotecas de Steam (steamapps/common/...)
+    // 2. Steam libraries (steamapps/common/...)
     if (ContainsInsensitiveW(lower, L"\\steamapps\\common\\") ||
         ContainsInsensitiveW(lower, L"/steamapps/common/")) {
         return true;
     }
 
-    // 3. Carpetas de usuario en %LOCALAPPDATA%
+    // 3. User folders under %LOCALAPPDATA%
     std::wstring localApp = ToLowerW(GetEnvVarW(L"LOCALAPPDATA"));
     if (!localApp.empty() && StartsWithInsensitiveW(lower, localApp)) {
         return true;
     }
 
-    // 4. Directorio temporal de Windows (std::filesystem::temp_directory_path)
+    // 4. Windows temp directory (std::filesystem::temp_directory_path)
     std::wstring tempDir = ToLowerW(std::filesystem::temp_directory_path(ec).wstring());
     if (!ec && !tempDir.empty()) {
         if (tempDir.back() == L'\\') tempDir.pop_back();
@@ -271,7 +271,7 @@ bool SandboxGuard::IsWhitelisted(const std::wstring& canonical_path, std::string
         }
     }
 
-    // 5. Documentos de usuario y partidas guardadas (%USERPROFILE%\Documents\My Games, Saved Games)
+    // 5. User documents and saved games (%USERPROFILE%\Documents\My Games, Saved Games)
     std::wstring userProfile = ToLowerW(GetEnvVarW(L"USERPROFILE"));
     if (!userProfile.empty()) {
         std::wstring myGames = userProfile + L"\\documents\\my games";
@@ -281,7 +281,7 @@ bool SandboxGuard::IsWhitelisted(const std::wstring& canonical_path, std::string
         }
     }
 
-    // 6. Whitelist dinámica registrada explícitamente
+    // 6. Dynamic whitelist explicitly registered
     {
         std::lock_guard<std::mutex> lock(g_sandbox_mutex);
         for (const auto& allowed : g_custom_allowed_paths) {
@@ -318,7 +318,7 @@ bool SandboxGuard::DirectoryContainsAntiCheat(const std::filesystem::path& dir) 
     std::error_code cwd_ec;
     std::filesystem::path project_root = std::filesystem::current_path(cwd_ec);
 
-    // Escanear la carpeta y hasta 4 niveles hacia arriba (sin sobrepasar la raíz o el límite del proyecto)
+    // Scan the folder and up to 4 levels upward (without going past the root or the project boundary)
     int levels_checked = 0;
     while (!current.empty() && levels_checked < 5) {
         if (!std::filesystem::exists(current, ec)) {
@@ -328,12 +328,12 @@ bool SandboxGuard::DirectoryContainsAntiCheat(const std::filesystem::path& dir) 
             continue;
         }
 
-        // Si la propia ruta contiene la firma
+        // If the path itself contains the signature
         if (PathContainsAntiCheatSignature(current.wstring())) {
             return true;
         }
 
-        // Inspeccionar los archivos y subdirectorios presentes en la carpeta
+        // Inspect the files and subdirectories present in the folder
         for (const auto& entry : std::filesystem::directory_iterator(
                  current, std::filesystem::directory_options::skip_permission_denied, ec)) {
             if (ec) break;
@@ -344,7 +344,7 @@ bool SandboxGuard::DirectoryContainsAntiCheat(const std::filesystem::path& dir) 
             }
         }
 
-        // Detenerse si alcanzamos la raíz del proyecto o la raíz de la unidad
+        // Stop when we reach the project root or the drive root
         if (current == current.root_path()) {
             break;
         }
@@ -372,14 +372,14 @@ bool SandboxGuard::CanModifyGamePath(const std::filesystem::path& targetDir) {
 
     std::wstring pathStr = dir.wstring();
 
-    // 1. Detección inmediata de Anti-Cheat por firma de ruta o archivos en el directorio
+    // 1. Immediate Anti-Cheat detection by path signature or files in the directory
     if (PathContainsAntiCheatSignature(pathStr) || DirectoryContainsAntiCheat(dir)) {
         RecordViolation(pathStr, SandboxAction::Write, SandboxDenialReason::AntiCheatLocked,
             "Bloqueo Anti-Cheat: Directorio bajo cuarentena de seguridad (anti-cheat detectado)");
         return false;
     }
 
-    // 2. Validación de límites del sandbox
+    // 2. Sandbox boundary validation
     std::filesystem::path probe = dir / L"dxvk.conf";
     auto val = ValidatePath(probe.wstring(), SandboxAction::Write, false);
     return val.allowed;
@@ -400,7 +400,7 @@ SandboxValidationResult SandboxGuard::ValidatePath(
         return result;
     }
 
-    // 1. Normalización canónica
+    // 1. Canonical normalization
     std::wstring canonical = CanonicalizePath(path);
     result.canonical_path = canonical;
 
@@ -413,7 +413,7 @@ SandboxValidationResult SandboxGuard::ValidatePath(
 
     std::filesystem::path canonicalPathObj(canonical);
 
-    // 2. Comprobar Lista Negra (Blacklist de máxima prioridad)
+    // 2. Check Blacklist (highest priority)
     std::string blacklistReason;
     if (IsBlacklisted(canonical, &blacklistReason)) {
         result.reason = SandboxDenialReason::BlacklistedSystemDirectory;
@@ -422,7 +422,7 @@ SandboxValidationResult SandboxGuard::ValidatePath(
         return result;
     }
 
-    // 3. Protección de Anti-Cheat (Lockdown inmediato si se detecta tecnología kernel o bandera activa)
+    // 3. Anti-Cheat protection (immediate lockdown if kernel technology or active flag is detected)
     if (action != SandboxAction::Read) {
         if (is_anticheat_protected) {
             result.reason = SandboxDenialReason::AntiCheatLocked;
@@ -468,7 +468,7 @@ bool SandboxGuard::SafeWriteFile(
     std::error_code ec;
     std::filesystem::path p(val.canonical_path);
 
-    // Crear directorio padre si no existe
+    // Create the parent directory if it does not exist
     if (!p.parent_path().empty() && !std::filesystem::exists(p.parent_path(), ec)) {
         std::filesystem::create_directories(p.parent_path(), ec);
         if (ec) {
@@ -502,13 +502,13 @@ bool SandboxGuard::SafeCopyFile(
     bool overwrite,
     bool is_anticheat_protected) {
 
-    // Validar origen para lectura
+    // Validate source for reading
     auto valSrc = ValidatePath(src, SandboxAction::Read, false);
     if (!valSrc.allowed) {
         return false;
     }
 
-    // Validar destino para escritura / copia
+    // Validate destination for writing / copying
     auto valDst = ValidatePath(dst, SandboxAction::Copy, is_anticheat_protected);
     if (!valDst.allowed) {
         return false;
@@ -524,7 +524,7 @@ bool SandboxGuard::SafeCopyFile(
         return false;
     }
 
-    // Crear directorio padre de destino si no existe
+    // Create the destination parent directory if it does not exist
     if (!pDst.parent_path().empty() && !std::filesystem::exists(pDst.parent_path(), ec)) {
         std::filesystem::create_directories(pDst.parent_path(), ec);
         if (ec) {
@@ -560,7 +560,7 @@ bool SandboxGuard::SafeRemoveFile(
     std::filesystem::path p(val.canonical_path);
 
     if (!std::filesystem::exists(p, ec)) {
-        return true; // Ya no existe
+        return true; // Already gone
     }
 
     bool removed = std::filesystem::remove(p, ec);

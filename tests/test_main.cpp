@@ -18,12 +18,12 @@
 #include "windows/privileges.hpp"
 #include "detect/hardware_profiler.hpp"
 #include "detect/process_detector.hpp"
-#include "optimize/graphics_optimizer.hpp"
+#include "optimize/graphics/graphics_optimizer.hpp"
 #include "optimize/memory_manager.hpp"
 #include "optimize/cpu_orchestrator.hpp"
 #include "safety/frame_telemetry.hpp"
-#include "optimize/fsr_scaler.hpp"
-#include "optimize/steam_engine_optimizer.hpp"
+#include "optimize/fsr/fsr_scaler.hpp"
+#include "optimize/steam/steam_engine_optimizer.hpp"
 #include "optimize/dxvk_manager.hpp"
 #include "safety/sandbox_guard.hpp"
 #include "detect/system_info.hpp"
@@ -54,7 +54,7 @@ void RecordResult(bool success, const std::string& test_name, const std::string&
     }
 }
 
-/** Al terminar devuelve el plan de energia a su estado anterior si alguna prueba aplico el perfil APU de verdad. */
+/** On exit, restores the power plan to its previous state if any test really applied the APU profile. */
 struct PowerPlanGuard {
     ~PowerPlanGuard() {
         if (vegaflow::GraphicsOptimizer::IsApuPowerModeApplied()) {
@@ -733,7 +733,7 @@ int main() {
     {
         std::error_code ec;
 
-        // 1. Normalización Canónica y Prevención de Path Traversal
+        // 1. Canonical Normalization and Path Traversal Prevention
         auto val_empty = vegaflow::SandboxGuard::ValidatePath(L"", vegaflow::SandboxAction::Write);
         bool empty_blocked = (!val_empty.allowed && val_empty.reason == vegaflow::SandboxDenialReason::EmptyPath);
 
@@ -746,7 +746,7 @@ int main() {
         std::wstring canon = vegaflow::SandboxGuard::CanonicalizePath(L"C:/Windows/System32/../System32/cmd.exe");
         bool canon_ok = (!canon.empty() && canon.find(L"..") == std::wstring::npos);
 
-        // 2. Protección Estricta de la Raíz de Unidad (Drive Root)
+        // 2. Strict Drive Root Protection
         auto val_root = vegaflow::SandboxGuard::ValidatePath(L"C:\\", vegaflow::SandboxAction::Write);
         bool root_blocked = (!val_root.allowed);
 
@@ -754,18 +754,18 @@ int main() {
         bool root_file_blocked = (!val_root_file.allowed);
         bool root_write_blocked = !vegaflow::SandboxGuard::SafeWriteFile(L"C:\\vegaflow_forbidden.tmp", "test");
 
-        // 3. Blacklist de Zonas Críticas Prohibidas (Windows, System32, SysWOW64, Common Files)
+        // 3. Blacklist of Forbidden Critical Zones (Windows, System32, SysWOW64, Common Files)
         bool win_write_blocked = !vegaflow::SandboxGuard::SafeWriteFile(L"C:\\Windows\\System32\\drivers\\etc\\hosts_bad", "bad");
         bool syswow_write_blocked = !vegaflow::SandboxGuard::SafeWriteFile(L"C:\\Windows\\SysWOW64\\bad.dll", "bad");
         bool prog_write_blocked = !vegaflow::SandboxGuard::SafeWriteFile(L"C:\\Program Files\\Common Files\\bad.dll", "bad");
         bool win_del_blocked = !vegaflow::SandboxGuard::SafeRemoveFile(L"C:\\Windows\\System32\\calc.exe");
 
-        // 4. Whitelist de Zonas Permitidas
+        // 4. Whitelist of Allowed Zones
         // 4a. Steam Library (steamapps/common/...)
         auto val_steam = vegaflow::SandboxGuard::ValidatePath(L"D:\\SteamLibrary\\steamapps\\common\\Half-Life\\game.ini", vegaflow::SandboxAction::Write);
         bool steam_whitelisted = val_steam.allowed;
 
-        // 4b. %LOCALAPPDATA% (Configuración de juegos y Saved/Config)
+        // 4b. %LOCALAPPDATA% (game settings and Saved/Config)
         wchar_t localAppBuf[MAX_PATH] = {0};
         GetEnvironmentVariableW(L"LOCALAPPDATA", localAppBuf, MAX_PATH);
         std::filesystem::path localApp(localAppBuf);
@@ -773,12 +773,12 @@ int main() {
         auto val_ue = vegaflow::SandboxGuard::ValidatePath(ue_config_dir / L"Engine.ini", vegaflow::SandboxAction::Write);
         bool ue_whitelisted = val_ue.allowed;
 
-        // 4c. Caché de VegaFlow (%LOCALAPPDATA%\VegaFlow\Cache)
+        // 4c. VegaFlow cache (%LOCALAPPDATA%\VegaFlow\Cache)
         std::filesystem::path cache_dir = localApp / L"VegaFlow" / L"Cache";
         auto val_cache = vegaflow::SandboxGuard::ValidatePath(cache_dir / L"shader.cache", vegaflow::SandboxAction::Write);
         bool cache_whitelisted = val_cache.allowed;
 
-        // 5. Métodos Seguros de I/O en Zona Permitida (SafeWriteFile, SafeReadFile, SafeCopyFile, SafeRemoveFile)
+        // 5. Safe I/O Methods in Allowed Zone (SafeWriteFile, SafeReadFile, SafeCopyFile, SafeRemoveFile)
         std::filesystem::path temp_test_dir = std::filesystem::temp_directory_path() / "vegaflow_test_sandbox_guard";
         std::filesystem::remove_all(temp_test_dir, ec);
         std::filesystem::create_directories(temp_test_dir, ec);
@@ -798,13 +798,13 @@ int main() {
         bool safe_io_ok = write_ok && read_ok && copy_ok && remove1_ok && remove2_ok;
 
         // 6. Anti-Cheat Lockdown
-        // 6a. Bloqueo por bandera explícita (is_anticheat_protected = true)
+        // 6a. Block by explicit flag (is_anticheat_protected = true)
         bool flag_write_blocked = !vegaflow::SandboxGuard::SafeWriteFile(test_file.wstring(), "exploit", true /* is_anticheat_protected */);
         bool flag_copy_blocked = !vegaflow::SandboxGuard::SafeCopyFile(test_file.wstring(), copy_file.wstring(), true, true /* is_anticheat_protected */);
         bool flag_remove_blocked = !vegaflow::SandboxGuard::SafeRemoveFile(test_file.wstring(), true /* is_anticheat_protected */);
         bool flag_lockdown_ok = flag_write_blocked && flag_copy_blocked && flag_remove_blocked;
 
-        // 6b. Bloqueo por detección en tiempo real de firmas Anti-Cheat a nivel de Kernel en directorio
+        // 6b. Block by real-time detection of kernel-level Anti-Cheat signatures in the directory
         std::filesystem::path ac_folder = temp_test_dir / L"Anticheat_Test_Game";
         std::filesystem::create_directories(ac_folder, ec);
         {
@@ -821,7 +821,7 @@ int main() {
         std::filesystem::remove_all(temp_test_dir, ec);
         bool signature_lockdown_ok = dir_has_ac && folder_write_blocked && folder_remove_blocked;
 
-        // 7. Registro y Auditoría de Violaciones
+        // 7. Violation Logging and Auditing
         size_t violations_count = vegaflow::SandboxGuard::GetViolationCount();
         bool violations_recorded = (violations_count > 0);
         vegaflow::SandboxGuard::ClearViolations();
@@ -1095,63 +1095,63 @@ int main() {
     {
         bool is_elevated = vegaflow::PrivilegeManager::IsProcessElevated();
 
-        // 1. Blindaje de Memoria de Kernel NT (DisablePagingExecutive & LargeSystemCache)
-        // 1a. Validación Dry-Run (Enable / Disable)
+        // 1. NT Kernel Memory Shield (DisablePagingExecutive & LargeSystemCache)
+        // 1a. Dry-Run validation (Enable / Disable)
         bool shield_dry_enable = vegaflow::GraphicsOptimizer::SetKernelMemoryPagingShield(true, true /* dry_run */);
         bool shield_dry_disable = vegaflow::GraphicsOptimizer::SetKernelMemoryPagingShield(false, true /* dry_run */);
 
-        // 1b. Consulta directa del estado del Kernel Paging Shield en el registro
+        // 1b. Direct query of the Kernel Paging Shield state in the registry
         bool shield_query_val = vegaflow::GraphicsOptimizer::QueryKernelMemoryPagingShield();
 
-        // 1c. Prueba de ciclo de vida / ejecución real (aislamiento seguro por privilegios)
+        // 1c. Lifecycle / real execution test (safe isolation by privileges)
         bool shield_real_ok = false;
         if (is_elevated) {
             bool real_set = vegaflow::GraphicsOptimizer::SetKernelMemoryPagingShield(true, false /* dry_run */);
             bool verified_active = vegaflow::GraphicsOptimizer::QueryKernelMemoryPagingShield();
-            // Restauración limpia del estado original
+            // Clean restoration of the original state
             bool real_restore = vegaflow::GraphicsOptimizer::SetKernelMemoryPagingShield(shield_query_val, false /* dry_run */);
             shield_real_ok = real_set && verified_active && real_restore;
         } else {
-            // En modo usuario estándar, HKLM está protegido contra escritura
+            // In standard user mode, HKLM is write-protected
             bool real_set = vegaflow::GraphicsOptimizer::SetKernelMemoryPagingShield(true, false /* dry_run */);
-            shield_real_ok = (!real_set); // Aislamiento de privilegios NT verificado
+            shield_real_ok = (!real_set); // NT privilege isolation verified
         }
 
         bool paging_shield_ok = shield_dry_enable && shield_dry_disable && shield_real_ok;
 
-        // 2. Driver Boost AMD DX11/UMA & Limitador Inteligente de Teselación
-        // 2a. Dry-run del Driver Boost AMD DX11/UMA
+        // 2. AMD DX11/UMA Driver Boost & Smart Tessellation Limiter
+        // 2a. Dry-run of the AMD DX11/UMA Driver Boost
         bool boost_dry_enable = vegaflow::GraphicsOptimizer::SetAmdDx11UmaDriverBoost(true, true /* dry_run */);
         bool boost_dry_disable = vegaflow::GraphicsOptimizer::SetAmdDx11UmaDriverBoost(false, true /* dry_run */);
 
-        // 2b. Dry-run de limitador de teselación inteligente (16x para Vega 6 APU, 8x y 64x default)
+        // 2b. Dry-run of the smart tessellation limiter (16x for Vega 6 APU, 8x and 64x default)
         bool tess_16_dry = vegaflow::GraphicsOptimizer::SetAmdTessellationCap(16, true /* dry_run */);
         bool tess_8_dry = vegaflow::GraphicsOptimizer::SetAmdTessellationCap(8, true /* dry_run */);
         bool tess_restore_dry = vegaflow::GraphicsOptimizer::SetAmdTessellationCap(64, true /* dry_run */);
 
-        // 2c. Validación de ejecución real de directivas AMD (según contexto de seguridad)
+        // 2c. Real execution validation of AMD directives (depending on security context)
         bool amd_real_ok = false;
         if (is_elevated) {
             bool boost_real = vegaflow::GraphicsOptimizer::SetAmdDx11UmaDriverBoost(true, false /* dry_run */);
             bool tess_real = vegaflow::GraphicsOptimizer::SetAmdTessellationCap(16, false /* dry_run */);
-            // Restauración limpia
+            // Clean restoration
             bool boost_restore = vegaflow::GraphicsOptimizer::SetAmdDx11UmaDriverBoost(false, false /* dry_run */);
             bool tess_restore = vegaflow::GraphicsOptimizer::SetAmdTessellationCap(64, false /* dry_run */);
             amd_real_ok = boost_real && tess_real && boost_restore && tess_restore;
         } else {
             bool boost_real = vegaflow::GraphicsOptimizer::SetAmdDx11UmaDriverBoost(true, false /* dry_run */);
             bool tess_real = vegaflow::GraphicsOptimizer::SetAmdTessellationCap(16, false /* dry_run */);
-            amd_real_ok = (!boost_real && !tess_real); // Acceso a clave HKLM restringido sin elevación
+            amd_real_ok = (!boost_real && !tess_real); // HKLM key access restricted without elevation
         }
 
-        // 3. Consulta e integración de estado en SystemGraphicsTweaksState
+        // 3. State query and integration in SystemGraphicsTweaksState
         auto tweaks = vegaflow::GraphicsOptimizer::QuerySystemGraphicsTweaks();
         bool tweaks_shield_synced = (tweaks.kernel_paging_shield_active == shield_query_val);
         uint32_t current_tess_max = tweaks.amd_tessellation_max;
         bool query_helpers_consistent = (vegaflow::GraphicsOptimizer::QueryKernelMemoryPagingShield() == tweaks.kernel_paging_shield_active) &&
                                         (vegaflow::GraphicsOptimizer::QueryAmdTessellationCap() == tweaks.amd_tessellation_max);
 
-        // 4. Restauración limpia de estados (Clean State Restoration)
+        // 4. Clean State Restoration
         bool restore_clean = shield_dry_disable && boost_dry_disable && tess_restore_dry;
 
         bool t20_success = paging_shield_ok && boost_dry_enable && boost_dry_disable &&
@@ -1208,21 +1208,21 @@ int main() {
             exec_ok = apply_real && (post_apply_cat == "High") && (post_apply_sfio == "High") && (post_apply_clock == 10000);
             restore_clean_ok = restore_real && (post_restore_cat == "Medium") && (post_restore_sfio == "Normal") && (post_restore_clock == 10000);
 
-            // Re-aplicar estado previo si correspondía
+            // Re-apply the previous state if applicable
             if (prev_cat == "High" && prev_sfio == "High" && prev_clock == 10000) {
                 vegaflow::GraphicsOptimizer::ApplyMmcssTaskTweaks(false);
             }
         } else {
-            // En modo usuario estándar, HKLM está protegido contra escritura
-            // Comprobamos manejo de permisos elegante: falla segura sin crasheos
+            // In standard user mode, HKLM is write-protected
+            // We check graceful permission handling: fails safely without crashing
             bool apply_real = vegaflow::GraphicsOptimizer::ApplyMmcssTaskTweaks(false /* dry_run */);
             bool restore_real = vegaflow::GraphicsOptimizer::RestoreMmcssTaskTweaks(false /* dry_run */);
 
-            exec_ok = (!apply_real); // Acceso a clave HKLM restringido sin elevación
+            exec_ok = (!apply_real); // HKLM key access restricted without elevation
             restore_clean_ok = (!restore_real);
         }
 
-        // 4. Integración con SystemGraphicsTweaksState
+        // 4. Integration with SystemGraphicsTweaksState
         auto tweaks = vegaflow::GraphicsOptimizer::QuerySystemGraphicsTweaks();
         bool tweaks_synced = (tweaks.mmcss_scheduling_category == sched_cat) &&
                              (tweaks.mmcss_sfio_priority == sfio_prio) &&
@@ -1252,27 +1252,27 @@ int main() {
             std::filesystem::create_directories(test_dir, ec);
         }
 
-        // Limpiar archivos residuales dentro del directorio de prueba
+        // Clean up residual files inside the test directory
         std::filesystem::remove(test_dir / "dxvk.conf", ec);
         std::filesystem::remove_all(test_dir / "quarantine_genshin", ec);
         std::filesystem::remove_all(test_dir / "quarantine_zzz", ec);
 
-        // 1. Simulación Dry-Run (validación sin escribir en disco)
+        // 1. Dry-Run simulation (validation without writing to disk)
         bool dry_res = vegaflow::DxvkManager::ConfigureApuProfile(test_dir, true /* dryRun */);
         bool dry_no_file = !std::filesystem::exists(test_dir / "dxvk.conf", ec);
         bool dry_ok = dry_res && dry_no_file;
 
-        // 2. Generación real de perfil optimizado para APU Zen 2 / Vega 6
+        // 2. Real generation of an optimized profile for Zen 2 / Vega 6 APU
         bool config_ok = vegaflow::DxvkManager::ConfigureApuProfile(test_dir, false /* dryRun */);
         bool conf_exists = std::filesystem::exists(test_dir / "dxvk.conf", ec);
 
-        // 3. Validación de directivas activas
+        // 3. Validation of active directives
         bool async_active = false;
         uint32_t compiler_threads = 0;
         bool validate_ok = vegaflow::DxvkManager::ValidateDxvkApuProfile(test_dir, async_active, compiler_threads);
         bool directives_val_ok = validate_ok && async_active && (compiler_threads == 6);
 
-        // Verificación de directivas en el archivo físico
+        // Verification of directives in the physical file
         bool file_directives_ok = false;
         if (conf_exists) {
             std::ifstream cfile(test_dir / "dxvk.conf");
@@ -1290,7 +1290,7 @@ int main() {
             file_directives_ok = found_early_discard && found_pipe_lib && found_gpl && found_lifetime;
         }
 
-        // 4. Actualización incremental preservando configuraciones existentes
+        // 4. Incremental update preserving existing settings
         {
             std::ofstream custom_tweak(test_dir / "dxvk.conf", std::ios::app);
             custom_tweak << "d3d11.samplerAnisotropy = 8\n";
@@ -1304,8 +1304,8 @@ int main() {
                                (content.find("dxvk.enableAsync = true") != std::string::npos);
         }
 
-        // 5. Protección Anti-Cheat de SandboxGuard
-        // 5a. Directorio simulado con GenshinImpact.exe
+        // 5. SandboxGuard Anti-Cheat protection
+        // 5a. Simulated directory with GenshinImpact.exe
         std::filesystem::path genshin_dir = test_dir / "quarantine_genshin";
         std::filesystem::create_directories(genshin_dir, ec);
         {
@@ -1317,7 +1317,7 @@ int main() {
         bool genshin_dry_blocked = !vegaflow::DxvkManager::ConfigureApuProfile(genshin_dir, true);
         bool genshin_no_conf = !std::filesystem::exists(genshin_dir / "dxvk.conf", ec);
 
-        // 5b. Directorio simulado con ZenlessZoneZero.exe
+        // 5b. Simulated directory with ZenlessZoneZero.exe
         std::filesystem::path zzz_dir = test_dir / "quarantine_zzz";
         std::filesystem::create_directories(zzz_dir, ec);
         {
@@ -1334,7 +1334,7 @@ int main() {
                                        zzz_guard_blocked && zzz_deploy_blocked &&
                                        zzz_dry_blocked && zzz_no_conf;
 
-        // 6. Eliminación limpia (RemoveApuProfile)
+        // 6. Clean removal (RemoveApuProfile)
         bool remove_dry_ok = vegaflow::DxvkManager::RemoveApuProfile(test_dir, true /* dryRun */);
         bool conf_still_there = std::filesystem::exists(test_dir / "dxvk.conf", ec);
 
@@ -1347,7 +1347,7 @@ int main() {
 
         bool removal_ok = remove_dry_ok && conf_still_there && remove_real_ok && conf_deleted && post_val_fails;
 
-        // Limpieza final de directorio de prueba
+        // Final cleanup of the test directory
         std::filesystem::remove(test_dir / "dxvk.conf", ec);
         std::filesystem::remove_all(test_dir / "quarantine_genshin", ec);
         std::filesystem::remove_all(test_dir / "quarantine_zzz", ec);
@@ -1408,7 +1408,7 @@ int main() {
         std::filesystem::path test_dir = temp_base / "vegaflow_test_shadow_opt";
         std::filesystem::path ac_dir = temp_base / "vegaflow_test_shadow_genshinimpact";
 
-        // Limpieza preventiva previa de ejecuciones anteriores
+        // Preventive cleanup of previous runs
         std::filesystem::remove_all(test_dir, ec);
         std::filesystem::remove_all(ac_dir, ec);
 
@@ -1417,7 +1417,7 @@ int main() {
         std::filesystem::path ini_path = test_dir / "Engine.ini";
         std::filesystem::path bak_path = test_dir / "Engine.ini.bak";
 
-        // 1. Crear un Engine.ini inicial con otras secciones y claves
+        // 1. Create an initial Engine.ini with other sections and keys
         std::string initial_ini = 
             "[Core.System]\n"
             "Paths=../../../Engine/Content\n"
@@ -1437,7 +1437,7 @@ int main() {
         config.half_res_ao = true;
         config.volumetric_fog = 0;
 
-        // 2. Simulación Dry-Run de ApplyApuShadowConfig
+        // 2. Dry-Run simulation of ApplyApuShadowConfig
         bool dry_apply_ok = vegaflow::SteamEngineOptimizer::ApplyApuShadowConfig(ini_path, config, true /* dryRun */);
         bool dry_no_bak = !std::filesystem::exists(bak_path, ec);
         std::string post_dry_content;
@@ -1449,7 +1449,7 @@ int main() {
         }
         bool dry_unchanged = (post_dry_content == initial_ini);
 
-        // 3. Aplicación real y consulta de configuración
+        // 3. Real application and configuration query
         bool apply_real_ok = vegaflow::SteamEngineOptimizer::ApplyApuShadowConfig(ini_path, config, false /* dryRun */);
         bool bak_created = std::filesystem::exists(bak_path, ec);
 
@@ -1473,7 +1473,7 @@ int main() {
                                (applied_content.find("r.ScreenPercentage=100") != std::string::npos) &&
                                (applied_content.find("r.TextureStreaming=1") != std::string::npos);
 
-        // 4. Bloqueo rotundo de SandboxGuard ante Anti-Cheat a nivel kernel (Genshin, ZZZ, HoYoKProtect)
+        // 4. Hard SandboxGuard block against kernel-level Anti-Cheat (Genshin, ZZZ, HoYoKProtect)
         std::filesystem::create_directories(ac_dir, ec);
         {
             std::ofstream ac_file(ac_dir / "GenshinImpact.exe", std::ios::out | std::ios::binary);
@@ -1492,14 +1492,14 @@ int main() {
         bool ac_restore_blocked = !vegaflow::SteamEngineOptimizer::RestoreApuShadowConfig(ac_ini, false);
         bool ac_shield_ok = ac_apply_blocked && ac_dry_blocked && ac_restore_blocked;
 
-        // Limpiar de inmediato el directorio de anti-cheat para aislar el entorno temporal
+        // Immediately clean up the anti-cheat directory to isolate the temporary environment
         std::filesystem::remove_all(ac_dir, ec);
 
-        // 5. Simulación Dry-Run de RestoreApuShadowConfig
+        // 5. Dry-Run simulation of RestoreApuShadowConfig
         bool dry_restore_ok = vegaflow::SteamEngineOptimizer::RestoreApuShadowConfig(ini_path, true /* dryRun */);
         bool bak_still_exists = std::filesystem::exists(bak_path, ec);
 
-        // 6. Restauración limpia real desde .bak
+        // 6. Real clean restoration from .bak
         bool restore_real_ok = vegaflow::SteamEngineOptimizer::RestoreApuShadowConfig(ini_path, false /* dryRun */);
         bool bak_deleted = !std::filesystem::exists(bak_path, ec);
 
@@ -1514,7 +1514,7 @@ int main() {
                               (restored_content.find("r.Shadow.DistanceScale") == std::string::npos) &&
                               (restored_content.find("Paths=../../../Engine/Content") != std::string::npos);
 
-        // 7. Limpieza de los directorios aislados de prueba
+        // 7. Cleanup of the isolated test directories
         std::filesystem::remove_all(test_dir, ec);
         std::filesystem::remove_all(ac_dir, ec);
 
@@ -1614,7 +1614,7 @@ int main() {
         // ---------------------------------------------------------------------
         vegaflow::MemoryManager mem_mgr;
 
-        // Telemetría saludable (~48.8% utilización local, 4096 MB RAM libre)
+        // Healthy telemetry (~48.8% local utilization, 4096 MB free RAM)
         vegaflow::SystemMemoryTelemetry healthy_telem{};
         healthy_telem.total_physical_bytes = 16ULL * 1024 * 1024 * 1024;
         healthy_telem.free_and_zero_bytes = 4096ULL * 1024 * 1024;
@@ -1626,7 +1626,7 @@ int main() {
         auto healthy_status = mem_mgr.EvaluateUmaPressureGuard(healthy_telem, mid_policy, {}, true /* dry_run */);
         bool healthy_ok = (healthy_status.guard_triggered == false);
 
-        // Telemetría bajo alta presión (~90% utilización local, 3000 MB RAM libre)
+        // Telemetry under high pressure (~90% local utilization, 3000 MB free RAM)
         vegaflow::SystemMemoryTelemetry pressured_telem{};
         pressured_telem.total_physical_bytes = 16ULL * 1024 * 1024 * 1024;
         pressured_telem.free_and_zero_bytes = 3000ULL * 1024 * 1024;
@@ -1643,7 +1643,7 @@ int main() {
         bool case_d_ok = healthy_ok && pressured_ok;
 
         // ---------------------------------------------------------------------
-        // Caso E — Serialización JSON de SystemInfo
+        // Case E — SystemInfo JSON serialization
         // ---------------------------------------------------------------------
         std::string sys_json = vegaflow::SystemInfo().ToJson();
         bool case_e_ok = (sys_json.find("\"apu_guard\":") != std::string::npos) &&
@@ -1666,10 +1666,10 @@ int main() {
     // -------------------------------------------------------------------------
     {
         // ---------------------------------------------------------------------
-        // Caso A — Partición Asimétrica Zen 4 + Zen 4c / Multi-Isla L3
+        // Case A — Asymmetric Partition Zen 4 + Zen 4c / Multi-Island L3
         // ---------------------------------------------------------------------
         vegaflow::CpuTopologyProfile topo_a{};
-        // 6 núcleos físicos / 12 hilos:
+        // 6 physical cores / 12 threads:
         // Isla L3 #0 (Zen 4): Cores 0, 1, 2, 3 (8 hilos, llc_index = 0)
         // Isla L3 #1 (Zen 4c compacta): Cores 4, 5 (4 hilos, llc_index = 1)
         for (uint32_t c = 0; c < 4; ++c) {
@@ -1708,10 +1708,10 @@ int main() {
         bool case_a_ok = case_a_bg_ok && case_a_game_ok && topo_a.has_multiple_ccx;
 
         // ---------------------------------------------------------------------
-        // Caso B — Partición Simétrica Dual-CCX tipo Ryzen 5 4600H
+        // Case B — Symmetric Dual-CCX Partition like Ryzen 5 4600H
         // ---------------------------------------------------------------------
         vegaflow::CpuTopologyProfile topo_b{};
-        // 6 núcleos / 12 hilos divididos en 2 CCX simétricos de 3 núcleos c/u
+        // 6 cores / 12 threads split into 2 symmetric CCX of 3 cores each
         // Isla L3 #0 = Cores 0, 1, 2
         for (uint32_t c = 0; c < 3; ++c) {
             for (uint32_t t = 0; t < 2; ++t) {
@@ -1744,7 +1744,7 @@ int main() {
                             (std::find(topo_b.background_cpu_set_ids.begin(), topo_b.background_cpu_set_ids.end(), 266) != topo_b.background_cpu_set_ids.end()) &&
                             (std::find(topo_b.background_cpu_set_ids.begin(), topo_b.background_cpu_set_ids.end(), 267) != topo_b.background_cpu_set_ids.end());
 
-        // 8 hilos en game_optimal_cpu_set_ids priorizando CCX 0 intacto (Cores 1 y 2 primero)
+        // 8 threads in game_optimal_cpu_set_ids prioritizing an intact CCX 0 (Cores 1 and 2 first)
         bool case_b_game_ok = (topo_b.game_optimal_cpu_set_ids.size() == 8);
         bool case_b_prioritized = (topo_b.game_optimal_cpu_set_ids.size() >= 4) &&
                                   (topo_b.game_optimal_cpu_set_ids[0] == 258 &&
@@ -1755,7 +1755,7 @@ int main() {
         bool case_b_ok = case_b_bg_ok && case_b_game_ok && case_b_prioritized && topo_b.has_multiple_ccx;
 
         // ---------------------------------------------------------------------
-        // Caso C — Telemetría en Vivo MemoryManager
+        // Case C — MemoryManager Live Telemetry
         // ---------------------------------------------------------------------
         vegaflow::MemoryManager test_mem_mgr;
         vegaflow::SystemHardwareProfile test_hw{};
@@ -1768,7 +1768,7 @@ int main() {
 
         const auto test_policy = vegaflow::HardwareProfiler::BuildOptimizationPolicy(test_hw);
 
-        // 1. Telemetría a ~90% DXGI (3686 MB / 4096 MB) con RAM libre suficiente (4000 MB)
+        // 1. Telemetry at ~90% DXGI (3686 MB / 4096 MB) with enough free RAM (4000 MB)
         vegaflow::SystemMemoryTelemetry high_press_telem{};
         high_press_telem.total_physical_bytes = 16ULL * 1024 * 1024 * 1024;
         high_press_telem.free_and_zero_bytes = 4000ULL * 1024 * 1024;
@@ -1784,7 +1784,7 @@ int main() {
         uint32_t interventions_after_high = test_mem_mgr.GetUmaGuardInterventionsCount();
         bool high_interv_ok = (interventions_after_high >= 1);
 
-        // 2. Telemetría saludable (~45% DXGI, 1843 MB / 4096 MB)
+        // 2. Healthy telemetry (~45% DXGI, 1843 MB / 4096 MB)
         vegaflow::SystemMemoryTelemetry healthy_telem2{};
         healthy_telem2.total_physical_bytes = 16ULL * 1024 * 1024 * 1024;
         healthy_telem2.free_and_zero_bytes = 4000ULL * 1024 * 1024;
@@ -1819,10 +1819,10 @@ int main() {
     }
 
     // -------------------------------------------------------------------------
-    // Test 27: la confinacion del fondo depende de su consumo de CPU
+    // Test 27: background confinement depends on its CPU usage
     // -------------------------------------------------------------------------
     {
-        // Lanza un proceso hijo, aplica dos muestras separadas y devuelve si el fondo quedo confinado.
+        // Launches a child process, applies two separate samples and returns whether the background was confined.
         auto confined_after_two_samples = [](const wchar_t* command) {
             STARTUPINFOW si{};
             si.cb = sizeof(si);
@@ -1852,10 +1852,10 @@ int main() {
     }
 
     // -------------------------------------------------------------------------
-    // Test 28: los hilos de fondo escalan con el numero de procesadores logicos
+    // Test 28: background threads scale with the number of logical processors
     // -------------------------------------------------------------------------
     {
-        // Crea una topologia de un solo L3 con `cores` nucleos y `smt` hilos por nucleo y devuelve el tamano del conjunto de fondo.
+        // Creates a single-L3 topology with `cores` cores and `smt` threads per core and returns the size of the background set.
         auto bg_size = [](uint32_t cores, uint32_t smt) {
             vegaflow::CpuTopologyProfile topo{};
             for (uint32_t c = 0; c < cores; ++c) {
@@ -1888,10 +1888,10 @@ int main() {
     }
 
     // -------------------------------------------------------------------------
-    // Test 29: los cambios de registro devuelven el valor original
+    // Test 29: registry changes return the original value
     // -------------------------------------------------------------------------
     {
-        // Lee los valores de GameDVR que toca el optimizador: (existe, dato).
+        // Reads the GameDVR values touched by the optimizer: (exists, data).
         auto read_dvr = []() {
             std::vector<std::pair<bool, DWORD>> out;
             const struct { const wchar_t* key; const wchar_t* name; } items[] = {
@@ -1910,7 +1910,7 @@ int main() {
             return out;
         };
 
-        vegaflow::GraphicsOptimizer::RestoreAllRegistryBackups(); // deja el estado de pruebas anteriores como original
+        vegaflow::GraphicsOptimizer::RestoreAllRegistryBackups(); // restores the state left by previous tests as the original
         const auto before = read_dvr();
 
         vegaflow::GraphicsOptimizer::SetGameDvrAndFseOptimized(true, false);
@@ -1932,7 +1932,7 @@ int main() {
     }
 
     // -------------------------------------------------------------------------
-    // Test 30: los tweaks de HKLM tambien devuelven el valor original
+    // Test 30: HKLM tweaks also return the original value
     // -------------------------------------------------------------------------
     {
         struct RegItem { const wchar_t* key; const wchar_t* name; };
@@ -1949,7 +1949,7 @@ int main() {
             { L"SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Memory Management", L"LargeSystemCache" },
             { L"SYSTEM\\CurrentControlSet\\Control\\PriorityControl", L"Win32PrioritySeparation" },
         };
-        // Cada valor como (existe, tipo, bytes) para comparar antes y despues.
+        // Each value as (exists, type, bytes) to compare before and after.
         auto read_all = [&]() {
             std::vector<std::tuple<bool, DWORD, std::vector<BYTE>>> out;
             for (const auto& it : items) {
@@ -1986,7 +1986,7 @@ int main() {
     // Test 31: Hybrid Rust FFI Core (Zero-Allocation UMA Guard, L3 Topology, Hysteresis & Anti-Cheat Scanner)
     // -------------------------------------------------------------------------
     {
-        // 1. vf_rust_evaluate_uma_pressure (caso normal y caso critico 90% DXGI)
+        // 1. vf_rust_evaluate_uma_pressure (normal case and critical case 90% DXGI)
         VfUmaTelemetryInput normal_input{};
         normal_input.total_physical_bytes = 16ULL * 1024 * 1024 * 1024;
         normal_input.free_and_zero_bytes = 4000ULL * 1024 * 1024;
@@ -2013,13 +2013,13 @@ int main() {
                         dec_crit.available_os_headroom_mb == 6000 &&
                         dec_crit.total_interventions == 11);
 
-        // 2. vf_rust_query_nt_memory_lists y vf_rust_purge_nt_standby_list(true) en dry-run
+        // 2. vf_rust_query_nt_memory_lists and vf_rust_purge_nt_standby_list(true) in dry-run
         VfNtMemoryListSample nt_sample = vf_rust_query_nt_memory_lists();
         bool nt_query_ok = (nt_sample.valid ? (nt_sample.free_and_zero_bytes > 0 || nt_sample.standby_bytes > 0) : true);
         bool nt_purge_dry = vf_rust_purge_nt_standby_list(true);
         bool part2_ok = nt_query_ok && nt_purge_dry;
 
-        // 3. vf_rust_partition_cpu_topology para Ryzen 5 4600H (12 hilos, 2 CCX)
+        // 3. vf_rust_partition_cpu_topology for Ryzen 5 4600H (12 threads, 2 CCX)
         VfCpuCoreEntry ryzen_entries[12]{};
         for (uint32_t i = 0; i < 12; ++i) {
             uint32_t core = i / 2;
@@ -2050,7 +2050,7 @@ int main() {
         bool h4 = vf_rust_eval_bg_confinement(0.24, true);   // false
         bool hyst_ok = (!h1 && h2 && h3 && !h4);
 
-        // 5. vf_rust_has_anticheat_signature y vf_rust_is_critical_system_filename
+        // 5. vf_rust_has_anticheat_signature and vf_rust_is_critical_system_filename
         const char ac1[] = "C:\\Games\\Genshin\\HoYoKProtect.sys";
         const char ac2[] = "D:\\SteamLibrary\\steamapps\\common\\Apex\\EasyAntiCheat_EOS.dll";
         const char ac_safe[] = "C:\\Games\\MyGame\\Config\\Engine.ini";
@@ -2064,7 +2064,7 @@ int main() {
         bool crit_safe_allowed = !vf_rust_is_critical_system_filename(crit_safe, sizeof(crit_safe) - 1);
         bool sec_ok = (ac1_blocked && ac2_blocked && ac_safe_allowed && crit1_blocked && crit_safe_allowed);
 
-        // 6. Bucle de estres de 1,000 iteraciones seguidas sobre las funciones FFI de Rust
+        // 6. Stress loop of 1,000 consecutive iterations over the Rust FFI functions
         bool stress_ok = true;
         for (int i = 0; i < 1000; ++i) {
             VfUmaGuardDecision d = vf_rust_evaluate_uma_pressure(&normal_input, static_cast<uint32_t>(i));

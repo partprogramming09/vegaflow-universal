@@ -289,12 +289,12 @@ MemoryActionReport MemoryManager::EvaluateAndOptimize(
 ManualPurgeReport MemoryManager::ForcePurgeNow(const std::vector<uint32_t>& background_pids, bool dry_run) {
     ManualPurgeReport report{};
 
-    // 1. Tomar SampleTelemetry() antes
+    // 1. Take SampleTelemetry() before
     SystemMemoryTelemetry before = SampleTelemetry();
     report.free_bytes_before = before.free_and_zero_bytes;
     report.standby_bytes_before = before.standby_bytes;
 
-    // 2. Si dry_run == true, devolver reporte simulado
+    // 2. If dry_run == true, return a simulated report
     if (dry_run) {
         report.free_bytes_after = before.free_and_zero_bytes;
         report.standby_bytes_after = before.standby_bytes;
@@ -303,7 +303,7 @@ ManualPurgeReport MemoryManager::ForcePurgeNow(const std::vector<uint32_t>& back
         return report;
     }
 
-    // 3. Recortar Working Set de background_pids
+    // 3. Trim the Working Set of background_pids
     uint32_t current_pid = GetCurrentProcessId();
     for (uint32_t pid : background_pids) {
         if (pid == 0 || pid == 4 || pid == current_pid) {
@@ -318,7 +318,7 @@ ManualPurgeReport MemoryManager::ForcePurgeNow(const std::vector<uint32_t>& back
         }
     }
 
-    // 4. Habilitar SeProfileSingleProcessPrivilege y vaciar Standby List
+    // 4. Enable SeProfileSingleProcessPrivilege and empty the Standby List
     static auto pfnNtSetSystemInformation = reinterpret_cast<PFN_NtSetSystemInformation>(
         reinterpret_cast<void*>(GetProcAddress(GetModuleHandleW(L"ntdll.dll"), "NtSetSystemInformation")));
 
@@ -344,7 +344,7 @@ ManualPurgeReport MemoryManager::ForcePurgeNow(const std::vector<uint32_t>& back
         report.status_message = "NtSetSystemInformation not available in ntdll.dll. Administrator privileges required (--elevate)";
     }
 
-    // 5. Tomar SampleTelemetry() después
+    // 5. Take SampleTelemetry() after
     SystemMemoryTelemetry after = SampleTelemetry();
     report.free_bytes_after = after.free_and_zero_bytes;
     report.standby_bytes_after = after.standby_bytes;

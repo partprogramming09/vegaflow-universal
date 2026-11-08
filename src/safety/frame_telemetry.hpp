@@ -39,27 +39,27 @@ public:
     FrameTelemetryMonitor(const FrameTelemetryMonitor&) = delete;
     FrameTelemetryMonitor& operator=(const FrameTelemetryMonitor&) = delete;
 
-    // Inicia o cambia el PID objetivo a monitorear
+    // Starts or changes the target PID to monitor
     void StartMonitoring(uint32_t target_pid);
     void StopMonitoring();
 
-    // Registra manualmente un intervalo entre cuadros (en milisegundos) en el buffer circular
-    // (usado tanto por el callback ETW/muestreador como por los tests unitarios)
+    // Manually records an interval between frames (in milliseconds) in the circular buffer
+    // (used by both the ETW callback/sampler and the unit tests)
     void RecordFrameIntervalMs(double dt_ms);
 
-    // Reinicia las métricas acumuladas
+    // Resets the accumulated metrics
     void ResetMetrics(uint32_t new_pid = 0);
 
-    // Calcula y devuelve la instantánea matemática actual (Avg FPS, 1% Low, 0.1% Low, StdDev)
+    // Computes and returns the current mathematical snapshot (Avg FPS, 1% Low, 0.1% Low, StdDev)
     FrameMetricsSnapshot GetSnapshot() const;
 
-    // Genera un reporte legible post-partida
+    // Generates a human-readable post-match report
     std::string FormatSessionReport(const std::string& game_name = "Game Session") const;
 
-    // Guarda el reporte de la sesión en disco (creando el directorio padre si no existe)
+    // Saves the session report to disk (creating the parent directory if it does not exist)
     bool SaveSessionReportToFile(const std::string& game_name = "Game Session", const std::string& file_path = "logs/session_reports.log") const;
 
-    // Función matemática pura y estática para calcular métricas desde un vector de frametimes (en ms)
+    // Pure static math function to compute metrics from a vector of frametimes (in ms)
     static FrameMetricsSnapshot ComputeMetricsFromSamples(const std::vector<double>& frametimes_ms, uint32_t pid = 0, uint64_t total_frames = 0, bool etw_active = false);
 
 private:

@@ -36,10 +36,10 @@ g++ -std=c++20 -O2 -Wall -Wextra -static -static-libgcc -static-libstdc++ \
     src/detect/hardware_profiler.cpp \
     src/detect/process_detector.cpp \
     src/detect/system_info.cpp \
-    src/optimize/graphics_optimizer.cpp \
+    src/optimize/graphics/*.cpp \
     src/optimize/dxvk_manager.cpp \
-    src/optimize/steam_engine_optimizer.cpp \
-    src/optimize/fsr_scaler.cpp \
+    src/optimize/steam/*.cpp \
+    src/optimize/fsr/*.cpp \
     src/optimize/cpu_orchestrator.cpp \
     src/optimize/memory_manager.cpp \
     src/safety/sandbox_guard.cpp \
@@ -47,10 +47,10 @@ g++ -std=c++20 -O2 -Wall -Wextra -static -static-libgcc -static-libstdc++ \
     src/ui/gui_components.cpp \
     src/ui/gui_tabs.cpp \
     src/ui/gui_window.cpp \
-    src/app/main.cpp \
+    src/app/*.cpp \
     -o build/vegaflow_daemon.exe \
     rust/vegaflow-core/target/x86_64-pc-windows-gnu/release/libvegaflow_core.a \
-    -lntdll -ldxgi -ladvapi32 -lpsapi -luser32 -lole32 -lgdi32 -lshell32 -ldwmapi -ltdh
+    -lntdll -ldxgi -ladvapi32 -lpsapi -luser32 -lole32 -lgdi32 -lshell32 -ldwmapi -ltdh -lws2_32 -luserenv -lbcrypt
 ```
 
 #### Compilar la Suite de Pruebas Unitarias (`vegaflow_tests.exe`):
@@ -61,10 +61,10 @@ g++ -std=c++20 -O2 -Wall -Wextra -static -static-libgcc -static-libstdc++ \
     src/detect/hardware_profiler.cpp \
     src/detect/process_detector.cpp \
     src/detect/system_info.cpp \
-    src/optimize/graphics_optimizer.cpp \
+    src/optimize/graphics/*.cpp \
     src/optimize/dxvk_manager.cpp \
-    src/optimize/steam_engine_optimizer.cpp \
-    src/optimize/fsr_scaler.cpp \
+    src/optimize/steam/*.cpp \
+    src/optimize/fsr/*.cpp \
     src/optimize/cpu_orchestrator.cpp \
     src/optimize/memory_manager.cpp \
     src/safety/sandbox_guard.cpp \
@@ -75,7 +75,7 @@ g++ -std=c++20 -O2 -Wall -Wextra -static -static-libgcc -static-libstdc++ \
     tests/test_main.cpp \
     -o build/vegaflow_tests.exe \
     rust/vegaflow-core/target/x86_64-pc-windows-gnu/release/libvegaflow_core.a \
-    -lntdll -ldxgi -ladvapi32 -lpsapi -luser32 -lole32 -lgdi32 -lshell32 -ldwmapi -ltdh
+    -lntdll -ldxgi -ladvapi32 -lpsapi -luser32 -lole32 -lgdi32 -lshell32 -ldwmapi -ltdh -lws2_32 -luserenv -lbcrypt
 ```
 
 ---
