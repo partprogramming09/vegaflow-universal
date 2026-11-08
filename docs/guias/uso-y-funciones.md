@@ -56,7 +56,7 @@
 - **Seguridad Garantizada:** Crea automáticamente archivos de respaldo `.vegaflow.bak` para permitir la reversión total con un solo clic.
 
 ### 2.3. DXVK-GPLAsync Module (Compilación en 6 Hilos)
-- Integra la versión optimizada de **DXVK-GPLAsync v2.5.3**, traduciendo llamadas de DirectX 11 a Vulkan nativo.
+- Integra la versión optimizada de **DXVK-GPLAsync v2.5.3**, traduciendo llamadas de DirectX 11 a Vulkan nativo. Las DLL no se distribuyen con el proyecto: se colocan en `assets/dxvk/` (ver su README).
 - Genera un archivo `dxvk.conf` adaptado a la arquitectura de 6 núcleos físicos Zen 2:
   - Compilación asíncrona desacoplada del hilo de renderizado (`dxvk.enableAsync = True`, `dxvk.gplAsyncCache = True`).
   - Asignación de 6 hilos dedicados para compilación de pipelines en paralelo (`dxvk.numCompilerThreads = 6`).

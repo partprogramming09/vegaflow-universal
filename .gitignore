@@ -55,3 +55,6 @@ Desktop.ini
 *.key
 data/raw/
 
+# Third-party DXVK binaries (see assets/dxvk/README.md)
+assets/dxvk/dxvk-*/
+

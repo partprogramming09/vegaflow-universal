@@ -56,7 +56,7 @@ src/                código del daemon en C++20, agrupado por función (cada .hp
 rust/vegaflow-core/ reglas puras en Rust (presión UMA, topología, confinamiento, Tiers, política de rutas, firmas)
 tests/              la suite de 31 pruebas de C++ y los casos compartidos con Rust (tests/vectors/)
 scripts/            compilar, medir y operar el laptop de pruebas (ver scripts/README.md)
-assets/dxvk/        DLL de DXVK que el daemon instala en los juegos
+assets/dxvk/        aquí se colocan las DLL de DXVK que el daemon instala en los juegos (no se incluyen; ver su README)
 config/             valores por defecto del daemon
 docs/               toda la documentación (ver docs/README.md)
 ```

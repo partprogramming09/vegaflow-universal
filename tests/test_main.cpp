@@ -583,6 +583,23 @@ int main() {
             out << "MZ_DUMMY_EXE_CONTENT";
         }
 
+        // A clean checkout has no DXVK DLLs (third-party files that are not versioned). In that case use stand-in
+        // files in a temporary working directory, so the deployment, backup and removal logic is still exercised.
+        const std::filesystem::path original_cwd = std::filesystem::current_path(ec);
+        const std::filesystem::path stand_in_root = std::filesystem::temp_directory_path() / "vegaflow_test_dxvk_assets";
+        bool using_stand_ins = false;
+        if (vegaflow::DxvkManager::GetDxvkAssetsPath().empty()) {
+            std::filesystem::remove_all(stand_in_root, ec);
+            for (const char* arch : {"x32", "x64"}) {
+                const std::filesystem::path dir = stand_in_root / "assets" / "dxvk" / "dxvk-2.5.3" / arch;
+                std::filesystem::create_directories(dir, ec);
+                std::ofstream(dir / "d3d11.dll", std::ios::binary) << "STAND_IN_DXVK_D3D11";
+                std::ofstream(dir / "dxgi.dll", std::ios::binary) << "STAND_IN_DXVK_DXGI";
+            }
+            std::filesystem::current_path(stand_in_root, ec);
+            using_stand_ins = true;
+        }
+
         // 1. Assets location verification
         std::wstring assets_path = vegaflow::DxvkManager::GetDxvkAssetsPath();
         bool assets_found = !assets_path.empty();
@@ -668,6 +685,10 @@ int main() {
 
         // Cleanup
         std::filesystem::remove_all(temp_base, ec);
+        if (using_stand_ins) {
+            std::filesystem::current_path(original_cwd, ec);
+            std::filesystem::remove_all(stand_in_root, ec);
+        }
 
         bool t16_success = assets_found && ac_blocked && ac_msg_ok && no_files_installed &&
                            dry_ok && still_no_files && deploy_ok && is_installed &&
@@ -675,7 +696,7 @@ int main() {
                            conf_content_ok && scan_detected_dxvk && remove_ok &&
                            conf_deleted && logs_deleted && bak_deleted && dxgi_deleted && original_restored;
 
-        std::string details = "Assets: " + std::string(assets_found ? "PASS" : "FAIL") + ", "
+        std::string details = "Assets: " + std::string(assets_found ? (using_stand_ins ? "PASS (stand-in files)" : "PASS") : "FAIL") + ", "
             + "AC Protection: " + std::string(ac_blocked && ac_msg_ok ? "PASS" : "FAIL") + ", "
             + "Deployment & Conf: " + std::string(deploy_ok && conf_content_ok ? "PASS" : "FAIL") + ", "
             + "Backup & Restore: " + std::string(bak_exists && original_restored ? "PASS" : "FAIL") + ", "

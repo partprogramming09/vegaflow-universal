@@ -4,7 +4,7 @@ Herramienta **solo de desarrollo**. No forma parte de VegaFlow ni se distribuye 
 
 Permite lanzar, desde la Mac, un conjunto cerrado de trabajos en la sesión del escritorio del laptop de pruebas (abrir `drawstress`, medir con PresentMon, arrancar o parar el daemon, hacer el A/B). La sesión SSH sola no sirve para esto: corre en la sesión 0 de Windows, sin escritorio, y desde ahí PresentMon no ve cuadros y el detector del daemon no ve ningún juego.
 
-Los trabajos corren en el **ejecutor de trabajos de WinBridge** (`/Volumes/dev/winbridge/docs/JOBS.md`), con el paquete `vegaflow`. El ejecutor propio anterior (`vfjob`, tarea `VegaFlow-Run`) está retirado y archivado en [`archive/`](archive/).
+Los trabajos corren en el **ejecutor de trabajos de WinBridge** (`/Volumes/dev/winbridge/docs/JOBS.md`), con el paquete `vegaflow`. El ejecutor propio anterior (`vfjob`, tarea `VegaFlow-Run`) está retirado (queda solo en el historial de git).
 
 ## Piezas
 

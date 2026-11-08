@@ -115,7 +115,7 @@ direct/
 ├── config/
 │   └── config.json               # Configuración persistente del daemon y lista de juegos
 ├── assets/
-│   └── dxvk/dxvk-2.5.3/          # Binarios originales DXVK-GPLAsync (x32 y x64)
+│   └── dxvk/                     # Aquí se colocan las DLL de DXVK (no se incluyen; ver su README)
 ├── scripts/
 │   └── build.ps1                 # Script automatizado de compilación y pruebas PowerShell
 ├── rust/

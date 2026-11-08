@@ -36,4 +36,4 @@ Los scripts no se agrupan en subcarpetas a propósito. Se buscan entre sí con `
 
 ## `remote/`: operar el laptop desde la Mac
 
-Herramienta de desarrollo con `vfdev`, los trabajos en `jobs/`, las referencias en `baselines/` y el paquete de WinBridge. Su guía completa está en [`remote/README.md`](remote/README.md). `remote/archive/` es el ejecutor `vfjob` ya retirado.
+Herramienta de desarrollo con `vfdev`, los trabajos en `jobs/`, las referencias en `baselines/` y el paquete de WinBridge. Su guía completa está en [`remote/README.md`](remote/README.md).
