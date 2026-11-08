@@ -24,9 +24,7 @@ VegaFlow Universal implementa una política de seguridad estricta e inviolable: 
 |   | 2. CPU Sets cooperativos.   |        | 3. DXVK-GPLAsync en carpeta.      |     |
 |   | 3. Temporizador NT a 0.5 ms |        | 4. Presets UMA Engine.ini /       |     |
 |   | 4. MMCSS Gaming GPU Prio 8. |        |    boot.config con .vegaflow.bak  |     |
-|   | 5. FSR por Overlay externo  |        | 5. FSR Espacial Alt+F11.          |     |
-|   |    (cero memoria de juego). |        | 6. Purga de memoria inteligente.  |     |
-|   | 6. PROHIBIDO MODIFICAR O    |        |                                   |     |
+|   | 5. PROHIBIDO MODIFICAR O    |        | 5. Purga de memoria inteligente.  |     |
 |   |    INYECTAR ARCHIVOS        |        |                                   |     |
 |   |    (LOCKDOWN TOTAL SANDBOX) |        |                                   |     |
 |   +-----------------------------+        +-----------------------------------+     |

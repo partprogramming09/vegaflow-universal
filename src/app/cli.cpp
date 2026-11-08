@@ -10,7 +10,6 @@
 #include "windows/privileges.hpp"
 #include "detect/hardware_profiler.hpp"
 #include "optimize/graphics/graphics_optimizer.hpp"
-#include "optimize/fsr/fsr_scaler.hpp"
 #include "optimize/dxvk_manager.hpp"
 #include "detect/system_info.hpp"
 #include "app/app_state.hpp"
@@ -56,8 +55,6 @@ std::optional<int> ParseCommandLine(int argc, char* argv[], CliOptions& opts) {
             opts.vram_restore_flag = true;
         } else if (arg == "--restore-registry") {
             opts.restore_registry_flag = true;
-        } else if (arg == "--fsr-validate") {
-            opts.fsr_validate_flag = true;
         } else if (arg == "--dxvk-install" && i + 1 < argc) {
             opts.dxvk_install_path = argv[++i];
         } else if (arg == "--dxvk-remove" && i + 1 < argc) {
@@ -88,7 +85,6 @@ std::optional<int> ParseCommandLine(int argc, char* argv[], CliOptions& opts) {
             std::cout << "  --vram-override          Override AMD VRAM reporting to 4096 MB in DXGI and AMD driver.\n";
             std::cout << "  --vram-restore           Restore AMD VRAM reporting to driver default (512 MB).\n";
             std::cout << "  --restore-registry       Restore the GameDVR and AMD driver registry values saved before VegaFlow changed them.\n";
-            std::cout << "  --fsr-validate           Compile and validate embedded FSR 1.0 EASU + RCAS HLSL shaders.\n";
             std::cout << "  --dxvk-install <path>    Deploy DXVK (DirectX 11 to Vulkan with async GPL) to target game folder.\n";
             std::cout << "  --dxvk-remove <path>     Remove DXVK and restore original DirectX 11 runtime.\n";
             std::cout << "  --monitor, -m            Real-time console dashboard displaying live RAM, VRAM, and FPS telemetry.\n";
@@ -155,7 +151,7 @@ std::optional<int> RunOneShotCommand(const CliOptions& opts, int argc, char* arg
             std::cout << "[INFO] Process is already running with Administrator privileges.\n";
             if (!opts.gui_flag && !opts.status_flag && !opts.purge_now_flag && !opts.monitor_flag && !opts.mpo_disable_flag && !opts.mpo_restore_flag
                 && !opts.shader_cache_force_flag && !opts.shader_cache_default_flag && !opts.mem_compression_off_flag && !opts.mem_compression_on_flag
-                && !opts.apu_gpu_priority_flag && !opts.apu_balanced_flag && !opts.vram_override_flag && !opts.vram_restore_flag && !opts.restore_registry_flag && !opts.fsr_validate_flag && !opts.once_flag
+                && !opts.apu_gpu_priority_flag && !opts.apu_balanced_flag && !opts.vram_override_flag && !opts.vram_restore_flag && !opts.restore_registry_flag && !opts.once_flag
                 && opts.dxvk_install_path.empty() && opts.dxvk_remove_path.empty()) {
                 return 0;
             }
@@ -177,23 +173,6 @@ std::optional<int> RunOneShotCommand(const CliOptions& opts, int argc, char* arg
         bool ok = vegaflow::GraphicsOptimizer::SetApuPowerMode(vegaflow::ApuPowerMode::Balanced, opts.dry_run_flag);
         std::cout << "[APU Power] SetApuPowerMode(Balanced) " << (opts.dry_run_flag ? "[DRY-RUN] " : "")
                   << (ok ? "SUCCEEDED. Windows standard balanced power profile restored." : "FAILED. Check power configuration permissions.") << "\n";
-        return ok ? 0 : 1;
-    }
-
-    if (opts.fsr_validate_flag) {
-        std::string err;
-        std::cout << "================================================================================\n";
-        std::cout << "                 VEGAFLOW FSR 1.0 HLSL SHADER VALIDATION\n";
-        std::cout << "================================================================================\n";
-        std::cout << "  Compiling EASU (Edge Adaptive Spatial Upsampling) & RCAS (Sharpening) Shaders...\n";
-        bool ok = vegaflow::FsrSpatialScaler::CompileAndValidateShadersOnly(&err);
-        if (ok) {
-            std::cout << "  [SUCCESS] Shaders compiled and validated via D3DCompile 100% successfully.\n";
-            std::cout << "  [STATUS] FSR 1.0 Spatial Scaler Engine is READY (D3D11 Compute Model 5.0).\n";
-        } else {
-            std::cout << "  [FAILED] Shader compilation error:\n" << err << "\n";
-        }
-        std::cout << "================================================================================\n";
         return ok ? 0 : 1;
     }
 

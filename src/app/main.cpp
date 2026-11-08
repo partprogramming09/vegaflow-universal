@@ -13,7 +13,6 @@
 #include "optimize/memory_manager.hpp"
 #include "optimize/cpu_orchestrator.hpp"
 #include "safety/frame_telemetry.hpp"
-#include "optimize/fsr/fsr_scaler.hpp"
 #include "app/app_state.hpp"
 #include "app/cli.hpp"
 #include "app/config.hpp"
@@ -83,12 +82,9 @@ int main(int argc, char* argv[]) {
     MemoryManager mem_mgr(mem_cfg);
     CpuOrchestrator cpu_orchestrator;
     FrameTelemetryMonitor telemetry_monitor;
-    FsrSpatialScaler fsr_scaler;
-    fsr_scaler.SetSharpness(config.fsr_sharpness);
-    fsr_scaler.SetAlgorithm(static_cast<UpscaleAlgorithm>(std::clamp(config.fsr_mode, 0, 2)));
 
     if (opts.monitor_flag) {
-        RunMonitorDashboard(config, hw, cpu_orchestrator, mem_mgr, telemetry_monitor, fsr_scaler, opts.once_flag);
+        RunMonitorDashboard(config, hw, cpu_orchestrator, mem_mgr, telemetry_monitor, opts.once_flag);
         if (g_single_instance_mutex) {
             CloseHandle(g_single_instance_mutex);
             g_single_instance_mutex = nullptr;
@@ -97,8 +93,8 @@ int main(int argc, char* argv[]) {
     }
 
     if (opts.gui_flag) {
-        return RunGuiMode(config, hw, cpu_orchestrator, mem_mgr, telemetry_monitor, fsr_scaler);
+        return RunGuiMode(config, hw, cpu_orchestrator, mem_mgr, telemetry_monitor);
     }
 
-    return RunDaemon(config, hw, cpu_orchestrator, mem_mgr, telemetry_monitor, fsr_scaler, priv, opts.once_flag);
+    return RunDaemon(config, hw, cpu_orchestrator, mem_mgr, telemetry_monitor, priv, opts.once_flag);
 }

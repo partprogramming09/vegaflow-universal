@@ -13,7 +13,7 @@
 ### Invariantes del Runtime Demostrados en Pruebas Automatizadas
 * **Consumo de Memoria Privada (*Private Working Set*):** `<= 2.00 MB` en régimen estacionario (el presupuesto de diseño permitía hasta `15.00 MB`).
 * **Sobrecarga de CPU en Reposo (*Zero-Overhead Idle*):** `0.00%` sostenido; el daemon hiberna mediante `WaitForSingleObjectEx` y timers de alta precisión NT.
-* **Conjunto de Pruebas Automatizadas:** `25/25` tests unitarios deterministas en Rust (`vegaflow-core`, 26 en un Mac) y `33/33` tests de regresión y cobertura en C++20 pasando al 100%.
+* **Conjunto de Pruebas Automatizadas:** `25/25` tests unitarios deterministas en Rust (`vegaflow-core`, 26 en un Mac) y `31/31` tests de regresión y cobertura en C++20 pasando al 100%.
 * **Reversibilidad Garantizada (`RestoreAll`):** Cada modificación de afinidad, clase de prioridad, estado `EcoQoS` o claves en el Registro de Windows (`HKCU\Software\VegaFlow\RegBackup`) se restaura estrictamente al estado de fábrica al cerrar el daemon o terminar la sesión de juego.
 * **Seguridad Anti-Cheat en Tiempo Constante (*Zero-Tamper Boundary*):** Detección determinista de firmas de controladores anti-cheat (*HoYoKProtect*, *EasyAntiCheat*, *BattlEye*, *Vanguard*) con aislamiento de ruta en UTF-16 sobre pila (`stack-only`), impidiendo cualquier inyección o modificación sobre ejecutables protegidos.
 
@@ -167,7 +167,7 @@ VegaFlow Universal ha alcanzado la madurez de su núcleo de optimización y arqu
 #### 1.1. Arquitectura Modular Limpia y Pipeline de Compilación
 - **Desacoplamiento Estructural:** El código base se organiza en dominios modulares por función, con cada `.hpp` junto a su `.cpp`:
   - [`src/detect/`](../../src/detect): hardware, topología de CPU y detección de juegos.
-  - [`src/optimize/`](../../src/optimize): Orquestación de CPU, optimizadores gráficos y de temporizador NT, DXVK, escalador FSR 1.0/NIS, gestión de memoria UMA y presets de motores.
+  - [`src/optimize/`](../../src/optimize): Orquestación de CPU, optimizadores gráficos y de temporizador NT, DXVK, gestión de memoria UMA y presets de motores.
   - [`src/safety/`](../../src/safety): Subsistema Zero-Trust `SandboxGuard` y telemetría matemática de frametimes.
   - [`src/ui/`](../../src/ui): Ventana nativa Win32/GDI en modo Slate/Zinc Dark, pestañas y componentes.
   - [`src/windows/`](../../src/windows): llamadas indocumentadas NTDLL y privilegios de seguridad.

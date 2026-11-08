@@ -5,7 +5,6 @@
 #include "app/config.hpp"
 #include "detect/hardware_profiler.hpp"
 #include "optimize/cpu_orchestrator.hpp"
-#include "optimize/fsr/fsr_scaler.hpp"
 #include "optimize/memory_manager.hpp"
 #include "safety/frame_telemetry.hpp"
 
@@ -17,7 +16,6 @@ int RunDaemon(
     vegaflow::CpuOrchestrator& cpu_orchestrator,
     vegaflow::MemoryManager& mem_mgr,
     vegaflow::FrameTelemetryMonitor& telemetry_monitor,
-    vegaflow::FsrSpatialScaler& fsr_scaler,
     const vegaflow::PrivilegeStatus& priv,
     bool once_mode);
 

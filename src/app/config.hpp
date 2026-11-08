@@ -21,8 +21,6 @@ namespace vegaflow::app {
 struct AppConfig {
     uint32_t poll_interval_ms = 1500;
     ULONG timer_resolution_ns100 = 5000;
-    float fsr_sharpness = 0.20f;
-    int fsr_mode = 0; // 0 = FSR 1.0 Ultra-Clean, 1 = NIS / Bicubic 16-Tap, 2 = Anime4K (JRPG/Cel)
     bool timer_forced_manual = false;
     bool restrict_game_cpu_sets = false; // false: the game uses all threads and only the background is confined
     vegaflow::MemoryPurgeConfig memory{};

@@ -17,7 +17,7 @@ El proyecto incluye el script automatizado [`scripts/build.ps1`](../../scripts/b
 # Compilar vegaflow_daemon.exe y vegaflow_tests.exe:
 powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
 
-# Compilar y ejecutar inmediatamente los 33 tests unitarios:
+# Compilar y ejecutar inmediatamente los 31 tests unitarios:
 powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1 -RunTests
 ```
 
@@ -53,7 +53,6 @@ g++ -std=c++20 -O2 -Wall -Wextra -static -static-libgcc -static-libstdc++ \
     src/optimize/graphics/*.cpp \
     src/optimize/dxvk_manager.cpp \
     src/optimize/steam/*.cpp \
-    src/optimize/fsr/*.cpp \
     src/optimize/cpu_orchestrator.cpp \
     src/optimize/memory_manager.cpp \
     src/safety/sandbox_guard.cpp \
@@ -78,7 +77,6 @@ g++ -std=c++20 -O2 -Wall -Wextra -static -static-libgcc -static-libstdc++ \
     src/optimize/graphics/*.cpp \
     src/optimize/dxvk_manager.cpp \
     src/optimize/steam/*.cpp \
-    src/optimize/fsr/*.cpp \
     src/optimize/cpu_orchestrator.cpp \
     src/optimize/memory_manager.cpp \
     src/safety/sandbox_guard.cpp \
@@ -107,10 +105,8 @@ Cualquier cambio en el repositorio debe ser validado ejecutando `build/vegaflow_
 [PASS] Test 6: CpuOrchestrator dry-run optimization and state restoration
 [PASS] Test 7: FrameTelemetryMonitor mathematical rigor, 1% Low, circular buffer, and shutdown latency
 [PASS] Test 8: Phase 1-2 Enhancements & System Tweaks (Admin relaunch, process liveness, MPO, manual purge)
-[PASS] Test 9: FSR 1.0 Spatial Upscaler HLSL Compilation & Zero-VRAM Lifecycle
 [PASS] Test 10: Phase 4 System Tweaks & Session Report Persistence
 [PASS] Test 11: Stability, Memory Stress & CpuOrchestrator Deduplication
-[PASS] Test 12: FSR 1.0 Dynamic Sharpness Update & Value Clamping
 [PASS] Test 13: SteamEngineOptimizer Engine Detection, Safe Backup & Restore
 [PASS] Test 14: Single-Instance Guard, Non-Blocking MMAgent Dry-Run & Steam Exe Sync
 [PASS] Test 15: DX11/DX12 FPS Boost Suite (MMCSS GPU Priority=8, Win32PrioritySeparation Quantum & AMD Driver Boost Dry-Run)
@@ -134,7 +130,7 @@ Cualquier cambio en el repositorio debe ser validado ejecutando `build/vegaflow_
 [PASS] Test 33: SandboxGuard blacklist matches the shared vector file
 
 ================================================================================
-TEST RESULTS: 33 PASSED, 0 FAILED
+TEST RESULTS: 31 PASSED, 0 FAILED
 ================================================================================
 ```
 

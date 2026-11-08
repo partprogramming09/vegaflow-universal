@@ -151,7 +151,7 @@ EngineOptimizationReport SteamEngineOptimizer::ApplyEngineUmaPreset(
                 posStart = existingContent.find(tagStart);
             }
 
-            // Remove any untagged lingering upscaling lines
+            // Remove any untagged lingering resolution-scaling lines
             std::stringstream ss(existingContent);
             std::string line;
             std::string cleanedContent;

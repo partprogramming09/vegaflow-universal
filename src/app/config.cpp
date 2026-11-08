@@ -4,7 +4,6 @@
 
 #include <cstdint>
 #include <fstream>
-#include <iomanip>
 #include <string>
 #include <vector>
 
@@ -40,23 +39,6 @@ AppConfig LoadConfig(const std::string& path) {
         }
     };
 
-    auto find_float = [&](const std::string& key, float default_val) -> float {
-        size_t pos = content.find("\"" + key + "\"");
-        if (pos == std::string::npos) return default_val;
-        pos = content.find(':', pos);
-        if (pos == std::string::npos) return default_val;
-        size_t start = content.find_first_of("0123456789.", pos);
-        if (start == std::string::npos) return default_val;
-        size_t end = content.find_first_not_of("0123456789.", start);
-        std::string num_str = content.substr(start, end - start);
-        try {
-            float val = std::stof(num_str);
-            return std::clamp(val, 0.0f, 1.0f);
-        } catch (...) {
-            return default_val;
-        }
-    };
-
     auto find_bool = [&](const std::string& key, bool default_val) -> bool {
         size_t pos = content.find("\"" + key + "\"");
         if (pos == std::string::npos) return default_val;
@@ -72,8 +54,6 @@ AppConfig LoadConfig(const std::string& path) {
 
     cfg.poll_interval_ms = static_cast<uint32_t>(find_uint("poll_interval_ms", 1500));
     cfg.timer_resolution_ns100 = static_cast<ULONG>(find_uint("timer_resolution_ns100", 5000));
-    cfg.fsr_sharpness = find_float("fsr_sharpness", 0.20f);
-    cfg.fsr_mode = std::clamp(static_cast<int>(find_uint("fsr_mode", 0)), 0, 2);
     cfg.timer_forced_manual = find_bool("timer_forced_manual", false);
     cfg.restrict_game_cpu_sets = find_bool("restrict_game_cpu_sets", false);
     cfg.memory.min_free_ram_mb = find_uint("min_free_ram_mb", 1200);
@@ -113,9 +93,6 @@ bool SaveConfig(const std::string& path, const AppConfig& cfg) {
     file << "{\n";
     file << "  \"poll_interval_ms\": " << cfg.poll_interval_ms << ",\n";
     file << "  \"timer_resolution_ns100\": " << cfg.timer_resolution_ns100 << ",\n";
-    file << std::fixed << std::setprecision(2);
-    file << "  \"fsr_sharpness\": " << cfg.fsr_sharpness << ",\n";
-    file << "  \"fsr_mode\": " << cfg.fsr_mode << ",\n";
     file << "  \"timer_forced_manual\": " << (cfg.timer_forced_manual ? "true" : "false") << ",\n";
     file << "  \"restrict_game_cpu_sets\": " << (cfg.restrict_game_cpu_sets ? "true" : "false") << ",\n";
     file << "  \"memory\": {\n";

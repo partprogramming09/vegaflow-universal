@@ -59,17 +59,16 @@ void PaintDashboard(HDC hdcMem, const RECT& rcClient, GuiWindowState* state) {
     SelectObject(hdcMem, hOldPen);
     DeleteObject(hPenHeadDiv);
 
-    // 6 tab buttons in the side menu
-    const wchar_t* tabTitles[6] = {
+    // 5 tab buttons in the side menu
+    const wchar_t* tabTitles[5] = {
         L"1. Dashboard & Telemetría",
         L"2. Ajustes Kernel & Sistema",
         L"3. Memoria UMA & Núcleos CPU",
-        L"4. Escalador FSR 1.0 & DXGI",
-        L"5. Biblioteca Steam & Motores",
-        L"6. Historial de Cambios (Log)"
+        L"4. Biblioteca Steam & Motores",
+        L"5. Historial de Cambios (Log)"
     };
 
-    for (int i = 0; i < 6; ++i) {
+    for (int i = 0; i < 5; ++i) {
         int tabY = 78 + i * 44;
         RECT rcTab = { 12, tabY, SIDEBAR_WIDTH - 12, tabY + 38 };
         bool isActive = (state->current_tab == i);
@@ -127,12 +126,9 @@ void PaintDashboard(HDC hdcMem, const RECT& rcClient, GuiWindowState* state) {
             RenderTabMemory(hdcMem, rcClient, state, contentLeft, contentRight, contentTop, contentBottom, contentW);
             break;
         case 3:
-            RenderTabScaler(hdcMem, rcClient, state, contentLeft, contentRight, contentTop, contentBottom, contentW);
-            break;
-        case 4:
             RenderTabSteam(hdcMem, rcClient, state, contentLeft, contentRight, contentTop, contentBottom, contentW);
             break;
-        case 5:
+        case 4:
             RenderTabAuditLog(hdcMem, rcClient, state, contentLeft, contentRight, contentTop, contentBottom, contentW);
             break;
         default:
@@ -187,7 +183,7 @@ void HandleActionClick(HWND hwnd, GuiWindowState* state, int id) {
     if (!state) return;
 
     // Tab switching
-    if (id >= ID_TAB_0 && id <= ID_TAB_5) {
+    if (id >= ID_TAB_0 && id <= ID_TAB_4) {
         state->current_tab = id - ID_TAB_0;
         InvalidateRect(hwnd, nullptr, FALSE);
         return;
@@ -303,73 +299,6 @@ void HandleActionClick(HWND hwnd, GuiWindowState* state, int id) {
         case ID_ACT_RESTORE_CPU: {
             if (state->callbacks.on_RestoreCpuAffinity) {
                 res = state->callbacks.on_RestoreCpuAffinity();
-                state->data.last_action_status = res;
-            }
-            break;
-        }
-
-        case ID_ACT_TOGGLE_FSR: {
-            if (state->callbacks.on_ToggleFsr) {
-                res = state->callbacks.on_ToggleFsr();
-                state->data.last_action_status = res;
-            }
-            break;
-        }
-
-        case ID_ACT_FSR_MODE_0: {
-            if (state->callbacks.on_SetFsrMode) {
-                res = state->callbacks.on_SetFsrMode(0);
-                state->data.fsr_mode = 0;
-                state->data.last_action_status = res;
-            }
-            break;
-        }
-
-        case ID_ACT_FSR_MODE_1: {
-            if (state->callbacks.on_SetFsrMode) {
-                res = state->callbacks.on_SetFsrMode(1);
-                state->data.fsr_mode = 1;
-                state->data.last_action_status = res;
-            }
-            break;
-        }
-
-        case ID_ACT_FSR_MODE_2: {
-            if (state->callbacks.on_SetFsrMode) {
-                res = state->callbacks.on_SetFsrMode(2);
-                state->data.fsr_mode = 2;
-                state->data.last_action_status = res;
-            }
-            break;
-        }
-
-        case ID_ACT_FSR_SHARP_10: {
-            if (state->callbacks.on_SetFsrSharpness) {
-                res = state->callbacks.on_SetFsrSharpness(0.10f);
-                state->data.last_action_status = res;
-            }
-            break;
-        }
-
-        case ID_ACT_FSR_SHARP_20: {
-            if (state->callbacks.on_SetFsrSharpness) {
-                res = state->callbacks.on_SetFsrSharpness(0.20f);
-                state->data.last_action_status = res;
-            }
-            break;
-        }
-
-        case ID_ACT_FSR_SHARP_40: {
-            if (state->callbacks.on_SetFsrSharpness) {
-                res = state->callbacks.on_SetFsrSharpness(0.40f);
-                state->data.last_action_status = res;
-            }
-            break;
-        }
-
-        case ID_ACT_FSR_SHARP_70: {
-            if (state->callbacks.on_SetFsrSharpness) {
-                res = state->callbacks.on_SetFsrSharpness(0.70f);
                 state->data.last_action_status = res;
             }
             break;
@@ -535,9 +464,6 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                                                 DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
                                                 CLEARTYPE_QUALITY, FIXED_PITCH | FF_MODERN, L"Consolas");
 
-            // Global Alt + F11 hotkey for FSR 1.0
-            RegisterHotKey(hwnd, ID_HOTKEY_FSR, MOD_ALT, VK_F11);
-
             // System Tray icon
             state->nid.cbSize = sizeof(NOTIFYICONDATAW);
             state->nid.hWnd = hwnd;
@@ -666,23 +592,6 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
             return 0;
         }
 
-        case WM_HOTKEY: {
-            if (wParam == ID_HOTKEY_FSR && state) {
-                if (state->callbacks.on_ToggleFsr) {
-                    std::string res = state->callbacks.on_ToggleFsr();
-                    state->data.last_action_status = res;
-                    if (state->callbacks.on_PollTelemetry) {
-                        state->data = state->callbacks.on_PollTelemetry();
-                        if (!res.empty()) state->data.last_action_status = res;
-                    }
-                    if (IsWindowVisible(hwnd) && !IsIconic(hwnd)) {
-                        InvalidateRect(hwnd, nullptr, FALSE);
-                    }
-                }
-            }
-            return 0;
-        }
-
         case WM_APP_TRAYICON: {
             if (LOWORD(lParam) == WM_LBUTTONUP || LOWORD(lParam) == WM_LBUTTONDBLCLK) {
                 if (IsIconic(hwnd)) {
@@ -699,7 +608,6 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                 if (hMenu) {
                     AppendMenuW(hMenu, MF_STRING, ID_TRAY_RESTORE, L"Restaurar Dashboard UXTU");
                     AppendMenuW(hMenu, MF_STRING, ID_TRAY_PURGE, L"Purgar Standby RAM Ahora");
-                    AppendMenuW(hMenu, MF_STRING, ID_TRAY_FSR, (state && state->data.fsr_active) ? L"Desactivar FSR 1.0 (Alt+F11)" : L"Activar FSR 1.0 (Alt+F11)");
                     AppendMenuW(hMenu, MF_SEPARATOR, 0, nullptr);
                     AppendMenuW(hMenu, MF_STRING, ID_TRAY_EXIT, L"Cerrar VegaFlow Universal");
                     SetForegroundWindow(hwnd);
@@ -736,20 +644,6 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                     }
                     break;
                 }
-                case ID_TRAY_FSR: {
-                    if (state->callbacks.on_ToggleFsr) {
-                        std::string res = state->callbacks.on_ToggleFsr();
-                        state->data.last_action_status = res;
-                        if (state->callbacks.on_PollTelemetry) {
-                            state->data = state->callbacks.on_PollTelemetry();
-                            if (!res.empty()) state->data.last_action_status = res;
-                        }
-                        if (IsWindowVisible(hwnd) && !IsIconic(hwnd)) {
-                            InvalidateRect(hwnd, nullptr, FALSE);
-                        }
-                    }
-                    break;
-                }
                 case ID_TRAY_EXIT: {
                     DestroyWindow(hwnd);
                     break;
@@ -780,7 +674,6 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 
         case WM_DESTROY: {
             if (state) {
-                UnregisterHotKey(hwnd, ID_HOTKEY_FSR);
                 KillTimer(hwnd, TIMER_TELEMETRY_ID);
 
                 if (state->tray_registered) {

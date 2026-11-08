@@ -1,8 +1,6 @@
 {
   "poll_interval_ms": 1500,
   "timer_resolution_ns100": 5000,
-  "fsr_sharpness": 0.10,
-  "fsr_mode": 0,
   "timer_forced_manual": true,
   "memory": {
     "min_free_ram_mb": 1200,

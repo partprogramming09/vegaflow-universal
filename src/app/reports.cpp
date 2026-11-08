@@ -16,7 +16,6 @@
 #include "optimize/graphics/graphics_optimizer.hpp"
 #include "optimize/memory_manager.hpp"
 #include "optimize/cpu_orchestrator.hpp"
-#include "optimize/fsr/fsr_scaler.hpp"
 #include "optimize/steam/steam_engine_optimizer.hpp"
 #include "optimize/dxvk_manager.hpp"
 #include <tlhelp32.h>
@@ -192,8 +191,7 @@ void PrintStatusReport() {
     } else {
         df_status = "READY (AutoFlipModel=1 & DirectFlip=1 Injection on Launch)";
     }
-    std::cout << "  DirectFlip / AutoFlip Model: " << df_status << "\n";
-    std::cout << "  External FSR 1.0 Scaler    : READY (EASU + RCAS 2-Pass D3D11 | Hotkey: Alt+F11)\n\n";
+    std::cout << "  DirectFlip / AutoFlip Model: " << df_status << "\n\n";
 
     std::cout << "[RAM & TELEMETRY]\n";
     std::cout << "  Total Physical RAM         : " << FormatBytes(mem.total_physical_bytes) << "\n";

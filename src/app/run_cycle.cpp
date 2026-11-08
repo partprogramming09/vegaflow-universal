@@ -15,7 +15,6 @@
 #include "optimize/memory_manager.hpp"
 #include "optimize/cpu_orchestrator.hpp"
 #include "safety/frame_telemetry.hpp"
-#include "optimize/fsr/fsr_scaler.hpp"
 #include "optimize/steam/steam_engine_optimizer.hpp"
 #include <filesystem>
 #include "app/text_convert.hpp"
@@ -28,7 +27,6 @@ void RunSingleIteration(
     vegaflow::CpuOrchestrator& cpu_orchestrator,
     vegaflow::MemoryManager& mem_mgr,
     vegaflow::FrameTelemetryMonitor& telemetry_monitor,
-    vegaflow::FsrSpatialScaler& fsr_scaler,
     bool& game_active,
     uint32_t& active_game_pid,
     std::wstring& active_game_exe,
@@ -79,7 +77,6 @@ void RunSingleIteration(
                 std::cout << telemetry_monitor.FormatSessionReport(WideToUtf8(active_game_exe)) << "\n";
                 telemetry_monitor.SaveSessionReportToFile(WideToUtf8(active_game_exe), "logs/session_reports.log");
                 telemetry_monitor.StopMonitoring();
-                fsr_scaler.StopScaling();
             }
 
             std::cout << "[INFO] Game detected: " << WideToUtf8(game.exe_name)
@@ -203,7 +200,6 @@ void RunSingleIteration(
                 std::cout << telemetry_monitor.FormatSessionReport(WideToUtf8(active_game_exe)) << "\n";
                 telemetry_monitor.SaveSessionReportToFile(WideToUtf8(active_game_exe), "logs/session_reports.log");
                 telemetry_monitor.StopMonitoring();
-                fsr_scaler.StopScaling();
 
                 cpu_orchestrator.RestoreAll(false);
                 GraphicsOptimizer::SetDynamicPrioritySeparation(0x02, false);

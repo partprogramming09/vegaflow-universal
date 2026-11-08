@@ -149,7 +149,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
 ```
 
 ### 2. Ejecución de la Suite de Pruebas Unitarias
-El proyecto contiene 33 tests unitarios rigurosos que validan todas las invariantes matemáticas y de seguridad:
+El proyecto contiene 31 tests unitarios rigurosos que validan todas las invariantes matemáticas y de seguridad:
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1 -RunTests
 ```
@@ -172,4 +172,4 @@ Verifica que las secciones de privilegios, topología de CPU, tier APU, telemetr
 - **NUNCA** hardcodees constantes de memoria (4096 MB) o frecuencia (3.4 GHz); utiliza siempre `ApuOptimizationPolicy`.
 - **NUNCA** introduzcas hilos de sondeo activo ni bucles pesados en el daemon.
 - **NUNCA** toques carpetas de juegos protegidos por Anti-Cheat.
-- **SIEMPRE** valida tus cambios ejecutando la suite completa de 33 tests (`build.ps1 -RunTests`).
+- **SIEMPRE** valida tus cambios ejecutando la suite completa de 31 tests (`build.ps1 -RunTests`).

@@ -590,120 +590,7 @@ void RenderTabMemory(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* state
 }
 
 // =============================================================================
-// TAB 3: FSR 1.0 SPATIAL UPSCALER & DXGI (DIRECT ALGORITHM AND SHARPNESS SELECTOR)
-// =============================================================================
-void RenderTabScaler(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* state,
-                     int contentLeft, int contentRight, int contentTop, int contentBottom, int /*contentW*/) {
-    if (!state) return;
-
-    // Clean top header
-    DrawTextAt(hdcMem, contentLeft, contentTop, L"ESCALADOR ESPACIAL & PRESENTACIÓN DXGI", CLR_ACCENT_CYAN, state->hFontHeader);
-    DrawTextAt(hdcMem, contentLeft, contentTop + 20, L"Reescalado de fotogramas sin latencia y actualización de cadena de intercambio", CLR_TEXT_MUTED, state->hFontSmall);
-
-    // -------------------------------------------------------------------------
-    // 1. Top Card: Spatial Upscaling Engine
-    // -------------------------------------------------------------------------
-    int topFsrY = contentTop + 46;
-    int topFsrH = 210;
-    RECT rcTopFsr = { contentLeft, topFsrY, contentRight, topFsrY + topFsrH };
-    DrawRoundedCard(hdcMem, rcTopFsr, CLR_CARD_BG, CLR_CARD_BORDER, 8);
-
-    DrawTextAt(hdcMem, rcTopFsr.left + 16, rcTopFsr.top + 14, L"MOTOR DE REESCALADO ESPACIAL (FSR / NIS / ANIME4K)", CLR_ACCENT_CYAN, state->hFontBold);
-
-    RECT rcFsrBadge = { rcTopFsr.right - 260, rcTopFsr.top + 12, rcTopFsr.right - 16, rcTopFsr.top + 34 };
-    if (state->data.fsr_active) {
-        DrawBadge(hdcMem, rcFsrBadge, L"ESCALADOR: ACTIVO (ON)", CLR_ACCENT_GREEN, RGB(20, 36, 28), CLR_ACCENT_GREEN, state->hFontSmallBold);
-    } else {
-        DrawBadge(hdcMem, rcFsrBadge, L"ESCALADOR: DESACTIVADO (OFF)", CLR_TEXT_MUTED, RGB(33, 38, 48), CLR_CARD_BORDER, state->hFontSmallBold);
-    }
-
-    // Row 1: Direct Algorithm selector
-    DrawTextAt(hdcMem, rcTopFsr.left + 16, rcTopFsr.top + 46, L"Algoritmo de Reescalado:", CLR_TEXT_TITLE, state->hFontSmallBold);
-
-    int algBtnW = 220;
-    int algBtnH = 32;
-    int algBtnY = rcTopFsr.top + 68;
-
-    // Algorithm 0: FSR 1.0 Ultra-Clean
-    RECT rcAlg0 = { rcTopFsr.left + 16, algBtnY, rcTopFsr.left + 16 + algBtnW, algBtnY + algBtnH };
-    bool isMode0 = (state->data.fsr_mode == 0);
-    DrawActionButton(hdcMem, rcAlg0, L"FSR 1.0 Ultra-Clean", (state->hovered_id == ID_ACT_FSR_MODE_0), isMode0 ? CLR_ACCENT_CYAN : CLR_CARD_BORDER, state->hFontSmallBold, ID_ACT_FSR_MODE_0, state);
-
-    // Algorithm 1: NIS / Bicubic 16-Tap
-    RECT rcAlg1 = { rcAlg0.right + 10, algBtnY, rcAlg0.right + 10 + algBtnW, algBtnY + algBtnH };
-    bool isMode1 = (state->data.fsr_mode == 1);
-    DrawActionButton(hdcMem, rcAlg1, L"NIS / Bicúbico 16-Tap", (state->hovered_id == ID_ACT_FSR_MODE_1), isMode1 ? CLR_ACCENT_CYAN : CLR_CARD_BORDER, state->hFontSmallBold, ID_ACT_FSR_MODE_1, state);
-
-    // Algorithm 2: Anime4K Cel-Shading
-    RECT rcAlg2 = { rcAlg1.right + 10, algBtnY, rcAlg1.right + 10 + algBtnW, algBtnY + algBtnH };
-    bool isMode2 = (state->data.fsr_mode == 2);
-    DrawActionButton(hdcMem, rcAlg2, L"Anime4K Cel-Shading", (state->hovered_id == ID_ACT_FSR_MODE_2), isMode2 ? CLR_ACCENT_CYAN : CLR_CARD_BORDER, state->hFontSmallBold, ID_ACT_FSR_MODE_2, state);
-
-    // Row 2: Direct Sharpness selector + main Upscaler button
-    DrawTextAt(hdcMem, rcTopFsr.left + 16, rcTopFsr.top + 112, L"Nitidez Adaptativa RCAS:", CLR_TEXT_TITLE, state->hFontSmallBold);
-
-    int sharpBtnW = 105;
-    int sharpBtnH = 32;
-    int sharpBtnY = rcTopFsr.top + 134;
-    COLORREF selSharpCol = CLR_ACCENT_GREEN;
-
-    RECT rcS1 = { rcTopFsr.left + 16, sharpBtnY, rcTopFsr.left + 16 + sharpBtnW, sharpBtnY + sharpBtnH };
-    bool isAct1 = (std::abs(state->data.fsr_sharpness - 0.10f) < 0.05f);
-    DrawActionButton(hdcMem, rcS1, L"0.10 Suave", (state->hovered_id == ID_ACT_FSR_SHARP_10), isAct1 ? selSharpCol : CLR_CARD_BORDER, state->hFontSmall, ID_ACT_FSR_SHARP_10, state);
-
-    RECT rcS2 = { rcS1.right + 8, sharpBtnY, rcS1.right + 8 + sharpBtnW, sharpBtnY + sharpBtnH };
-    bool isAct2 = (std::abs(state->data.fsr_sharpness - 0.20f) < 0.05f);
-    DrawActionButton(hdcMem, rcS2, L"0.20 Normal", (state->hovered_id == ID_ACT_FSR_SHARP_20), isAct2 ? selSharpCol : CLR_CARD_BORDER, state->hFontSmall, ID_ACT_FSR_SHARP_20, state);
-
-    RECT rcS3 = { rcS2.right + 8, sharpBtnY, rcS2.right + 8 + sharpBtnW, sharpBtnY + sharpBtnH };
-    bool isAct3 = (std::abs(state->data.fsr_sharpness - 0.40f) < 0.05f);
-    DrawActionButton(hdcMem, rcS3, L"0.40 Nítido", (state->hovered_id == ID_ACT_FSR_SHARP_40), isAct3 ? selSharpCol : CLR_CARD_BORDER, state->hFontSmall, ID_ACT_FSR_SHARP_40, state);
-
-    RECT rcS4 = { rcS3.right + 8, sharpBtnY, rcS3.right + 8 + sharpBtnW, sharpBtnY + sharpBtnH };
-    bool isAct4 = (std::abs(state->data.fsr_sharpness - 0.70f) < 0.05f);
-    DrawActionButton(hdcMem, rcS4, L"0.70 Ultra", (state->hovered_id == ID_ACT_FSR_SHARP_70), isAct4 ? selSharpCol : CLR_CARD_BORDER, state->hFontSmall, ID_ACT_FSR_SHARP_70, state);
-
-    // Direct button to enable / disable the upscaler
-    RECT rcFsrToggleBtn = { rcS4.right + 20, sharpBtnY - 4, rcTopFsr.right - 16, sharpBtnY + sharpBtnH + 4 };
-    bool isFsrTogHov = (state->hovered_id == ID_ACT_TOGGLE_FSR);
-    std::wstring fsrBtnText = state->data.fsr_active ? L"DESACTIVAR ESCALADOR (Alt+F11)" : L"ACTIVAR ESCALADOR (Alt+F11)";
-    DrawActionButton(hdcMem, rcFsrToggleBtn, fsrBtnText, isFsrTogHov, state->data.fsr_active ? CLR_ACCENT_RED : CLR_ACCENT_GREEN, state->hFontSmallBold, ID_ACT_TOGGLE_FSR, state);
-
-    // Status on a single line
-    std::wstring fsrStatusLine = state->data.fsr_active
-        ? (L"Estado: " + (state->data.fsr_status_text.empty() ? L"Reescalado activo en tiempo real" : Utf8ToWide(state->data.fsr_status_text)))
-        : L"Estado: En reposo (Juego 100% nativo - 0 MB VRAM)";
-    DrawTextAt(hdcMem, rcTopFsr.left + 16, rcTopFsr.top + 178, fsrStatusLine, state->data.fsr_active ? CLR_ACCENT_GREEN : CLR_TEXT_MUTED, state->hFontSmallBold);
-
-    // -------------------------------------------------------------------------
-    // 2. Bottom Card: DXGI Flip Model & Shader Cache
-    // -------------------------------------------------------------------------
-    int botDxgiY = topFsrY + topFsrH + 12;
-    RECT rcBotDxgi = { contentLeft, botDxgiY, contentRight, contentBottom };
-    DrawRoundedCard(hdcMem, rcBotDxgi, CLR_CARD_BG, CLR_CARD_BORDER, 8);
-
-    DrawTextAt(hdcMem, rcBotDxgi.left + 16, rcBotDxgi.top + 14, L"DXGI FLIP MODEL & CACHÉ DE SHADERS", CLR_ACCENT_CYAN, state->hFontBold);
-
-    RECT rcFlipBadge = { rcBotDxgi.right - 210, rcBotDxgi.top + 12, rcBotDxgi.right - 16, rcBotDxgi.top + 34 };
-    if (state->data.flip_model_applied) {
-        DrawBadge(hdcMem, rcFlipBadge, L"DIRECTFLIP: ACTIVO", CLR_ACCENT_GREEN, RGB(20, 36, 28), CLR_ACCENT_GREEN, state->hFontSmallBold);
-    } else {
-        DrawBadge(hdcMem, rcFlipBadge, L"FLIP MODEL: STANDBY", CLR_TEXT_MUTED, RGB(33, 38, 48), CLR_CARD_BORDER, state->hFontSmallBold);
-    }
-
-    std::wstring flipStatus = state->data.flip_model_applied
-        ? L"Cadena de Presentación: Flip Model Habilitado (SwapEffectUpgrade=1 Latencia Mínima)"
-        : L"Cadena de Presentación: En espera de juego DirectX 11/12 compatible";
-    DrawTextAt(hdcMem, rcBotDxgi.left + 16, rcBotDxgi.top + 42, flipStatus, state->data.flip_model_applied ? CLR_ACCENT_GREEN : CLR_TEXT_TITLE, state->hFontRegular);
-
-    wchar_t cacheLine[256];
-    swprintf_s(cacheLine, L"Caché DirectX D3DSCache: %u MB   |   Caché AMD DxCache: %u MB",
-               state->data.d3dscache_mb, state->data.amd_dxcache_mb);
-    DrawTextAt(hdcMem, rcBotDxgi.left + 16, rcBotDxgi.top + 66, cacheLine, CLR_TEXT_MUTED, state->hFontSmall);
-}
-
-// =============================================================================
-// TAB 4: STEAM LIBRARY & ENGINES (COMPACT CARDS AND DIRECT BUTTONS)
+// TAB 3: STEAM LIBRARY & ENGINES (COMPACT CARDS AND DIRECT BUTTONS)
 // =============================================================================
 void RenderTabSteam(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* state,
                     int contentLeft, int contentRight, int contentTop, int contentBottom, int /*contentW*/) {
@@ -842,7 +729,7 @@ void RenderTabSteam(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* state,
 }
 
 // =============================================================================
-// TAB 5: LIVE CHANGE HISTORY (CLEAN MONOSPACE AUDIT LOG)
+// TAB 4: LIVE CHANGE HISTORY (CLEAN MONOSPACE AUDIT LOG)
 // =============================================================================
 void RenderTabAuditLog(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* state,
                        int contentLeft, int contentRight, int contentTop, int contentBottom, int /*contentW*/) {
@@ -886,7 +773,7 @@ void RenderTabAuditLog(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* sta
             COLORREF textCol = CLR_TEXT_BODY;
             if (item.find("Fallo") != std::string::npos || item.find("Requiere") != std::string::npos || item.find("Error") != std::string::npos) {
                 textCol = CLR_ACCENT_RED;
-            } else if (item.find("Purga") != std::string::npos || item.find("FSR") != std::string::npos || item.find("exitosamente") != std::string::npos || item.find("Optimizado") != std::string::npos) {
+            } else if (item.find("Purga") != std::string::npos || item.find("exitosamente") != std::string::npos || item.find("Optimizado") != std::string::npos) {
                 textCol = CLR_ACCENT_GREEN;
             }
             DrawTextAt(hdcMem, rcLogBox.left + 16, curY, Utf8ToWide(item), textCol, state->hFontMonospace);

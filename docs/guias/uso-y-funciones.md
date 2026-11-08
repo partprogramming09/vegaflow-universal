@@ -17,7 +17,7 @@
 |   | - DXVK-GPLAsync (6 worker threads) |              | - DXGI Hardware Flip Model         |      |
 |   | - UMA Engine Streaming (Pool 3000) |              | - CPU Sets cooperativos de juego   |      |
 |   | - AsyncCompute deshabilitado       |              | - Temporizador NT a 0.5 ms exactos |      |
-|   | - Backups automáticos .bak         |              | - FSR 1.0 Overlay Win32 Externo    |      |
+|   | - Backups automáticos .bak         |              |                                    |      |
 |   +------------------------------------+              +------------------------------------+      |
 |                                       \                         /                                 |
 |                                        +-----------+-----------+                                  |
@@ -76,15 +76,7 @@
   - Cero llamadas a APIs invasivas de procesos (`PROCESS_VM_WRITE`).
   - Aplica exclusivamente optimizaciones seguras a nivel de sistema operativo (Flip Model en registro, CPU Sets cooperativos y temporizador de alta precisión).
 
-### 2.5. Zero-Hook Spatial Upscaler (FSR 1.0 / NIS / Anime4K)
-- Reescalador espacial que se proyecta mediante una ventana Win32 borderless transparente click-through (`WS_EX_LAYERED | WS_EX_TRANSPARENT`).
-- Captura la superficie del juego mediante la API nativa de duplicación de escritorio / DWM y ejecuta shaders HLSL en una cola gráfica independiente:
-  - **AMD FSR 1.0 (EASU + RCAS)**: Reescalado espacial ultra nítido con atenuación de bordes y enfoque adaptativo.
-  - **NVIDIA NIS**: Filtro bicúbico direccional de 16 taps.
-  - **Anime4K Line Reconstruct**: Filtro optimizado para reconstrucción de líneas en juegos con estética anime y cell-shading.
-- **Totalmente invisible para los Anti-Cheats:** No inyecta código en la memoria del juego ni intercepta la llamada `Present()`. Se activa y desactiva con el atajo global `Alt + F11`.
-
-### 2.6. CPU Orchestration & MMCSS Quantum Tuning
+### 2.5. CPU Orchestration & MMCSS Quantum Tuning
 - **CPU Sets Disjuntos:** Asigna al juego los núcleos Zen 2 de mayor rendimiento y menor latencia de caché L3, mientras confina navegadores y tareas secundarias a núcleos residuales (`SetProcessDefaultCpuSets`).
 - **Background EcoQoS Throttling:** Ordena al planificador de Windows 11 ejecutar los procesos de fondo en modo de eficiencia energética mediante `PROCESS_POWER_THROTTLING_EXECUTION_SPEED`, recuperando de 3W a 5W de presupuesto térmico STAPM para sostener el reloj de la Radeon Vega 6 a 1500 MHz ininterrumpidos.
 - **Jerarquía NT de I/O y Memoria:** Aplica `IoPriorityHigh` en el juego e `IoPriorityVeryLow` (0) en procesos secundarios mediante `NtSetInformationProcess(ProcessIoPriorityInformationClass = 33)`, erradicando parones de lectura de disco.
@@ -92,7 +84,7 @@
 - **Resolución de Temporizador NT:** Modula el reloj del kernel de Windows de 15.6 ms a **0.5 ms exactos** (`NtSetTimerResolution`), estabilizando la cadencia de presentación de fotogramas.
 - **Perfil de Energía APU Térmicamente Eficiente:** Limita el modo boost agresivo de la CPU y estabiliza frecuencias en 3.2 GHz, cediendo ~20W de presupuesto térmico continuo a la GPU integrada para mantener sus 1500 MHz de forma ininterrumpida.
 
-### 2.7. Subsistema SandboxGuard (Aislamiento de Archivos & Cuarentena Anti-Cheat)
+### 2.6. Subsistema SandboxGuard (Aislamiento de Archivos & Cuarentena Anti-Cheat)
 El subsistema [`SandboxGuard`](../../src/safety/sandbox_guard.hpp) implementa una arquitectura estricta de aislamiento de archivos con modelo de confianza cero (**Zero-Trust File Access**):
 - **Normalización Canónica Antifraude:** Neutraliza ataques o desbordamientos por *Path Traversal* (`..`, `.`, dobles barras invertidas y symlinks). Combina la API Win32 `GetFullPathNameW` con `std::filesystem::weakly_canonical` para resolver de forma anticipada enlaces simbólicos y junctions antes de cualquier chequeo de acceso.
 - **Whitelist Estricta vs Blacklist Inviolable:**
@@ -103,7 +95,7 @@ El subsistema [`SandboxGuard`](../../src/safety/sandbox_guard.hpp) implementa un
 - **Wrappers Seguros de I/O:** Toda mutación en disco se canaliza por wrappers seguros (`SafeWriteFile`, `SafeCopyFile`, `SafeRemoveFile`, `SafeReadFile`), bloqueando cualquier I/O riesgoso antes de abrir llamadas nativas.
 - **Auditoría Forense en Tiempo Real:** Cada rechazo de acceso se almacena en memoria con sello de tiempo milimétrico (`timestamp_ms`), código de infracción (`SandboxDenialReason`) y mensaje descriptivo para diagnóstico.
 
-### 2.8. Subsistema SystemInfo (Telemetría de Hardware & Exportación JSON)
+### 2.7. Subsistema SystemInfo (Telemetría de Hardware & Exportación JSON)
 El subsistema [`SystemInfo`](../../src/detect/system_info.hpp) desacopla la detección profunda de hardware y sistema operativo en un módulo autónomo y de alta precisión:
 - **Detección de CPU Zen 2:** Extrae el *Brand String* mediante instrucciones `CPUID` nativas (*AMD Ryzen 5 4600H with Radeon Graphics*), calcula topología de 6 núcleos físicos / 12 lógicos, arquitectura Renoir de 7nm, tamaño de caché L3 de 8 MB y frecuencia objetivo APU STAPM a 3.4 GHz sostenidos.
 - **Topología de Gráficos & Memoria UMA (Vega 6):** Contrasta el reporte ficticio de BIOS (512 MB) con la memoria UMA compartida real del sistema (~7.7 GB) y sondea presupuestos dinámicos de VRAM en tiempo real mediante `IDXGIAdapter3::QueryVideoMemoryInfo`.
@@ -111,7 +103,7 @@ El subsistema [`SystemInfo`](../../src/detect/system_info.hpp) desacopla la dete
 - **Kernel NT & Temporizador:** Informa la compilación exacta de Windows 11 (Build 26300 con UBR), resolución del temporizador NT (0.50 ms), MMCSS GPU Priority (8) y estado de compresión de memoria.
 - **Exportación CLI Estándar JSON:** Soporta el comando `--system-info`, emitiendo la totalidad del perfil de hardware y sistema en formato JSON estándar para consumo externo.
 
-### 2.9. Rediseño Visual de la GUI (Clean Slate / Nordic Dark Mode)
+### 2.8. Rediseño Visual de la GUI (Clean Slate / Nordic Dark Mode)
 La interfaz gráfica Win32/GDI ([`gui_window.cpp`](../../src/ui/gui_window.cpp)) ha sido completamente renovada bajo estándares ergonómicos y de diseño moderno de instrumentación:
 - **Paleta Slate/Zinc Neutra:** Se sustituyeron los gradientes chillones por tonalidades carbón elegantes (`#111317` fondo principal, `#16191E` barra lateral, `#1B1E24` tarjetas, bordes finos `#2B303C` de 1px) y acentos cromáticos sobrios y moderados (Azul acero `#3B82F6`, Verde esmeralda `#10B981`, Ámbar `#F59E0B`, Rojo crítico `#EF4444`).
 - **Geometría y Espaciados Simétricos:** Márgenes exteriores exactos de 16px, gutters uniformes de 12px entre tarjetas y divisores horizontales nítidos de 1px.
@@ -121,7 +113,7 @@ La interfaz gráfica Win32/GDI ([`gui_window.cpp`](../../src/ui/gui_window.cpp))
   2. *Prioridad I/O:* Monitorea `IoPriorityHigh` en el proceso del juego e `IoPriorityVeryLow` (0) en subprocesos de fondo.
   3. *DirectFlip / AutoFlip:* Certifica la derivación directa al hardware eliminando la cola de copiado de DWM.
 
-### 2.10. Suite Moderna para Juegos 3D (EcoQoS, Jerarquía I/O NT y DirectFlip)
+### 2.9. Suite Moderna para Juegos 3D (EcoQoS, Jerarquía I/O NT y DirectFlip)
 Integrada a bajo nivel para resolver de raíz las limitaciones de latencia, contención de almacenamiento y balance energético en títulos 3D exigentes (Zenless Zone Zero, Genshin Impact, Honkai: Star Rail, Octopath Traveler II):
 1. **Background EcoQoS (Power Throttling en Procesos de Fondo):**
    - **Explicación técnica y física:** En procesadores con arquitectura APU como el Ryzen 5 4600H, el presupuesto térmico STAPM (Skin Temperature Aware Power Management) está limitado dinámicamente entre 35W y 45W para todo el encapsulado. Cuando procesos secundarios (navegadores web, launchers, Discord, tareas de indexación) ejecutan ráfagas de cómputo en núcleos Zen 2 a voltajes altos, sustraen entre 3W y 5W de este presupuesto unificado. La unidad SMU de AMD se ve forzada a reducir la frecuencia de la GPU Vega 6 a 1100–1200 MHz para mantenerse dentro del umbral térmico.
@@ -133,7 +125,7 @@ Integrada a bajo nivel para resolver de raíz las limitaciones de latencia, cont
    - **Explicación técnica:** En modos ventana o borderless tradicionales, el compositor del sistema (DWM) copia cada fotograma a una superficie intermedia, introduciendo entre 15 y 30 ms de retardo de entrada y micro-stutters periódicos.
    - **Inyección DXGI:** VegaFlow inyecta en `HKCU\Software\Microsoft\DirectX\UserGpuPreferences` las directivas `AutoFlipModel=1;DirectFlip=1;TurboSync=1;SwapEffectUpgradeEnable=1;GpuPreference=2;`. En Windows 11, esto permite la promoción directa al modo **DirectFlip**, evitando por completo la cola de copiado de DWM y alcanzando una **latencia de entrada de 0ms** en pantalla completa sin bordes.
 
-### 2.11. Suite de Silicio APU & Blindaje de Memoria de Kernel NT (DisablePagingExecutive & Smart Tessellation 16x)
+### 2.10. Suite de Silicio APU & Blindaje de Memoria de Kernel NT (DisablePagingExecutive & Smart Tessellation 16x)
 Diseñada para mitigar las debilidades intrínsecas de las APUs Ryzen con arquitectura de memoria compartida (UMA) y unidades de cómputo compactas (Vega 6):
 1. **Blindaje de Memoria de Kernel NT (RAM Lock / DisablePagingExecutive=1):**
    - **Explicación técnica y física:** En sistemas con memoria unificada, Windows NT tiende a paginar al archivo `pagefile.sys` código ejecutable del kernel y controladores D3D/WDDM cuando detecta baja actividad inmediata en ciertas páginas. Cuando el motor del juego o la GPU integrada solicita repentinamente una rutina no residente, se produce un fallo de página duro (*hard page fault*) que congela el pipeline de render durante 50 a 200 ms hasta que el disco NVMe devuelve la página a la RAM.
@@ -142,7 +134,7 @@ Diseñada para mitigar las debilidades intrínsecas de las APUs Ryzen con arquit
    - **Explicación técnica:** La Radeon RX Vega 6 cuenta con únicamente 6 Compute Units físicas (384 ALUs) y un solo Primitive Engine de hardware. Mallas y efectos 3D sobre-teselados (frecuentemente a 64x en motores DirectX 11) saturan el pipeline de geometría generando triángulos más pequeños que un píxel en pantalla (*sub-pixel overdraw*), colapsando el rendimiento sin añadir detalle visual perceptible.
    - **Mecanismo Driver AMD:** En la subclave `UMD` del adaptador, VegaFlow establece `Tessellation = "16"` y `Tessellation_Option = "1"`. Esto restringe la teselación máxima a **16x**, eliminando el sub-pixel overdraw, descongestionando los CUs de Vega 6 y estabilizando notablemente el frametime y los 1% Lows.
 
-### 2.12. ApuCapabilityGuard: Clasificación Universal de 4 Niveles y Safety Guards
+### 2.11. ApuCapabilityGuard: Clasificación Universal de 4 Niveles y Safety Guards
 Para asegurar compatibilidad universal en todo el ecosistema de procesadores AMD e Intel sin aplicar recetas genéricas dañinas, VegaFlow introduce el subsistema `ApuCapabilityGuard` (`HardwareProfiler::BuildOptimizationPolicy`):
 
 1. **Tier 1: Entry UMA [Survival Guard]:**
@@ -187,7 +179,6 @@ VegaFlow puede operar como servicio en segundo plano, como herramienta de consol
 |  --dxvk-remove <ruta>     Elimina DXVK y restaura el backend DirectX 11          |
 |  --apu-gpu-priority       Activa perfil térmico/energía con prioridad GPU (cap 3.4 GHz) |
 |  --apu-balanced           Restaura el perfil de energía balanceado estándar      |
-|  --fsr-validate           Compila y valida los shaders HLSL de FSR 1.0           |
 |  --dry-run, -d            Simula ciclos de evaluación sin modificar el sistema   |
 |  --help, -h               Imprime el manual de opciones                          |
 +----------------------------------------------------------------------------------+
@@ -222,7 +213,6 @@ VegaFlow puede operar como servicio en segundo plano, como herramienta de consol
   Kernel Memory Paging Shield: ACTIVE (DisablePagingExecutive=1, RAM Lock)
   AMD Tessellation Limiter   : 16x (Over-Geometry Capped)
   DirectFlip / AutoFlip Model: READY (AutoFlipModel=1 & DirectFlip=1 Injection on Launch)
-  External FSR 1.0 Scaler    : READY (EASU + RCAS 2-Pass D3D11 | Hotkey: Alt+F11)
 ```
 
 ##### 2. Exportación de Telemetría y Especificaciones en Formato JSON:
@@ -264,7 +254,7 @@ VegaFlow puede operar como servicio en segundo plano, como herramienta de consol
 ```powershell
 .\build\vegaflow_daemon.exe --gui
 ```
-*Permite activar o desactivar optimizaciones para cada juego de la biblioteca de Steam de forma visual, consultar gráficos de RAM y alternar el modo de reescalado FSR/NIS.*
+*Permite activar o desactivar optimizaciones para cada juego de la biblioteca de Steam de forma visual y consultar gráficos de RAM.*
 
 ##### 4. Monitor de Consola en Tiempo Real:
 ```powershell

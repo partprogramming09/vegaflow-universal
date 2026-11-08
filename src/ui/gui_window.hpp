@@ -69,7 +69,6 @@ struct GuiDashboardData {
     std::string active_game_path;
     std::string active_game_api;
     uint32_t active_game_pid = 0;
-    bool flip_model_applied = false;
 
     // Modern telemetry for 3D games (EcoQoS, I/O hierarchy and DirectFlip)
     uint32_t ecoqos_processes_count = 0;
@@ -80,13 +79,6 @@ struct GuiDashboardData {
     double fps_1_low = 0.0;
     double fps_0_1_low = 0.0;
     double frametime_stddev_ms = 0.0;
-
-    bool fsr_active = false;
-    float fsr_sharpness = 0.2f;
-    int fsr_mode = 0; // 0 = FSR 1.0 Ultra-Clean, 1 = NIS / Bicubic 16-Tap, 2 = Anime4K (JRPG/Cel)
-    std::string fsr_status_text;
-    uint32_t d3dscache_mb = 0;
-    uint32_t amd_dxcache_mb = 0;
 
     uint64_t daemon_private_ws_kb = 0;
     std::string last_action_status;
@@ -127,12 +119,10 @@ struct GuiCallbacks {
     std::function<std::string()> on_PurgeNow;
     std::function<std::string()> on_ToggleMpo;
     std::function<bool()> on_RequestElevate;
-    std::function<std::string()> on_ToggleFsr;
     std::function<std::string()> on_ToggleMemCompression;
     // New UXTU-style callbacks:
     std::function<std::string()> on_ToggleTimerForce;
     std::function<std::string()> on_ToggleShaderCache;
-    std::function<std::string(float)> on_SetFsrSharpness;
     std::function<std::string()> on_IsolateBackgroundNow;
     std::function<std::string()> on_RestoreCpuAffinity;
     std::function<std::string()> on_RestoreAllDefaults;
@@ -141,7 +131,6 @@ struct GuiCallbacks {
     std::function<std::string(uint32_t)> on_RestoreGameEngineConfig;
     std::function<std::string(uint32_t)> on_ToggleGameDxvk;
     std::function<std::string()> on_ToggleMmcssGaming;
-    std::function<std::string(int)> on_SetFsrMode;
     std::function<std::string()> on_ToggleApuPowerMode;
     std::function<std::string()> on_ApplyAllGamingTweaks;
     std::function<std::string()> on_ToggleVramOverride;

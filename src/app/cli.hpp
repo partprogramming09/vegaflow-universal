@@ -23,7 +23,6 @@ struct CliOptions {
     bool vram_override_flag = false;
     bool vram_restore_flag = false;
     bool restore_registry_flag = false;
-    bool fsr_validate_flag = false;
     bool monitor_flag = false;
     bool gui_flag = false;
     bool system_info_flag = false;

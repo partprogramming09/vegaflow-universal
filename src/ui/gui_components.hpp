@@ -39,13 +39,12 @@ constexpr UINT     TIMER_TELEMETRY_INTERVAL = 1500;
 constexpr UINT     WM_APP_TRAYICON          = WM_USER + 101;
 constexpr UINT     ID_TRAY_ICON             = 1001;
 
-// Side menu tab identifiers (0 to 5)
+// Side menu tab identifiers (0 to 4)
 constexpr int ID_TAB_0 = 100;
 constexpr int ID_TAB_1 = 101;
 constexpr int ID_TAB_2 = 102;
 constexpr int ID_TAB_3 = 103;
 constexpr int ID_TAB_4 = 104;
-constexpr int ID_TAB_5 = 105;
 
 // Interactive control identifiers (GDI hit-test)
 constexpr int ID_ACT_APPLY_PRESET       = 201;
@@ -56,11 +55,6 @@ constexpr int ID_ACT_TOGGLE_SHADERCACHE = 205;
 constexpr int ID_ACT_TOGGLE_MEMCOMP     = 206;
 constexpr int ID_ACT_ISOLATE_BG         = 207;
 constexpr int ID_ACT_RESTORE_CPU        = 208;
-constexpr int ID_ACT_TOGGLE_FSR         = 209;
-constexpr int ID_ACT_FSR_SHARP_10       = 210;
-constexpr int ID_ACT_FSR_SHARP_20       = 211;
-constexpr int ID_ACT_FSR_SHARP_40       = 212;
-constexpr int ID_ACT_FSR_SHARP_70       = 213;
 constexpr int ID_ACT_RESTORE_DEFAULTS   = 214;
 constexpr int ID_ACT_ELEVATE            = 215;
 constexpr int ID_ACT_MINIMIZE_TRAY      = 216;
@@ -68,9 +62,6 @@ constexpr int ID_ACT_TOGGLE_APU_POWER   = 217;
 constexpr int ID_ACT_APPLY_ALL_2B       = 218;
 constexpr int ID_ACT_TOGGLE_VRAM_OVERRIDE = 219;
 constexpr int ID_ACT_TOGGLE_MMCSS       = 123;
-constexpr int ID_ACT_FSR_MODE_0         = 124;
-constexpr int ID_ACT_FSR_MODE_1         = 125;
-constexpr int ID_ACT_FSR_MODE_2         = 126;
 
 constexpr int ID_ACT_RESCAN_STEAM       = 220;
 constexpr int ID_ACT_STEAM_PREV_PAGE    = 221;
@@ -88,10 +79,7 @@ constexpr int ID_ACT_STEAM_DXVK_2       = 252;
 // Tray context menu
 constexpr int ID_TRAY_RESTORE           = 3001;
 constexpr int ID_TRAY_PURGE             = 3002;
-constexpr int ID_TRAY_FSR               = 3003;
 constexpr int ID_TRAY_EXIT              = 3004;
-
-constexpr int ID_HOTKEY_FSR             = 4001;
 
 // UXTU design dimensions
 constexpr int SIDEBAR_WIDTH             = 250;
@@ -136,7 +124,7 @@ struct HitBox {
 struct GuiWindowState {
     GuiCallbacks callbacks;
     GuiDashboardData data;
-    int current_tab = 0; // 0: Dashboard, 1: Kernel, 2: Mem/CPU, 3: FSR, 4: Steam, 5: Audit Log
+    int current_tab = 0; // 0: Dashboard, 1: Kernel, 2: Mem/CPU, 3: Steam, 4: Audit Log
     int hovered_id = 0;
     int steam_page = 0;
     std::vector<HitBox> hit_boxes;
@@ -168,11 +156,10 @@ void DrawActionButton(HDC hdc, const RECT& rc, const std::wstring& text, bool is
 void DrawTabButton(HDC hdc, const RECT& rc, const std::wstring& text, bool is_active, bool is_hovered, int id, GuiWindowState* state);
 void DrawToggleSwitch(HDC hdc, const RECT& rc, bool is_on, bool is_hovered, int id, GuiWindowState* state);
 
-// Modular rendering of the 6 tabs
+// Modular rendering of the 5 tabs
 void RenderTabDashboard(HDC hdcMem, const RECT& rcClient, GuiWindowState* state, int contentLeft, int contentRight, int contentTop, int contentBottom, int contentW);
 void RenderTabKernel(HDC hdcMem, const RECT& rcClient, GuiWindowState* state, int contentLeft, int contentRight, int contentTop, int contentBottom, int contentW);
 void RenderTabMemory(HDC hdcMem, const RECT& rcClient, GuiWindowState* state, int contentLeft, int contentRight, int contentTop, int contentBottom, int contentW);
-void RenderTabScaler(HDC hdcMem, const RECT& rcClient, GuiWindowState* state, int contentLeft, int contentRight, int contentTop, int contentBottom, int contentW);
 void RenderTabSteam(HDC hdcMem, const RECT& rcClient, GuiWindowState* state, int contentLeft, int contentRight, int contentTop, int contentBottom, int contentW);
 void RenderTabAuditLog(HDC hdcMem, const RECT& rcClient, GuiWindowState* state, int contentLeft, int contentRight, int contentTop, int contentBottom, int contentW);
 

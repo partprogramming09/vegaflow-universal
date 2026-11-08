@@ -43,11 +43,11 @@ Guías: [compilar y probar](docs/guias/compilar-y-probar.md) y [uso del daemon](
 ```
 src/ + include/     código del daemon en C++20, espejo una de otra
   core/               privilegios, hardware, procesos, SystemInfo
-  optimizers/         las palancas: gráficos, memoria, CPU, DXVK, FSR, motores
+  optimizers/         las palancas: gráficos, memoria, CPU, DXVK, motores
   security/           SandboxGuard y telemetría de cuadros
   gui/                ventana Win32/GDI
 rust/vegaflow-core/ reglas puras en Rust (presión UMA, topología, confinamiento, firmas)
-tests/              la suite de 33 pruebas de C++
+tests/              la suite de 31 pruebas de C++
 scripts/            compilar, medir y operar el laptop de pruebas (ver scripts/README.md)
 assets/dxvk/        DLL de DXVK que el daemon instala en los juegos
 config/             valores por defecto del daemon

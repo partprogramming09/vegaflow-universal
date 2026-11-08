@@ -23,7 +23,6 @@
 #include "optimize/memory_manager.hpp"
 #include "optimize/cpu_orchestrator.hpp"
 #include "safety/frame_telemetry.hpp"
-#include "optimize/fsr/fsr_scaler.hpp"
 #include "optimize/steam/steam_engine_optimizer.hpp"
 #include "optimize/dxvk_manager.hpp"
 #include "safety/sandbox_guard.hpp"
@@ -322,30 +321,7 @@ int main() {
         RecordResult(t8_success, "Test 8: Phase 1-2 Enhancements & System Tweaks (Admin relaunch, process liveness, MPO, manual purge)", details);
     }
 
-    // -------------------------------------------------------------------------
-    // TEST 9: FSR 1.0 Spatial Upscaler HLSL Compilation & Zero-VRAM Lifecycle
-    // -------------------------------------------------------------------------
-    {
-        std::string shader_err;
-        bool shaders_compiled = vegaflow::FsrSpatialScaler::CompileAndValidateShadersOnly(&shader_err);
-
-        vegaflow::FsrSpatialScaler scaler;
-        bool start_dry_ok = scaler.StartScaling(nullptr, 0.2f, true /* dry_run */);
-        bool status_active = scaler.GetStatus().active;
-        scaler.StopScaling();
-        bool status_inactive = !scaler.GetStatus().active;
-
-        uint64_t ram_ws = vegaflow::MemoryManager::GetCurrentProcessPrivateWorkingSetBytes();
-        bool kpi_ok = (ram_ws < 15ULL * 1024 * 1024);
-
-        bool t9_success = shaders_compiled && start_dry_ok && status_active && status_inactive && kpi_ok;
-        std::string details = "EASU+RCAS HLSL: " + std::string(shaders_compiled ? "COMPILED" : ("FAIL: " + shader_err)) + ", "
-            + "Dry-Run Lifecycle: " + std::string((start_dry_ok && status_active && status_inactive) ? "OK" : "FAIL") + ", "
-            + "RAM Footprint: " + std::to_string(ram_ws / 1024) + " KB (Zero-Overhead KPI < 15MB: "
-            + (kpi_ok ? "PASS" : "FAIL") + ")";
-
-        RecordResult(t9_success, "Test 9: FSR 1.0 Spatial Upscaler HLSL Compilation & Zero-VRAM Lifecycle", details);
-    }
+    // Test 9 was removed along with the image scaling feature.
 
     // -------------------------------------------------------------------------
     // TEST 10: Phase 4 System Tweaks & Session Report Persistence
@@ -420,44 +396,7 @@ int main() {
         RecordResult(t11_success, "Test 11: Stability, Memory Stress & CpuOrchestrator Deduplication", details);
     }
 
-    // -------------------------------------------------------------------------
-    // TEST 12: FSR 1.0 Dynamic Sharpness Update & Value Clamping
-    // -------------------------------------------------------------------------
-    {
-        vegaflow::FsrSpatialScaler scaler;
-        scaler.SetSharpness(0.40f);
-        bool s1_ok = (std::abs(scaler.GetStatus().sharpness - 0.40f) < 0.001f);
-
-        scaler.SetSharpness(2.50f);
-        bool s2_ok = (std::abs(scaler.GetStatus().sharpness - 1.0f) < 0.001f);
-
-        scaler.SetSharpness(-0.50f);
-        bool s3_ok = (std::abs(scaler.GetStatus().sharpness - 0.0f) < 0.001f);
-
-        bool algo_default_ok = (scaler.GetAlgorithm() == vegaflow::UpscaleAlgorithm::FSR1_UltraClean) &&
-                               (scaler.GetStatus().algorithm == vegaflow::UpscaleAlgorithm::FSR1_UltraClean);
-
-        scaler.SetAlgorithm(vegaflow::UpscaleAlgorithm::NIS_HybridCatmull);
-        bool algo_nis_ok = (scaler.GetAlgorithm() == vegaflow::UpscaleAlgorithm::NIS_HybridCatmull) &&
-                           (scaler.GetStatus().algorithm == vegaflow::UpscaleAlgorithm::NIS_HybridCatmull);
-
-        scaler.SetAlgorithm(vegaflow::UpscaleAlgorithm::Anime4K_LineReconstruct);
-        bool algo_anime_ok = (scaler.GetAlgorithm() == vegaflow::UpscaleAlgorithm::Anime4K_LineReconstruct) &&
-                             (scaler.GetStatus().algorithm == vegaflow::UpscaleAlgorithm::Anime4K_LineReconstruct);
-
-        std::string compile_err;
-        bool shaders_ok = vegaflow::FsrSpatialScaler::CompileAndValidateShadersOnly(&compile_err);
-
-        bool t12_success = s1_ok && s2_ok && s3_ok && algo_default_ok && algo_nis_ok && algo_anime_ok && shaders_ok;
-        std::string details = "Set 0.40: " + std::string(s1_ok ? "PASS" : "FAIL") + ", "
-            + "Clamp 2.50 -> 1.0: " + std::string(s2_ok ? "PASS" : "FAIL") + ", "
-            + "Clamp -0.50 -> 0.0: " + std::string(s3_ok ? "PASS" : "FAIL") + ", "
-            + "NIS Algo: " + std::string(algo_nis_ok ? "PASS" : "FAIL") + ", "
-            + "Anime4K Algo: " + std::string(algo_anime_ok ? "PASS" : "FAIL") + ", "
-            + "Multi-Algo HLSL Compile: " + std::string(shaders_ok ? "PASS" : ("FAIL: " + compile_err));
-
-        RecordResult(t12_success, "Test 12: FSR 1.0 Dynamic Sharpness Update & Value Clamping", details);
-    }
+    // Test 12 was removed along with the image scaling feature.
 
     // -------------------------------------------------------------------------
     // TEST 13: SteamEngineOptimizer Engine Detection, Safe Backup & Restore

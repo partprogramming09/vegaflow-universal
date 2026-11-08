@@ -164,11 +164,6 @@ direct/
 │   │   │   ├── engine_presets.cpp      # Aplicar y restaurar presets de UE/Unity
 │   │   │   ├── apu_shadow_config.cpp   # Configuración "sombra" para APU
 │   │   │   └── steam_internal.*        # Ayudantes compartidos
-│   │   ├── fsr/                  # Escalador espacial
-│   │   │   ├── fsr_scaler.hpp          # API pública
-│   │   │   ├── fsr_scaler.cpp          # Ciclo de vida y estado
-│   │   │   ├── render_loop.cpp         # Bucle de render D3D11
-│   │   │   └── fsr_internal.*          # Shaders HLSL y ayudantes de D3D
 │   │   ├── memory_manager.*      # Telemetría de RAM/VRAM y purga de Standby List
 │   │   ├── cpu_orchestrator.*    # Asignación de CPU Sets y aislamiento de procesos
 │   │   └── dxvk_manager.*        # Despliegue seguro de DXVK-GPLAsync y backups

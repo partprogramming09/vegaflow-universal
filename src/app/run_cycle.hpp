@@ -8,7 +8,6 @@
 #include "app/config.hpp"
 #include "detect/hardware_profiler.hpp"
 #include "optimize/cpu_orchestrator.hpp"
-#include "optimize/fsr/fsr_scaler.hpp"
 #include "optimize/memory_manager.hpp"
 #include "safety/frame_telemetry.hpp"
 
@@ -20,7 +19,6 @@ void RunSingleIteration(
     vegaflow::CpuOrchestrator& cpu_orchestrator,
     vegaflow::MemoryManager& mem_mgr,
     vegaflow::FrameTelemetryMonitor& telemetry_monitor,
-    vegaflow::FsrSpatialScaler& fsr_scaler,
     bool& game_active,
     uint32_t& active_game_pid,
     std::wstring& active_game_exe,

@@ -14,7 +14,6 @@
 #include "optimize/cpu_orchestrator.hpp"
 #include "safety/frame_telemetry.hpp"
 #include "ui/gui_window.hpp"
-#include "optimize/fsr/fsr_scaler.hpp"
 #include "optimize/steam/steam_engine_optimizer.hpp"
 #include "optimize/dxvk_manager.hpp"
 #include "safety/sandbox_guard.hpp"
@@ -33,8 +32,7 @@ int RunGuiMode(
     vegaflow::SystemHardwareProfile& hw,
     vegaflow::CpuOrchestrator& cpu_orchestrator,
     vegaflow::MemoryManager& mem_mgr,
-    vegaflow::FrameTelemetryMonitor& telemetry_monitor,
-    vegaflow::FsrSpatialScaler& fsr_scaler) {
+    vegaflow::FrameTelemetryMonitor& telemetry_monitor) {
     using namespace vegaflow;
     bool game_active = false;
     uint32_t active_game_pid = 0;
@@ -51,10 +49,6 @@ int RunGuiMode(
     }
     GraphicsOptimizer::SetGameDvrAndFseOptimized(true, false);
     GraphicsOptimizer::SetApuLaptopPowerProfile(true, false);
-    float current_fsr_sharpness = config.fsr_sharpness;
-    fsr_scaler.SetSharpness(current_fsr_sharpness);
-    int current_fsr_mode = std::clamp(config.fsr_mode, 0, 2);
-    fsr_scaler.SetAlgorithm(static_cast<UpscaleAlgorithm>(current_fsr_mode));
     uint32_t last_isolated_count = 0;
     uint64_t last_purge_before_free_mb = 0;
     uint64_t last_purge_after_free_mb = 0;
@@ -80,10 +74,6 @@ int RunGuiMode(
                 HardwareProfiler::MemArchToString(hw.primary_gpu.mem_arch) + "]");
     AddAuditLog("Estado de Privilegios: " + std::string(PrivilegeManager::IsProcessElevated() ? "ADMINISTRADOR (Acceso Total)" : "ESTANDAR (Sin elevación)"));
 
-    uint32_t cached_d3dscache_mb = 0;
-    uint32_t cached_amd_dxcache_mb = 0;
-    int cache_query_countdown = 0;
-
     SystemGraphicsTweaksState cached_tweaks = GraphicsOptimizer::QuerySystemGraphicsTweaks();
     int tweaks_query_countdown = 10;
     uint32_t cached_noisy_count = 0;
@@ -96,7 +86,7 @@ int RunGuiMode(
     callbacks.on_PollTelemetry = [&]() -> GuiDashboardData {
         std::function<void(const std::string&)> audit_fn = AddAuditLog;
         RunSingleIteration(
-            config, hw, cpu_orchestrator, mem_mgr, telemetry_monitor, fsr_scaler,
+            config, hw, cpu_orchestrator, mem_mgr, telemetry_monitor,
             game_active, active_game_pid, active_game_exe, active_game_api, active_game_hwnd, timer_boosted,
             &active_game_full_path, &cached_noisy_count, &audit_fn);
 
@@ -139,24 +129,11 @@ int RunGuiMode(
         }
         auto timer_res = GraphicsOptimizer::QueryTimerResolution();
         auto frame_snap = telemetry_monitor.GetSnapshot();
-        auto fsr_st = fsr_scaler.GetStatus();
         uint64_t daemon_ws = MemoryManager::GetCurrentProcessPrivateWorkingSetBytes();
 
         if (--tweaks_query_countdown <= 0) {
             tweaks_query_countdown = 10;
             cached_tweaks = GraphicsOptimizer::QuerySystemGraphicsTweaks();
-        }
-
-        if (--cache_query_countdown <= 0) {
-            cache_query_countdown = 10;
-            auto caches = GraphicsOptimizer::InspectShaderCaches();
-            for (const auto& c : caches) {
-                if (c.path.find(L"D3DSCache") != std::wstring::npos) {
-                    cached_d3dscache_mb = static_cast<uint32_t>(c.total_size_bytes / (1024 * 1024));
-                } else if (c.path.find(L"DxCache") != std::wstring::npos || c.path.find(L"AMD") != std::wstring::npos) {
-                    cached_amd_dxcache_mb = static_cast<uint32_t>(c.total_size_bytes / (1024 * 1024));
-                }
-            }
         }
 
         GuiDashboardData data;
@@ -212,7 +189,6 @@ int RunGuiMode(
         data.active_game_path = WideToUtf8(active_game_full_path);
         data.active_game_api = active_game_api;
         data.active_game_pid = active_game_pid;
-        data.flip_model_applied = game_active ? GraphicsOptimizer::HasDxgiFlipModelUpgrade(active_game_full_path) : false;
 
         // Modern suite for 3D games (EcoQoS, I/O hierarchy and DirectFlip)
         data.ecoqos_processes_count = game_active
@@ -229,20 +205,6 @@ int RunGuiMode(
             data.fps_0_1_low = frame_snap.fps_0_1_percent_low;
             data.frametime_stddev_ms = frame_snap.frametime_stddev_ms;
         }
-
-        data.fsr_active = fsr_st.active;
-        data.fsr_sharpness = current_fsr_sharpness;
-        data.fsr_mode = current_fsr_mode;
-        if (fsr_st.active) {
-            data.fsr_status_text = "Activo: " + std::string(FsrSpatialScaler::AlgorithmToString(fsr_st.algorithm))
-                + " (" + std::to_string(fsr_st.source_width) + "x" + std::to_string(fsr_st.source_height)
-                + " -> " + std::to_string(fsr_st.output_width) + "x" + std::to_string(fsr_st.output_height) + ")";
-        } else {
-            data.fsr_status_text = "Listo: " + std::string(FsrSpatialScaler::AlgorithmToString(static_cast<UpscaleAlgorithm>(current_fsr_mode))) + " (Alt+F11)";
-        }
-
-        data.d3dscache_mb = cached_d3dscache_mb;
-        data.amd_dxcache_mb = cached_amd_dxcache_mb;
 
         data.daemon_private_ws_kb = daemon_ws / 1024;
         data.last_action_status = last_gui_status;
@@ -312,29 +274,6 @@ int RunGuiMode(
             g_single_instance_mutex = CreateMutexW(nullptr, FALSE, L"Local\\VegaFlowUniversal_SingleInstance");
         }
         return ok;
-    };
-
-    callbacks.on_ToggleFsr = [&]() -> std::string {
-        if (fsr_scaler.GetStatus().active) {
-            fsr_scaler.StopScaling();
-            std::string msg = "Escalador espacial desactivado (0 MB VRAM - Resolución 100% Nativa)";
-            last_gui_status = msg;
-            AddAuditLog(msg);
-            return msg;
-        }
-        if (active_game_hwnd != nullptr && IsWindow(active_game_hwnd)) {
-            fsr_scaler.StartScaling(active_game_hwnd, current_fsr_sharpness, false);
-            std::string msg = fsr_scaler.GetStatus().status_message;
-            last_gui_status = msg;
-            AddAuditLog("Escalador Espacial: " + msg);
-            return msg;
-        } else {
-            fsr_scaler.StopScaling();
-            std::string msg = "Escalador DESACTIVADO: Abre un juego 3D antes de activar el reescalador";
-            last_gui_status = msg;
-            AddAuditLog(msg);
-            return msg;
-        }
     };
 
     callbacks.on_ToggleMemCompression = [&]() -> std::string {
@@ -450,33 +389,6 @@ int RunGuiMode(
         return msg;
     };
 
-    callbacks.on_SetFsrSharpness = [&](float sharpness) -> std::string {
-        sharpness = std::clamp(sharpness, 0.0f, 1.0f);
-        current_fsr_sharpness = sharpness;
-        fsr_scaler.SetSharpness(current_fsr_sharpness);
-        config.fsr_sharpness = current_fsr_sharpness;
-        SaveConfig("config/config.json", config);
-        char sBuf[64];
-        std::snprintf(sBuf, sizeof(sBuf), "Nitidez FSR RCAS configurada a %.2f", sharpness);
-        std::string msg = sBuf;
-        last_gui_status = msg;
-        AddAuditLog(msg);
-        return msg;
-    };
-
-    callbacks.on_SetFsrMode = [&](int mode) -> std::string {
-        mode = std::clamp(mode, 0, 2);
-        current_fsr_mode = mode;
-        auto algo = static_cast<UpscaleAlgorithm>(mode);
-        fsr_scaler.SetAlgorithm(algo);
-        config.fsr_mode = current_fsr_mode;
-        SaveConfig("config/config.json", config);
-        std::string msg = std::string("Algoritmo de reescalado cambiado en vivo a: ") + FsrSpatialScaler::AlgorithmToString(algo);
-        last_gui_status = msg;
-        AddAuditLog(msg);
-        return msg;
-    };
-
     callbacks.on_IsolateBackgroundNow = [&]() -> std::string {
         auto noisy = ProcessDetector::FindBackgroundNoisyProcesses(active_game_pid);
         std::vector<ULONG> empty_game_sets;
@@ -506,12 +418,6 @@ int RunGuiMode(
         GraphicsOptimizer::RestoreDefaultTimer();
         timer_boosted = false;
         timer_forced_manual = false;
-        current_fsr_sharpness = 0.20f;
-        fsr_scaler.SetSharpness(current_fsr_sharpness);
-        config.fsr_sharpness = 0.20f;
-        current_fsr_mode = 0;
-        fsr_scaler.SetAlgorithm(UpscaleAlgorithm::FSR1_UltraClean);
-        config.fsr_mode = 0;
         config.timer_forced_manual = false;
         SaveConfig("config/config.json", config);
         GraphicsOptimizer::SetMpoDisabled(false, false);
@@ -528,9 +434,6 @@ int RunGuiMode(
         tweaks_query_countdown = 0;
         cpu_orchestrator.RestoreAll(false);
         last_isolated_count = 0;
-        if (fsr_scaler.GetStatus().active) {
-            fsr_scaler.StopScaling();
-        }
         std::string msg = "Todos los ajustes dinámicos han sido revertidos a los valores por defecto de Windows";
         last_gui_status = msg;
         AddAuditLog(msg);
@@ -612,7 +515,6 @@ int RunGuiMode(
     };
 
     int exit_code = GuiWindow::RunGuiLoop(callbacks);
-    fsr_scaler.StopScaling();
     if (game_active) {
         telemetry_monitor.SaveSessionReportToFile(WideToUtf8(active_game_exe), "logs/session_reports.log");
         telemetry_monitor.StopMonitoring();

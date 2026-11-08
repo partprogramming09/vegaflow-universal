@@ -13,7 +13,6 @@
 #include "optimize/memory_manager.hpp"
 #include "optimize/cpu_orchestrator.hpp"
 #include "safety/frame_telemetry.hpp"
-#include "optimize/fsr/fsr_scaler.hpp"
 #include "app/app_state.hpp"
 #include "app/run_cycle.hpp"
 #include "app/text_convert.hpp"
@@ -26,7 +25,6 @@ void RunMonitorDashboard(
     vegaflow::CpuOrchestrator& cpu_orchestrator,
     vegaflow::MemoryManager& mem_mgr,
     vegaflow::FrameTelemetryMonitor& telemetry_monitor,
-    vegaflow::FsrSpatialScaler& fsr_scaler,
     bool once_mode) {
 
     using namespace vegaflow;
@@ -45,7 +43,7 @@ void RunMonitorDashboard(
 
     auto print_line = [&]() {
         RunSingleIteration(
-            config, hw, cpu_orchestrator, mem_mgr, telemetry_monitor, fsr_scaler,
+            config, hw, cpu_orchestrator, mem_mgr, telemetry_monitor,
             game_active, active_game_pid, active_game_exe, active_game_api, active_game_hwnd, timer_boosted);
 
         auto mem = mem_mgr.SampleTelemetry();
@@ -78,7 +76,6 @@ void RunMonitorDashboard(
     if (once_mode) {
         print_line();
         if (game_active) {
-            fsr_scaler.StopScaling();
             telemetry_monitor.SaveSessionReportToFile(WideToUtf8(active_game_exe), "logs/session_reports.log");
             cpu_orchestrator.RestoreAll(false);
             if (timer_boosted) GraphicsOptimizer::RestoreDefaultTimer();
@@ -99,7 +96,6 @@ void RunMonitorDashboard(
     }
 
     if (game_active) {
-        fsr_scaler.StopScaling();
         telemetry_monitor.SaveSessionReportToFile(WideToUtf8(active_game_exe), "logs/session_reports.log");
         cpu_orchestrator.RestoreAll(false);
         if (timer_boosted) GraphicsOptimizer::RestoreDefaultTimer();
