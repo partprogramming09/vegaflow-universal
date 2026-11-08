@@ -13,7 +13,7 @@ Los 10 trabajos de `vfjob` (`state`, `doctor`, `restore`, `daemon-start`, `daemo
 En el laptop: copiar `manifest.json` a `%LOCALAPPDATA%\winbridge\bin\jobs\packages\vegaflow\` y los 10 scripts de la tabla a su subcarpeta `scripts\`; luego:
 
 ```
-powershell -File %LOCALAPPDATA%\winbridge\bin\jobs\Install-WinBridgeJobs.ps1 -Packages %LOCALAPPDATA%\winbridge\bin\jobs\packages -AgentUser testuser -Update
+powershell -File %LOCALAPPDATA%\winbridge\bin\jobs\Install-WinBridgeJobs.ps1 -Packages %LOCALAPPDATA%\winbridge\bin\jobs\packages -AgentUser <usuario> -Update
 ```
 
 Uso: `winbridge jobs run bench Process=drawstress.exe Label=x Seconds=15 WarmupSeconds=5`, `winbridge jobs run ab Api=d3d11 Reps=5 ...` (igual que `vfjob run`, con `Clave=valor`).
