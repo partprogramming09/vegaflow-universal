@@ -105,3 +105,6 @@ Total: unas 6 a 7 horas, casi todo medición en el laptop.
 - Registro y configuración del servidor MCP `metal-gpu-trace` (`v0.8.4`) para instrumentación y perfiles de GPU en tiempo real.
 - Verificación empírica A/B del daemon híbrido (`ab_hybrid_221748`): ganancia de 2.53x en FPS medio (42.81 -> 108.16) y 5.97x en 1% Low (11.55 -> 68.96) con 6 workers de Chrome y reducción de -80.5% en la dispersión de frametimes.
 - Merge a `main` y sincronización de arquitectura y documentación en CMake, CI y guías de desarrollo.
+
+### 2026-11-08
+- Auditoría de código universal y especificación de PARTE IV en `docs/ARQUITECTURA_RENDIMIENTO_Y_PATRON_UNIVERSAL.md`: registro de 5 brechas universales de silicio (Intel Híbrido P+E en Ring Bus, Unreal Engine en dGPU/eGPU Lossless, detección de bus eGPU vs dGPU, contención Cross-CCD en AMD Ryzen 12C/16C/X3D, y escalabilidad a 128 procesadores lógicos). Planificación de las 3 tareas de ingeniería pendientes de implementación en `ROADMAP_FOCUS.md`.
