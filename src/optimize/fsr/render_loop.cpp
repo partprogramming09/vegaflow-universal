@@ -25,6 +25,11 @@ using namespace fsr_internal;
 
 namespace {
 
+#if defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+
 HRESULT SafeD3D11CreateDevice(
     IDXGIAdapter* pAdapter,
     D3D_DRIVER_TYPE DriverType,
@@ -51,6 +56,10 @@ HRESULT SafeD3D11CreateDevice(
     }
     return E_FAIL;
 }
+
+#if defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
 
 } // namespace
 

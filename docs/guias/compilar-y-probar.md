@@ -21,6 +21,14 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1 -RunTests
 ```
 
+#### Compilar desde un Mac o Linux (compilación cruzada)
+```bash
+brew install mingw-w64                      # una vez
+rustup target add x86_64-pc-windows-gnu     # una vez
+scripts/build-cross.sh                      # genera build/vegaflow_daemon.exe y build/vegaflow_tests.exe
+```
+Usa las mismas banderas y bibliotecas que `build.ps1`, y compila en paralelo (unos 15 segundos en un Mac con 10 núcleos). Los fuentes se buscan con un comodín sobre `src/`, así que un `.cpp` nuevo se incluye sin editar ninguna lista. Los `.exe` se prueban en un equipo Windows; no hace falta compilar allí.
+
 #### Probar solo el núcleo Rust (en cualquier equipo, también en un Mac)
 ```bash
 cargo test --manifest-path rust/vegaflow-core/Cargo.toml

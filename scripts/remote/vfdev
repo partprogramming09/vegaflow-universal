@@ -8,6 +8,7 @@
 #   vfdev deploy                      installs the vegaflow package, the tasks and the compiled daemon (administrator over SSH, no UAC)
 #   vfdev sync                        brings the current branch's commits to the repository on the laptop (bundle + fast-forward)
 #   vfdev build-test                  builds and runs the tests on the laptop; exits with an error if any fails
+#   vfdev cross-test                  compila en la Mac (scripts/build-cross.sh), envia solo los .exe y sus datos al laptop y alli solo ejecuta las pruebas
 #   vfdev stats FILE|- [PREFIX]       groups result rows by condition: n, mean, median and range
 #   vfdev fetch PREFIX [DEST]         fetches from the laptop the JSON and frame CSVs of captures whose label starts with PREFIX
 #   vfdev frames GLOB_A GLOB_B        compares two conditions using the frame CSVs: grouped frames and confidence interval
@@ -84,8 +85,25 @@ build-test)
     printf '%s\n' "$out"
     printf '%s' "$out" | grep -q 'exit=0' && ! printf '%s' "$out" | grep -qE '[1-9][0-9]* FAILED'
     ;;
+cross-test)
+    # Build on the Mac, copy only the executables and the data files the suite reads, and just run them on the laptop.
+    if [ "${VFJOB_QUEUE:-0}" != 1 ]; then
+        busy="$("$WB" jobs busy 2>&1)"
+        case "$busy" in
+        *"no job is queued or running"*) ;;
+        *) echo "hay trabajos en curso o en cola ($busy); espera o usa VFJOB_QUEUE=1"; exit 3 ;;
+        esac
+    fi
+    "$REPO/scripts/build-cross.sh" || exit 1
+    RUN_DIR="${VFJOB_RUN_DIR:-C:\\dev\\vf-run}"
+    COPYFILE_DISABLE=1 tar -C "$REPO" -czf - build/vegaflow_tests.exe build/vegaflow_daemon.exe config tests/vectors assets 2>/dev/null |
+        remote "powershell -NoProfile -Command \"New-Item -ItemType Directory -Force $RUN_DIR | Out-Null; tar -xzf - -C $RUN_DIR\"" 2>&1 | grep -v 'CLIXML' | head -3
+    out="$(remote "cd /d $RUN_DIR && build\\vegaflow_tests.exe" 2>&1 | LC_ALL=C tr -d '\r')"
+    printf '%s\n' "$out" | grep -E 'FAIL|TEST RESULTS'
+    printf '%s' "$out" | grep -qE 'TEST RESULTS: [0-9]+ PASSED, 0 FAILED'
+    ;;
 *)
-    sed -n '2,15p' "$0"
+    sed -n "2,17p" "$0"
     exit 1
     ;;
 esac

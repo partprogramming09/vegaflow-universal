@@ -13,7 +13,7 @@ Los trabajos corren en el **ejecutor de trabajos de WinBridge** (`/Volumes/dev/w
 | `winbridge-package/manifest.json` | laptop (paquete `vegaflow`) | Los trabajos permitidos: scripts, parámetros con su expresión regular, límite de tiempo, sesión 1 |
 | `jobs/*.ps1` | laptop | Los trabajos: `state`, `doctor`, `restore`, `daemon-start`, `daemon-stop`, `game`, `kill-game`, `bg-factors` |
 | `deploy_package.ps1` | laptop, administrador | Instala el paquete en el ejecutor de WinBridge y los archivos que usan las tareas `VegaFlow-*` |
-| `vfdev` | Mac | `run`, `submit`, `wait`, `status`, `cancel`, `busy`, `list` (a `winbridge jobs`), más `deploy`, `sync`, `build-test`, `stats` |
+| `vfdev` | Mac | `run`, `submit`, `wait`, `status`, `cancel`, `busy`, `list` (a `winbridge jobs`), más `deploy`, `sync`, `build-test`, `cross-test`, `stats` |
 | `vfstats.py` | Mac | Agrupa filas de resultados: n, media, mediana y rango |
 | `vfframes.py` | Mac | Compara dos condiciones con los CSV de cuadros de `bench.ps1`: cuadros agrupados, intervalo de confianza del 1% Low y veredicto con los umbrales del plan de pruebas |
 
@@ -33,6 +33,7 @@ scripts/remote/vfdev cancel ID              # cancela un trabajo y su arbol de p
 scripts/remote/vfdev deploy                 # instala el paquete y el daemon compilado (administrador por SSH, sin UAC)
 scripts/remote/vfdev sync                   # lleva los commits de la rama actual al repositorio del laptop (bundle + fast-forward)
 scripts/remote/vfdev build-test             # compila y ejecuta las pruebas en el laptop; sale con error si alguna falla
+scripts/remote/vfdev cross-test             # compila en la Mac, envía solo los .exe y sus datos al laptop y allí solo ejecuta las pruebas (el laptop no compila)
 scripts/remote/vfdev stats ARCHIVO [PREFIJO]
 scripts/remote/vfdev fetch PREFIJO [DESTINO]   # trae los JSON y CSV de cuadros de las capturas con esa etiqueta
 scripts/remote/vfdev frames 'A/*.csv' 'B/*.csv' # compara dos condiciones con los cuadros agrupados
