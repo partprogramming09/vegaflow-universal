@@ -34,15 +34,12 @@ extern "C" {
 }
 #endif
 
-#include <algorithm>
 #include <atomic>
 #include <cstring>
 #include <mutex>
 #include <cwctype>
 #include <filesystem>
-#include <functional>
 #include <tlhelp32.h>
-#include <winioctl.h>
 #include <vector>
 
 namespace vegaflow::graphics_internal {

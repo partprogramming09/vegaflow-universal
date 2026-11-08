@@ -6,33 +6,14 @@
 #endif
 #include <windows.h>
 
-#include <atomic>
-#include <chrono>
-#include <cstdint>
-#include <cstdlib>
-#include <fstream>
-#include <iomanip>
 #include <iostream>
-#include <optional>
-#include <sstream>
-#include <string>
-#include <vector>
 
-#include "windows/privileges.hpp"
 #include "detect/hardware_profiler.hpp"
-#include "detect/process_detector.hpp"
 #include "optimize/graphics/graphics_optimizer.hpp"
 #include "optimize/memory_manager.hpp"
 #include "optimize/cpu_orchestrator.hpp"
 #include "safety/frame_telemetry.hpp"
-#include "ui/gui_window.hpp"
 #include "optimize/fsr/fsr_scaler.hpp"
-#include "optimize/steam/steam_engine_optimizer.hpp"
-#include "optimize/dxvk_manager.hpp"
-#include "safety/sandbox_guard.hpp"
-#include "detect/system_info.hpp"
-#include <filesystem>
-#include <tlhelp32.h>
 #include "app/app_state.hpp"
 #include "app/cli.hpp"
 #include "app/config.hpp"
@@ -45,12 +26,10 @@ using namespace vegaflow::app;
 
 namespace {
 
-
 LONG WINAPI VegaFlowCrashHandler(EXCEPTION_POINTERS* /*ep*/) {
     vegaflow::GraphicsOptimizer::RestoreDefaultTimer();
     return EXCEPTION_EXECUTE_HANDLER;
 }
-
 
 } // anonymous namespace
 
@@ -116,7 +95,6 @@ int main(int argc, char* argv[]) {
         }
         return 0;
     }
-
 
     if (opts.gui_flag) {
         return RunGuiMode(config, hw, cpu_orchestrator, mem_mgr, telemetry_monitor, fsr_scaler);

@@ -8,7 +8,7 @@
 #   vfdev deploy                      installs the vegaflow package, the tasks and the compiled daemon (administrator over SSH, no UAC)
 #   vfdev sync                        brings the current branch's commits to the repository on the laptop (bundle + fast-forward)
 #   vfdev build-test                  builds and runs the tests on the laptop; exits with an error if any fails
-#   vfdev cross-test                  compila en la Mac (scripts/build-cross.sh), envia solo los .exe y sus datos al laptop y alli solo ejecuta las pruebas
+#   vfdev cross-test                  builds on the Mac (scripts/build-cross.sh), sends only the .exe files and their data to the laptop and just runs the tests there
 #   vfdev stats FILE|- [PREFIX]       groups result rows by condition: n, mean, median and range
 #   vfdev fetch PREFIX [DEST]         fetches from the laptop the JSON and frame CSVs of captures whose label starts with PREFIX
 #   vfdev frames GLOB_A GLOB_B        compares two conditions using the frame CSVs: grouped frames and confidence interval
@@ -30,6 +30,17 @@ MINGW="${VFJOB_MINGW:-C:\\Users\\testuser\\scoop\\apps\\mingw\\16.2.0-rt_v14-rev
 remote() { ssh -i "$KEY" -o BatchMode=yes -o ConnectTimeout=10 "$HOST" "$@"; }
 # Copies files to the laptop with scp without interaction.
 copy_to() { scp -q -i "$KEY" -o BatchMode=yes "$@"; }
+
+# Refuses to run while a job is running or queued on the laptop (VFJOB_QUEUE=1 skips the check).
+require_idle() {
+    [ "${VFJOB_QUEUE:-0}" = 1 ] && return 0
+    local busy
+    busy="$("$WB" jobs busy 2>&1)"
+    case "$busy" in
+    *"no job is queued or running"*) ;;
+    *) echo "hay trabajos en curso o en cola ($busy); espera o usa VFJOB_QUEUE=1"; exit 3 ;;
+    esac
+}
 
 case "${1:-}" in
 run | submit | wait | status | cancel | busy | list)
@@ -70,13 +81,7 @@ sync)
     remote "cd /d $LAPTOP_REPO && git fetch C:\\dev\\vf.bundle HEAD && git merge --ff-only FETCH_HEAD && git log --oneline -1" | LC_ALL=C tr -d '\r'
     ;;
 build-test)
-    if [ "${VFJOB_QUEUE:-0}" != 1 ]; then
-        busy="$("$WB" jobs busy 2>&1)"
-        case "$busy" in
-        *"no job is queued or running"*) ;;
-        *) echo "hay trabajos en curso o en cola ($busy); espera o usa VFJOB_QUEUE=1"; exit 3 ;;
-        esac
-    fi
+    require_idle
     # The log is redirected by cmd (process level): redirecting inside PowerShell turns cargo's stderr into a
     # terminating error because build.ps1 sets $ErrorActionPreference = "Stop".
     script="\$env:Path = '$MINGW;' + \$env:Path; Set-Location '$LAPTOP_REPO'; cmd /c \"powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\build.ps1 -RunTests > \$env:TEMP\\vf-build-test.log 2>&1\"; 'exit=' + \$LASTEXITCODE; Select-String 'FAILED|PASSED|error' \$env:TEMP\\vf-build-test.log | Select-Object -Last 6 | ForEach-Object { \$_.Line }"
@@ -87,13 +92,7 @@ build-test)
     ;;
 cross-test)
     # Build on the Mac, copy only the executables and the data files the suite reads, and just run them on the laptop.
-    if [ "${VFJOB_QUEUE:-0}" != 1 ]; then
-        busy="$("$WB" jobs busy 2>&1)"
-        case "$busy" in
-        *"no job is queued or running"*) ;;
-        *) echo "hay trabajos en curso o en cola ($busy); espera o usa VFJOB_QUEUE=1"; exit 3 ;;
-        esac
-    fi
+    require_idle
     "$REPO/scripts/build-cross.sh" || exit 1
     RUN_DIR="${VFJOB_RUN_DIR:-C:\\dev\\vf-run}"
     COPYFILE_DISABLE=1 tar -C "$REPO" -czf - build/vegaflow_tests.exe build/vegaflow_daemon.exe config tests/vectors assets 2>/dev/null |

@@ -1,27 +1,8 @@
 #include "optimize/steam/steam_engine_optimizer.hpp"
 #include "optimize/steam/steam_internal.hpp"
-#include "optimize/steam/steam_engine_optimizer.hpp"
 #include "detect/hardware_profiler.hpp"
 #include "optimize/graphics/graphics_optimizer.hpp"
-#include "optimize/dxvk_manager.hpp"
 #include "safety/sandbox_guard.hpp"
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <windows.h>
-#include <algorithm>
-#include <cctype>
-#include <cwctype>
-#include <filesystem>
-#include <fstream>
-#include <sstream>
-#include <string>
-#include <string_view>
-#include <utility>
-#include <vector>
 
 namespace vegaflow {
 
@@ -34,7 +15,6 @@ bool WriteStringToFile(const std::filesystem::path& path, const std::string& con
 }
 
 } // namespace
-
 
 std::string SteamEngineOptimizer::GenerateUnrealUmaBlock(const ApuOptimizationPolicy& policy, uint32_t vram_pool_mb_override) {
     uint32_t effective_pool_mb = 0;

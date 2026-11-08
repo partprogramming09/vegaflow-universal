@@ -204,7 +204,7 @@ mod tests {
             assert_eq!(classify(path), code_of(col[2]), "vector {} ({})", col[0], col[1]);
             checked += 1;
         }
-        assert!(checked >= 52, "expected at least 30 vectors, found {checked}");
+        assert!(checked >= 52, "expected at least 52 vectors, found {checked}");
     }
 
     #[test]
@@ -240,6 +240,24 @@ mod tests {
                 let _ = vf_rust_classify_blacklisted_path(p.as_ptr(), p.len(), win.as_ptr(), win.len(), win.as_ptr(), win.len());
             }
         }
+    }
+
+    #[test]
+    fn verdict_codes_match_the_c_header() {
+        // rust_bridge.h (enum VfPathVerdict) and the C++ switch in sandbox_guard.cpp depend on these exact numbers.
+        assert_eq!(
+            [
+                VF_PATH_ALLOWED,
+                VF_PATH_EMPTY,
+                VF_PATH_DRIVE_ROOT,
+                VF_PATH_CRITICAL_FILE,
+                VF_PATH_WINDOWS_DIR,
+                VF_PATH_WINDOWS_OTHER_DRIVE,
+                VF_PATH_COMMON_FILES,
+                VF_PATH_SYSTEM_VOLUME_INFORMATION
+            ],
+            [0, 1, 2, 3, 4, 5, 6, 7]
+        );
     }
 
     #[test]

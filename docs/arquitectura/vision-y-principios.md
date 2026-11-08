@@ -13,7 +13,7 @@
 ### Invariantes del Runtime Demostrados en Pruebas Automatizadas
 * **Consumo de Memoria Privada (*Private Working Set*):** `<= 2.00 MB` en régimen estacionario (el presupuesto de diseño permitía hasta `15.00 MB`).
 * **Sobrecarga de CPU en Reposo (*Zero-Overhead Idle*):** `0.00%` sostenido; el daemon hiberna mediante `WaitForSingleObjectEx` y timers de alta precisión NT.
-* **Conjunto de Pruebas Automatizadas:** `21/21` tests unitarios deterministas en Rust (`vegaflow-core`, 22 en un Mac) y `33/33` tests de regresión y cobertura en C++20 pasando al 100%.
+* **Conjunto de Pruebas Automatizadas:** `23/23` tests unitarios deterministas en Rust (`vegaflow-core`, 24 en un Mac) y `33/33` tests de regresión y cobertura en C++20 pasando al 100%.
 * **Reversibilidad Garantizada (`RestoreAll`):** Cada modificación de afinidad, clase de prioridad, estado `EcoQoS` o claves en el Registro de Windows (`HKCU\Software\VegaFlow\RegBackup`) se restaura estrictamente al estado de fábrica al cerrar el daemon o terminar la sesión de juego.
 * **Seguridad Anti-Cheat en Tiempo Constante (*Zero-Tamper Boundary*):** Detección determinista de firmas de controladores anti-cheat (*HoYoKProtect*, *EasyAntiCheat*, *BattlEye*, *Vanguard*) con aislamiento de ruta en UTF-16 sobre pila (`stack-only`), impidiendo cualquier inyección o modificación sobre ejecutables protegidos.
 

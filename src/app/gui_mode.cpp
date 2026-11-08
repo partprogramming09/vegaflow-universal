@@ -2,15 +2,7 @@
 
 #include <windows.h>
 
-#include <atomic>
-#include <chrono>
 #include <cstdint>
-#include <cstdlib>
-#include <fstream>
-#include <iomanip>
-#include <iostream>
-#include <optional>
-#include <sstream>
 #include <string>
 #include <vector>
 
@@ -28,7 +20,6 @@
 #include "safety/sandbox_guard.hpp"
 #include "detect/system_info.hpp"
 #include <filesystem>
-#include <tlhelp32.h>
 #include "app/app_state.hpp"
 #include "app/config.hpp"
 #include "app/reports.hpp"

@@ -28,10 +28,9 @@ rm -rf "$OBJ_DIR"
 mkdir -p "$OBJ_DIR"
 
 echo "[*] Compiling with $JOBS parallel jobs ($CXX)..."
-SOURCES=$(find src tests -name '*.cpp' | sort)
 export CXX OBJ_DIR
 export COMPILE_FLAGS_STR="${COMPILE_FLAGS[*]}"
-printf '%s\n' $SOURCES | xargs -P "$JOBS" -I{} bash -c '
+find src tests -name '*.cpp' -print0 | sort -z | xargs -0 -P "$JOBS" -I{} bash -c '
     src="$1"; obj="$OBJ_DIR/$(echo "$src" | tr / _).o"
     $CXX $COMPILE_FLAGS_STR -c "$src" -o "$obj" || exit 255
 ' _ {}

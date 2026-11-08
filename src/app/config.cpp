@@ -2,33 +2,14 @@
 
 #include <windows.h>
 
-#include <atomic>
-#include <chrono>
 #include <cstdint>
-#include <cstdlib>
 #include <fstream>
 #include <iomanip>
-#include <iostream>
-#include <optional>
-#include <sstream>
 #include <string>
 #include <vector>
 
-#include "windows/privileges.hpp"
-#include "detect/hardware_profiler.hpp"
-#include "detect/process_detector.hpp"
-#include "optimize/graphics/graphics_optimizer.hpp"
-#include "optimize/memory_manager.hpp"
-#include "optimize/cpu_orchestrator.hpp"
-#include "safety/frame_telemetry.hpp"
-#include "ui/gui_window.hpp"
-#include "optimize/fsr/fsr_scaler.hpp"
 #include "optimize/steam/steam_engine_optimizer.hpp"
-#include "optimize/dxvk_manager.hpp"
-#include "safety/sandbox_guard.hpp"
-#include "detect/system_info.hpp"
 #include <filesystem>
-#include <tlhelp32.h>
 #include "app/text_convert.hpp"
 
 namespace vegaflow::app {

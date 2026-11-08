@@ -1,28 +1,9 @@
 #include "optimize/fsr/fsr_scaler.hpp"
 #include "optimize/fsr/fsr_internal.hpp"
-#include "optimize/fsr/fsr_scaler.hpp"
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <windows.h>
-#include <d3d11.h>
-#include <dxgi1_2.h>
-#include <d3dcompiler.h>
-#include <algorithm>
-#include <chrono>
-#include <cmath>
-#include <cstring>
-#ifndef WDA_EXCLUDEFROMCAPTURE
-#define WDA_EXCLUDEFROMCAPTURE 0x00000011
-#endif
 
 namespace vegaflow {
 
 using namespace fsr_internal;
-
 
 // ============================================================================
 // FsrSpatialScaler Implementation

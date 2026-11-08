@@ -37,6 +37,23 @@ namespace {
 int g_pass_count = 0;
 int g_fail_count = 0;
 
+// Calls `row(cells, raw_line)` for every data row of a tab-separated vector file (blank lines and '#' comments are
+// skipped). The caller decides what a malformed row means.
+template <typename RowFn>
+void ForEachTsvRow(const std::string& path, RowFn row) {
+    std::ifstream file(path);
+    std::string line;
+    while (file && std::getline(file, line)) {
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        if (line.empty() || line[0] == '#') continue;
+        std::vector<std::string> cells;
+        std::stringstream ss(line);
+        std::string cell;
+        while (std::getline(ss, cell, '\t')) cells.push_back(cell);
+        row(cells, line);
+    }
+}
+
 void RecordResult(bool success, const std::string& test_name, const std::string& details = "") {
     if (success) {
         g_pass_count++;
@@ -2101,20 +2118,11 @@ int main() {
     // Test 32: APU tier classification against the shared vector file (same vectors as the Rust core)
     // -------------------------------------------------------------------------
     {
-        std::ifstream vectors("tests/vectors/apu_tier.tsv");
         int total = 0;
         int mismatches = 0;
         std::string first_mismatch;
-        std::string line;
-        while (vectors && std::getline(vectors, line)) {
-            if (!line.empty() && line.back() == '\r') line.pop_back();
-            if (line.empty() || line[0] == '#') continue;
-
-            std::vector<std::string> col;
-            std::stringstream ss(line);
-            std::string cell;
-            while (std::getline(ss, cell, '\t')) col.push_back(cell);
-            if (col.size() != 7) { ++mismatches; if (first_mismatch.empty()) first_mismatch = "bad row: " + line; continue; }
+        ForEachTsvRow("tests/vectors/apu_tier.tsv", [&](const std::vector<std::string>& col, const std::string& line) {
+            if (col.size() != 7) { ++mismatches; if (first_mismatch.empty()) first_mismatch = "bad row: " + line; return; }
 
             vegaflow::SystemHardwareProfile profile{};
             profile.primary_gpu.mem_arch = (col[1] == "dedicated") ? vegaflow::MemoryArchitecture::Dedicated_VRAM
@@ -2134,7 +2142,7 @@ int main() {
                 ++mismatches;
                 if (first_mismatch.empty()) first_mismatch = col[0];
             }
-        }
+        });
         bool t32_ok = (total >= 19) && (mismatches == 0);
         RecordResult(t32_ok, "Test 32: APU tier classification matches the shared vector file",
                      std::to_string(total) + " vectors, " + std::to_string(mismatches) + " mismatches" +
@@ -2162,24 +2170,16 @@ int main() {
         GetWindowsDirectoryW(win_dir, MAX_PATH);
         const bool windows_on_c = (_wcsicmp(win_dir, L"C:\\Windows") == 0);
 
-        std::ifstream vectors("tests/vectors/sandbox_blacklist.tsv");
         int total = 0;
         std::string mismatches;
-        std::string line;
-        while (vectors && std::getline(vectors, line)) {
-            if (!line.empty() && line.back() == '\r') line.pop_back();
-            if (line.empty() || line[0] == '#') continue;
-            std::vector<std::string> col;
-            std::stringstream ss(line);
-            std::string cell;
-            while (std::getline(ss, cell, '\t')) col.push_back(cell);
-            if (col.size() != 3) { mismatches += " [bad row: " + line + "]"; continue; }
+        ForEachTsvRow("tests/vectors/sandbox_blacklist.tsv", [&](const std::vector<std::string>& col, const std::string& line) {
+            if (col.size() != 3) { mismatches += " [bad row: " + line + "]"; return; }
 
             const std::wstring path = (col[1] == "<empty>") ? std::wstring() : std::wstring(col[1].begin(), col[1].end());
             const std::string actual = category_of(path);
             ++total;
             if (actual != col[2]) mismatches += " [" + col[0] + ": expected " + col[2] + ", got " + actual + "]";
-        }
+        });
         bool t33_ok = windows_on_c && (total >= 52) && mismatches.empty();
         RecordResult(t33_ok, "Test 33: SandboxGuard blacklist matches the shared vector file",
                      std::to_string(total) + " vectors" + (windows_on_c ? "" : ", Windows is not in C:\\Windows") +

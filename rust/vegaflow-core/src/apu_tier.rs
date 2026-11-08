@@ -89,6 +89,13 @@ mod tests {
     }
 
     #[test]
+    fn contract_numbers_match_the_cpp_enums() {
+        // GpuArchitectureGen and ApuTier in hardware_profiler.hpp are static_asserted against the same numbers.
+        assert_eq!([ARCH_RDNA2, ARCH_RDNA3_PLUS, ARCH_INTEL_UHD, ARCH_INTEL_XE_ARC, ARCH_DISCRETE], [2, 3, 4, 5, 6]);
+        assert_eq!([TIER_ENTRY, TIER_MID, TIER_ADVANCED, TIER_DISCRETE], [1, 2, 3, 4]);
+    }
+
+    #[test]
     fn null_input_falls_back_to_the_mid_tier() {
         assert_eq!(vf_rust_classify_apu_tier(core::ptr::null()), 2);
     }
