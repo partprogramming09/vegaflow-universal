@@ -335,6 +335,9 @@ Para cuantificar el aporte individual exacto de cada mecanismo bajo condiciones 
 | **`aff` (Solo Aislamiento CPU)** | `ProcessorAffinity = 0xC00` (Núcleo 5) | **`33.72 FPS`** | **+110.6%** | **`21.23 FPS`** | **+92.0%** | `15.61 FPS` | `3.526 ms` (**-41.8%**) |
 | **`all` (Sinergia Total)** | **Afinidad + EcoQoS + I/O NT + Preset UMA** | **`34.78 FPS`** | **+117.2%** | **`26.19 FPS`** | **+136.8%** | **`24.36 FPS`** | **`2.215 ms` (-63.4%)** |
 
+> [!WARNING]
+> **Límites de esta tabla.** La genera [`scripts/remote/run_octo_factors.ps1`](../scripts/remote/run_octo_factors.ps1): una sola captura de 20 s por condición (4 s de calentamiento), en orden fijo `base`, `aff`, `eco`, `io`, `all`, sin intercalar ni repetir. A estos FPS, 20 s son unos 320 cuadros: el 1% Low sale de unos 3 y el 0.1% Low de uno solo, así que esas columnas son ruido según los umbrales del plan (al menos 5 capturas por condición, orden ABBA y 120 s para el 1% Low). Los porcentajes de `io` y `eco` no pasan esos umbrales; lo que se sostiene es el efecto grande de `aff`, medido aparte con el protocolo completo. El script no aplica el preset UMA a `all`: esa fila solo combina afinidad, EcoQoS y prioridad de E/S. La explicación por fallos de página de la sección 2.5 es una hipótesis, no está aislada.
+
 ````carousel
 ```mermaid
 xychart-beta
