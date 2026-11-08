@@ -61,3 +61,9 @@ Empieza por [`docs/README.md`](docs/README.md): una tabla "¿Qué quieres hacer?
 ## Seguridad
 
 Nunca se inyectan DLLs ni se modifican archivos de juegos con anti-cheat. Toda operación de disco y procesos pasa por `SandboxGuard`, y toda función que modifica el sistema acepta `dry_run`.
+
+## Licencia / License
+
+Software libre bajo la **GNU GPL v3 o posterior** (ver [`LICENSE`](LICENSE)): puedes usarlo, estudiarlo, modificarlo y compartirlo. Si distribuyes una versión modificada, debes publicar también su código fuente con la misma licencia.
+
+Free software under the **GNU GPL v3 or later** (see [`LICENSE`](LICENSE)): you may use, study, modify and share it. If you distribute a modified version, you must also publish its source code under the same license.
