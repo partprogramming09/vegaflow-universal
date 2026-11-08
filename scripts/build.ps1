@@ -82,7 +82,7 @@ if ($RunTests) {
         Write-Error "Fallo cargo test en vegaflow-core (Codigo de salida: $LASTEXITCODE)"
         exit $LASTEXITCODE
     }
-    Write-Host "[OK] cargo test superado exitosamente (15/15 pruebas)." -ForegroundColor Green
+    Write-Host "[OK] cargo test superado exitosamente." -ForegroundColor Green
 }
 
 Write-Host "`n[*] Compilando libreria estatica de Rust (libvegaflow_core.a)..." -ForegroundColor Yellow

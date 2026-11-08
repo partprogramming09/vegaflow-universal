@@ -87,6 +87,17 @@ bool vf_rust_is_critical_system_filename(
     size_t len
 );
 
+typedef struct VfTierInput {
+    uint64_t total_ram_mb;
+    uint32_t physical_cores; /* 0 = unknown */
+    uint8_t arch_gen;        /* GpuArchitectureGen as a number */
+    bool dedicated_vram;
+    bool is_nvidia;
+} VfTierInput;
+
+/* Returns the APU tier: 1 entry, 2 mid, 3 advanced, 4 discrete or custom. */
+uint8_t vf_rust_classify_apu_tier(const VfTierInput* input);
+
 #ifdef __cplusplus
 }
 #endif

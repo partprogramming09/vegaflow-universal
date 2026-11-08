@@ -264,21 +264,13 @@ ApuOptimizationPolicy HardwareProfiler::BuildOptimizationPolicy(
     const uint64_t total_ram_mb = profile.total_physical_ram_bytes / (1024ULL * 1024ULL);
     const uint32_t cores = (profile.cpu_topology.physical_cores > 0) ? profile.cpu_topology.physical_cores : 4u;
 
-    ApuTier tier = ApuTier::Tier2_MidVegaUMA;
-    if (profile.primary_gpu.mem_arch == MemoryArchitecture::Dedicated_VRAM ||
-        arch_gen == GpuArchitectureGen::Discrete_GPU ||
-        profile.primary_gpu.vendor == GpuVendor::NVIDIA) {
-        tier = ApuTier::Tier4_DiscreteOrCustom;
-    } else if (total_ram_mb <= 9216 || cores <= 4 || arch_gen == GpuArchitectureGen::Intel_Gen9_11_UHD) {
-        tier = ApuTier::Tier1_EntryUMA;
-    } else if (arch_gen == GpuArchitectureGen::AMD_RDNA2 ||
-               arch_gen == GpuArchitectureGen::AMD_RDNA3_Plus ||
-               arch_gen == GpuArchitectureGen::Intel_Xe_Arc ||
-               total_ram_mb >= 22528) {
-        tier = ApuTier::Tier3_AdvancedUMA;
-    } else {
-        tier = ApuTier::Tier2_MidVegaUMA;
-    }
+    VfTierInput tier_input{};
+    tier_input.total_ram_mb = total_ram_mb;
+    tier_input.physical_cores = profile.cpu_topology.physical_cores;
+    tier_input.arch_gen = static_cast<uint8_t>(arch_gen);
+    tier_input.dedicated_vram = (profile.primary_gpu.mem_arch == MemoryArchitecture::Dedicated_VRAM);
+    tier_input.is_nvidia = (profile.primary_gpu.vendor == GpuVendor::NVIDIA);
+    const ApuTier tier = static_cast<ApuTier>(vf_rust_classify_apu_tier(&tier_input));
 
     policy.tier = tier;
 

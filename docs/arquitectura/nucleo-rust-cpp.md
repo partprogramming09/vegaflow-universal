@@ -50,7 +50,8 @@ flowchart LR
 
 ### Módulos del Núcleo Rust:
 * **[`cpu_governor.rs`](../../rust/vegaflow-core/src/cpu_governor.rs):** Recibe la lista plana de identificadores de CPU Sets del sistema, calcula los índices de pertenencia a complejos de núcleos y determina si un proceso ruidoso debe ingresar o salir del estado de confinamiento mediante un algoritmo de histéresis sin asignaciones dinámicas.
-* **[`uma_memory.rs`](../../rust/vegaflow-core/src/uma_memory.rs):** Enlaza directamente contra `ntdll.dll` invocando `NtQuerySystemInformation(SystemMemoryListInformation)`. Evalúa en microsegundos si el subsistema de memoria compartida supera el umbral crítico (`>= 85%` de presupuesto o `< 1536 MB` de RAM física disponible), gobernando la purga selectiva de la lista de espera (*Standby List*) únicamente cuando el bus de disco opera en reposo (`< 15 MB/s`).
+* **[`uma_memory.rs`](../../rust/vegaflow-core/src/uma_memory.rs):** Enlaza directamente contra `ntdll.dll` (solo en Windows: en otros sistemas esas llamadas devuelven error y el núcleo se puede compilar y probar igual) invocando `NtQuerySystemInformation(SystemMemoryListInformation)`. Evalúa en microsegundos si el subsistema de memoria compartida supera el umbral crítico (`>= 85%` de presupuesto o `< 1536 MB` de RAM física disponible), gobernando la purga selectiva de la lista de espera (*Standby List*) únicamente cuando el bus de disco opera en reposo (`< 15 MB/s`).
+* **[`apu_tier.rs`](../../rust/vegaflow-core/src/apu_tier.rs):** Decide el Tier de la APU (1 a 4) a partir de la arquitectura de memoria, la generación de la GPU, la RAM y los núcleos físicos. Es una decisión pura sobre números: el mismo archivo de vectores (`tests/vectors/apu_tier.tsv`) lo comprueban Rust y la prueba 32 de C++.
 * **[`sandbox_core.rs`](../../rust/vegaflow-core/src/sandbox_core.rs):** Escanea secuencias de caracteres UTF-16 en tiempo constante. Si identifica patrones correspondientes a sistemas anti-trampas comerciales o directorios del sistema protegidos, activa un estado de *Lockdown* inmediato, impidiendo modificaciones en el árbol de archivos.
 
 ---
@@ -256,6 +257,12 @@ La migración progresiva hacia una **arquitectura híbrida Rust + C++20** median
     - Implementa la histéresis empírica de `CpuOrchestrator`:
       - Si `currently_confined`: permanece `true` mientras `logical_cores_used >= 0.25`.
       - Si `!currently_confined`: pasa a `true` cuando `logical_cores_used >= 0.50`.
+
+#### 3.2b. Módulo `apu_tier`: Clasificador de Tiers
+- **Función exportada (`extern "C"`)**:
+  - `uint8_t vf_rust_classify_apu_tier(const VfTierInput* input);`
+    - Devuelve 1 (entrada), 2 (media), 3 (avanzada) o 4 (discreta o a medida). El orden de las comprobaciones importa: primero discreta, luego entrada (RAM hasta 9 GB, hasta 4 núcleos o Intel UHD), luego avanzada (RDNA2/RDNA3+/Intel Xe o 22 GB o más). Una entrada nula devuelve la media.
+    - `VfTierInput` es una estructura plana: `total_ram_mb`, `physical_cores` (0 = desconocido), `arch_gen`, `dedicated_vram` e `is_nvidia`.
 
 #### 3.3. Módulo `sandbox_core`: Escáner Zero-Allocation de Firmas Anti-Cheat y Rutas Críticas
 - **Funciones exportadas (`extern "C"`)**:

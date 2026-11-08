@@ -6,7 +6,7 @@ Solo Windows (PowerShell) salvo `remote/`, que corre en la Mac. Ninguno forma pa
 
 | Script | Qué hace |
 | --- | --- |
-| `build.ps1` | Compila el daemon y la suite de pruebas; con `-RunTests` corre las 31 |
+| `build.ps1` | Compila el daemon y la suite de pruebas; con `-RunTests` corre las 32 |
 
 ## Medir (PresentMon y A/B)
 

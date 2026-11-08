@@ -1,0 +1,24 @@
+# APU tier classification vectors, shared by the C++ suite (Test 32) and the Rust core tests.
+# Columns (tab separated): name, memory (uma|dedicated), vendor (amd|intel|nvidia|unknown),
+#   arch_gen (0 unknown, 1 GCN5/Vega, 2 RDNA2, 3 RDNA3+, 4 Intel Gen9-11 UHD, 5 Intel Xe/Arc, 6 discrete),
+#   ram_mb, physical_cores, expected_tier (1 entry, 2 mid, 3 advanced, 4 discrete/custom).
+# arch_gen is always explicit for AMD/Intel so the C++ side never falls back to CPUID.
+dedicated_overrides_everything	dedicated	amd	6	4096	4	4
+nvidia_on_uma_is_discrete	uma	nvidia	0	16384	8	4
+discrete_arch_on_uma_is_discrete	uma	unknown	6	16384	8	4
+discrete_beats_entry_ram	dedicated	nvidia	6	4096	4	4
+ryzen_4600h_vega_16gb_is_mid	uma	amd	1	16384	6	2
+vega_ram_exactly_9216_is_entry	uma	amd	1	9216	8	1
+vega_ram_9217_is_mid	uma	amd	1	9217	8	2
+vega_four_cores_is_entry	uma	amd	1	16384	4	1
+vega_unknown_cores_default_to_four	uma	amd	1	16384	0	1
+intel_uhd_is_always_entry	uma	intel	4	32768	8	1
+rdna2_16gb_is_advanced	uma	amd	2	16384	8	3
+rdna3_plus_16gb_is_advanced	uma	amd	3	16384	8	3
+intel_xe_16gb_is_advanced	uma	intel	5	16384	8	3
+vega_22528_is_advanced_by_ram	uma	amd	1	22528	8	3
+vega_22527_is_mid	uma	amd	1	22527	8	2
+rdna3_8gb_entry_beats_advanced	uma	amd	3	8192	8	1
+rdna3_four_cores_entry_beats_advanced	uma	amd	3	16384	4	1
+unknown_arch_16gb_6cores_is_mid	uma	unknown	0	16384	6	2
+unknown_arch_32gb_is_advanced	uma	unknown	0	32768	8	3

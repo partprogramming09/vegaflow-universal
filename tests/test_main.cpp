@@ -11,6 +11,7 @@
 #include <cstdlib>
 #include <iomanip>
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <tuple>
 #include <vector>
@@ -2094,6 +2095,50 @@ int main() {
                      ", Security/Anti-Cheat: " + std::string(sec_ok ? "PASS" : "FAIL") +
                      ", 1k Stress/WS < 15MB: " + std::string(stress_ok && kpi_ws_ok ? "PASS" : "FAIL") +
                      " (" + std::to_string(final_ws_bytes / 1024ULL) + " KB)");
+    }
+
+    // -------------------------------------------------------------------------
+    // Test 32: APU tier classification against the shared vector file (same vectors as the Rust core)
+    // -------------------------------------------------------------------------
+    {
+        std::ifstream vectors("tests/vectors/apu_tier.tsv");
+        int total = 0;
+        int mismatches = 0;
+        std::string first_mismatch;
+        std::string line;
+        while (vectors && std::getline(vectors, line)) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            if (line.empty() || line[0] == '#') continue;
+
+            std::vector<std::string> col;
+            std::stringstream ss(line);
+            std::string cell;
+            while (std::getline(ss, cell, '\t')) col.push_back(cell);
+            if (col.size() != 7) { ++mismatches; if (first_mismatch.empty()) first_mismatch = "bad row: " + line; continue; }
+
+            vegaflow::SystemHardwareProfile profile{};
+            profile.primary_gpu.mem_arch = (col[1] == "dedicated") ? vegaflow::MemoryArchitecture::Dedicated_VRAM
+                                                                    : vegaflow::MemoryArchitecture::UMA_Integrated;
+            profile.primary_gpu.vendor = (col[2] == "amd")      ? vegaflow::GpuVendor::AMD
+                                       : (col[2] == "intel")    ? vegaflow::GpuVendor::Intel
+                                       : (col[2] == "nvidia")   ? vegaflow::GpuVendor::NVIDIA
+                                                                : vegaflow::GpuVendor::Unknown;
+            profile.primary_gpu.arch_gen = static_cast<vegaflow::GpuArchitectureGen>(std::stoul(col[3]));
+            profile.total_physical_ram_bytes = std::stoull(col[4]) * 1024ULL * 1024ULL;
+            profile.cpu_topology.physical_cores = static_cast<uint32_t>(std::stoul(col[5]));
+
+            const auto expected = static_cast<vegaflow::ApuTier>(std::stoul(col[6]));
+            const auto actual = vegaflow::HardwareProfiler::BuildOptimizationPolicy(profile).tier;
+            ++total;
+            if (actual != expected) {
+                ++mismatches;
+                if (first_mismatch.empty()) first_mismatch = col[0];
+            }
+        }
+        bool t32_ok = (total >= 19) && (mismatches == 0);
+        RecordResult(t32_ok, "Test 32: APU tier classification matches the shared vector file",
+                     std::to_string(total) + " vectors, " + std::to_string(mismatches) + " mismatches" +
+                     (first_mismatch.empty() ? "" : " (first: " + first_mismatch + ")"));
     }
 
     // -------------------------------------------------------------------------

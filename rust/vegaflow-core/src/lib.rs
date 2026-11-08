@@ -1,9 +1,11 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
 
+pub mod apu_tier;
 pub mod cpu_governor;
 pub mod sandbox_core;
 pub mod uma_memory;
 
+pub use apu_tier::*;
 pub use cpu_governor::*;
 pub use sandbox_core::*;
 pub use uma_memory::*;

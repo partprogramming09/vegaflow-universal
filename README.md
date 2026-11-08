@@ -47,7 +47,7 @@ src/ + include/     código del daemon en C++20, espejo una de otra
   security/           SandboxGuard y telemetría de cuadros
   gui/                ventana Win32/GDI
 rust/vegaflow-core/ reglas puras en Rust (presión UMA, topología, confinamiento, firmas)
-tests/              la suite de 31 pruebas de C++
+tests/              la suite de 32 pruebas de C++
 scripts/            compilar, medir y operar el laptop de pruebas (ver scripts/README.md)
 assets/dxvk/        DLL de DXVK que el daemon instala en los juegos
 config/             valores por defecto del daemon
