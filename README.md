@@ -1,8 +1,10 @@
 # VegaFlow Universal
 
+**Español** · [English](README.en.md)
+
 Daemon de Windows en C++20, con núcleo híbrido en Rust, que optimiza juegos en APUs AMD (banco de pruebas: Ryzen 5 4600H con Radeon Vega 6). Aísla los procesos de fondo, aplica perfiles según el nivel de la APU, usa DXVK-GPLAsync y registra los frametimes. No inyecta nada en juegos con anti-cheat.
 
-![Lenguaje](https://img.shields.io/badge/C%2B%2B20%20%2B%20Rust-blue.svg) ![Plataforma](https://img.shields.io/badge/Windows%2010%20%7C%2011%20x64-0078D6.svg) ![Pruebas](https://img.shields.io/badge/pruebas-31%20C%2B%2B%20%7C%2015%20Rust-success.svg)
+![Lenguaje](https://img.shields.io/badge/C%2B%2B20%20%2B%20Rust-blue.svg) ![Plataforma](https://img.shields.io/badge/Windows%2010%20%7C%2011%20x64-0078D6.svg) ![Pruebas](https://img.shields.io/badge/pruebas-31%20C%2B%2B%20%7C%2025%20Rust-success.svg)
 
 ## Por qué existe
 
@@ -30,24 +32,29 @@ Las cifras salen de PresentMon y están con su método y sus límites en [`docs/
 
 ## Compilar y usar
 
-Solo en Windows, con MinGW-w64 g++ 13+ y cargo con el objetivo `x86_64-pc-windows-gnu`:
+El programa corre solo en Windows. Se compila con MinGW-w64 g++ 13+ y cargo con el objetivo `x86_64-pc-windows-gnu`:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1 -RunTests
 ```
+
+Desde un Mac o Linux se puede compilar con compilación cruzada (`scripts/build-cross.sh`, necesita mingw-w64) y probar los `.exe` en un equipo Windows. Las reglas escritas en Rust se prueban en cualquier sistema: `cargo test --manifest-path rust/vegaflow-core/Cargo.toml`.
 
 Guías: [compilar y probar](docs/guias/compilar-y-probar.md) y [uso del daemon](docs/guias/uso-y-funciones.md).
 
 ## Estructura del repositorio
 
 ```
-src/ + include/     código del daemon en C++20, espejo una de otra
-  core/               privilegios, hardware, procesos, SystemInfo
-  optimizers/         las palancas: gráficos, memoria, CPU, DXVK, motores
-  security/           SandboxGuard y telemetría de cuadros
-  gui/                ventana Win32/GDI
-rust/vegaflow-core/ reglas puras en Rust (presión UMA, topología, confinamiento, firmas)
-tests/              la suite de 31 pruebas de C++
+src/                código del daemon en C++20, agrupado por función (cada .hpp junto a su .cpp)
+  app/                arranque, línea de comandos y modos (daemon, ventana, monitor)
+  detect/             hardware, procesos y SystemInfo
+  optimize/           las palancas: gráficos, memoria, CPU, DXVK, motores de Steam
+  safety/             SandboxGuard y telemetría de cuadros
+  ui/                 ventana Win32/GDI
+  windows/            llamadas nativas de Windows y privilegios
+  bridge/             contrato entre C++ y Rust
+rust/vegaflow-core/ reglas puras en Rust (presión UMA, topología, confinamiento, Tiers, política de rutas, firmas)
+tests/              la suite de 31 pruebas de C++ y los casos compartidos con Rust (tests/vectors/)
 scripts/            compilar, medir y operar el laptop de pruebas (ver scripts/README.md)
 assets/dxvk/        DLL de DXVK que el daemon instala en los juegos
 config/             valores por defecto del daemon
