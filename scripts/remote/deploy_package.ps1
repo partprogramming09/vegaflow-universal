@@ -19,8 +19,8 @@
 #>
 param(
     [string]$Staging = 'C:\dev\vf-pkg',
-    [string]$Repo = 'C:\Users\testuser\OneDrive\Escritorio\proyectos\direct',
-    [string]$JobsRoot = 'C:\Users\testuser\AppData\Local\winbridge\bin\jobs',
+    [Parameter(Mandatory)][string]$Repo,
+    [string]$JobsRoot = (Join-Path $env:LOCALAPPDATA 'winbridge\bin\jobs'),
     [string]$Root = 'C:\ProgramData\VegaFlow'
 )
 
@@ -46,4 +46,4 @@ if (-not (Test-Path $daemon)) {
     'daemon: copiado'
 }
 
-& (Join-Path $JobsRoot 'Install-WinBridgeJobs.ps1') -Packages (Join-Path $JobsRoot 'packages') -AgentUser testuser -Update
+& (Join-Path $JobsRoot 'Install-WinBridgeJobs.ps1') -Packages (Join-Path $JobsRoot 'packages') -AgentUser $env:USERNAME -Update

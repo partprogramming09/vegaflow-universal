@@ -46,3 +46,12 @@ __pycache__/
 # OS generated files
 Thumbs.db
 Desktop.ini
+
+# Machine-specific settings and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+data/raw/
+

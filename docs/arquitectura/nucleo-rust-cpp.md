@@ -281,7 +281,7 @@ La migración progresiva hacia una **arquitectura híbrida Rust + C++20** median
 
 ### 5. Configuración del Servidor MCP `metal-gpu-trace`
 
-1. **Archivo:** `C:\Users\testuser\.gemini\config\mcp_config.json`
+1. **Archivo:** `C:\Users\<usuario>\.gemini\config\mcp_config.json`
 2. **Configuración a registrar:**
    ```json
    "metal-gpu-trace": {

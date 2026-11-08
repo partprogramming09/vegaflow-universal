@@ -18,13 +18,20 @@
 #   VFJOB_QUEUE=1 (build-test even if jobs are running)
 set -u
 
-HOST="${VFJOB_HOST:-testuser@192.0.2.10}"
-KEY="${VFJOB_KEY:-$HOME/.ssh/id_ed25519_test}"
-WB="${WINBRIDGE_BIN:-winbridge}"
 REPO="$(cd "$(dirname "$0")/../.." && pwd)"
 HERE="$REPO/scripts/remote"
-LAPTOP_REPO="${VFJOB_REPO:-C:\\Users\\testuser\\OneDrive\\Escritorio\\proyectos\\direct}"
-MINGW="${VFJOB_MINGW:-C:\\Users\\testuser\\scoop\\apps\\mingw\\16.2.0-rt_v14-rev1\\bin}"
+# Machine-specific settings (user, address, key, paths) come from the environment or from scripts/remote/.env,
+# which is not versioned: copy .env.example to .env and fill it in.
+if [ -f "$HERE/.env" ]; then set -a; . "$HERE/.env"; set +a; fi
+: "${VFJOB_HOST:?set VFJOB_HOST (user@address of the test laptop); see scripts/remote/.env.example}"
+: "${VFJOB_KEY:?set VFJOB_KEY (SSH private key); see scripts/remote/.env.example}"
+: "${VFJOB_REPO:?set VFJOB_REPO (the repository on the laptop); see scripts/remote/.env.example}"
+: "${VFJOB_MINGW:?set VFJOB_MINGW (g++ bin folder on the laptop); see scripts/remote/.env.example}"
+HOST="$VFJOB_HOST"
+KEY="$VFJOB_KEY"
+LAPTOP_REPO="$VFJOB_REPO"
+MINGW="$VFJOB_MINGW"
+WB="${WINBRIDGE_BIN:-winbridge}"
 
 # Runs a command on the laptop over SSH without interaction.
 remote() { ssh -i "$KEY" -o BatchMode=yes -o ConnectTimeout=10 "$HOST" "$@"; }
@@ -66,14 +73,14 @@ regress)
 deploy)
     remote 'if not exist C:\dev\vf-pkg\scripts mkdir C:\dev\vf-pkg\scripts' || exit 1
     copy_to "$HERE/winbridge-package/manifest.json" "$HERE/busy.html" "$REPO/scripts/tweaks_state.ps1" "$REPO/scripts/ab_profile.ps1" \
-        "$HERE/deploy_package.ps1" "testuser@${HOST#*@}:C:/dev/vf-pkg/" || exit 1
-    copy_to "$HERE"/jobs/*.ps1 "$REPO/scripts/bench.ps1" "$REPO/scripts/bench_pack.ps1" "$REPO/scripts/ab_loop_task.ps1" "testuser@${HOST#*@}:C:/dev/vf-pkg/scripts/" || exit 1
-    remote "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\dev\\vf-pkg\\deploy_package.ps1" 2>&1 | LC_ALL=C tr -d '\r' | grep -v '^<\|CLIXML\|^$'
+        "$HERE/deploy_package.ps1" "$HOST:C:/dev/vf-pkg/" || exit 1
+    copy_to "$HERE"/jobs/*.ps1 "$REPO/scripts/bench.ps1" "$REPO/scripts/bench_pack.ps1" "$REPO/scripts/ab_loop_task.ps1" "$HOST:C:/dev/vf-pkg/scripts/" || exit 1
+    remote "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\dev\\vf-pkg\\deploy_package.ps1 -Repo $LAPTOP_REPO" 2>&1 | LC_ALL=C tr -d '\r' | grep -v '^<\|CLIXML\|^$'
     ;;
 sync)
     tmp="$(mktemp -d)"
     git -C "$REPO" bundle create "$tmp/vf.bundle" "${VFJOB_BASE:-main}..HEAD" >/dev/null 2>&1 || { echo "no se pudo crear el bundle"; rm -rf "$tmp"; exit 1; }
-    copy_to "$tmp/vf.bundle" "testuser@${HOST#*@}:C:/dev/vf.bundle" || { rm -rf "$tmp"; exit 1; }
+    copy_to "$tmp/vf.bundle" "$HOST:C:/dev/vf.bundle" || { rm -rf "$tmp"; exit 1; }
     rm -rf "$tmp"
     want="$(git -C "$REPO" rev-parse --abbrev-ref HEAD)"
     have="$(remote "cd /d $LAPTOP_REPO && git branch --show-current" | tr -d '\r')"

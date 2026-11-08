@@ -10,10 +10,10 @@ Los 10 trabajos de `vfjob` (`state`, `doctor`, `restore`, `daemon-start`, `daemo
 
 ## Instalar o actualizar (sin UAC, por SSH como administrador)
 
-En el laptop: copiar `manifest.json` a `C:\Users\testuser\AppData\Local\winbridge\bin\jobs\packages\vegaflow\` y los 10 scripts de la tabla a su subcarpeta `scripts\`; luego:
+En el laptop: copiar `manifest.json` a `%LOCALAPPDATA%\winbridge\bin\jobs\packages\vegaflow\` y los 10 scripts de la tabla a su subcarpeta `scripts\`; luego:
 
 ```
-powershell -File C:\Users\testuser\AppData\Local\winbridge\bin\jobs\Install-WinBridgeJobs.ps1 -Packages C:\Users\testuser\AppData\Local\winbridge\bin\jobs\packages -AgentUser testuser -Update
+powershell -File %LOCALAPPDATA%\winbridge\bin\jobs\Install-WinBridgeJobs.ps1 -Packages %LOCALAPPDATA%\winbridge\bin\jobs\packages -AgentUser testuser -Update
 ```
 
 Uso: `winbridge jobs run bench Process=drawstress.exe Label=x Seconds=15 WarmupSeconds=5`, `winbridge jobs run ab Api=d3d11 Reps=5 ...` (igual que `vfjob run`, con `Clave=valor`).

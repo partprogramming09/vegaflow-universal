@@ -18,7 +18,7 @@ param(
     [Parameter(Mandatory)][string]$Label,
     [int]$Dim = 30,
     [int]$Seconds = 30,
-    [string]$Exe = 'C:\Users\testuser\AppData\Local\metal-gpu-trace\drawstress-f7e25cbb8c4a\drawstress\drawstress.exe',
+    [string]$Exe = (Join-Path $env:LOCALAPPDATA 'metal-gpu-trace\drawstress-f7e25cbb8c4a\drawstress\drawstress.exe'),
     [string]$WorkDir = 'C:\dev\vf-ab'
 )
 
