@@ -27,31 +27,33 @@ En sistemas contemporáneos donde conviven aplicaciones en primer plano (juegos 
 
 Este comportamiento provoca un fenómeno físico destructivo sobre la memoria caché y el despachador de gráficos:
 
-```mermaid
-flowchart TD
-    subgraph Silicio_Sin_VegaFlow["❌ ARQUITECTURA SIN AISLAMIENTO: Contención en Caché L3, Bus de Memoria y Presupuesto Térmico"]
-        direction TB
-        subgraph CPU_Cores["Complejo de Núcleos CPU (Caché L3 Unificada o Particionada)"]
-            Core0["Núcleos Principales 0-2<br/>🎮 Hilos del Juego (GameThread / RenderThread)<br/>⚡ Envenenados por hilos de Chrome/Discord"]
-            Core1["Núcleos Secundarios 3-5<br/>🌐 Workers de fondo, Indexador, Telemetría<br/>⚡ Migración constante entre núcleos"]
-        end
-        GPU["🎨 Procesador Gráfico (iGPU UMA / dGPU PCIe / eGPU TB4)<br/>Hambriento esperando listas de comandos D3D11/D3D12"]
-        BUS["🚌 Bus de Interconexión (Infinity Fabric / Ring Bus / Enlace PCIe)"]
-        MEM["💾 Subsistema de Memoria RAM / VRAM<br/>Líneas de caché desalojadas forzando accesos a memoria lenta"]
-    end
+```
+┌─ ARQUITECTURA SIN AISLAMIENTO: Contención en Caché L3, Bus de Memoria y Presupuesto Térmico ───┐
+│ ┌─ Complejo de Núcleos CPU (Caché L3 Unificada o Particionada) ──────────────────────────┐     │
+│ │ Núcleos Principales 0-2                                                                │     │
+│ │   Hilos del Juego (GameThread / RenderThread)                                          │     │
+│ │   Envenenados por hilos de Chrome/Discord                                              │     │
+│ │                                                                                        │     │
+│ │ Núcleos Secundarios 3-5                                                                │     │
+│ │   Workers de fondo, Indexador, Telemetría                                              │     │
+│ │   Migración constante entre núcleos                                                    │     │
+│ └────────────────────────────────────────────────────────────────────────────────────────┘     │
+│ ┌─ Procesador Gráfico (iGPU UMA / dGPU PCIe / eGPU TB4) ─────────────────────────────────┐     │
+│ │ Hambriento esperando listas de comandos D3D11/D3D12                                    │     │
+│ └────────────────────────────────────────────────────────────────────────────────────────┘     │
+│ ┌─ Bus de Interconexión (Infinity Fabric / Ring Bus / Enlace PCIe) ──────────────────────┐     │
+│ │ (punto de contención)                                                                  │     │
+│ └────────────────────────────────────────────────────────────────────────────────────────┘     │
+│ ┌─ Subsistema de Memoria RAM / VRAM ─────────────────────────────────────────────────────┐     │
+│ │ Líneas de caché desalojadas forzando accesos a memoria lenta                           │     │
+│ └────────────────────────────────────────────────────────────────────────────────────────┘     │
+└────────────────────────────────────────────────────────────────────────────────────────────────┘
 
-    Core0 <-->|"Desalojos constantes de L3 (Cache Thrashing)"| BUS
-    Core1 <-->|"Interrupciones de hilo y robo de cuotas (Quantum Preemption)"| BUS
-    GPU <-->|"Latencia de despacho de draw calls elevada"| BUS
-    BUS <--> MEM
-
-    style Silicio_Sin_VegaFlow fill:#2b1818,stroke:#ef4444,stroke-width:2px,color:#f3f4f6
-    style CPU_Cores fill:#3b1f1f,stroke:#f87171,color:#f3f4f6
-    style Core0 fill:#451a1a,stroke:#f87171,color:#f3f4f6
-    style Core1 fill:#451a1a,stroke:#f87171,color:#f3f4f6
-    style GPU fill:#3f2e18,stroke:#f59e0b,color:#f3f4f6
-    style BUS fill:#1f2937,stroke:#9ca3af,color:#f3f4f6
-    style MEM fill:#1f2937,stroke:#9ca3af,color:#f3f4f6
+Enlaces hacia el Bus de Interconexión:
+  Núcleos Principales 0-2   ◄──► Bus   Desalojos constantes de L3 (Cache Thrashing)
+  Núcleos Secundarios 3-5   ◄──► Bus   Interrupciones de hilo y robo de cuotas (Quantum Preemption)
+  Procesador Gráfico        ◄──► Bus   Latencia de despacho de draw calls elevada
+  Bus de Interconexión      ◄──► Subsistema de Memoria RAM / VRAM
 ```
 
 ### Mecanismos de Degradación del Rendimiento
@@ -68,31 +70,31 @@ flowchart TD
 
 VegaFlow erradica la contención de silicio erigiendo **cuatro barreras simultáneas** implementadas mediante llamadas directas a las interfaces de programación nativas de Windows NT:
 
-```mermaid
-flowchart TD
-    subgraph Barreras_VegaFlow["✅ ARQUITECTURA AISLADA: Las 4 Barreras de Contención del Kernel de Windows NT"]
-        direction TB
-        subgraph Zona_Juego["Espacio de Cómputo Prioritario (Núcleos 0 a 4)"]
-            J_Cores["🎮 Hilos Críticos del Motor de Juego<br/>• GameThread / RenderThread / Audio / RHI<br/>• Libre de desalojos de Caché L3<br/>• Frecuencia Turbo sostenida a máxima cota (+138 a +290 MHz)"]
-        end
-        subgraph Jaula_Fondo["Jaula de Sacrificio Determinista (Último Núcleo Físico - Núcleo 5 / Afinidad 0xC00)"]
-            BG_Cores["🔒 Procesos de Fondo Ruidosos (Chrome, Discord, Launchers)<br/>1️⃣ SetProcessDefaultCpuSets / Afinidad 0xC00<br/>2️⃣ EcoQoS: SetProcessInformation (ProcessPowerThrottling)<br/>3️⃣ I/O NT: NtSetInformationProcess (IoPriorityVeryLow = 0)<br/>4️⃣ Memory Priority: MEMORY_PRIORITY_LOW (2)"]
-        end
-        subgraph Barrera_Driver["Barrera D3D/Driver en Registro NT"]
-            REG["4️⃣ FlipQueueSize = 1 + PCIe ASPM = 0<br/>• Cero cuadros encolados en cola de presentación<br/>• Cero transiciones L0s/L1 de micro-reposo en bus PCIe"]
-        end
-    end
-
-    Zona_Juego ==>|"Despacho ininterrumpido de Draw Calls"| Barrera_Driver
-    Jaula_Fondo -.->|"Ahorro térmico de 3W a 5W devuelto al juego"| Zona_Juego
-
-    style Barreras_VegaFlow fill:#11221c,stroke:#10b981,stroke-width:2px,color:#f3f4f6
-    style Zona_Juego fill:#133329,stroke:#34d399,color:#f3f4f6
-    style J_Cores fill:#172a45,stroke:#3b82f6,color:#f3f4f6
-    style Jaula_Fondo fill:#2d2312,stroke:#f59e0b,color:#f3f4f6
-    style BG_Cores fill:#3f2e18,stroke:#f59e0b,color:#f3f4f6
-    style Barrera_Driver fill:#1f2430,stroke:#8b5cf6,color:#f3f4f6
-    style REG fill:#241d33,stroke:#a855f7,color:#f3f4f6
+```
+┌─ ARQUITECTURA AISLADA: Las 4 Barreras de Contención del Kernel de Windows NT ──────────────────┐
+│ ┌─ Jaula de Sacrificio Determinista (Último Núcleo Físico - Núcleo 5 / Afinidad 0xC00) ──┐     │
+│ │ Procesos de Fondo Ruidosos (Chrome, Discord, Launchers)                                │     │
+│ │ 1. SetProcessDefaultCpuSets / Afinidad 0xC00                                           │     │
+│ │ 2. EcoQoS: SetProcessInformation (ProcessPowerThrottling)                              │     │
+│ │ 3. I/O NT: NtSetInformationProcess (IoPriorityVeryLow = 0)                             │     │
+│ │ 4. Memory Priority: MEMORY_PRIORITY_LOW (2)                                            │     │
+│ └────────────────────────────────────────────────────────────────────────────────────────┘     │
+│      │  Ahorro térmico de 3W a 5W devuelto al juego                                            │
+│      ▼                                                                                         │
+│ ┌─ Espacio de Cómputo Prioritario (Núcleos 0 a 4) ───────────────────────────────────────┐     │
+│ │ Hilos Críticos del Motor de Juego                                                      │     │
+│ │ • GameThread / RenderThread / Audio / RHI                                              │     │
+│ │ • Libre de desalojos de Caché L3                                                       │     │
+│ │ • Frecuencia Turbo sostenida a máxima cota (+138 a +290 MHz)                           │     │
+│ └────────────────────────────────────────────────────────────────────────────────────────┘     │
+│      │  Despacho ininterrumpido de Draw Calls                                                  │
+│      ▼                                                                                         │
+│ ┌─ Barrera D3D/Driver en Registro NT ────────────────────────────────────────────────────┐     │
+│ │ 4. FlipQueueSize = 1 + PCIe ASPM = 0                                                   │     │
+│ │ • Cero cuadros encolados en cola de presentación                                       │     │
+│ │ • Cero transiciones L0s/L1 de micro-reposo en bus PCIe                                 │     │
+│ └────────────────────────────────────────────────────────────────────────────────────────┘     │
+└────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Detalle de las 4 Barreras:

@@ -369,29 +369,41 @@ Antes de realizar pruebas en motores comerciales, se evaluó el comportamiento d
 | **`all` (Sinergia Total)** | **`100.8 FPS`** | **`69.9 FPS`** | **`61.2 FPS`** | **`1.18 ms`** | **+95.7% FPS** sostenido con frametime plano |
 
 ````carousel
-```mermaid
-xychart-beta
-    title "Benchmark Sintetico D3D11: Comparativa A/B Bajo Carga Pesada (6 Workers)"
-    x-axis ["FPS Medio (OFF)", "FPS Medio (ON)", "1% Low (OFF)", "1% Low (ON)", "0.1% Low (OFF)", "0.1% Low (ON)"]
-    y-axis "Cuadros por Segundo (FPS)" 0 --> 125
-    bar [51.0, 109.3, 31.9, 66.6, 29.2, 56.9]
+```
+Benchmark Sintetico D3D11: Comparativa A/B Bajo Carga Pesada (6 Workers)
+Cuadros por Segundo (FPS) (escala: 40 █ = 125)
+
+FPS Medio (OFF) │ ████████████████ 51.0
+FPS Medio (ON)  │ ███████████████████████████████████ 109.3
+1% Low (OFF)    │ ██████████ 31.9
+1% Low (ON)     │ █████████████████████ 66.6
+0.1% Low (OFF)  │ █████████ 29.2
+0.1% Low (ON)   │ ██████████████████ 56.9
 ```
 <!-- slide -->
-```mermaid
-xychart-beta
-    title "Estabilidad Temporal ABBA: 4 Rondas Intercaladas (OFF -> ON -> ON -> OFF)"
-    x-axis ["Ronda 1: OFF", "Ronda 2: ON", "Ronda 3: ON", "Ronda 4: OFF"]
-    y-axis "FPS Promedio y 1% Low" 0 --> 120
-    bar [51.3, 100.2, 94.8, 49.6]
-    line [33.1, 64.0, 52.4, 31.8]
+```
+Estabilidad Temporal ABBA: 4 Rondas Intercaladas (OFF -> ON -> ON -> OFF)
+FPS Promedio y 1% Low (escala: 40 █ = 120 FPS)
+
+Ronda 1: OFF   │ █████████████████ 51.3  (FPS Promedio)
+               │ ███████████ 33.1  (1% Low)
+Ronda 2: ON    │ █████████████████████████████████ 100.2  (FPS Promedio)
+               │ █████████████████████ 64.0  (1% Low)
+Ronda 3: ON    │ ████████████████████████████████ 94.8  (FPS Promedio)
+               │ █████████████████ 52.4  (1% Low)
+Ronda 4: OFF   │ █████████████████ 49.6  (FPS Promedio)
+               │ ███████████ 31.8  (1% Low)
 ```
 <!-- slide -->
-```mermaid
-xychart-beta
-    title "Frecuencia Efectiva de la CPU (MHz) Sostenida Bajo Carga"
-    x-axis ["Ronda 1: OFF", "Ronda 2: ON", "Ronda 3: ON", "Ronda 4: OFF"]
-    y-axis "Frecuencia de Reloj (MHz)" 3400 --> 4000
-    bar [3639, 3931, 3925, 3637]
+```
+Frecuencia Efectiva de la CPU (MHz) Sostenida Bajo Carga
+Frecuencia de Reloj (MHz); el eje original va de 3400 a 4000, por eso las barras
+miden (MHz - 3400) con escala: 40 █ = 600 MHz
+
+Ronda 1: OFF   │ ████████████████ 3639
+Ronda 2: ON    │ ███████████████████████████████████ 3931
+Ronda 3: ON    │ ███████████████████████████████████ 3925
+Ronda 4: OFF   │ ████████████████ 3637
 ```
 ````
 

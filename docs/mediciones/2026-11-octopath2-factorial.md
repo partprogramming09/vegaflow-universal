@@ -63,28 +63,35 @@ Para cuantificar el aporte individual exacto de cada mecanismo bajo condiciones 
 > **Límites de esta tabla.** La genera [`scripts/remote/run_octo_factors.ps1`](../../scripts/remote/run_octo_factors.ps1): una sola captura de 20 s por condición (4 s de calentamiento), en orden fijo `base`, `aff`, `eco`, `io`, `all`, sin intercalar ni repetir. A estos FPS, 20 s son unos 320 cuadros: el 1% Low sale de unos 3 y el 0.1% Low de uno solo, así que esas columnas son ruido según los umbrales del plan (al menos 5 capturas por condición, orden ABBA y 120 s para el 1% Low). Los porcentajes de `io` y `eco` no pasan esos umbrales; lo que se sostiene es el efecto grande de `aff`, medido aparte con el protocolo completo. El script no aplica el preset UMA a `all`: esa fila solo combina afinidad, EcoQoS y prioridad de E/S. La explicación por fallos de página de la sección 2.5 es una hipótesis, no está aislada.
 
 ````carousel
-```mermaid
-xychart-beta
-    title "Octopath Traveler II: FPS Promedio por Mejora Aislada Bajo Carga (6 Workers)"
-    x-axis ["1. Base (Sin Nada)", "2. Solo EcoQoS", "3. Solo I/O NT", "4. Solo Afinidad CPU", "5. Sinergia Total (ALL)"]
-    y-axis "FPS Promedio" 0 --> 40
-    bar [16.01, 17.29, 18.02, 33.72, 34.78]
+```
+Octopath Traveler II: FPS Promedio por Mejora Aislada Bajo Carga (6 Workers)
+FPS Promedio (escala: 40 █ = 40)
+
+1. Base (Sin Nada)      │ ████████████████ 16.01
+2. Solo EcoQoS          │ █████████████████ 17.29
+3. Solo I/O NT          │ ██████████████████ 18.02
+4. Solo Afinidad CPU    │ ██████████████████████████████████ 33.72
+5. Sinergia Total (ALL) │ ███████████████████████████████████ 34.78
 ```
 <!-- slide -->
-```mermaid
-xychart-beta
-    title "Octopath Traveler II: 1% Low FPS (Resistencia a Micro-Tirones)"
-    x-axis ["1. Base (Sin Nada)", "2. Solo EcoQoS", "3. Solo I/O NT", "4. Solo Afinidad CPU", "5. Sinergia Total (ALL)"]
-    y-axis "1% Low FPS" 0 --> 30
-    bar [11.06, 12.34, 14.30, 21.23, 26.19]
+```
+Octopath Traveler II: 1% Low FPS (Resistencia a Micro-Tirones)
+1% Low FPS (escala: 40 █ = 30)
+
+1. Base (Sin Nada)      │ ███████████████ 11.06
+2. Solo EcoQoS          │ ████████████████ 12.34
+3. Solo I/O NT          │ ███████████████████ 14.3
+4. Solo Afinidad CPU    │ ████████████████████████████ 21.23
+5. Sinergia Total (ALL) │ ███████████████████████████████████ 26.19
 ```
 <!-- slide -->
-```mermaid
-xychart-beta
-    title "Escena Limpia: Progresion Desde Fabrica Hasta VegaFlow Total"
-    x-axis ["Fase 1: Fabrica", "Fase 2: Solo Preset Engine.ini", "Fase 3: Preset + Daemon"]
-    y-axis "FPS Promedio" 0 --> 50
-    bar [30.29, 38.37, 42.45]
+```
+Escena Limpia: Progresion Desde Fabrica Hasta VegaFlow Total
+FPS Promedio (escala: 40 █ = 50)
+
+Fase 1: Fabrica                │ ████████████████████████ 30.29
+Fase 2: Solo Preset Engine.ini │ ███████████████████████████████ 38.37
+Fase 3: Preset + Daemon        │ ██████████████████████████████████ 42.45
 ```
 ````
 
@@ -102,37 +109,35 @@ Un hallazgo empírico de alto valor de ingeniería se manifiesta al comparar el 
 
 ## 2.6 Doble Capa: Explicación de Ingeniería Profunda vs. Explicación Sencilla
 
-```mermaid
-flowchart TD
-    subgraph Motor_UE4["🎮 Unreal Engine 4 HD-2D (Octopath Traveler II)"]
-        direction TB
-        GT["Hilos Principales: GameThread / RenderThread / RHIThread<br/>Ejecutando en Núcleos 0 a 4 sin interrupciones"]
-        ST["Async Loading & Texture Streaming<br/>Lecturas NVMe continuas + Buffer UMA de 945 MB"]
-        SM["Iluminación Dinámica y Sombras CSM<br/>Farol nocturno de Hikari + Sombras proyectadas"]
-    end
+```
+Motor Unreal Engine 4 HD-2D (Octopath Traveler II)
+┌────────────────────────────────────────────────────────────────────────────────┐
+│ Hilos Principales: GameThread / RenderThread / RHIThread                       │
+│ Ejecutando en Núcleos 0 a 4 sin interrupciones                                 │
+├────────────────────────────────────────────────────────────────────────────────┤
+│ Async Loading & Texture Streaming                                              │
+│ Lecturas NVMe continuas + Buffer UMA de 945 MB                                 │
+├────────────────────────────────────────────────────────────────────────────────┤
+│ Iluminación Dinámica y Sombras CSM                                             │
+│ Farol nocturno de Hikari + Sombras proyectadas                                 │
+└────────────────────────────────────────────────────────────────────────────────┘
+Las 4 Barreras de VegaFlow
 
-    subgraph Barreras_Activas["🛡️ Las 4 Barreras de VegaFlow"]
-        direction TB
-        B1["1️⃣ Aislamiento Espacial (Núcleo 5 / Afinidad 0xC00)<br/>👉 +110.6% FPS Promedio | +92.0% 1% Low"]
-        B2["2️⃣ Prioridad E/S NT (IoPriorityVeryLow = 0)<br/>👉 +29.3% 1% Low | -24.4% Jitter en Streaming"]
-        B3["3️⃣ EcoQoS (Power Throttling)<br/>👉 +8.0% FPS | +138 MHz Frecuencia CPU"]
-        B4["4️⃣ Preset Engine.ini (UMA + CSM=2)<br/>👉 +26.7% FPS Base | -80 MB VRAM UMA"]
-    end
+1. Aislamiento Espacial (Núcleo 5 / Afinidad 0xC00)
+   +110.6% FPS Promedio | +92.0% 1% Low
+   ──► Protección de Caché L3 y Despacho de Vértices ──► Hilos Principales (GameThread)
 
-    B1 ==>|"Protección de Caché L3 y Despacho de Vértices"| GT
-    B2 ==>|"Vía Libre en Bus PCIe NVMe y Paginación"| ST
-    B3 ==>|"Liberación de Margen Térmico en Silicio"| GT
-    B4 ==>|"Reducción de Pasadas de Renderizado de Profundidad"| SM
+2. Prioridad E/S NT (IoPriorityVeryLow = 0)
+   +29.3% 1% Low | -24.4% Jitter en Streaming
+   ──► Vía Libre en Bus PCIe NVMe y Paginación ──► Async Loading & Texture Streaming
 
-    style Motor_UE4 fill:#111827,stroke:#38bdf8,stroke-width:2px,color:#f3f4f6
-    style Barreras_Activas fill:#064e3b,stroke:#10b981,stroke-width:2px,color:#f3f4f6
-    style GT fill:#1e293b,stroke:#60a5fa,color:#f3f4f6
-    style ST fill:#1e293b,stroke:#60a5fa,color:#f3f4f6
-    style SM fill:#1e293b,stroke:#60a5fa,color:#f3f4f6
-    style B1 fill:#047857,stroke:#34d399,color:#f3f4f6
-    style B2 fill:#047857,stroke:#34d399,color:#f3f4f6
-    style B3 fill:#047857,stroke:#34d399,color:#f3f4f6
-    style B4 fill:#047857,stroke:#34d399,color:#f3f4f6
+3. EcoQoS (Power Throttling)
+   +8.0% FPS | +138 MHz Frecuencia CPU
+   ──► Liberación de Margen Térmico en Silicio ──► Hilos Principales (GameThread)
+
+4. Preset Engine.ini (UMA + CSM=2)
+   +26.7% FPS Base | -80 MB VRAM UMA
+   ──► Reducción de Pasadas de Renderizado de Profundidad ──► Iluminación Dinámica y Sombras CSM
 ```
 
 ### Capa 1: Perspectiva de Ingeniería Profunda

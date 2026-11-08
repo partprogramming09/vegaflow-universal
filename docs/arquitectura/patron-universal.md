@@ -10,21 +10,25 @@ La evidencia física y arquitectónica demuestra que **el patrón de contención
 
 Independientemente de que el procesador sea AMD o Intel, o de que los gráficos se procesen en una GPU integrada (iGPU), dedicada interna (dGPU) o externa (eGPU), existen **cuatro leyes físicas universales de la arquitectura de Von Neumann moderna** que gobiernan el rendimiento:
 
-```mermaid
-flowchart TD
-    subgraph Patron_Universal["🌐 LAS 4 FUENTES UNIVERSALES DE CONTENCIÓN EN EL SUBSISTEMA DE CÓMPUTO"]
-        direction TB
-        F1["1️⃣ Jerarquía de Memoria y TLB Flush<br/>• Latencia L3: ~10-14 ns | Latencia RAM DDR4/DDR5: ~70-95 ns (7x más lenta)<br/>• Desalojo forzado de líneas de caché de hilos gráficos y colisiones en TLB"]
-        F2["2️⃣ Latencia de Despacho D3D/Vulkan (Quantum Preemption)<br/>• Ninguna GPU dibuja de forma autónoma: la CPU debe despachar Command Lists<br/>• Interrupciones ISR/DPC provocan burbujas de inanición (GPU Starvation)"]
-        F3["3️⃣ Contención de Cola I/O y Fallos de Página (Async Streaming)<br/>• Bloqueo en colas NVMe y contención en gestor de memoria virtual<br/>• Afecta a motores modernos con DirectStorage / UE4 / UE5"]
-        F4["4️⃣ Presupuesto Energético y Térmico Compartido<br/>• AMD: STAPM / PPT / TDC / EDC | Intel: PL1 / PL2 / Tau / TVB<br/>• Carga parásita en núcleos secundarios roba watts y deprime frecuencias Turbo"]
-    end
-
-    style Patron_Universal fill:#18202c,stroke:#64748b,stroke-width:2px,color:#f3f4f6
-    style F1 fill:#2b1d1d,stroke:#f87171,color:#f3f4f6
-    style F2 fill:#2b2416,stroke:#f59e0b,color:#f3f4f6
-    style F3 fill:#1d2924,stroke:#34d399,color:#f3f4f6
-    style F4 fill:#1c2538,stroke:#60a5fa,color:#f3f4f6
+```
+┌─ LAS 4 FUENTES UNIVERSALES DE CONTENCIÓN EN EL SUBSISTEMA DE CÓMPUTO ────────────────────────┐
+│ ┌─ 1. Jerarquía de Memoria y TLB Flush ──────────────────────────────────────────────────┐   │
+│ │ • Latencia L3: ~10-14 ns | Latencia RAM DDR4/DDR5: ~70-95 ns (7x más lenta)            │   │
+│ │ • Desalojo forzado de líneas de caché de hilos gráficos y colisiones en TLB            │   │
+│ └────────────────────────────────────────────────────────────────────────────────────────┘   │
+│ ┌─ 2. Latencia de Despacho D3D/Vulkan (Quantum Preemption) ──────────────────────────────┐   │
+│ │ • Ninguna GPU dibuja de forma autónoma: la CPU debe despachar Command Lists            │   │
+│ │ • Interrupciones ISR/DPC provocan burbujas de inanición (GPU Starvation)               │   │
+│ └────────────────────────────────────────────────────────────────────────────────────────┘   │
+│ ┌─ 3. Contención de Cola I/O y Fallos de Página (Async Streaming) ───────────────────────┐   │
+│ │ • Bloqueo en colas NVMe y contención en gestor de memoria virtual                      │   │
+│ │ • Afecta a motores modernos con DirectStorage / UE4 / UE5                              │   │
+│ └────────────────────────────────────────────────────────────────────────────────────────┘   │
+│ ┌─ 4. Presupuesto Energético y Térmico Compartido ───────────────────────────────────────┐   │
+│ │ • AMD: STAPM / PPT / TDC / EDC | Intel: PL1 / PL2 / Tau / TVB                          │   │
+│ │ • Carga parásita en núcleos secundarios roba watts y deprime frecuencias Turbo         │   │
+│ └────────────────────────────────────────────────────────────────────────────────────────┘   │
+└──────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 1. **Contención de Caché de Último Nivel (LLC / L3 Thrashing) y Vaciado de TLB:**  
@@ -42,49 +46,36 @@ flowchart TD
 
 A pesar de que el problema de contención es universal, la anatomía interna de los procesadores AMD e Intel impone retos específicos:
 
-```mermaid
-flowchart TD
-    subgraph Arquitectura_Comparada["🔬 TOPOLOGÍA FÍSICA: AMD RYZEN VS. INTEL CORE"]
-        direction LR
-        subgraph AMD_Arch["AMD Ryzen (Zen 2 a Zen 5)"]
-            direction TB
-            subgraph APU_Mono["APU Monolítica (Lucienne / Phoenix)"]
-                L3_A["Caché L3 Compacta (8-16 MB)<br/>Bus Infinity Fabric (FCLK) unificado con iGPU"]
-            end
-            subgraph Multi_CCD["Desktop / HX (Multi-CCD / X3D)"]
-                CCD0["CCD 0 (Caché 3D V-Cache / Núcleos 0-7)"]
-                CCD1["CCD 1 (Núcleos de Frecuencia 8-15)"]
-                IOD["I/O Die Central (Controlador de Memoria)"]
-                CCD0 <-->|"Penalización Cross-CCD (~70+ ns)"| IOD <--> CCD1
-            end
-        end
-
-        subgraph Intel_Arch["Intel Core (12ª a 14ª Gen y Core Ultra)"]
-            direction TB
-            subgraph Hybrid_Ring["Arquitectura Híbrida P-Cores + E-Cores"]
-                PC["P-Cores (Raptor Cove)<br/>Alto IPC / Frecuencia Pico"]
-                EC["E-Cores (Gracemont)<br/>Clusters de 4 núcleos"]
-                RING["Ring Bus Unificado de Alta Velocidad"]
-                L3_I["Intel Smart Cache L3 Compartida"]
-                PC <--> RING <--> EC
-                RING <--> L3_I
-            end
-        end
-    end
-
-    style Arquitectura_Comparada fill:#0d1520,stroke:#475569,stroke-width:2px,color:#f3f4f6
-    style AMD_Arch fill:#1c1313,stroke:#ef4444,color:#f3f4f6
-    style APU_Mono fill:#2d1818,stroke:#f87171,color:#f3f4f6
-    style Multi_CCD fill:#2d1818,stroke:#f87171,color:#f3f4f6
-    style CCD0 fill:#3f1f1f,stroke:#fca5a5,color:#f3f4f6
-    style CCD1 fill:#3f1f1f,stroke:#fca5a5,color:#f3f4f6
-    style IOD fill:#201a1a,stroke:#d1d5db,color:#f3f4f6
-    style Intel_Arch fill:#0c1929,stroke:#3b82f6,color:#f3f4f6
-    style Hybrid_Ring fill:#13253b,stroke:#60a5fa,color:#f3f4f6
-    style PC fill:#1e3a5f,stroke:#93c5fd,color:#f3f4f6
-    style EC fill:#1a2e47,stroke:#93c5fd,color:#f3f4f6
-    style RING fill:#1f2937,stroke:#9ca3af,color:#f3f4f6
-    style L3_I fill:#172554,stroke:#38bdf8,color:#f3f4f6
+```
+┌─ TOPOLOGÍA FÍSICA: AMD RYZEN VS. INTEL CORE ─────────────────────────────────────────────────┐
+│ ┌─ AMD Ryzen (Zen 2 a Zen 5) ────────────────────────────────────────────────────────────┐   │
+│ │ ┌─ APU Monolítica (Lucienne / Phoenix) ──────────────────────────────────────────────┐ │   │
+│ │ │ Caché L3 Compacta (8-16 MB)                                                        │ │   │
+│ │ │ Bus Infinity Fabric (FCLK) unificado con iGPU                                      │ │   │
+│ │ └────────────────────────────────────────────────────────────────────────────────────┘ │   │
+│ │ ┌─ Desktop / HX (Multi-CCD / X3D) ───────────────────────────────────────────────────┐ │   │
+│ │ │ CCD 0 (Caché 3D V-Cache / Núcleos 0-7)                                             │ │   │
+│ │ │       ▲                                                                            │ │   │
+│ │ │       │ Penalización Cross-CCD (~70+ ns)                                           │ │   │
+│ │ │       ▼                                                                            │ │   │
+│ │ │ I/O Die Central (Controlador de Memoria)                                           │ │   │
+│ │ │       ▲                                                                            │ │   │
+│ │ │       ▼                                                                            │ │   │
+│ │ │ CCD 1 (Núcleos de Frecuencia 8-15)                                                 │ │   │
+│ │ └────────────────────────────────────────────────────────────────────────────────────┘ │   │
+│ └────────────────────────────────────────────────────────────────────────────────────────┘   │
+│ ┌─ Intel Core (12ª a 14ª Gen y Core Ultra) ──────────────────────────────────────────────┐   │
+│ │ ┌─ Arquitectura Híbrida P-Cores + E-Cores ───────────────────────────────────────────┐ │   │
+│ │ │ P-Cores (Raptor Cove): Alto IPC / Frecuencia Pico                                  │ │   │
+│ │ │       ▲                                                                            │ │   │
+│ │ │       ▼                                                                            │ │   │
+│ │ │ Ring Bus Unificado de Alta Velocidad                                               │ │   │
+│ │ │       ▲                                  ▲                                         │ │   │
+│ │ │       ▼                                  ▼                                         │ │   │
+│ │ │ Intel Smart Cache L3 Compartida     E-Cores (Gracemont): Clusters de 4 núcleos     │ │   │
+│ │ └────────────────────────────────────────────────────────────────────────────────────┘ │   │
+│ └────────────────────────────────────────────────────────────────────────────────────────┘   │
+└──────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### A. Anatomía en Procesadores AMD Ryzen:
@@ -127,39 +118,33 @@ flowchart TD
 | **🖥️ Gráfica Dedicada Interna (dGPU)** *(NVIDIA RTX, AMD Radeon RX por PCIe x16)* | Bus PCIe x8/x16 dedicado (latencia de nanosegundos, VRAM GDDR6 propia >250 GB/s) | La dGPU no sufre por VRAM, pero queda en inanición (*GPU Starvation*) si la CPU interrumpe el despacho de comandos. | Las optimizaciones UMA se desactivan automáticamente (`Pass-Through Guard`). Se mantiene el aislamiento espacial y de E/S. | ✅ **Impacto Alto en Fluidez (+20% a +50% en 1% Low):** Elimina micro-tirones en títulos competitivos y mundos abiertos. |
 | **🔌 Gráfica Externa por Cable (eGPU)** *(Caja externa vía Thunderbolt 3/4, USB4 u OCuLink)* | Enlace PCIe encapsulado sobre cable (limitado a PCIe x4 ~32 Gbps reales y alta latencia de paquetes) | Cada cuadro requiere transferencias DMA continuas por el cable. Las interrupciones de CPU en la laptop provocan caídas severas de enlace. | Se activan el aislamiento de CPU, prioridad de E/S NT y se fija en registro `PCIe ASPM = 0` y `FlipQueueSize = 1`. | 🔥 **Impacto Crítico (+40% a +75% en 1% Low):** Mantiene el túnel Thunderbolt despierto sin pausas de ahorro energético. |
 
-````carousel
-```mermaid
-xychart-beta
-    title "Impacto Porcentual del Aislamiento en Percentiles 1% Low (Con Carga de Fondo)"
-    x-axis ["APU Integrada (UMA)", "Grafica Externa (eGPU TB4)", "Grafica Dedicada (dGPU PCIe)"]
-    y-axis "Incremento % en 1% Low (Fluidez)" 0 --> 160
-    bar [136.8, 65.0, 42.0]
 ```
-<!-- slide -->
-```mermaid
-sequenceDiagram
-    autonumber
-    participant BG as 🌐 Ruido de Fondo (Chromium / Discord)
-    participant CPU as 🧠 CPU Host (Núcleos Primarios)
-    participant BUS as 🔌 Cable Thunderbolt / Bus PCIe
-    participant GPU as 🎮 GPU Dedicada / Externa (VRAM GDDR6)
+Impacto Porcentual del Aislamiento en Percentiles 1% Low (Con Carga de Fondo)
+Incremento % en 1% Low (Fluidez), escala 0 a 160
 
-    rect rgb(43, 24, 24)
-    Note over BG,GPU: ❌ SIN AISLAMIENTO: Retraso de CPU provoca inanición en la GPU
-    CPU->>BUS: Preparando listas de comandos D3D11/D3D12...
-    BG->>CPU: ¡Interrupción no controlada! Chrome desaloja la Caché L3
-    Note right of BUS: ⚠️ El enlace de despacho se queda sin datos durante 8-15 ms
-    BUS-->>GPU: Cuadro entregado con retraso -> ¡CAÍDA DRÁSTICA DE 1% LOW!
-    end
-
-    rect rgb(17, 34, 28)
-    Note over BG,GPU: ✅ CON VEGAFLOW: Aislamiento Espacial + ASPM=0
-    Note left of BG: 🔒 Ruido confinado al último núcleo (EcoQoS + I/O VeryLow)
-    CPU->>BUS: Flujo continuo ininterrumpido de Command Lists
-    BUS->>GPU: Tubería gráfica saturada al 100% -> ¡FRAMETIME PLANO Y ESTABLE!
-    end
+APU Integrada (UMA)            │███████████████████████████████████████████ 136.8
+Grafica Externa (eGPU TB4)     │████████████████████ 65.0
+Grafica Dedicada (dGPU PCIe)   │█████████████ 42.0
+                               └────────────────────────────────────────────────────
+                                0           40          80         120         160
 ```
-````
+
+```
+Participantes:  BG = Ruido de Fondo (Chromium / Discord)   CPU = CPU Host (Núcleos Primarios)
+                BUS = Cable Thunderbolt / Bus PCIe          GPU = GPU Dedicada / Externa (VRAM GDDR6)
+
+┌─ SIN AISLAMIENTO: Retraso de CPU provoca inanición en la GPU ──────────────────────────────┐
+│ 1  CPU ──► BUS  Preparando listas de comandos D3D11/D3D12...                               │
+│ 2  BG  ──► CPU  ¡Interrupción no controlada! Chrome desaloja la Caché L3                   │
+│    (nota sobre BUS) El enlace de despacho se queda sin datos durante 8-15 ms               │
+│ 3  BUS ──► GPU  Cuadro entregado con retraso -> ¡CAÍDA DRÁSTICA DE 1% LOW!                 │
+└────────────────────────────────────────────────────────────────────────────────────────────┘
+┌─ CON VEGAFLOW: Aislamiento Espacial + ASPM=0 ──────────────────────────────────────────────┐
+│    (nota sobre BG) Ruido confinado al último núcleo (EcoQoS + I/O VeryLow)                 │
+│ 4  CPU ──► BUS  Flujo continuo ininterrumpido de Command Lists                             │
+│ 5  BUS ──► GPU  Tubería gráfica saturada al 100% -> ¡FRAMETIME PLANO Y ESTABLE!            │
+└────────────────────────────────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
