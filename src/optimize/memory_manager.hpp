@@ -1,6 +1,6 @@
 #pragma once
 
-#include "detect/hardware_profiler.hpp"
+#include "model/hardware.hpp"
 
 #include <chrono>
 #include <cstdint>

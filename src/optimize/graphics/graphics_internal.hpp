@@ -2,7 +2,7 @@
 // Internal helpers shared by the GraphicsOptimizer implementation files. Not part of the public API.
 
 #include "optimize/graphics/graphics_optimizer.hpp"
-#include "detect/hardware_profiler.hpp"
+#include "model/hardware.hpp"
 
 #if __has_include("windows/nt_defs.hpp")
 #include "windows/nt_defs.hpp"

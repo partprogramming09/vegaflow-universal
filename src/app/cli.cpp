@@ -11,7 +11,7 @@
 #include "detect/hardware_profiler.hpp"
 #include "optimize/graphics/graphics_optimizer.hpp"
 #include "optimize/dxvk_manager.hpp"
-#include "detect/system_info.hpp"
+#include "session/system_info.hpp"
 #include "app/app_state.hpp"
 #include "app/config.hpp"
 #include "app/reports.hpp"

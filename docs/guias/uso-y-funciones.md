@@ -96,7 +96,7 @@ El subsistema [`SandboxGuard`](../../src/safety/sandbox_guard.hpp) implementa un
 - **Auditoría Forense en Tiempo Real:** Cada rechazo de acceso se almacena en memoria con sello de tiempo milimétrico (`timestamp_ms`), código de infracción (`SandboxDenialReason`) y mensaje descriptivo para diagnóstico.
 
 ### 2.7. Subsistema SystemInfo (Telemetría de Hardware & Exportación JSON)
-El subsistema [`SystemInfo`](../../src/detect/system_info.hpp) desacopla la detección profunda de hardware y sistema operativo en un módulo autónomo y de alta precisión:
+El subsistema [`SystemInfo`](../../src/session/system_info.hpp) desacopla la detección profunda de hardware y sistema operativo en un módulo autónomo y de alta precisión:
 - **Detección de CPU Zen 2:** Extrae el *Brand String* mediante instrucciones `CPUID` nativas (*AMD Ryzen 5 4600H with Radeon Graphics*), calcula topología de 6 núcleos físicos / 12 lógicos, arquitectura Renoir de 7nm, tamaño de caché L3 de 8 MB y frecuencia objetivo APU STAPM a 3.4 GHz sostenidos.
 - **Topología de Gráficos & Memoria UMA (Vega 6):** Contrasta el reporte ficticio de BIOS (512 MB) con la memoria UMA compartida real del sistema (~7.7 GB) y sondea presupuestos dinámicos de VRAM en tiempo real mediante `IDXGIAdapter3::QueryVideoMemoryInfo`.
 - **Topología de Memoria RAM por Firmware (SMBIOS Type 17):** Inspecciona las tablas SMBIOS `RSMB` (`GetSystemFirmwareTable`), identificando la presencia de 2 módulos DIMM poblados y verificando el bus de 128 bits en **Dual-Channel** (~42 GB/s de ancho de banda). Presenta desglose de memoria libre real, Standby List y páginas modificadas.

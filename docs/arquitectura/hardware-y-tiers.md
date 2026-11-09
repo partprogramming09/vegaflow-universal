@@ -124,7 +124,7 @@ Aunque **VegaFlow Universal** nació como un framework de optimización para arq
 
 ### 2. Arquitectura del Subsistema `ApuCapabilityGuard`
 
-Se introduce una estructura determinista de clasificación y políticas en [`src/detect/hardware_profiler.hpp`](../../src/detect/hardware_profiler.hpp) e [`src/optimize/graphics/graphics_optimizer.hpp`](../../src/optimize/graphics/graphics_optimizer.hpp) que actúa como **única fuente de verdad** para los límites de DX11, DX12, memoria UMA y energía.
+Se introduce una estructura determinista de clasificación y políticas en [`src/model/hardware.hpp`](../../src/model/hardware.hpp) (tipos; la detección en `src/detect/hardware_profiler.cpp`) e [`src/optimize/graphics/graphics_optimizer.hpp`](../../src/optimize/graphics/graphics_optimizer.hpp) que actúa como **única fuente de verdad** para los límites de DX11, DX12, memoria UMA y energía.
 
 #### 2.1. Enumeración de Tiers (`ApuTier`) y Generación de Arquitectura (`GpuArchitectureGen`)
 
@@ -224,11 +224,11 @@ struct ApuOptimizationPolicy {
 ### 4. Integración en los Módulos Existentes
 
 #### 4.1. `HardwareProfiler` y `SystemInfo`
-- En [`src/detect/hardware_profiler.hpp`](../../src/detect/hardware_profiler.hpp) y [`src/detect/hardware_profiler.cpp`](../../src/detect/hardware_profiler.cpp):
+- En [`src/model/hardware.hpp`](../../src/model/hardware.hpp) y [`src/detect/hardware_profiler.cpp`](../../src/detect/hardware_profiler.cpp):
   - Añadir `ApuTier`, `GpuArchitectureGen` y `ApuOptimizationPolicy`.
   - Añadir campos `arch_gen` y `apu_tier` a `SystemHardwareProfile`.
   - Implementar `HardwareProfiler::BuildOptimizationPolicy(const SystemHardwareProfile& profile, uint64_t live_dxgi_local_budget_bytes = 0)` y funciones auxiliares `ApuTierToString` y `ArchGenToString`.
-- En [`src/detect/system_info.cpp`](../../src/detect/system_info.cpp) e [`src/detect/system_info.hpp`](../../src/detect/system_info.hpp):
+- En [`src/session/system_info.cpp`](../../src/session/system_info.cpp) e [`src/session/system_info.hpp`](../../src/session/system_info.hpp):
   - En `GatherGpu()`: Reemplazar el sufijo fijo `" (Vega 6 / GCN 5.0)"` por el sufijo real según `arch_gen` (ej. mantiene `" (Vega 6 / GCN 5.0)"` cuando es Renoir 4600H / GCN5 para preservar compatibilidad total con los reportes actuales, pero muestra `" (RDNA 2 UMA)"`, `" (RDNA 3/3.5 UMA)"` o `" (Intel Xe/Arc UMA)"` en otros equipos).
   - En `GatherCpu()`: Ajustar `boost_target_ghz` y `stapm_target` según la política (`3.4 GHz` en Tier 2, `3.0 GHz` en Tier 1, `"Dynamic Boost (Efficient Aggressive / Uncapped Guard)"` en Tier 3).
   - Exportar en `SystemInfo::ToJson()` un bloque adicional `"apu_guard"` con `tier`, `guard_mode`, `safe_vram_pool_mb`, `dx12_async_compute_allowed`, `dxvk_compiler_threads` y `tessellation_cap`.

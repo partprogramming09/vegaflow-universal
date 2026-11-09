@@ -1,4 +1,4 @@
-#include "detect/system_info.hpp"
+#include "session/system_info.hpp"
 #include "detect/hardware_profiler.hpp"
 #include "optimize/memory_manager.hpp"
 #include "optimize/graphics/graphics_optimizer.hpp"

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "detect/hardware_profiler.hpp"
+#include "model/hardware.hpp"
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN

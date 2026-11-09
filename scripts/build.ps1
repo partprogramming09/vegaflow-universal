@@ -106,7 +106,7 @@ $CommonSources = @(
     "src/windows/privileges.cpp",
     "src/detect/hardware_profiler.cpp",
     "src/detect/process_detector.cpp",
-    "src/detect/system_info.cpp",
+    "src/session/system_info.cpp",
     "src/optimize/graphics/amd_driver_tweaks.cpp",
     "src/optimize/graphics/display_tweaks.cpp",
     "src/optimize/graphics/dxgi_flip.cpp",

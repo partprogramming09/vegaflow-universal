@@ -1,7 +1,7 @@
 # Módulos y estructura del repositorio
 
 ### 3.2. Subsistema `SystemInfo`: Telemetría Desacoplada y Detección de Hardware
-Implementado en [`src/detect/system_info.hpp`](../../src/detect/system_info.hpp) y [`src/detect/system_info.cpp`](../../src/detect/system_info.cpp), este módulo aísla toda la lógica de recopilación de hardware y sistema operativo en una biblioteca reutilizable:
+Implementado en [`src/session/system_info.hpp`](../../src/session/system_info.hpp) y [`src/session/system_info.cpp`](../../src/session/system_info.cpp), este módulo aísla toda la lógica de recopilación de hardware y sistema operativo en una biblioteca reutilizable:
 - **Detección de CPU**:
   - Lectura de marca mediante la instrucción x86 `CPUID` (registros EAX, EBX, ECX, EDX) reportando el procesador completo (e.g. *AMD Ryzen 5 4600H with Radeon Graphics*).
   - Conteo riguroso de núcleos físicos (6) y procesadores lógicos (12) mediante `GetLogicalProcessorInformationEx`.

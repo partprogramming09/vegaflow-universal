@@ -1,4 +1,5 @@
 #include "optimize/graphics/graphics_internal.hpp"
+#include "detect/hardware_profiler.hpp"
 
 namespace vegaflow {
 

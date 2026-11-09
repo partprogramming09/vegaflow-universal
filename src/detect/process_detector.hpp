@@ -5,30 +5,14 @@
 #endif
 #include <windows.h>
 
+#include "model/game.hpp"
+
 #include <cstdint>
 #include <optional>
 #include <string>
 #include <vector>
 
 namespace vegaflow {
-
-enum class RenderApi {
-    Unknown = 0,
-    DirectX9_10,
-    DirectX11,
-    DirectX12,
-    Vulkan
-};
-
-struct DetectedGameProcess {
-    uint32_t pid = 0;
-    std::wstring exe_name;
-    std::wstring full_path;
-    RenderApi api = RenderApi::Unknown;
-    std::wstring driver_dll_loaded; // ej. atidxx64.dll, amdxc64.dll, nvwgf2umx.dll, igd10iumd64.dll, igd12umd64.dll
-    HWND main_window = nullptr;
-    uint32_t presenter_thread_id = 0;
-};
 
 class ProcessDetector {
 public:

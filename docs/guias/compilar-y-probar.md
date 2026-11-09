@@ -52,7 +52,7 @@ g++ -std=c++20 -O2 -Wall -Wextra -static -static-libgcc -static-libstdc++ \
     src/windows/privileges.cpp \
     src/detect/hardware_profiler.cpp \
     src/detect/process_detector.cpp \
-    src/detect/system_info.cpp \
+    src/session/system_info.cpp \
     src/optimize/graphics/*.cpp \
     src/optimize/dxvk_manager.cpp \
     src/optimize/steam/*.cpp \
@@ -76,7 +76,7 @@ g++ -std=c++20 -O2 -Wall -Wextra -static -static-libgcc -static-libstdc++ \
     src/windows/privileges.cpp \
     src/detect/hardware_profiler.cpp \
     src/detect/process_detector.cpp \
-    src/detect/system_info.cpp \
+    src/session/system_info.cpp \
     src/optimize/graphics/*.cpp \
     src/optimize/dxvk_manager.cpp \
     src/optimize/steam/*.cpp \
