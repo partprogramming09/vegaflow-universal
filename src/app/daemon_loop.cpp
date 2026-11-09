@@ -30,6 +30,8 @@ int RunDaemon(
     const vegaflow::PrivilegeStatus& priv,
     bool once_mode) {
     using namespace vegaflow;
+    // Built once from the boot profile, the same way each optimizer used to rebuild it on every call.
+    const ApuOptimizationPolicy policy = HardwareProfiler::BuildOptimizationPolicy(hw);
 
     bool game_active = false;
     uint32_t active_game_pid = 0;
@@ -39,7 +41,7 @@ int RunDaemon(
     bool timer_boosted = false;
 
     GraphicsOptimizer::SetGameDvrAndFseOptimized(true, false);
-    GraphicsOptimizer::SetApuLaptopPowerProfile(true, false);
+    GraphicsOptimizer::SetApuLaptopPowerProfile(true, policy, false);
 
     if (once_mode) {
         RunSingleIteration(
@@ -129,7 +131,7 @@ int RunDaemon(
         }
         telemetry_monitor.StopMonitoring();
     }
-    GraphicsOptimizer::SetApuLaptopPowerProfile(false, false);
+    GraphicsOptimizer::SetApuLaptopPowerProfile(false, policy, false);
     // Restores the registry (GameDVR, AMD driver, MPO, MMCSS, priority, paging) to its state before VegaFlow.
     const bool registry_restored = GraphicsOptimizer::RestoreAllRegistryBackups();
     std::cout << "[INFO] Registry values restored to their original state: " << (registry_restored ? "yes" : "partially or not (see --restore-registry)") << "\n";

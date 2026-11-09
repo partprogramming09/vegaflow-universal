@@ -4,12 +4,12 @@ namespace vegaflow {
 
 using namespace graphics_internal;
 
-bool GraphicsOptimizer::SetAmdShaderCacheForced(bool force_on, bool dry_run) {
+bool GraphicsOptimizer::SetAmdShaderCacheForced(bool force_on, const ApuOptimizationPolicy& policy, bool dry_run) {
     if (dry_run) {
         return true;
     }
 
-    SetAmdDx11UmaDriverBoost(force_on, dry_run);
+    SetAmdDx11UmaDriverBoost(force_on, policy, dry_run);
 
     static const wchar_t* const kAdapterSubkeys[] = { L"0000", L"0001", L"0002", L"0003" };
     const std::wstring class_base = L"SYSTEM\\CurrentControlSet\\Control\\Class\\{4d36e968-e325-11ce-bfc1-08002be10318}";

@@ -49,7 +49,7 @@ namespace {
 struct PowerPlanGuard {
     ~PowerPlanGuard() {
         if (vegaflow::GraphicsOptimizer::IsApuPowerModeApplied()) {
-            vegaflow::GraphicsOptimizer::SetApuPowerMode(vegaflow::ApuPowerMode::Balanced);
+            vegaflow::GraphicsOptimizer::SetApuPowerMode(vegaflow::ApuPowerMode::Balanced, vftest::DetectedPolicy());
         }
         vegaflow::GraphicsOptimizer::RestoreAllRegistryBackups();
     }

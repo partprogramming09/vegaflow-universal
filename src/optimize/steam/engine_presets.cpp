@@ -1,6 +1,5 @@
 #include "optimize/steam/steam_engine_optimizer.hpp"
 #include "optimize/steam/steam_internal.hpp"
-#include "detect/hardware_profiler.hpp"
 #include "optimize/graphics/graphics_optimizer.hpp"
 #include "safety/sandbox_guard.hpp"
 
@@ -66,6 +65,7 @@ std::string SteamEngineOptimizer::GenerateUnrealUmaBlock(const ApuOptimizationPo
 
 EngineOptimizationReport SteamEngineOptimizer::ApplyEngineUmaPreset(
     const SteamGameEntry& game,
+    const ApuOptimizationPolicy& policy,
     uint32_t vram_pool_mb,
     bool dry_run,
     const std::wstring& custom_config_dir_override) {
@@ -97,7 +97,6 @@ EngineOptimizationReport SteamEngineOptimizer::ApplyEngineUmaPreset(
             return report;
         }
 
-        const auto policy = HardwareProfiler::BuildOptimizationPolicy(HardwareProfiler::DetectHardware());
         uint32_t effective_pool_mb = 0;
         if (policy.tier == ApuTier::Tier1_EntryUMA) {
             effective_pool_mb = (vram_pool_mb == 0) ? policy.safe_vram_pool_mb : std::min(vram_pool_mb, policy.safe_vram_pool_mb);

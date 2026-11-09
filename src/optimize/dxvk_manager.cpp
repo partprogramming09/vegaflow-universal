@@ -1,5 +1,4 @@
 #include "optimize/dxvk_manager.hpp"
-#include "detect/hardware_profiler.hpp"
 #include "safety/sandbox_guard.hpp"
 
 #ifndef WIN32_LEAN_AND_MEAN
@@ -152,6 +151,7 @@ bool DxvkManager::IsDxvkInstalled(const std::wstring& game_exe_path) {
 
 bool DxvkManager::DeployDxvk(
     const std::wstring& game_exe_path,
+    const ApuOptimizationPolicy& policy,
     bool has_anticheat,
     bool is_64bit,
     bool dry_run,
@@ -253,7 +253,6 @@ bool DxvkManager::DeployDxvk(
     }
 
     // 4. Write dxvk.conf with an APU-optimized profile according to the HardwareProfiler Policy
-    const auto policy = HardwareProfiler::BuildOptimizationPolicy(HardwareProfiler::DetectHardware());
     std::filesystem::path confPath = dir / L"dxvk.conf";
     {
         std::string confContent =
@@ -349,7 +348,7 @@ bool DxvkManager::RemoveDxvk(
     return true;
 }
 
-bool DxvkManager::ConfigureApuProfile(const std::filesystem::path& targetDir, bool dryRun) {
+bool DxvkManager::ConfigureApuProfile(const std::filesystem::path& targetDir, const ApuOptimizationPolicy& policy, bool dryRun) {
     if (targetDir.empty()) {
         return false;
     }
@@ -377,7 +376,6 @@ bool DxvkManager::ConfigureApuProfile(const std::filesystem::path& targetDir, bo
 
     std::filesystem::path confPath = dir / L"dxvk.conf";
 
-    const auto policy = HardwareProfiler::BuildOptimizationPolicy(HardwareProfiler::DetectHardware());
     const std::vector<std::pair<std::string, std::string>> requiredSettings = {
         {"dxvk.enableAsync", "true"},
         {"dxvk.numCompilerThreads", std::to_string(policy.dxvk_compiler_threads)},

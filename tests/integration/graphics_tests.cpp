@@ -98,7 +98,7 @@ void Test10() {
     // TEST 10: Phase 4 System Tweaks & Session Report Persistence
     // -------------------------------------------------------------------------
     {
-        bool shader_cache_ok = vegaflow::GraphicsOptimizer::SetAmdShaderCacheForced(true, true /* dry_run */);
+        bool shader_cache_ok = vegaflow::GraphicsOptimizer::SetAmdShaderCacheForced(true, DetectedPolicy(), true /* dry_run */);
         bool mem_compress_ok = vegaflow::GraphicsOptimizer::SetMemoryCompressionEnabled(false, true /* dry_run */);
 
         vegaflow::FrameTelemetryMonitor telemetry;
@@ -132,15 +132,15 @@ void Test15() {
         bool mmcss_dry_ok = vegaflow::GraphicsOptimizer::SetMmcssGamingProfileOptimized(true, true /* dry_run */);
         bool prio_sep_26_ok = vegaflow::GraphicsOptimizer::SetDynamicPrioritySeparation(0x26, true /* dry_run */);
         bool prio_sep_28_ok = vegaflow::GraphicsOptimizer::SetDynamicPrioritySeparation(0x28, true /* dry_run */);
-        bool amd_boost_dry_ok = vegaflow::GraphicsOptimizer::SetAmdDx11UmaDriverBoost(true, true /* dry_run */);
+        bool amd_boost_dry_ok = vegaflow::GraphicsOptimizer::SetAmdDx11UmaDriverBoost(true, DetectedPolicy(), true /* dry_run */);
         bool gamedvr_dry_ok = vegaflow::GraphicsOptimizer::SetGameDvrAndFseOptimized(true, true /* dry_run */);
-        bool apu_power_dry_ok = vegaflow::GraphicsOptimizer::SetApuLaptopPowerProfile(true, true /* dry_run */);
-        bool apu_mode_gpu_dry_ok = vegaflow::GraphicsOptimizer::SetApuPowerMode(vegaflow::ApuPowerMode::GpuPrioritySustained, true /* dry_run */);
-        bool apu_mode_bal_dry_ok = vegaflow::GraphicsOptimizer::SetApuPowerMode(vegaflow::ApuPowerMode::Balanced, true /* dry_run */);
+        bool apu_power_dry_ok = vegaflow::GraphicsOptimizer::SetApuLaptopPowerProfile(true, DetectedPolicy(), true /* dry_run */);
+        bool apu_mode_gpu_dry_ok = vegaflow::GraphicsOptimizer::SetApuPowerMode(vegaflow::ApuPowerMode::GpuPrioritySustained, DetectedPolicy(), true /* dry_run */);
+        bool apu_mode_bal_dry_ok = vegaflow::GraphicsOptimizer::SetApuPowerMode(vegaflow::ApuPowerMode::Balanced, DetectedPolicy(), true /* dry_run */);
 
         // Apply real settings for HKCU / User Power scheme (execution)
         bool gamedvr_exec_ok = vegaflow::GraphicsOptimizer::SetGameDvrAndFseOptimized(true, false /* dry_run */);
-        bool apu_power_exec_ok = vegaflow::GraphicsOptimizer::SetApuLaptopPowerProfile(true, false /* dry_run */);
+        bool apu_power_exec_ok = vegaflow::GraphicsOptimizer::SetApuLaptopPowerProfile(true, DetectedPolicy(), false /* dry_run */);
 
         auto tweaks = vegaflow::GraphicsOptimizer::QuerySystemGraphicsTweaks();
         bool win32_prio_valid = (tweaks.win32_priority_separation > 0);
@@ -233,7 +233,7 @@ void Test19() {
         }
 
         // 2. AMD DX11 Driver Boost (TurboSync=0 & FlipQueueSize=1)
-        bool amd_boost_ok = vegaflow::GraphicsOptimizer::ApplyAmdDx11DriverBoost(true, true /* dry_run */);
+        bool amd_boost_ok = vegaflow::GraphicsOptimizer::ApplyAmdDx11DriverBoost(true, DetectedPolicy(), true /* dry_run */);
 
         // 2b. AMD UMA VRAM Reporting Override (4096 MB Pool & FlipQueue=1 Low Latency)
         bool vram_override_dry_ok = vegaflow::GraphicsOptimizer::ApplyAmdVramReportingOverride(4096, true /* dry_run */);
@@ -364,8 +364,8 @@ void Test20() {
 
         // 2. AMD DX11/UMA Driver Boost & Smart Tessellation Limiter
         // 2a. Dry-run of the AMD DX11/UMA Driver Boost
-        bool boost_dry_enable = vegaflow::GraphicsOptimizer::SetAmdDx11UmaDriverBoost(true, true /* dry_run */);
-        bool boost_dry_disable = vegaflow::GraphicsOptimizer::SetAmdDx11UmaDriverBoost(false, true /* dry_run */);
+        bool boost_dry_enable = vegaflow::GraphicsOptimizer::SetAmdDx11UmaDriverBoost(true, DetectedPolicy(), true /* dry_run */);
+        bool boost_dry_disable = vegaflow::GraphicsOptimizer::SetAmdDx11UmaDriverBoost(false, DetectedPolicy(), true /* dry_run */);
 
         // 2b. Dry-run of the smart tessellation limiter (16x for Vega 6 APU, 8x and 64x default)
         bool tess_16_dry = vegaflow::GraphicsOptimizer::SetAmdTessellationCap(16, true /* dry_run */);
@@ -375,14 +375,14 @@ void Test20() {
         // 2c. Real execution validation of AMD directives (depending on security context)
         bool amd_real_ok = false;
         if (is_elevated) {
-            bool boost_real = vegaflow::GraphicsOptimizer::SetAmdDx11UmaDriverBoost(true, false /* dry_run */);
+            bool boost_real = vegaflow::GraphicsOptimizer::SetAmdDx11UmaDriverBoost(true, DetectedPolicy(), false /* dry_run */);
             bool tess_real = vegaflow::GraphicsOptimizer::SetAmdTessellationCap(16, false /* dry_run */);
             // Clean restoration
-            bool boost_restore = vegaflow::GraphicsOptimizer::SetAmdDx11UmaDriverBoost(false, false /* dry_run */);
+            bool boost_restore = vegaflow::GraphicsOptimizer::SetAmdDx11UmaDriverBoost(false, DetectedPolicy(), false /* dry_run */);
             bool tess_restore = vegaflow::GraphicsOptimizer::SetAmdTessellationCap(64, false /* dry_run */);
             amd_real_ok = boost_real && tess_real && boost_restore && tess_restore;
         } else {
-            bool boost_real = vegaflow::GraphicsOptimizer::SetAmdDx11UmaDriverBoost(true, false /* dry_run */);
+            bool boost_real = vegaflow::GraphicsOptimizer::SetAmdDx11UmaDriverBoost(true, DetectedPolicy(), false /* dry_run */);
             bool tess_real = vegaflow::GraphicsOptimizer::SetAmdTessellationCap(16, false /* dry_run */);
             amd_real_ok = (!boost_real && !tess_real); // HKLM key access restricted without elevation
         }

@@ -391,7 +391,7 @@ void Test26() {
         // ---------------------------------------------------------------------
         // Caso D — Smart Uncapped Boost Power Mode Execution
         // ---------------------------------------------------------------------
-        bool set_power_ok = vegaflow::GraphicsOptimizer::SetApuPowerMode(vegaflow::ApuPowerMode::GpuPrioritySustained, false);
+        bool set_power_ok = vegaflow::GraphicsOptimizer::SetApuPowerMode(vegaflow::ApuPowerMode::GpuPrioritySustained, DetectedPolicy(), false);
         bool case_d_ok = (test_policy.cpu_stapm_cap_mhz == 0) && set_power_ok;
 
         bool t26_success = case_a_ok && case_b_ok && case_c_ok && case_d_ok;

@@ -71,6 +71,8 @@ void RunSingleIteration(
 
         auto live_mem = mem_mgr.SampleTelemetry();
         ApuOptimizationPolicy policy = HardwareProfiler::BuildOptimizationPolicy(hw, live_mem.vram.local_budget_bytes);
+        // The optimizers used to rebuild the policy themselves, without the live DXGI budget; keep exactly that.
+        const ApuOptimizationPolicy static_policy = HardwareProfiler::BuildOptimizationPolicy(hw);
 
         if (is_new_game) {
             if (game_active && active_game_pid != 0) {
@@ -96,7 +98,7 @@ void RunSingleIteration(
             GraphicsOptimizer::SetDynamicPrioritySeparation(is_dx12 ? 0x26 : 0x28, false);
 
             GraphicsOptimizer::SetGameDvrAndFseOptimized(true, false);
-            GraphicsOptimizer::SetApuLaptopPowerProfile(true, false);
+            GraphicsOptimizer::SetApuLaptopPowerProfile(true, static_policy, false);
 
             // =================================================================
             // SMART PER-GAME AUTO-PROFILING (R&D)
@@ -129,7 +131,7 @@ void RunSingleIteration(
                 std::string preset_msg = "[ENGINE] Unreal Engine detectado. Preset UMA (" + policy.guard_mode_name +
                     ") aplicado (Pool " + std::to_string(pool_mb) + " MB, LimitVRAM=0, AsyncCompute=" + async_comp_str + ").";
                 if (!inspected.engine_preset_applied) {
-                    SteamEngineOptimizer::ApplyEngineUmaPreset(inspected, pool_mb, false);
+                    SteamEngineOptimizer::ApplyEngineUmaPreset(inspected, static_policy, pool_mb, false);
                     emit_profile_msg(preset_msg);
                 } else {
                     emit_profile_msg(preset_msg);

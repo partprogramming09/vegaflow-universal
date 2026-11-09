@@ -70,7 +70,7 @@ void Test13() {
             out << "[Core.System]\nPaths=../../../Engine/Content\n";
         }
 
-        auto rep_apply = vegaflow::SteamEngineOptimizer::ApplyEngineUmaPreset(game, 3000, false, custom_cfg_dir.wstring());
+        auto rep_apply = vegaflow::SteamEngineOptimizer::ApplyEngineUmaPreset(game, DetectedPolicy(), 3000, false, custom_cfg_dir.wstring());
         bool apply_ok = rep_apply.success;
         bool bak_created = rep_apply.backup_created;
         auto bak_path = custom_cfg_dir / "Engine.ini.vegaflow.bak";
@@ -111,7 +111,7 @@ void Test13() {
         auto game_protected = vegaflow::SteamEngineOptimizer::InspectGameDirectory(temp_base.wstring(), 999999, "My Protected Game");
         bool ac_detect_ok = game_protected.has_anticheat;
 
-        auto rep_ac = vegaflow::SteamEngineOptimizer::ApplyEngineUmaPreset(game_protected, 3000, false, custom_cfg_dir.wstring());
+        auto rep_ac = vegaflow::SteamEngineOptimizer::ApplyEngineUmaPreset(game_protected, DetectedPolicy(), 3000, false, custom_cfg_dir.wstring());
         bool ac_block_ok = (rep_ac.blocked_by_anticheat && rep_ac.success);
 
         // 4b. HoYoverse Anti-Cheat safety verification (HoYoKProtect / mhypbase)
@@ -123,7 +123,7 @@ void Test13() {
         }
         auto game_hoyo = vegaflow::SteamEngineOptimizer::InspectGameDirectory(temp_base.wstring(), 999999, "Zenless Zone Zero");
         bool hoyo_detect_ok = game_hoyo.has_anticheat;
-        auto rep_hoyo = vegaflow::SteamEngineOptimizer::ApplyEngineUmaPreset(game_hoyo, 3000, false, custom_cfg_dir.wstring());
+        auto rep_hoyo = vegaflow::SteamEngineOptimizer::ApplyEngineUmaPreset(game_hoyo, DetectedPolicy(), 3000, false, custom_cfg_dir.wstring());
         bool hoyo_block_ok = (rep_hoyo.blocked_by_anticheat && rep_hoyo.success);
 
         // Cleanup

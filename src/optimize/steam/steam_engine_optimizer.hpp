@@ -75,6 +75,7 @@ public:
     // Always creates a .vegaflow.bak backup before modifying Engine.ini or boot.config.
     static EngineOptimizationReport ApplyEngineUmaPreset(
         const SteamGameEntry& game,
+        const ApuOptimizationPolicy& policy,
         uint32_t vram_pool_mb = 4096,
         bool dry_run = false,
         const std::wstring& custom_config_dir_override = L"");

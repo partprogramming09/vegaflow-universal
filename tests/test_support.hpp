@@ -1,6 +1,8 @@
 #pragma once
 // Shared by the test files: result counters, RecordResult and the TSV reader for tests/vectors/.
 
+#include "model/hardware.hpp"
+
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -29,6 +31,10 @@ void ForEachTsvRow(const std::string& path, RowFn row) {
 }
 
 void RecordResult(bool success, const std::string& test_name, const std::string& details = "");
+
+// The policy of this machine, built once the same way the optimizers used to build it on every call
+// (DetectHardware + BuildOptimizationPolicy, without the live DXGI budget).
+const vegaflow::ApuOptimizationPolicy& DetectedPolicy();
 
 // One function per numbered test, in tests/integration/. The numbers are stable: 9 and 12 were removed.
 void Test01();

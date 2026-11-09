@@ -1,5 +1,4 @@
 #include "optimize/graphics/graphics_internal.hpp"
-#include "detect/hardware_profiler.hpp"
 
 namespace vegaflow {
 
@@ -9,7 +8,7 @@ uint32_t GraphicsOptimizer::QueryAmdTessellationCap() {
     return QuerySystemGraphicsTweaks().amd_tessellation_max;
 }
 
-bool GraphicsOptimizer::SetAmdDx11UmaDriverBoost(bool enable, bool dry_run) {
+bool GraphicsOptimizer::SetAmdDx11UmaDriverBoost(bool enable, const ApuOptimizationPolicy& policy, bool dry_run) {
     if (dry_run) {
         return true;
     }
@@ -17,7 +16,6 @@ bool GraphicsOptimizer::SetAmdDx11UmaDriverBoost(bool enable, bool dry_run) {
     static const wchar_t* const kAdapterSubkeys[] = { L"0000", L"0001", L"0002", L"0003" };
     const std::wstring class_base = L"SYSTEM\\CurrentControlSet\\Control\\Class\\{4d36e968-e325-11ce-bfc1-08002be10318}";
 
-    const auto policy = HardwareProfiler::BuildOptimizationPolicy(HardwareProfiler::DetectHardware());
     const uint32_t active_tess_cap = enable ? policy.amd_tessellation_cap : 64;
     const std::string tess_str = std::to_string(active_tess_cap);
     std::vector<uint8_t> tess_val(tess_str.begin(), tess_str.end());
@@ -126,8 +124,8 @@ bool GraphicsOptimizer::SetAmdDx11UmaDriverBoost(bool enable, bool dry_run) {
     return updated_any;
 }
 
-bool GraphicsOptimizer::ApplyAmdDx11DriverBoost(bool enable, bool dry_run) {
-    return SetAmdDx11UmaDriverBoost(enable, dry_run);
+bool GraphicsOptimizer::ApplyAmdDx11DriverBoost(bool enable, const ApuOptimizationPolicy& policy, bool dry_run) {
+    return SetAmdDx11UmaDriverBoost(enable, policy, dry_run);
 }
 
 bool GraphicsOptimizer::SetAmdTessellationCap(uint32_t max_tess, bool dry_run) {

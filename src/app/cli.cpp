@@ -99,6 +99,10 @@ std::optional<int> ParseCommandLine(int argc, char* argv[], CliOptions& opts) {
 }
 
 std::optional<int> RunOneShotCommand(const CliOptions& opts, int argc, char* argv[]) {
+    // One-shot commands run before the daemon detects the hardware, so the policy is built here when one needs it.
+    auto detected_policy = [] {
+        return vegaflow::HardwareProfiler::BuildOptimizationPolicy(vegaflow::HardwareProfiler::DetectHardware());
+    };
     if (opts.system_info_flag) {
         vegaflow::SystemInfo sys_info;
         std::cout << sys_info.ToJson() << "\n";
@@ -159,8 +163,8 @@ std::optional<int> RunOneShotCommand(const CliOptions& opts, int argc, char* arg
     }
 
     if (opts.apu_gpu_priority_flag) {
-        vegaflow::ApuOptimizationPolicy pol = vegaflow::HardwareProfiler::BuildOptimizationPolicy(vegaflow::HardwareProfiler::DetectHardware());
-        bool ok = vegaflow::GraphicsOptimizer::SetApuPowerMode(vegaflow::ApuPowerMode::GpuPrioritySustained, opts.dry_run_flag);
+        vegaflow::ApuOptimizationPolicy pol = detected_policy();
+        bool ok = vegaflow::GraphicsOptimizer::SetApuPowerMode(vegaflow::ApuPowerMode::GpuPrioritySustained, pol, opts.dry_run_flag);
         std::string mode_str = (pol.cpu_stapm_cap_mhz == 0)
             ? "Control Térmico APU: Smart Uncapped Boost Activado (100% CPU 4.0 GHz + 100% GPU con Efficient-Aggressive + EPP 25)"
             : ("GPU-Priority sustained mode active (" + std::to_string(pol.cpu_stapm_cap_mhz) + " MHz CPU ceiling / 15W continuous)");
@@ -170,21 +174,21 @@ std::optional<int> RunOneShotCommand(const CliOptions& opts, int argc, char* arg
     }
 
     if (opts.apu_balanced_flag) {
-        bool ok = vegaflow::GraphicsOptimizer::SetApuPowerMode(vegaflow::ApuPowerMode::Balanced, opts.dry_run_flag);
+        bool ok = vegaflow::GraphicsOptimizer::SetApuPowerMode(vegaflow::ApuPowerMode::Balanced, detected_policy(), opts.dry_run_flag);
         std::cout << "[APU Power] SetApuPowerMode(Balanced) " << (opts.dry_run_flag ? "[DRY-RUN] " : "")
                   << (ok ? "SUCCEEDED. Windows standard balanced power profile restored." : "FAILED. Check power configuration permissions.") << "\n";
         return ok ? 0 : 1;
     }
 
     if (opts.shader_cache_force_flag) {
-        bool ok = vegaflow::GraphicsOptimizer::SetAmdShaderCacheForced(true, opts.dry_run_flag);
+        bool ok = vegaflow::GraphicsOptimizer::SetAmdShaderCacheForced(true, detected_policy(), opts.dry_run_flag);
         std::cout << "[AMD ShaderCache] SetAmdShaderCacheForced(true) " << (opts.dry_run_flag ? "[DRY-RUN] " : "")
                   << (ok ? "SUCCEEDED. ShaderCache set to 0x3200 (Always Enabled on disk)." : "FAILED. Admin privileges required.") << "\n";
         return ok ? 0 : 1;
     }
 
     if (opts.shader_cache_default_flag) {
-        bool ok = vegaflow::GraphicsOptimizer::SetAmdShaderCacheForced(false, opts.dry_run_flag);
+        bool ok = vegaflow::GraphicsOptimizer::SetAmdShaderCacheForced(false, detected_policy(), opts.dry_run_flag);
         std::cout << "[AMD ShaderCache] SetAmdShaderCacheForced(false) " << (opts.dry_run_flag ? "[DRY-RUN] " : "")
                   << (ok ? "SUCCEEDED. ShaderCache restored to driver default." : "FAILED. Admin privileges required.") << "\n";
         return ok ? 0 : 1;
@@ -205,7 +209,7 @@ std::optional<int> RunOneShotCommand(const CliOptions& opts, int argc, char* arg
     }
 
     if (opts.vram_override_flag) {
-        vegaflow::ApuOptimizationPolicy pol = vegaflow::HardwareProfiler::BuildOptimizationPolicy(vegaflow::HardwareProfiler::DetectHardware());
+        vegaflow::ApuOptimizationPolicy pol = detected_policy();
         bool ok = vegaflow::GraphicsOptimizer::ApplyAmdVramReportingOverride(pol.safe_vram_pool_mb, opts.dry_run_flag);
         std::cout << "[AMD VRAM] ApplyAmdVramReportingOverride(" << pol.safe_vram_pool_mb << ") " << (opts.dry_run_flag ? "[DRY-RUN] " : "")
                   << (ok ? ("SUCCEEDED. VRAM reporting set to " + std::to_string(pol.safe_vram_pool_mb) + " MB in DXGI & AMD driver.") : "FAILED. Administrator privileges required.") << "\n";
@@ -229,7 +233,7 @@ std::optional<int> RunOneShotCommand(const CliOptions& opts, int argc, char* arg
     if (!opts.dxvk_install_path.empty()) {
         std::wstring wpath = Utf8ToWide(opts.dxvk_install_path);
         std::string msg;
-        bool ok = vegaflow::DxvkManager::DeployDxvk(wpath, false, true, opts.dry_run_flag, &msg);
+        bool ok = vegaflow::DxvkManager::DeployDxvk(wpath, detected_policy(), false, true, opts.dry_run_flag, &msg);
         std::cout << "[DXVK] " << msg << "\n";
         return ok ? 0 : 1;
     }

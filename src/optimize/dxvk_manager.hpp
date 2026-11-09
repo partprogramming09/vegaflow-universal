@@ -8,6 +8,8 @@
 #endif
 #include <windows.h>
 
+#include "model/hardware.hpp"
+
 #include <cstdint>
 #include <filesystem>
 #include <string>
@@ -23,6 +25,7 @@ public:
     // If has_anticheat == true, refuses the installation to protect the user's account.
     static bool DeployDxvk(
         const std::wstring& game_exe_path,
+        const ApuOptimizationPolicy& policy,
         bool has_anticheat = false,
         bool is_64bit = true,
         bool dry_run = false,
@@ -38,7 +41,7 @@ public:
     static std::wstring GetDxvkAssetsPath();
 
     // Generates or updates dxvk.conf with parameters calibrated for APU Zen 2 / Vega 6
-    static bool ConfigureApuProfile(const std::filesystem::path& targetDir, bool dryRun = false);
+    static bool ConfigureApuProfile(const std::filesystem::path& targetDir, const ApuOptimizationPolicy& policy, bool dryRun = false);
 
     // Reads and validates the contents of dxvk.conf in targetDir
     static bool ValidateDxvkApuProfile(const std::filesystem::path& targetDir, bool& asyncEnabled, uint32_t& compilerThreads);

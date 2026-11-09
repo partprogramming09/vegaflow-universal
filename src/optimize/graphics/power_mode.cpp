@@ -1,5 +1,4 @@
 #include "optimize/graphics/graphics_internal.hpp"
-#include "detect/hardware_profiler.hpp"
 
 namespace vegaflow {
 
@@ -35,7 +34,7 @@ ApuPowerState g_apu_power;
 
 } // namespace
 
-bool GraphicsOptimizer::SetApuPowerMode(ApuPowerMode mode, bool dry_run) {
+bool GraphicsOptimizer::SetApuPowerMode(ApuPowerMode mode, const ApuOptimizationPolicy& policy, bool dry_run) {
     if (dry_run) {
         return true;
     }
@@ -76,7 +75,6 @@ bool GraphicsOptimizer::SetApuPowerMode(ApuPowerMode mode, bool dry_run) {
     DWORD epp_val = 50;
 
     if (mode == ApuPowerMode::GpuPrioritySustained) {
-        const auto policy = HardwareProfiler::BuildOptimizationPolicy(HardwareProfiler::DetectHardware());
         boost_val = 4;        // Efficient Aggressive (lowers CPU voltage and avoids unnecessary heat spikes)
         cpu_max_freq = policy.cpu_stapm_cap_mhz;  // 0 = 100% unlocked (Smart Uncapped Boost)
         epp_val = 25;         // Efficient high performance SMU, prioritizing immediate response in game threads and GPU at 100%
@@ -151,8 +149,8 @@ bool GraphicsOptimizer::IsApuPowerModeApplied() {
     return g_apu_power.applied;
 }
 
-bool GraphicsOptimizer::SetApuLaptopPowerProfile(bool optimize, bool dry_run) {
-    return SetApuPowerMode(optimize ? ApuPowerMode::GpuPrioritySustained : ApuPowerMode::Balanced, dry_run);
+bool GraphicsOptimizer::SetApuLaptopPowerProfile(bool optimize, const ApuOptimizationPolicy& policy, bool dry_run) {
+    return SetApuPowerMode(optimize ? ApuPowerMode::GpuPrioritySustained : ApuPowerMode::Balanced, policy, dry_run);
 }
 
 } // namespace vegaflow

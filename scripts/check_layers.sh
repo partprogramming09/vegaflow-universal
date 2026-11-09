@@ -18,7 +18,7 @@ allowed() {
     model) echo "" ;;
     bridge) echo "" ;;
     detect) echo "model windows bridge safety" ;;
-    optimize) echo "detect model windows bridge safety" ;;
+    optimize) echo "model windows bridge safety" ;;
     safety) echo "model windows bridge" ;;
     *) echo "UNKNOWN" ;;
     esac

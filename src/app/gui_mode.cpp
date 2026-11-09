@@ -34,6 +34,8 @@ int RunGuiMode(
     vegaflow::MemoryManager& mem_mgr,
     vegaflow::FrameTelemetryMonitor& telemetry_monitor) {
     using namespace vegaflow;
+    // Built once from the boot profile, the same way each optimizer used to rebuild it on every call.
+    const ApuOptimizationPolicy policy = HardwareProfiler::BuildOptimizationPolicy(hw);
     bool game_active = false;
     uint32_t active_game_pid = 0;
     std::wstring active_game_exe;
@@ -48,7 +50,7 @@ int RunGuiMode(
         }
     }
     GraphicsOptimizer::SetGameDvrAndFseOptimized(true, false);
-    GraphicsOptimizer::SetApuLaptopPowerProfile(true, false);
+    GraphicsOptimizer::SetApuLaptopPowerProfile(true, policy, false);
     uint32_t last_isolated_count = 0;
     uint64_t last_purge_before_free_mb = 0;
     uint64_t last_purge_after_free_mb = 0;
@@ -309,7 +311,7 @@ int RunGuiMode(
     callbacks.on_ToggleShaderCache = [&]() -> std::string {
         auto cur = GraphicsOptimizer::QuerySystemGraphicsTweaks();
         bool target = !cur.amd_shader_cache_forced;
-        bool ok = GraphicsOptimizer::SetAmdShaderCacheForced(target, false);
+        bool ok = GraphicsOptimizer::SetAmdShaderCacheForced(target, policy, false);
         tweaks_query_countdown = 0;
         std::string msg = ok ? (target ? "Boost AMD DX11/UMA + ShaderCache 0x3200 Activado (SurfaceFormat + FlipQueue=1)" : "AMD ShaderCache y Driver Boost restaurados a Driver Default") : "Fallo al cambiar ShaderCache (Requiere Administrador)";
         last_gui_status = msg;
@@ -354,6 +356,7 @@ int RunGuiMode(
         bool target_prio = !cur.apu_power_optimized;
         bool ok = GraphicsOptimizer::SetApuPowerMode(
             target_prio ? ApuPowerMode::GpuPrioritySustained : ApuPowerMode::Balanced,
+            policy,
             false
         );
         tweaks_query_countdown = 0;
@@ -421,11 +424,11 @@ int RunGuiMode(
         config.timer_forced_manual = false;
         SaveConfig("config/config.json", config);
         GraphicsOptimizer::SetMpoDisabled(false, false);
-        GraphicsOptimizer::SetAmdShaderCacheForced(false, false);
+        GraphicsOptimizer::SetAmdShaderCacheForced(false, policy, false);
         GraphicsOptimizer::SetMemoryCompressionEnabled(true, false);
         GraphicsOptimizer::SetMmcssGamingProfileOptimized(false, false);
         GraphicsOptimizer::SetGameDvrAndFseOptimized(false, false);
-        GraphicsOptimizer::SetApuLaptopPowerProfile(false, false);
+        GraphicsOptimizer::SetApuLaptopPowerProfile(false, policy, false);
         GraphicsOptimizer::SetDynamicPrioritySeparation(0x02, false);
         GraphicsOptimizer::SetKernelMemoryPagingShield(false, false);
         GraphicsOptimizer::SetAmdTessellationCap(64, false);
@@ -454,7 +457,7 @@ int RunGuiMode(
         uint32_t pool_mb = pol.safe_vram_pool_mb;
         for (auto& sg : cached_steam_games) {
             if (sg.app_id == app_id) {
-                auto rep = SteamEngineOptimizer::ApplyEngineUmaPreset(sg, pool_mb, false);
+                auto rep = SteamEngineOptimizer::ApplyEngineUmaPreset(sg, policy, pool_mb, false);
                 if (rep.success) {
                     sg.engine_preset_applied = true;
                     sg.flip_model_applied = true;
@@ -498,7 +501,7 @@ int RunGuiMode(
                         sg.dxvk_installed = false;
                     }
                 } else {
-                    bool ok = DxvkManager::DeployDxvk(sg.primary_exe_path, sg.has_anticheat, true, false, &msg);
+                    bool ok = DxvkManager::DeployDxvk(sg.primary_exe_path, policy, sg.has_anticheat, true, false, &msg);
                     if (ok) {
                         sg.dxvk_installed = true;
                     }

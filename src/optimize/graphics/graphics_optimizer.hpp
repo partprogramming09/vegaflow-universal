@@ -5,6 +5,8 @@
 #endif
 #include <windows.h>
 
+#include "model/hardware.hpp"
+
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -59,11 +61,11 @@ public:
     // MPO state and inspection, and system tweaks
     static SystemGraphicsTweaksState QuerySystemGraphicsTweaks();
     static bool SetMpoDisabled(bool disable, bool dry_run = false);
-    static bool SetAmdShaderCacheForced(bool force_on, bool dry_run = false);
+    static bool SetAmdShaderCacheForced(bool force_on, const ApuOptimizationPolicy& policy, bool dry_run = false);
     static bool SetMemoryCompressionEnabled(bool enable, bool dry_run = false);
     static bool SetMmcssGamingProfileOptimized(bool optimize, bool dry_run = false);
-    static bool SetAmdDx11UmaDriverBoost(bool enable, bool dry_run = false);
-    static bool ApplyAmdDx11DriverBoost(bool enable, bool dry_run = false);
+    static bool SetAmdDx11UmaDriverBoost(bool enable, const ApuOptimizationPolicy& policy, bool dry_run = false);
+    static bool ApplyAmdDx11DriverBoost(bool enable, const ApuOptimizationPolicy& policy, bool dry_run = false);
     static bool SetAmdTessellationCap(uint32_t max_tess = 16, bool dry_run = false);
     static bool SetDynamicPrioritySeparation(uint32_t value, bool dry_run = false);
     static bool SetKernelMemoryPagingShield(bool enable, bool dry_run = false);
@@ -93,14 +95,14 @@ public:
     // APU thermal and power control (GPU-Priority Sustained vs Balanced mode):
     // GpuPrioritySustained saves the power plan values before applying and Balanced returns them;
     // if there are no saved values (another process applied it), Balanced writes the Windows default values.
-    static bool SetApuPowerMode(ApuPowerMode mode, bool dry_run = false);
+    static bool SetApuPowerMode(ApuPowerMode mode, const ApuOptimizationPolicy& policy, bool dry_run = false);
 
     // Whether this process left GpuPrioritySustained mode applied and it still needs to be restored.
     static bool IsApuPowerModeApplied();
 
     // Optimizes the APU laptop power profile (Ryzen 4000/5000/6000/7000 + Radeon iGPU):
     // - Kept for compatibility; invokes SetApuPowerMode(GpuPrioritySustained / Balanced)
-    static bool SetApuLaptopPowerProfile(bool optimize, bool dry_run = false);
+    static bool SetApuLaptopPowerProfile(bool optimize, const ApuOptimizationPolicy& policy, bool dry_run = false);
 
     // Writes to HKCU\Software\Microsoft\DirectX\UserGpuPreferences:
     // [exe_full_path] = "SwapEffectUpgradeEnable=1;GpuPreference=2;AutoHDREnable=0;"
