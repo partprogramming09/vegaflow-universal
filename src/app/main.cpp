@@ -15,11 +15,11 @@
 #include "safety/frame_telemetry.hpp"
 #include "app/app_state.hpp"
 #include "app/cli.hpp"
-#include "app/config.hpp"
+#include "session/config.hpp"
 #include "app/daemon_loop.hpp"
 #include "app/gui_mode.hpp"
 #include "app/monitor.hpp"
-#include "app/reports.hpp"
+#include "session/reports.hpp"
 
 using namespace vegaflow::app;
 

@@ -107,6 +107,10 @@ $CommonSources = @(
     "src/detect/hardware_profiler.cpp",
     "src/detect/process_detector.cpp",
     "src/session/system_info.cpp",
+    "src/session/config.cpp",
+    "src/session/reports.cpp",
+    "src/session/run_cycle.cpp",
+    "src/session/text_convert.cpp",
     "src/optimize/graphics/amd_driver_tweaks.cpp",
     "src/optimize/graphics/display_tweaks.cpp",
     "src/optimize/graphics/dxgi_flip.cpp",
@@ -167,11 +171,7 @@ $DaemonSources = $CommonSources + @(
     "src/app/cli.cpp",
     "src/app/daemon_loop.cpp",
     "src/app/gui_mode.cpp",
-    "src/app/config.cpp",
-    "src/app/monitor.cpp",
-    "src/app/reports.cpp",
-    "src/app/run_cycle.cpp",
-    "src/app/text_convert.cpp"
+    "src/app/monitor.cpp"
 )
 $DaemonOutput = "build/vegaflow_daemon.exe"
 $DaemonArgs = $BaseFlags + $IncludeFlags + $DaemonSources + @($RustLib, "-o", $DaemonOutput) + $Libs

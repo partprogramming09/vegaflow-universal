@@ -13,10 +13,10 @@
 #include "optimize/dxvk_manager.hpp"
 #include "session/system_info.hpp"
 #include "app/app_state.hpp"
-#include "app/config.hpp"
-#include "app/reports.hpp"
-#include "app/run_cycle.hpp"
-#include "app/text_convert.hpp"
+#include "session/config.hpp"
+#include "session/reports.hpp"
+#include "session/run_cycle.hpp"
+#include "session/text_convert.hpp"
 
 namespace vegaflow::app {
 

@@ -14,8 +14,8 @@
 #include "optimize/cpu_orchestrator.hpp"
 #include "safety/frame_telemetry.hpp"
 #include "app/app_state.hpp"
-#include "app/run_cycle.hpp"
-#include "app/text_convert.hpp"
+#include "session/run_cycle.hpp"
+#include "session/text_convert.hpp"
 
 namespace vegaflow::app {
 

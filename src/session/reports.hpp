@@ -3,7 +3,7 @@
 
 #include <cstdint>
 
-#include "app/config.hpp"
+#include "session/config.hpp"
 
 namespace vegaflow::app {
 

@@ -1,4 +1,4 @@
-#include "app/text_convert.hpp"
+#include "session/text_convert.hpp"
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN

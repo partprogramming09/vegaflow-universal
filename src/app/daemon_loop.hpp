@@ -2,7 +2,7 @@
 // Default mode: the background daemon loop (or a single cycle with --once). Returns the process exit code.
 
 #include "windows/privileges.hpp"
-#include "app/config.hpp"
+#include "session/config.hpp"
 #include "detect/hardware_profiler.hpp"
 #include "optimize/cpu_orchestrator.hpp"
 #include "optimize/memory_manager.hpp"

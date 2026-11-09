@@ -5,7 +5,7 @@
 #include <functional>
 #include <string>
 
-#include "app/config.hpp"
+#include "session/config.hpp"
 #include "detect/hardware_profiler.hpp"
 #include "optimize/cpu_orchestrator.hpp"
 #include "optimize/memory_manager.hpp"

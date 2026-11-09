@@ -1,7 +1,7 @@
 #pragma once
 // --gui: native Win32/GDI dashboard with system tray. Returns the process exit code.
 
-#include "app/config.hpp"
+#include "session/config.hpp"
 #include "detect/hardware_profiler.hpp"
 #include "optimize/cpu_orchestrator.hpp"
 #include "optimize/memory_manager.hpp"

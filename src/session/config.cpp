@@ -1,4 +1,4 @@
-#include "app/config.hpp"
+#include "session/config.hpp"
 
 #include <windows.h>
 
@@ -9,7 +9,7 @@
 
 #include "optimize/steam/steam_engine_optimizer.hpp"
 #include <filesystem>
-#include "app/text_convert.hpp"
+#include "session/text_convert.hpp"
 
 namespace vegaflow::app {
 
