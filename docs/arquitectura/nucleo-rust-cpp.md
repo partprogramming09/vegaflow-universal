@@ -168,6 +168,8 @@ La migración progresiva hacia una **arquitectura híbrida Rust + C++20** median
 
 ### 3. Contrato FFI (`src/bridge/rust_bridge.h`) y Módulos en Rust
 
+La cabecera `rust_bridge.h` se escribe a mano (no se genera con cbindgen: se decidió el 2026-11-09 para no añadir otra herramienta). Por eso la prueba C++ **Test 34** compara, struct por struct, el tamaño, la alineación y la posición de cada campo que ve C++ (`sizeof`, `alignof`, `offsetof`) con los que informa Rust (`vf_rust_bridge_layout`). Si alguien añade, quita o reordena un campo en un solo lado, la suite falla en vez de leer basura en tiempo de ejecución. Al añadir un struct nuevo al puente hay que añadirlo en los dos lados de esa prueba.
+
 #### 3.1. Módulo `uma_memory`: Presión DXGI y Listas de Memoria NT
 - **Estructuras `#[repr(C)]`**:
   ```c

@@ -7,6 +7,7 @@
 #include <windows.h>
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <iomanip>
@@ -2144,6 +2145,57 @@ int main() {
         RecordResult(t33_ok, "Test 33: SandboxGuard blacklist matches the shared vector file",
                      std::to_string(total) + " vectors" + (windows_on_c ? "" : ", Windows is not in C:\\Windows") +
                      (mismatches.empty() ? ", 0 mismatches" : "; mismatches:" + mismatches));
+    }
+
+    // -------------------------------------------------------------------------
+    // Test 34: the structs of rust_bridge.h have the same layout in C++ and in Rust
+    // -------------------------------------------------------------------------
+    {
+        // rust_bridge.h is written by hand: if one side gains, loses or reorders a field, the other side reads
+        // garbage. Rust reports size, alignment and every field offset in the same order as this list.
+#define VF_LAYOUT_BEGIN(T) expected.push_back(sizeof(T)); expected.push_back(alignof(T));
+#define VF_FIELD(T, f) expected.push_back(offsetof(T, f));
+        std::vector<size_t> expected;
+        VF_LAYOUT_BEGIN(VfUmaTelemetryInput)
+        VF_FIELD(VfUmaTelemetryInput, total_physical_bytes) VF_FIELD(VfUmaTelemetryInput, free_and_zero_bytes)
+        VF_FIELD(VfUmaTelemetryInput, standby_bytes) VF_FIELD(VfUmaTelemetryInput, local_budget_bytes)
+        VF_FIELD(VfUmaTelemetryInput, local_usage_bytes) VF_FIELD(VfUmaTelemetryInput, runtime_pressure_threshold)
+        VF_FIELD(VfUmaTelemetryInput, vram_valid) VF_FIELD(VfUmaTelemetryInput, is_discrete_tier)
+        VF_LAYOUT_BEGIN(VfUmaGuardDecision)
+        VF_FIELD(VfUmaGuardDecision, available_os_headroom_mb) VF_FIELD(VfUmaGuardDecision, dxgi_budget_utilization)
+        VF_FIELD(VfUmaGuardDecision, guard_triggered) VF_FIELD(VfUmaGuardDecision, dxgi_over_ceiling)
+        VF_FIELD(VfUmaGuardDecision, free_ram_critical) VF_FIELD(VfUmaGuardDecision, total_interventions)
+        VF_LAYOUT_BEGIN(VfNtMemoryListSample)
+        VF_FIELD(VfNtMemoryListSample, free_and_zero_bytes) VF_FIELD(VfNtMemoryListSample, standby_bytes)
+        VF_FIELD(VfNtMemoryListSample, modified_bytes) VF_FIELD(VfNtMemoryListSample, valid)
+        VF_LAYOUT_BEGIN(VfCpuCoreEntry)
+        VF_FIELD(VfCpuCoreEntry, cpu_set_id) VF_FIELD(VfCpuCoreEntry, core_index)
+        VF_FIELD(VfCpuCoreEntry, logical_processor_index) VF_FIELD(VfCpuCoreEntry, last_level_cache_index)
+        VF_FIELD(VfCpuCoreEntry, efficiency_class)
+        VF_LAYOUT_BEGIN(VfTopologyPartitionOut)
+        VF_FIELD(VfTopologyPartitionOut, game_cpu_set_ids) VF_FIELD(VfTopologyPartitionOut, game_count)
+        VF_FIELD(VfTopologyPartitionOut, background_cpu_set_ids) VF_FIELD(VfTopologyPartitionOut, background_count)
+        VF_FIELD(VfTopologyPartitionOut, physical_cores) VF_FIELD(VfTopologyPartitionOut, logical_processors)
+        VF_FIELD(VfTopologyPartitionOut, has_multiple_ccx) VF_FIELD(VfTopologyPartitionOut, has_hybrid_cores)
+        VF_LAYOUT_BEGIN(VfTierInput)
+        VF_FIELD(VfTierInput, total_ram_mb) VF_FIELD(VfTierInput, physical_cores) VF_FIELD(VfTierInput, arch_gen)
+        VF_FIELD(VfTierInput, dedicated_vram) VF_FIELD(VfTierInput, is_nvidia)
+#undef VF_FIELD
+#undef VF_LAYOUT_BEGIN
+
+        std::vector<size_t> actual(expected.size() + 8, 0);
+        const size_t rust_count = vf_rust_bridge_layout(actual.data(), actual.size());
+        actual.resize(std::min(rust_count, actual.size()));
+        std::string diffs;
+        for (size_t i = 0; i < std::max(expected.size(), actual.size()); ++i) {
+            const size_t e = i < expected.size() ? expected[i] : SIZE_MAX;
+            const size_t a = i < actual.size() ? actual[i] : SIZE_MAX;
+            if (e != a) diffs += " [#" + std::to_string(i) + ": C++ " + std::to_string(e) + ", Rust " + std::to_string(a) + "]";
+        }
+        const bool t34_ok = (rust_count == expected.size()) && diffs.empty();
+        RecordResult(t34_ok, "Test 34: rust_bridge.h structs have the same layout in C++ and Rust",
+                     std::to_string(expected.size()) + " numbers from C++, " + std::to_string(rust_count) + " from Rust" +
+                     (diffs.empty() ? ", 0 differences" : "; differences:" + diffs));
     }
 
     // -------------------------------------------------------------------------

@@ -130,3 +130,40 @@ pub extern "C" fn vf_rust_partition_cpu_topology(
 pub extern "C" fn vf_rust_eval_bg_confinement(logical_cores_used: f64, currently_confined: bool) -> bool {
     ffi_guard(false, || cpu_governor::eval_bg_confinement(logical_cores_used, currently_confined))
 }
+
+/// Size, alignment and field offsets of every struct shared with C++, in the order documented in rust_bridge.h.
+/// rust_bridge.h is written by hand; C++ Test 34 compares these numbers with its own sizeof/alignof/offsetof.
+fn bridge_layout() -> Vec<usize> {
+    use core::mem::{align_of, offset_of, size_of};
+    macro_rules! layout {
+        ($v:ident, $t:ty, $($f:ident),+) => {
+            $v.push(size_of::<$t>());
+            $v.push(align_of::<$t>());
+            $($v.push(offset_of!($t, $f));)+
+        };
+    }
+    let mut v = Vec::new();
+    layout!(v, VfUmaTelemetryInput, total_physical_bytes, free_and_zero_bytes, standby_bytes, local_budget_bytes,
+        local_usage_bytes, runtime_pressure_threshold, vram_valid, is_discrete_tier);
+    layout!(v, VfUmaGuardDecision, available_os_headroom_mb, dxgi_budget_utilization, guard_triggered, dxgi_over_ceiling,
+        free_ram_critical, total_interventions);
+    layout!(v, VfNtMemoryListSample, free_and_zero_bytes, standby_bytes, modified_bytes, valid);
+    layout!(v, VfCpuCoreEntry, cpu_set_id, core_index, logical_processor_index, last_level_cache_index, efficiency_class);
+    layout!(v, VfTopologyPartitionOut, game_cpu_set_ids, game_count, background_cpu_set_ids, background_count,
+        physical_cores, logical_processors, has_multiple_ccx, has_hybrid_cores);
+    layout!(v, VfTierInput, total_ram_mb, physical_cores, arch_gen, dedicated_vram, is_nvidia);
+    v
+}
+
+/// See `bridge_layout`. Writes at most `cap` numbers to `out` and returns how many there are in total.
+#[no_mangle]
+pub extern "C" fn vf_rust_bridge_layout(out: *mut usize, cap: usize) -> usize {
+    ffi_guard(0, || {
+        let layout = bridge_layout();
+        if !out.is_null() {
+            let n = layout.len().min(cap);
+            unsafe { core::ptr::copy_nonoverlapping(layout.as_ptr(), out, n) };
+        }
+        layout.len()
+    })
+}
