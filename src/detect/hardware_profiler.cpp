@@ -264,7 +264,7 @@ ApuOptimizationPolicy HardwareProfiler::BuildOptimizationPolicy(
     const uint64_t total_ram_mb = profile.total_physical_ram_bytes / (1024ULL * 1024ULL);
     const uint32_t cores = (profile.cpu_topology.physical_cores > 0) ? profile.cpu_topology.physical_cores : 4u;
 
-    // arch_gen and the returned tier are numbers shared with rust/vegaflow-core/src/apu_tier.rs.
+    // arch_gen and the returned tier are numbers shared with rust/vegaflow-core/src/policy/apu_tier.rs.
     static_assert(static_cast<int>(GpuArchitectureGen::AMD_RDNA2) == 2 && static_cast<int>(GpuArchitectureGen::AMD_RDNA3_Plus) == 3 &&
                   static_cast<int>(GpuArchitectureGen::Intel_Gen9_11_UHD) == 4 && static_cast<int>(GpuArchitectureGen::Intel_Xe_Arc) == 5 &&
                   static_cast<int>(GpuArchitectureGen::Discrete_GPU) == 6, "GpuArchitectureGen must match apu_tier.rs");

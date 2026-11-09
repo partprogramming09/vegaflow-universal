@@ -18,19 +18,19 @@ Para garantizar que el propio software de optimización no introduzca latencia n
 │ rust_bridge.h   Estructuras POD de tamaño fijo                                             │
 └────────────────────────────────────────────────────────────────────────────────────────────┘
         │
-        ▼  rust_bridge.h ──► cpu_governor.rs, uma_memory.rs, apu_tier.rs, path_policy.rs y sandbox_core.rs
+        ▼  rust_bridge.h ──► ffi.rs (todas las vf_rust_*) ──► reglas en policy/ y llamadas NT en nt_memory.rs
 ┌─ Núcleo Determinista en Rust (rust/vegaflow-core) ─────────────────────────────────────────┐
 │ cpu_governor.rs   • vf_rust_partition_cpu_topology()                                       │
 │                   • vf_rust_eval_bg_confinement()                                          │
 │ uma_memory.rs     • vf_rust_evaluate_uma_pressure()                                        │
-│                   • vf_rust_query_nt_memory_lists()                                        │
+│ nt_memory.rs      • vf_rust_query_nt_memory_lists(), vf_rust_purge_nt_standby_list()       │
 │ sandbox_core.rs   • vf_rust_is_critical_system_filename()                                  │
 │                   • vf_rust_has_anticheat_signature()                                      │
 │ apu_tier.rs       • vf_rust_classify_apu_tier()                                            │
 │ path_policy.rs    • vf_rust_classify_blacklisted_path()                                    │
 └────────────────────────────────────────────────────────────────────────────────────────────┘
         │
-        ▼  uma_memory.rs ──► NT1  |  cpu_orchestrator.cpp ──► NT2 (llamada directa desde C++)
+        ▼  nt_memory.rs ──► NT1  |  cpu_orchestrator.cpp ──► NT2 (llamada directa desde C++)
 ┌─ Kernel NT (ntdll.dll / kernel32.dll) ─────────────────────────────────────────────────────┐
 │ NT1  NtQuerySystemInformation(Class 80)                                                    │
 │      NtSetSystemInformation(Purge Standby)                                                 │
@@ -41,11 +41,11 @@ Para garantizar que el propio software de optimización no introduzca latencia n
 ```
 
 ### Módulos del Núcleo Rust:
-* **[`cpu_governor.rs`](../../rust/vegaflow-core/src/cpu_governor.rs):** Recibe la lista plana de identificadores de CPU Sets del sistema, calcula los índices de pertenencia a complejos de núcleos y determina si un proceso ruidoso debe ingresar o salir del estado de confinamiento mediante un algoritmo de histéresis sin asignaciones dinámicas.
-* **[`uma_memory.rs`](../../rust/vegaflow-core/src/uma_memory.rs):** Enlaza directamente contra `ntdll.dll` (solo en Windows: en otros sistemas esas llamadas devuelven error y el núcleo se puede compilar y probar igual) invocando `NtQuerySystemInformation(SystemMemoryListInformation)`. Evalúa en microsegundos si el subsistema de memoria compartida supera el umbral crítico (`>= 85%` de presupuesto o `< 1536 MB` de RAM física disponible), gobernando la purga selectiva de la lista de espera (*Standby List*) únicamente cuando el bus de disco opera en reposo (`< 15 MB/s`).
-* **[`apu_tier.rs`](../../rust/vegaflow-core/src/apu_tier.rs):** Decide el Tier de la APU (1 a 4) a partir de la arquitectura de memoria, la generación de la GPU, la RAM y los núcleos físicos. Es una decisión pura sobre números: el mismo archivo de vectores (`tests/vectors/apu_tier.tsv`) lo comprueban Rust y la prueba 32 de C++.
-* **[`path_policy.rs`](../../rust/vegaflow-core/src/path_policy.rs):** Decide por qué una ruta canónica está prohibida (raíz de disco, archivos críticos de arranque, carpetas de Windows, Common Files, System Volume Information) o si está permitida por la blacklist. Trabaja con UTF-16 ya en minúsculas, tal como lo tiene C++, así que no cambia mayúsculas ni puede discrepar con texto no ASCII. Se comprueba con `tests/vectors/sandbox_blacklist.tsv`.
-* **[`sandbox_core.rs`](../../rust/vegaflow-core/src/sandbox_core.rs):** Escanea secuencias de caracteres UTF-16 en tiempo constante. Si identifica patrones correspondientes a sistemas anti-trampas comerciales o directorios del sistema protegidos, activa un estado de *Lockdown* inmediato, impidiendo modificaciones en el árbol de archivos.
+* **[`cpu_governor.rs`](../../rust/vegaflow-core/src/policy/cpu_governor.rs):** Recibe la lista plana de identificadores de CPU Sets del sistema, calcula los índices de pertenencia a complejos de núcleos y determina si un proceso ruidoso debe ingresar o salir del estado de confinamiento mediante un algoritmo de histéresis sin asignaciones dinámicas.
+* **[`uma_memory.rs`](../../rust/vegaflow-core/src/policy/uma_memory.rs) y [`nt_memory.rs`](../../rust/vegaflow-core/src/nt_memory.rs):** `nt_memory.rs` enlaza directamente contra `ntdll.dll` (solo en Windows: en otros sistemas esas llamadas devuelven error y el núcleo se puede compilar y probar igual) invocando `NtQuerySystemInformation(SystemMemoryListInformation)`; `uma_memory.rs` es solo la regla. Evalúa en microsegundos si el subsistema de memoria compartida supera el umbral crítico (`>= 85%` de presupuesto o `< 1536 MB` de RAM física disponible), gobernando la purga selectiva de la lista de espera (*Standby List*) únicamente cuando el bus de disco opera en reposo (`< 15 MB/s`).
+* **[`apu_tier.rs`](../../rust/vegaflow-core/src/policy/apu_tier.rs):** Decide el Tier de la APU (1 a 4) a partir de la arquitectura de memoria, la generación de la GPU, la RAM y los núcleos físicos. Es una decisión pura sobre números: el mismo archivo de vectores (`tests/vectors/apu_tier.tsv`) lo comprueban Rust y la prueba 32 de C++.
+* **[`path_policy.rs`](../../rust/vegaflow-core/src/policy/path_policy.rs):** Decide por qué una ruta canónica está prohibida (raíz de disco, archivos críticos de arranque, carpetas de Windows, Common Files, System Volume Information) o si está permitida por la blacklist. Trabaja con UTF-16 ya en minúsculas, tal como lo tiene C++, así que no cambia mayúsculas ni puede discrepar con texto no ASCII. Se comprueba con `tests/vectors/sandbox_blacklist.tsv`.
+* **[`sandbox_core.rs`](../../rust/vegaflow-core/src/policy/sandbox_core.rs):** Escanea secuencias de caracteres UTF-16 en tiempo constante. Si identifica patrones correspondientes a sistemas anti-trampas comerciales o directorios del sistema protegidos, activa un estado de *Lockdown* inmediato, impidiendo modificaciones en el árbol de archivos.
 
 ---
 

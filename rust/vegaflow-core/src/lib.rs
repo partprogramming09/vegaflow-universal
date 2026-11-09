@@ -5,28 +5,17 @@
 #[cfg(not(panic = "unwind"))]
 compile_error!("vegaflow-core must be built with panic = \"unwind\" so ffi_guard can catch panics at the C boundary");
 
-/// Runs `f` for an `extern "C"` function and returns `fallback` if it panics. A panic must never cross into C++ (that is
-/// undefined behaviour) and must not take the daemon down; every fallback is the cautious answer for its function
-/// (deny, assume anti-cheat present, do not confine, do not purge).
-pub(crate) fn ffi_guard<T>(fallback: T, f: impl FnOnce() -> T) -> T {
-    std::panic::catch_unwind(std::panic::AssertUnwindSafe(f)).unwrap_or(fallback)
-}
+pub mod ffi;
+pub mod nt_memory;
+pub mod policy;
 
-pub mod apu_tier;
-pub mod cpu_governor;
-pub mod path_policy;
-pub mod sandbox_core;
-pub mod uma_memory;
-
-pub use apu_tier::*;
-pub use cpu_governor::*;
-pub use path_policy::*;
-pub use sandbox_core::*;
-pub use uma_memory::*;
+pub use ffi::*;
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ffi::ffi_guard;
+    use crate::policy::{cpu_governor::*, uma_memory::*};
     use std::ffi::CString;
 
     #[test]

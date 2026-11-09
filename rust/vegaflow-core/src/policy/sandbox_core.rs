@@ -1,5 +1,3 @@
-use crate::ffi_guard;
-use std::os::raw::c_char;
 
 const ANTI_CHEAT_SIGNATURES: &[&[u8]] = &[
     b"easyanticheat",
@@ -71,47 +69,25 @@ fn extract_filename(path: &[u8]) -> &[u8] {
     &path[start..]
 }
 
-#[no_mangle]
-pub extern "C" fn vf_rust_has_anticheat_signature(
-    utf8_path: *const c_char,
-    len: usize,
-) -> bool {
-    ffi_guard(true, || {
-        if utf8_path.is_null() || len == 0 {
-            return false;
+pub fn has_anticheat_signature(path_bytes: &[u8]) -> bool {
+
+    for &sig in ANTI_CHEAT_SIGNATURES {
+        if contains_ignore_case(path_bytes, sig) {
+            return true;
         }
+    }
 
-        let path_bytes = unsafe { core::slice::from_raw_parts(utf8_path as *const u8, len) };
-
-        for &sig in ANTI_CHEAT_SIGNATURES {
-            if contains_ignore_case(path_bytes, sig) {
-                return true;
-            }
-        }
-
-        false
-    })
+    false
 }
 
-#[no_mangle]
-pub extern "C" fn vf_rust_is_critical_system_filename(
-    utf8_name: *const c_char,
-    len: usize,
-) -> bool {
-    ffi_guard(true, || {
-        if utf8_name.is_null() || len == 0 {
-            return false;
+pub fn is_critical_system_filename(raw_bytes: &[u8]) -> bool {
+    let filename = extract_filename(raw_bytes);
+
+    for &crit in CRITICAL_SYSTEM_FILES {
+        if eq_ignore_case(filename, crit) {
+            return true;
         }
+    }
 
-        let raw_bytes = unsafe { core::slice::from_raw_parts(utf8_name as *const u8, len) };
-        let filename = extract_filename(raw_bytes);
-
-        for &crit in CRITICAL_SYSTEM_FILES {
-            if eq_ignore_case(filename, crit) {
-                return true;
-            }
-        }
-
-        false
-    })
+    false
 }

@@ -143,7 +143,7 @@ std::wstring SandboxGuard::CanonicalizePath(const std::wstring& path) {
 
 namespace {
 
-// The verdict codes are a contract with rust/vegaflow-core/src/path_policy.rs: a reordered enum would map a
+// The verdict codes are a contract with rust/vegaflow-core/src/policy/path_policy.rs: a reordered enum would map a
 // verdict to the wrong rule and message without any other error.
 static_assert(VF_PATH_ALLOWED == 0 && VF_PATH_EMPTY == 1 && VF_PATH_DRIVE_ROOT == 2 && VF_PATH_CRITICAL_FILE == 3 &&
               VF_PATH_WINDOWS_DIR == 4 && VF_PATH_WINDOWS_OTHER_DRIVE == 5 && VF_PATH_COMMON_FILES == 6 &&

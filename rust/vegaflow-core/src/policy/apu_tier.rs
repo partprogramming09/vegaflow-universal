@@ -3,8 +3,6 @@
 //! The thresholds and their order mirror the C++ policy this replaces; the shared vector file
 //! `tests/vectors/apu_tier.tsv` is checked by both this crate and the C++ suite (Test 32).
 
-use crate::ffi_guard;
-
 #[repr(C)]
 pub struct VfTierInput {
     pub total_ram_mb: u64,
@@ -15,10 +13,10 @@ pub struct VfTierInput {
     pub is_nvidia: bool,
 }
 
-const TIER_ENTRY: u8 = 1;
-const TIER_MID: u8 = 2;
-const TIER_ADVANCED: u8 = 3;
-const TIER_DISCRETE: u8 = 4;
+pub(crate) const TIER_ENTRY: u8 = 1;
+pub(crate) const TIER_MID: u8 = 2;
+pub(crate) const TIER_ADVANCED: u8 = 3;
+pub(crate) const TIER_DISCRETE: u8 = 4;
 
 const ARCH_RDNA2: u8 = 2;
 const ARCH_RDNA3_PLUS: u8 = 3;
@@ -35,39 +33,33 @@ const ENTRY_MAX_CORES: u32 = 4;
 /// Used when the core count is unknown (0).
 const DEFAULT_CORES: u32 = 4;
 
-/// Returns 1 (entry), 2 (mid), 3 (advanced) or 4 (discrete or custom). A null input yields the mid tier.
+/// Returns 1 (entry), 2 (mid), 3 (advanced) or 4 (discrete or custom).
 /// The checks run in this order on purpose: discrete first, then entry, then advanced.
-#[no_mangle]
-pub extern "C" fn vf_rust_classify_apu_tier(input: *const VfTierInput) -> u8 {
-    ffi_guard(TIER_ENTRY, || {
-        if input.is_null() {
-            return TIER_MID;
-        }
-        let input = unsafe { &*input };
-        let cores = if input.physical_cores > 0 { input.physical_cores } else { DEFAULT_CORES };
+pub fn classify(input: &VfTierInput) -> u8 {
+    let cores = if input.physical_cores > 0 { input.physical_cores } else { DEFAULT_CORES };
 
-        if input.dedicated_vram || input.arch_gen == ARCH_DISCRETE || input.is_nvidia {
-            TIER_DISCRETE
-        } else if input.total_ram_mb <= ENTRY_MAX_RAM_MB
-            || cores <= ENTRY_MAX_CORES
-            || input.arch_gen == ARCH_INTEL_UHD
-        {
-            TIER_ENTRY
-        } else if matches!(input.arch_gen, ARCH_RDNA2 | ARCH_RDNA3_PLUS | ARCH_INTEL_XE_ARC)
-            || input.total_ram_mb >= ADVANCED_MIN_RAM_MB
-        {
-            TIER_ADVANCED
-        } else {
-            TIER_MID
-        }
-    })
+    if input.dedicated_vram || input.arch_gen == ARCH_DISCRETE || input.is_nvidia {
+        TIER_DISCRETE
+    } else if input.total_ram_mb <= ENTRY_MAX_RAM_MB
+        || cores <= ENTRY_MAX_CORES
+        || input.arch_gen == ARCH_INTEL_UHD
+    {
+        TIER_ENTRY
+    } else if matches!(input.arch_gen, ARCH_RDNA2 | ARCH_RDNA3_PLUS | ARCH_INTEL_XE_ARC)
+        || input.total_ram_mb >= ADVANCED_MIN_RAM_MB
+    {
+        TIER_ADVANCED
+    } else {
+        TIER_MID
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ffi::*;
 
-    const VECTORS: &str = include_str!("../../../tests/vectors/apu_tier.tsv");
+    const VECTORS: &str = include_str!("../../../../tests/vectors/apu_tier.tsv");
 
     #[test]
     fn classification_matches_the_shared_vectors() {

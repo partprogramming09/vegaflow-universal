@@ -122,25 +122,34 @@ direct/
 │   └── vegaflow-core/            # Núcleo híbrido Rust de alta seguridad y zero-allocation FFI
 │       ├── Cargo.toml            # staticlib/rlib con LTO y panic = unwind (ffi_guard captura los pánicos)
 │       └── src/
-│           ├── lib.rs            # Exportaciones FFI extern "C" y suite de 15 tests unitarios
-│           ├── uma_memory.rs     # Evaluador de presión UMA y descarte de Standby List
-│           ├── cpu_governor.rs   # Particionamiento de CPU Sets según topología L3 / CCX e histéresis
-│           └── sandbox_core.rs   # Scanner determinista de firmas de kernel Anti-Cheat y listas críticas
+│           ├── lib.rs            # Declara los módulos y las pruebas de la frontera FFI
+│           ├── ffi.rs            # Todas las funciones vf_rust_* exportadas a C++ (punteros y ffi_guard)
+│           ├── nt_memory.rs      # Llamadas a ntdll: leer las listas de memoria y descartar la Standby List
+│           └── policy/           # Las reglas, una por archivo, sin punteros ni llamadas al sistema
+│               ├── apu_tier.rs     # Tier de la APU (1 a 4)
+│               ├── cpu_governor.rs # CPU Sets según topología L3 / CCX e histéresis del confinamiento
+│               ├── path_policy.rs  # Lista negra de rutas de SandboxGuard
+│               ├── sandbox_core.rs # Firmas de anti-cheat y archivos críticos del sistema
+│               └── uma_memory.rs   # Presión de memoria UMA
 ├── src/                          # Cada .hpp vive junto a su .cpp, agrupado por función
-│   ├── app/                      # Arranque del daemon (main.cpp solo orquesta)
+│   ├── app/                      # Entradas del programa (main.cpp solo orquesta)
 │   │   ├── main.cpp              # Punto de entrada: lee la línea de comandos y elige el modo
 │   │   ├── cli.*                 # Banderas y órdenes de un solo uso (--status, --purge-now, ...)
-│   │   ├── config.*              # config.json y lista de juegos
 │   │   ├── daemon_loop.*         # Modo por defecto: bucle del daemon y apagado limpio
 │   │   ├── gui_mode.*            # --gui: ventana nativa con bandeja
 │   │   ├── monitor.*             # --monitor: panel de consola en vivo
-│   │   ├── reports.*             # --status, --dry-run y --purge-now
+│   │   └── app_state.*           # Estado compartido y manejador de Ctrl+C
+│   ├── session/                  # Casos de uso: lo que hace el daemon con un juego
 │   │   ├── run_cycle.*           # Un ciclo de evaluación: detectar juego, aplicar o soltar
-│   │   ├── app_state.*           # Estado compartido y manejador de Ctrl+C
+│   │   ├── reports.*             # --status, --dry-run y --purge-now
+│   │   ├── system_info.*         # Informe SystemInfo (hardware, UMA, SMBIOS RAM, OS y JSON)
+│   │   ├── config.*              # config.json y lista de juegos
 │   │   └── text_convert.*        # UTF-8 <-> UTF-16
+│   ├── model/                    # Tipos compartidos, sin lógica
+│   │   ├── hardware.hpp          # GPU, CPU, Tier de la APU y su política
+│   │   └── game.hpp              # Juego detectado y su API gráfica
 │   ├── detect/                   # Qué hardware y qué juego hay
 │   │   ├── hardware_profiler.*   # Análisis de hardware universal y topología de CPU
-│   │   ├── system_info.*         # Subsistema SystemInfo (hardware, UMA, SMBIOS RAM, OS y JSON)
 │   │   └── process_detector.*    # Detección no invasiva de juegos y APIs (DX11/12/VK)
 │   ├── optimize/                 # Las optimizaciones
 │   │   ├── graphics/             # Ajustes de Windows y del driver (un tema por archivo)
