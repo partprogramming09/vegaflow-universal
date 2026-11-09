@@ -18,7 +18,7 @@ Un archivo por fase, en el orden en que se hacen. Lo común va aparte:
 | [`producto.md`](producto.md) | Secciones 1 a 1f: por qué, para quién, qué aplica según la gráfica, niveles de madurez, requisitos y modo desarrollador |
 | [`arquitectura.md`](arquitectura.md) | Secciones 2 a 3c: qué pasa a Rust, arquitectura de destino, módulos y librerías |
 | [`00-fase-0.md`](00-fase-0.md) | Fase 0: preparar el laptop |
-| [`01-fase-r1.md`](01-fase-r1.md) | Fase R1: mover sin cambiar lógica |
+| ~~`01-fase-r1.md`~~ | Fase R1: **hecha el 2026-11-09** (commits `8fb9daf` a la revisión final; el archivo se borró, la historia queda en git). Resultado en [`docs/arquitectura/modulos.md`](../../arquitectura/modulos.md) |
 | [`02-fase-r2.md`](02-fase-r2.md) | Fase R2: puertos de archivos y de reloj |
 | [`03-fase-1.md`](03-fase-1.md) | Fase 1: seguridad de archivos (lista blanca de `SandboxGuard`) |
 | [`04-fase-1b.md`](04-fase-1b.md) | Fase 1b: configuración segura |

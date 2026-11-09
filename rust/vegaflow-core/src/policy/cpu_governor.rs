@@ -38,6 +38,7 @@ impl Default for VfTopologyPartitionOut {
     }
 }
 
+/// Requires 1 to `VF_MAX_LOGICAL_PROCESSORS` entries (checked by the FFI wrapper in ffi.rs).
 pub fn partition(entries_slice: &[VfCpuCoreEntry], out_ref: &mut VfTopologyPartitionOut) -> bool {
     *out_ref = VfTopologyPartitionOut::default();
 

@@ -161,9 +161,9 @@ void Test34() {
     // -------------------------------------------------------------------------
     {
         // rust_bridge.h is written by hand: if one side gains, loses or reorders a field, the other side reads
-        // garbage. Rust reports size, alignment and every field offset in the same order as this list.
+        // garbage. Rust reports size, alignment and every field offset and size in the same order as this list.
 #define VF_LAYOUT_BEGIN(T) expected.push_back(sizeof(T)); expected.push_back(alignof(T));
-#define VF_FIELD(T, f) expected.push_back(offsetof(T, f));
+#define VF_FIELD(T, f) expected.push_back(offsetof(T, f)); expected.push_back(sizeof(static_cast<T*>(nullptr)->f));
         std::vector<size_t> expected;
         VF_LAYOUT_BEGIN(VfUmaTelemetryInput)
         VF_FIELD(VfUmaTelemetryInput, total_physical_bytes) VF_FIELD(VfUmaTelemetryInput, free_and_zero_bytes)

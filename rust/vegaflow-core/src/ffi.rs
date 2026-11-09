@@ -131,15 +131,19 @@ pub extern "C" fn vf_rust_eval_bg_confinement(logical_cores_used: f64, currently
     ffi_guard(false, || cpu_governor::eval_bg_confinement(logical_cores_used, currently_confined))
 }
 
-/// Size, alignment and field offsets of every struct shared with C++, in the order documented in rust_bridge.h.
+/// Size, alignment and the offset and size of each field of every struct shared with C++, in the order documented in rust_bridge.h.
 /// rust_bridge.h is written by hand; C++ Test 34 compares these numbers with its own sizeof/alignof/offsetof.
 fn bridge_layout() -> Vec<usize> {
     use core::mem::{align_of, offset_of, size_of};
+    // Size of a field, from an accessor: Rust has no sizeof(T::field).
+    fn field_size<T, F>(_: fn(&T) -> &F) -> usize {
+        size_of::<F>()
+    }
     macro_rules! layout {
         ($v:ident, $t:ty, $($f:ident),+) => {
             $v.push(size_of::<$t>());
             $v.push(align_of::<$t>());
-            $($v.push(offset_of!($t, $f));)+
+            $($v.push(offset_of!($t, $f)); $v.push(field_size(|x: &$t| &x.$f));)+
         };
     }
     let mut v = Vec::new();

@@ -190,8 +190,8 @@ mod tests {
 
     #[test]
     fn never_panics_on_any_short_path() {
-        // A panic aborts the daemon (panic = "abort"), so check every path up to 7 units over an alphabet that
-        // contains the units each rule looks at. This is what a slice bound off by one would trip over.
+        // A panic would become VF_PATH_INTERNAL_ERROR (ffi_guard) and refuse a valid path, so check every path up
+        // to 7 units over an alphabet that contains the units each rule looks at. This is what a slice bound off by one would trip over.
         let alphabet: Vec<u16> = "a:\\/?w.".encode_utf16().collect();
         let base = alphabet.len();
         let win = utf16_lower("C:\\Windows");

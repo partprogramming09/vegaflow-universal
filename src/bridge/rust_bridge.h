@@ -121,7 +121,7 @@ uint32_t vf_rust_classify_blacklisted_path(
 
 /* Layout check for the structs above (this header is written by hand). Writes, for each struct in the order
    VfUmaTelemetryInput, VfUmaGuardDecision, VfNtMemoryListSample, VfCpuCoreEntry, VfTopologyPartitionOut,
-   VfTierInput: its size, its alignment and the offset of each field in declaration order. Writes at most `cap`
+   VfTierInput: its size, its alignment and the offset and size of each field in declaration order. Writes at most `cap`
    numbers and returns how many there are in total. Checked by C++ Test 34. */
 size_t vf_rust_bridge_layout(size_t* out, size_t cap);
 

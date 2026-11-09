@@ -62,7 +62,7 @@ Es como los permisos de un edificio: cada planta puede bajar a las de abajo, per
 |---|---|---|
 | `app/` (entradas) | `session/`, `ui/`, `model/`, `windows/` (solo para armar todo en `main`) | — |
 | `ui/` (GUI) | `session/`, `model/` | `windows/` directamente, salvo Win32 para dibujar |
-| `session/` (casos de uso) | `model/`, `ports/`, `bridge/` | `windows/`, `<windows.h>` |
+| `session/` (casos de uso) | `model/`, `ports/`, `bridge/` | `windows/`, `<windows.h>` (durante la migración se permiten, igual que `detect/`, `optimize/` y `safety/`: el código movido en R1 aún los usa; `check_layers.sh` los marca como migración) |
 | `ports/` (interfaces) | `model/` | todo lo demás |
 | `windows/` (adaptadores) | `ports/`, `model/`, `bridge/` | `session/`, `app/`, `ui/` |
 | `model/` (tipos) | la librería estándar y, mientras haga falta, los tipos básicos de `<windows.h>` (`HWND`, `ULONG`) | `ports/`, `windows/`, `session/`, `app/`, `ui/` |
@@ -99,8 +99,8 @@ El proyecto se compila con **MinGW (g++)**, no con Visual Studio. El núcleo Rus
 
 | Herramienta | Qué hace | Provecho en VegaFlow | ¿Entra en el programa? | Fase | Decisión |
 |---|---|---|---|---|---|
-| **cbindgen** (MPL-2.0) | Genera `rust_bridge.h` a partir del código Rust | Hoy el contrato entre C++ y Rust está escrito a mano en los dos lados (`VF_MAX_LOGICAL_PROCESSORS` está repetido). Si un lado cambia y el otro no, se lee memoria equivocada sin dar error | No: corre al compilar, en la máquina que compila | R1 | **Sí.** Si falla en algún caso (su documentación lo avisa), la cabecera se queda escrita a mano y una prueba compara los tamaños de los structs |
-| **doctest** (MIT) | Marco de pruebas de un solo archivo | Partir `test_main.cpp` por módulo, correr solo las pruebas de una fase y ver los fallos por nombre. Es el más ligero de los tres que se miraron | Solo en el ejecutable de pruebas | R1 | **Sí.** Su documentación nombra GCC, no MinGW: se confirma al compilarlo en el primer paso de R1 |
+| **cbindgen** (MPL-2.0) | Genera `rust_bridge.h` a partir del código Rust | Hoy el contrato entre C++ y Rust está escrito a mano en los dos lados (`VF_MAX_LOGICAL_PROCESSORS` está repetido). Si un lado cambia y el otro no, se lee memoria equivocada sin dar error | No: corre al compilar, en la máquina que compila | R1 | **No, cambiado el 2026-11-09** (decisión del usuario: no añadir otra herramienta). La cabecera sigue a mano y la Test 34 compara tamaño, alineación y posición y tamaño de cada campo en los dos lados |
+| **doctest** (MIT) | Marco de pruebas de un solo archivo | Partir `test_main.cpp` por módulo, correr solo las pruebas de una fase y ver los fallos por nombre. Es el más ligero de los tres que se miraron | Solo en el ejecutable de pruebas | R2 | **Aplazado el 2026-11-09.** En R1 se repartió con el `main` propio: doctest ordena por archivo y cambia la salida, y la suite de integración cambia el sistema en un orden fijo. Se valora para las pruebas unitarias con puertos falsos de R2 |
 | **proptest** (MIT/Apache) | Inventa miles de entradas para romper una regla | Rutas raras (fase 1), `.ini` en UTF-16, con BOM o sin marcador (fase 2) y topologías inventadas (fases 3 y 7) | No (`dev-dependency`) | 1, 2, 3, 7 | **Sí** |
 | **cargo-mutants** | Cambia el código a propósito y mira si alguna prueba lo nota | Mide si las pruebas protegen de verdad (por ejemplo, si nadie nota que el 85 % pasó a 86 %) | No, es una herramienta aparte | Al cerrar cada fase | **Sí**, en el laptop o en el CI. No está verificado que funcione en Windows; si no, corre en el CI de Linux |
 | **cargo-fuzz** | Lanza entradas aleatorias sin parar | Lo mismo que proptest, durante horas | No | 1 y 2 | **Opcional.** Pide la versión nightly de Rust |

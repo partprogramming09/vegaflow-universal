@@ -11,4 +11,6 @@
 
 Los llamadores pasan a recibir el puerto en el constructor, en lugar de usar `SandboxGuard::` estático. Además, los 5 sitios de `optimize/` que vuelven a detectar el hardware reciben la política ya calculada. Así se corta la otra mitad del ciclo y se deja de llamar a DXGI y CPUID en cada uso.
 
+**Heredado de R1:** sacar la lógica de sesión de `src/app/gui_mode.cpp` a `src/session/` (en R1 no se movió: es una función de 500 líneas con lambdas que comparten estado, y separarla es crear un objeto). Los archivos de `src/session/` siguen en el namespace `vegaflow::app`.
+
 **Terminado cuando:** la suite está igual de verde, hay al menos una prueba unitaria que usa el puerto falso y ningún archivo de `optimize/` incluye `detect/`.

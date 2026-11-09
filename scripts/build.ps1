@@ -105,7 +105,9 @@ $IncludeFlags = @("-Isrc")
 # Sources are found on disk, the same way scripts/build-cross.sh does, so moving or adding a .cpp needs no edit here.
 # src/app/ holds the daemon entry points; everything else in src/ is shared by the daemon and the test suite.
 function Get-CppSources([string]$dir) {
-    Get-ChildItem -Path (Join-Path $ProjectRoot $dir) -Recurse -Filter *.cpp | Sort-Object FullName | ForEach-Object { $_.FullName }
+    # -Filter also matches 8.3 short names (e.g. .cppx), so the extension is checked exactly.
+    Get-ChildItem -Path (Join-Path $ProjectRoot $dir) -Recurse -File | Where-Object { $_.Extension -eq '.cpp' } |
+        Sort-Object FullName | ForEach-Object { $_.FullName }
 }
 $AppSources = @(Get-CppSources "src/app")
 $CommonSources = @(Get-CppSources "src" | Where-Object { $AppSources -notcontains $_ })

@@ -86,7 +86,7 @@ mod tests {
 
     #[test]
     fn contract_numbers_match_the_cpp_enums() {
-        // GpuArchitectureGen and ApuTier in hardware_profiler.hpp are static_asserted against the same numbers.
+        // GpuArchitectureGen and ApuTier (src/model/hardware.hpp) are static_asserted in hardware_profiler.cpp against the same numbers.
         assert_eq!([ARCH_RDNA2, ARCH_RDNA3_PLUS, ARCH_INTEL_UHD, ARCH_INTEL_XE_ARC, ARCH_DISCRETE], [2, 3, 4, 5, 6]);
         assert_eq!([TIER_ENTRY, TIER_MID, TIER_ADVANCED, TIER_DISCRETE], [1, 2, 3, 4]);
     }
