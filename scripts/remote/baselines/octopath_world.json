@@ -1,9 +1,9 @@
 {
- "scene": "Octopath Traveler II, mundo (autoguardado), D3D11",
+ "scene": "Octopath Traveler II, mundo (autoguardado), D3D11, daemon apagado, sin carga, sin SCSKiller (2026-11-09; 3 capturas de una misma sesi\u00f3n, no 3 lanzamientos)",
  "launches": 3,
- "present_mode": "Hardware: Independent Flip",
- "avg_fps": 43.14754826150824,
- "low1": 39.2189752262784,
- "noise_avg_pct": 0.23203204382990342,
- "noise_low_pct": 0.4079367821604714
+ "present_mode": "Hardware: Legacy Flip",
+ "avg_fps": 42.80768282512088,
+ "low1": 34.397935683565414,
+ "noise_avg_pct": 0.10964252729231518,
+ "noise_low_pct": 1.5515348890475449
 }
