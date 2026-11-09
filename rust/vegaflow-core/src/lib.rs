@@ -486,4 +486,21 @@ mod tests {
         let empty = CString::new("").unwrap();
         assert!(!vf_rust_is_critical_system_filename(empty.as_ptr(), 0));
     }
+
+    #[test]
+    fn bridge_layout_with_a_null_buffer_only_reports_the_total() {
+        let total = vf_rust_bridge_layout(std::ptr::null_mut(), 1000);
+        assert!(total > 0);
+    }
+
+    #[test]
+    fn bridge_layout_writes_at_most_cap_numbers() {
+        let total = vf_rust_bridge_layout(std::ptr::null_mut(), 0);
+        let mut buf = vec![usize::MAX; total + 4];
+        assert_eq!(vf_rust_bridge_layout(buf.as_mut_ptr(), 3), total);
+        assert!(buf[..3].iter().all(|&n| n != usize::MAX), "the first 3 numbers are written");
+        assert!(buf[3..].iter().all(|&n| n == usize::MAX), "nothing is written past cap");
+        assert_eq!(vf_rust_bridge_layout(buf.as_mut_ptr(), buf.len()), total);
+        assert!(buf[total..].iter().all(|&n| n == usize::MAX), "nothing is written past the total");
+    }
 }

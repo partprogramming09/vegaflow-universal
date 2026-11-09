@@ -12,6 +12,11 @@
 - **Overlay de FPS y detección de cuello de botella** (pilares 2 y 4 antiguos): VegaFlow no es un medidor (decisión del 2026-11-09).
 - **Auto-ajuste FSR/NIS del Pilar 2 antiguo:** la función de escalado de imagen ya se quitó del proyecto; no vuelve con este plan.
 
+## Pendiente heredado de la fase 0
+
+- **DLL de DXVK-GPLAsync:** ya no están en el repo. Falta decidir de dónde salen (lo previsto era un `scripts/fetch_dxvk.ps1` con versión y sha256 fijos, si existe una descarga estable de esa variante parcheada). Hasta entonces, `assets/dxvk/README.md` explica cómo colocarlas a mano.
+- `scripts/remote/archive/` no tenía nada versionado (solo un `__pycache__` local, borrado).
+
 ## 9. Ideas sin fase todavía
 
 Salieron de la ronda de ideas del 2026-11-09. Ninguna se empieza sin decidirla antes; las marcadas "sin verificar" necesitan investigación.

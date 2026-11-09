@@ -1,6 +1,6 @@
 # Plan maestro: arquitectura nueva, Rust, seguridad y soporte universal
 
-**Lector:** personas. Fecha: 2026-11-08. Estado: **aprobado el 2026-11-09**; la ejecución empieza por la fase 0. Nada aplicado todavía en el código.
+**Lector:** personas. Fecha: 2026-11-08. Estado: **aprobado el 2026-11-09**. Hechas: fase 0 y fase R1 (2026-11-09). Siguiente: R2.
 
 Este es el único plan del proyecto. Junta tres cosas que antes iban por separado:
 - la **arquitectura nueva** y la modularización (decisión en el [ADR 0001](../../adr/0001-nucleo-que-decide-y-puertos.md));
@@ -17,7 +17,7 @@ Un archivo por fase, en el orden en que se hacen. Lo común va aparte:
 |---|---|
 | [`producto.md`](producto.md) | Secciones 1 a 1f: por qué, para quién, qué aplica según la gráfica, niveles de madurez, requisitos y modo desarrollador |
 | [`arquitectura.md`](arquitectura.md) | Secciones 2 a 3c: qué pasa a Rust, arquitectura de destino, módulos y librerías |
-| [`00-fase-0.md`](00-fase-0.md) | Fase 0: preparar el laptop |
+| ~~`00-fase-0.md`~~ | Fase 0: **hecha el 2026-11-09** (`538950b`); su pendiente de las DLL de DXVK está en [`fuera-del-plan.md`](fuera-del-plan.md) |
 | ~~`01-fase-r1.md`~~ | Fase R1: **hecha el 2026-11-09** (commits `8fb9daf` a la revisión final; el archivo se borró, la historia queda en git). Resultado en [`docs/arquitectura/modulos.md`](../../arquitectura/modulos.md) |
 | [`02-fase-r2.md`](02-fase-r2.md) | Fase R2: puertos de archivos y de reloj |
 | [`03-fase-1.md`](03-fase-1.md) | Fase 1: seguridad de archivos (lista blanca de `SandboxGuard`) |
@@ -41,7 +41,7 @@ Las fuentes externas están en [`docs/investigacion/`](../../investigacion/READM
 | Fase | Qué | Por qué va en este puesto | Gravedad de lo que arregla |
 |---|---|---|---|
 | 0 | Preparar el laptop | Todas las fases se prueban allí | — |
-| R1 | Mover sin cambiar lógica: `model/`, separar `session/`, repartir `test_main.cpp` con doctest, cbindgen y el script de capas | Deja el terreno listo y corta el ciclo. Solo mueve código, así que es lo menos arriesgado | — |
+| R1 | Mover sin cambiar lógica: `model/`, separar `session/`, repartir `test_main.cpp` (con `main` propio; sin doctest ni cbindgen, ver la tabla de librerías) y el script de capas. **Hecha** | Deja el terreno listo y corta el ciclo. Solo mueve código, así que es lo menos arriesgado | — |
 | R2 | Puerto de archivos, puerto de reloj y RAII de Windows | Las fases 1 y 2 los necesitan | — |
 | 1 | Seguridad de archivos (lista blanca) | Hoy el daemon, como administrador, puede escribir en todo `C:\ProgramData` | **Alta** |
 | 1b | Configuración segura (`config.json`) | Hoy se lee con una ruta relativa a la carpeta de trabajo, se guarda borrando lo que no conoce y no se valida; las fases 5 y G dependen de ella | **Alta** |
