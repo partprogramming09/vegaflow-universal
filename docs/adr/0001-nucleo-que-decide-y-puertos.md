@@ -56,7 +56,9 @@ Las reglas de la decisión:
   - unitarias de los casos de uso con puertos falsos, que no tocan el sistema;
   - de integración por adaptador, que se corren en el laptop.
 
-  `test_main.cpp` se reparte por módulo.
+  `test_main.cpp` se reparte por módulo. Hecho en la fase R1 (2026-11-09): `tests/integration/`, un archivo por
+  módulo, con el `main` propio (no doctest) para conservar el orden y la salida; doctest se valorará con las pruebas
+  unitarias de R2.
 
 ## Alternativas
 

@@ -45,53 +45,26 @@ Fuera de Windows no existe `ntdll`, así que las funciones que lo llaman devuelv
 cargo build --manifest-path rust/vegaflow-core/Cargo.toml --target x86_64-pc-windows-gnu --release
 ```
 
+#### Fuentes comunes al daemon y a las pruebas
+Todo `src/` menos `src/app/` (las entradas del daemon). Con Git Bash o MSYS2:
+```bash
+COMMON="src/windows/*.cpp src/detect/*.cpp src/session/*.cpp src/optimize/*.cpp src/optimize/graphics/*.cpp src/optimize/steam/*.cpp src/safety/*.cpp src/ui/*.cpp"
+FLAGS="-std=c++20 -O2 -Wall -Wextra -static -static-libgcc -static-libstdc++ -Isrc"
+RUST=rust/vegaflow-core/target/x86_64-pc-windows-gnu/release/libvegaflow_core.a
+LIBS="-lntdll -ldxgi -ladvapi32 -lpsapi -luser32 -lole32 -lgdi32 -lshell32 -ldwmapi -ltdh -lws2_32 -luserenv -lbcrypt"
+```
+
 #### Compilar el Daemon de Fondo (`vegaflow_daemon.exe`):
 ```bash
-g++ -std=c++20 -O2 -Wall -Wextra -static -static-libgcc -static-libstdc++ \
-    -Isrc \
-    src/windows/privileges.cpp \
-    src/detect/hardware_profiler.cpp \
-    src/detect/process_detector.cpp \
-    src/session/system_info.cpp \
-    src/optimize/graphics/*.cpp \
-    src/optimize/dxvk_manager.cpp \
-    src/optimize/steam/*.cpp \
-    src/optimize/cpu_orchestrator.cpp \
-    src/optimize/memory_manager.cpp \
-    src/safety/sandbox_guard.cpp \
-    src/safety/frame_telemetry.cpp \
-    src/ui/gui_components.cpp \
-    src/ui/gui_tabs.cpp \
-    src/ui/gui_window.cpp \
-    src/app/*.cpp \
-    -o build/vegaflow_daemon.exe \
-    rust/vegaflow-core/target/x86_64-pc-windows-gnu/release/libvegaflow_core.a \
-    -lntdll -ldxgi -ladvapi32 -lpsapi -luser32 -lole32 -lgdi32 -lshell32 -ldwmapi -ltdh -lws2_32 -luserenv -lbcrypt
+g++ $FLAGS $COMMON src/app/*.cpp -o build/vegaflow_daemon.exe $RUST $LIBS
 ```
 
 #### Compilar la Suite de Pruebas Unitarias (`vegaflow_tests.exe`):
 ```bash
-g++ -std=c++20 -O2 -Wall -Wextra -static -static-libgcc -static-libstdc++ \
-    -Isrc \
-    src/windows/privileges.cpp \
-    src/detect/hardware_profiler.cpp \
-    src/detect/process_detector.cpp \
-    src/session/system_info.cpp \
-    src/optimize/graphics/*.cpp \
-    src/optimize/dxvk_manager.cpp \
-    src/optimize/steam/*.cpp \
-    src/optimize/cpu_orchestrator.cpp \
-    src/optimize/memory_manager.cpp \
-    src/safety/sandbox_guard.cpp \
-    src/safety/frame_telemetry.cpp \
-    src/ui/gui_components.cpp \
-    src/ui/gui_tabs.cpp \
-    src/ui/gui_window.cpp \
-    tests/test_main.cpp \
-    -o build/vegaflow_tests.exe \
-    rust/vegaflow-core/target/x86_64-pc-windows-gnu/release/libvegaflow_core.a \
-    -lntdll -ldxgi -ladvapi32 -lpsapi -luser32 -lole32 -lgdi32 -lshell32 -ldwmapi -ltdh -lws2_32 -luserenv -lbcrypt
+g++ $FLAGS $COMMON tests/*.cpp tests/integration/*.cpp -o build/vegaflow_tests.exe $RUST $LIBS
 ```
+
+Si se añade una carpeta nueva dentro de `src/`, hay que añadirla a `COMMON`. `build.ps1` y `build-cross.sh` la encuentran solos.
 
 ---
 

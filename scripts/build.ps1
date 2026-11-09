@@ -102,40 +102,13 @@ Write-Host "[OK] libvegaflow_core.a generada exitosamente." -ForegroundColor Gre
 # 4. Common parameters and sources
 $IncludeFlags = @("-Isrc")
 
-$CommonSources = @(
-    "src/windows/privileges.cpp",
-    "src/detect/hardware_profiler.cpp",
-    "src/detect/process_detector.cpp",
-    "src/session/system_info.cpp",
-    "src/session/config.cpp",
-    "src/session/reports.cpp",
-    "src/session/run_cycle.cpp",
-    "src/session/text_convert.cpp",
-    "src/optimize/graphics/amd_driver_tweaks.cpp",
-    "src/optimize/graphics/display_tweaks.cpp",
-    "src/optimize/graphics/dxgi_flip.cpp",
-    "src/optimize/graphics/kernel_tweaks.cpp",
-    "src/optimize/graphics/mmcss.cpp",
-    "src/optimize/graphics/power_mode.cpp",
-    "src/optimize/graphics/registry_backup.cpp",
-    "src/optimize/graphics/shader_cache.cpp",
-    "src/optimize/graphics/timer.cpp",
-    "src/optimize/graphics/tweaks_query.cpp",
-    "src/optimize/graphics/vram_reporting.cpp",
-    "src/optimize/dxvk_manager.cpp",
-    "src/optimize/steam/apu_shadow_config.cpp",
-    "src/optimize/steam/engine_detection.cpp",
-    "src/optimize/steam/engine_presets.cpp",
-    "src/optimize/steam/steam_internal.cpp",
-    "src/optimize/steam/steam_library.cpp",
-    "src/optimize/cpu_orchestrator.cpp",
-    "src/optimize/memory_manager.cpp",
-    "src/safety/sandbox_guard.cpp",
-    "src/safety/frame_telemetry.cpp",
-    "src/ui/gui_components.cpp",
-    "src/ui/gui_tabs.cpp",
-    "src/ui/gui_window.cpp"
-)
+# Sources are found on disk, the same way scripts/build-cross.sh does, so moving or adding a .cpp needs no edit here.
+# src/app/ holds the daemon entry points; everything else in src/ is shared by the daemon and the test suite.
+function Get-CppSources([string]$dir) {
+    Get-ChildItem -Path (Join-Path $ProjectRoot $dir) -Recurse -Filter *.cpp | Sort-Object FullName | ForEach-Object { $_.FullName }
+}
+$AppSources = @(Get-CppSources "src/app")
+$CommonSources = @(Get-CppSources "src" | Where-Object { $AppSources -notcontains $_ })
 
 $Libs = @(
     "-lntdll",
@@ -165,14 +138,7 @@ $BaseFlags = @(
 
 # 5. Build vegaflow_daemon.exe
 Write-Host "`n[*] Compilando vegaflow_daemon.exe..." -ForegroundColor Yellow
-$DaemonSources = $CommonSources + @(
-    "src/app/main.cpp",
-    "src/app/app_state.cpp",
-    "src/app/cli.cpp",
-    "src/app/daemon_loop.cpp",
-    "src/app/gui_mode.cpp",
-    "src/app/monitor.cpp"
-)
+$DaemonSources = $CommonSources + $AppSources
 $DaemonOutput = "build/vegaflow_daemon.exe"
 $DaemonArgs = $BaseFlags + $IncludeFlags + $DaemonSources + @($RustLib, "-o", $DaemonOutput) + $Libs
 
@@ -185,7 +151,7 @@ Write-Host "[OK] vegaflow_daemon.exe compilado exitosamente." -ForegroundColor G
 
 # 6. Build vegaflow_tests.exe
 Write-Host "`n[*] Compilando vegaflow_tests.exe..." -ForegroundColor Yellow
-$TestSources = $CommonSources + @("tests/test_main.cpp")
+$TestSources = $CommonSources + @(Get-CppSources "tests")
 $TestOutput = "build/vegaflow_tests.exe"
 $TestArgs = $BaseFlags + $IncludeFlags + $TestSources + @($RustLib, "-o", $TestOutput) + $Libs
 

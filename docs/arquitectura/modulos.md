@@ -189,7 +189,10 @@ direct/
 │   └── bridge/
 │       └── rust_bridge.h         # Definición de tipos y firmas FFI C/Rust (Zero-Allocation)
 ├── tests/
-│   └── test_main.cpp             # Suite de 32 pruebas unitarias e integradas (C++20 + Rust FFI)
+│   ├── test_main.cpp             # Entrada de la suite: corre las 32 pruebas en orden y restaura el sistema al final
+│   ├── test_support.*            # Contadores, RecordResult y lector de los .tsv
+│   ├── integration/              # Las pruebas, un archivo por módulo (tocan Windows de verdad)
+│   └── vectors/                  # Casos compartidos con las pruebas de Rust
 ├── logs/
 │   └── session_reports.log       # Registro persistente de sesiones y telemetría
 └── build/

@@ -40,5 +40,5 @@ COMMON=$(find src -name '*.cpp' -not -path 'src/app/*' | sort)
 
 echo "[*] Linking build/vegaflow_daemon.exe and build/vegaflow_tests.exe..."
 "$CXX" "${LINK_FLAGS[@]}" $(objects_of $COMMON src/app/*.cpp) "$RUST_LIB" -o build/vegaflow_daemon.exe "${LIBS[@]}"
-"$CXX" "${LINK_FLAGS[@]}" $(objects_of $COMMON tests/test_main.cpp) "$RUST_LIB" -o build/vegaflow_tests.exe "${LIBS[@]}"
+"$CXX" "${LINK_FLAGS[@]}" $(objects_of $COMMON $(find tests -name '*.cpp' | sort)) "$RUST_LIB" -o build/vegaflow_tests.exe "${LIBS[@]}"
 echo "[OK] build/vegaflow_daemon.exe and build/vegaflow_tests.exe"
