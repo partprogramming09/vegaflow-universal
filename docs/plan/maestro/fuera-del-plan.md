@@ -1,0 +1,43 @@
+# Fuera del plan: descartes, ideas y después
+
+**Lector:** personas. Parte del [plan maestro](README.md); método común y orden de las fases en el README.
+
+## 6. Lo que se descarta y por qué
+
+- **Lector de cabecera `.exe`** (saber si un juego es de 32 o 64 bits). No tiene fallo de memoria: un archivo raro solo hace que use el valor por defecto. Además, hoy no se ejecuta, porque los DLL de DXVK no vienen en el repo. Sí se corrigen dos cosas en C++ por si se vuelve a usar: comprobar que la copia de seguridad de los DLL salió bien antes de reemplazarlos, y no decir "éxito" en la prueba en seco si faltan los DLL.
+- **Leer `config.json` en Rust.** Haría falta una librería externa de JSON, y el núcleo hoy no tiene ninguna dependencia. Si se cambia el lector, se hace en C++ con json.h (sección 3c).
+- **Del plan universal antiguo:** el "Tier 5 eGPU" (la conexión es un dato aparte, fase 3), `r.ShaderPipelineCache.AsyncCompileRate` (no documentada), `r.GTSyncType=1` por defecto (no medido), y la "prueba 32" única para todo el hardware (las pruebas se reparten por fase con sus ejemplos).
+- **Cifras sin fuente del plan antiguo,** como los ~75 ns de latencia entre CCD: no se usan para decidir nada.
+- **Resto del perfil eGPU antiguo:** `FlipQueueSize = 1` ya lo aplica la familia de driver AMD a cualquier GPU AMD (fase 8), no es propio de la eGPU. "Dejar el núcleo 0 libre para las interrupciones del controlador" no tiene fuente ni medición: no se adopta. El valor `40` de `MaxNumTexturesToStreamPerFrame` tampoco tiene fuente: se decide al comprobar la variable en el código del motor (fase 3). `PCIe ASPM = 0` ya se aplica hoy (`power_mode.cpp:82`). Una eGPU por **OCuLink** probablemente no aparece como extraíble en DXCore: queda como "dedicada", sin verificar.
+- **Overlay de FPS y detección de cuello de botella** (pilares 2 y 4 antiguos): VegaFlow no es un medidor (decisión del 2026-11-09).
+- **Auto-ajuste FSR/NIS del Pilar 2 antiguo:** la función de escalado de imagen ya se quitó del proyecto; no vuelve con este plan.
+
+## 9. Ideas sin fase todavía
+
+Salieron de la ronda de ideas del 2026-11-09. Ninguna se empieza sin decidirla antes; las marcadas "sin verificar" necesitan investigación.
+
+| Idea | Para qué | Coste | Riesgo o duda |
+|---|---|---|---|
+| Perfil de portátil de mano (ROG Ally, Legion Go, Steam Deck) | Ajustes prudentes sin que la persona sepa qué es un nivel | Medio | Sin verificar que el nombre del fabricante sea estable entre modelos |
+| Preguntar por programas desconocidos | Un programa nuevo que gasta CPU se pregunta una vez, fuera del juego | Medio | Que resulte pesado |
+| Avisar si otro optimizador toca lo mismo (Armoury Crate, Legion Space) | Evita dos programas peleando por un valor | Medio | Sin verificar qué toca cada uno |
+| Juegos de Epic, GOG, EA, Ubisoft y Xbox | Más juegos sin añadirlos a mano | Alto | Rutas de Xbox con permisos especiales; más anti-cheat |
+| Modo simple y modo detallado | No abrumar | Medio | Dos vistas que mantener |
+| Aviso de actualizaciones (sin instalar solo) | Saber que hay versión nueva | Medio | Conexión de red nueva; mejor en la GUI y opcional |
+| Ejecutable firmado y hashes publicados | Quitar avisos de SmartScreen y poder comprobar el original | Medio-alto | Coste del certificado, sin verificar |
+| GUI sin permisos de administrador, separada del daemon | Un fallo de la GUI no ejecuta nada como administrador | Alto | Más piezas y un canal local nuevo |
+
+## 10. Después del plan: sacar el máximo del hardware
+
+**No forma parte de este plan.** Es lo que se estudia cuando la fase R3 y la G estén terminadas: palancas que hoy no se tocan porque necesitan acceso más profundo al hardware. Todas entrarían como **experimentales**, nunca por defecto, y cada una necesita su propio ADR.
+
+| Tema | Qué podría dar | Por qué no está en el plan | Por investigar |
+|---|---|---|---|
+| Límites de potencia de la APU (STAPM, PPT, temperatura) | Más vatios sostenidos en portátiles y consolas portátiles | Hoy VegaFlow solo limita la frecuencia de la CPU con el plan de energía (`power_mode.cpp:80`). Cambiar los límites reales suele requerir un driver de kernel, que es una superficie de ataque nueva para un programa de administrador | Qué métodos oficiales existen por fabricante, y si las herramientas conocidas dependen de drivers que Windows marca como vulnerables (sin verificar) |
+| Frecuencia y voltaje de la GPU | Más rendimiento o menos consumo | Cada fabricante tiene su SDK (AMD ADLX, NVIDIA NVAPI, Intel IGCL) y el riesgo de inestabilidad es real | Qué expone cada SDK sin drivers propios, su licencia y si funciona con MinGW (sin verificar) |
+| Memoria reservada para la gráfica integrada | Más VRAM para juegos exigentes | Se cambia en la BIOS, no desde Windows | Una guía por fabricante, sin tocar nada desde VegaFlow |
+| Ventiladores y perfiles del fabricante | Menos ruido o más margen térmico | Cada marca lo hace distinto, y choca con sus propios programas (Armoury Crate, Legion Space) | Si hay interfaces documentadas |
+
+**Condición para empezar cualquiera de estos:** que el diario de cambios (2b), el modo desarrollador (1f) y la revisión de resultados de la comunidad ya funcionen, porque son lo que permite probar algo así sin dejar un equipo roto.
+
+---
