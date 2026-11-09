@@ -14,7 +14,7 @@
 
 ## Pendiente heredado de la fase 0
 
-- **DLL de DXVK-GPLAsync:** ya no están en el repo. Falta decidir de dónde salen (lo previsto era un `scripts/fetch_dxvk.ps1` con versión y sha256 fijos, si existe una descarga estable de esa variante parcheada). Hasta entonces, `assets/dxvk/README.md` explica cómo colocarlas a mano.
+- **DLL de DXVK-GPLAsync:** ya no están en el repo. Falta decidir de dónde salen (lo previsto era un `scripts/fetch_dxvk.ps1` con versión y sha256 fijos, si existe una descarga estable de esa variante parcheada). Hasta entonces, `assets/dxvk/README.md` explica cómo colocarlas a mano. Investigado el 2026-11-09 en [`dxvk-descarga.md`](../../investigacion/dxvk-descarga.md): existe una URL de GPLAsync fijada a un commit, sin checksum ni licencia publicados; decisión pendiente del usuario.
 - `scripts/remote/archive/` no tenía nada versionado (solo un `__pycache__` local, borrado).
 
 ## 9. Ideas sin fase todavía

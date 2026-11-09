@@ -8,6 +8,7 @@ Lo que ya se investigó y verificó contra fuentes oficiales, para **no repetir 
 
 | Documento | Qué responde |
 |---|---|
+| [`dxvk-descarga.md`](dxvk-descarga.md) | De dónde bajar las DLL de DXVK-GPLAsync con versión fija, y su licencia |
 | [`cpu-energia-y-procesos.md`](cpu-energia-y-procesos.md) | Cómo reparte Windows los núcleos (EcoQoS, CPU Sets, Intel híbrido, AMD X3D, más de 64 hilos), el temporizador, MMCSS y las versiones mínimas de Windows |
 | [`graficas-y-perfil-del-equipo.md`](graficas-y-perfil-del-equipo.md) | Cómo saber qué gráfica hay y cómo está conectada, qué leer del equipo (disco, batería, pantalla, Windows, ARM), cómo se cuentan los fotogramas y qué variables de Unreal existen |
 | [`librerias-y-herramientas.md`](librerias-y-herramientas.md) | Qué librerías sirven con MinGW y cuáles no, y por qué |
