@@ -19,6 +19,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  layers:
+    name: Layer rules
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check includes against the layer table
+        run: scripts/check_layers.sh
+
   rust-core:
     name: Rust core tests
     runs-on: ubuntu-latest
