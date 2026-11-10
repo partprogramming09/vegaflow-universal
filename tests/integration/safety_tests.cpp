@@ -354,6 +354,28 @@ void Test41() {
     expect(denied(local_app + L"OtraCosa\\vegaflow_flaw5.txt"), "5 LOCALAPPDATA prefix as text");
     expect(!denied(local_app + L"\\VegaFlowTest\\x.txt"), "5 LOCALAPPDATA itself still allowed");
 
+    // An allowed folder that is itself a junction, or lies under one, allows nothing: its target could be any folder.
+    const std::filesystem::path lib = temp / L"vegaflow_test_lib";
+    const std::filesystem::path lib_link = temp / L"vegaflow_test_lib_link";
+    RemoveDirectoryW((lib / L"steamapps" / L"common").c_str());
+    RemoveDirectoryW(lib_link.c_str());
+    std::filesystem::remove_all(lib, ec);
+    std::filesystem::create_directories(lib / L"steamapps", ec);
+    std::filesystem::create_directories(outside / L"steamapps" / L"common", ec);
+    expect(MakeJunction(lib / L"steamapps" / L"common", outside), "root junction created");
+    expect(MakeJunction(lib_link, outside), "library junction created");
+    SandboxGuard::SetSteamLibraryFolders({lib.wstring(), lib_link.wstring()});
+    expect(denied((outside / L"vegaflow_root.txt").wstring()), "root that is a junction");
+    expect(!SandboxGuard::SafeWriteFile((lib / L"steamapps" / L"common" / L"vegaflow_root.txt").wstring(), "x") &&
+           !std::filesystem::exists(outside / L"vegaflow_root.txt", ec), "nothing written through a root junction");
+    expect(denied((outside / L"steamapps" / L"common" / L"vegaflow_root.txt").wstring()), "root under a junction");
+    RemoveDirectoryW((lib / L"steamapps" / L"common").c_str());
+    std::filesystem::create_directories(lib / L"steamapps" / L"common", ec);
+    expect(!denied((lib / L"steamapps" / L"common" / L"vegaflow_root.txt").wstring()), "real library root still allowed");
+    SandboxGuard::ReloadSteamLibraryFolders();
+    RemoveDirectoryW(lib_link.c_str());
+    std::filesystem::remove_all(lib, ec);
+
     // The \\?\ prefix of an allowed path is the same path; other device prefixes are refused.
     expect(!denied(L"\\\\?\\" + (temp / L"vegaflow_prefix.txt").wstring()), "\\\\?\\ prefix of an allowed path");
     expect(denied(L"\\\\.\\" + (temp / L"vegaflow_prefix.txt").wstring()), "\\\\.\\ device prefix");
@@ -362,7 +384,7 @@ void Test41() {
     std::filesystem::remove_all(outside, ec);
     SandboxGuard::ClearViolations();
     RecordResult(failures.empty(), "Test 41: SandboxGuard refuses each old whitelist flaw",
-                 failures.empty() ? "flaws 1-5, junction, \\\\?\\ and UNC checked" : "failed:" + failures);
+                 failures.empty() ? "flaws 1-5, junctions (inside and as a root), \\\\?\\ and UNC checked" : "failed:" + failures);
 }
 
 namespace {

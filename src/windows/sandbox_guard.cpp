@@ -235,8 +235,24 @@ struct Root {
     bool writable;
 };
 
+// True if the folder or one above it is a junction or a symbolic link (not, e.g., a OneDrive placeholder). Such a
+// folder can be pointed anywhere by the user who owns it, so it must not become an allowed folder.
+bool UnderNameSurrogate(const std::wstring& path) {
+    wchar_t full[MAX_PATH * 4] = {0};
+    const DWORD ret = GetFullPathNameW(path.c_str(), _countof(full), full, nullptr);
+    if (ret == 0 || ret >= _countof(full)) return true;
+    for (std::filesystem::path p = full; p.has_relative_path(); p = p.parent_path()) {
+        WIN32_FIND_DATAW data{};
+        UniqueFindHandle find(FindFirstFileW(p.c_str(), &data));
+        if (find && (data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) && IsReparseTagNameSurrogate(data.dwReserved0)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void AddRoot(std::vector<Root>& roots, const std::wstring& path, bool writable) {
-    if (path.empty()) return;
+    if (path.empty() || UnderNameSurrogate(path)) return;
     std::wstring canonical = SandboxGuard::CanonicalizePath(path);
     if (!canonical.empty()) roots.push_back({ToLowerW(canonical), writable});
 }
