@@ -5,6 +5,9 @@
 
 namespace vegaflow {
 
+// Folder of the running executable, also for paths longer than MAX_PATH. Empty if Windows does not give it.
+std::wstring ExecutableDirectory();
+
 // <folder of the running executable>\config\config.json, whatever the working folder is. Empty if Windows does not
 // give the executable's path.
 std::wstring ConfigFilePath();

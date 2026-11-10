@@ -29,7 +29,7 @@
 - `ACCESS_SYSTEM_SECURITY` no cuenta como permiso de escritura (solo cambia la auditoría y exige un privilegio de administrador).
 - Si la carpeta del ejecutable hereda permisos de escritura a otras cuentas, la carpeta `config` o el archivo creados después no pasan la comprobación y se usan los valores de fábrica (falla en cerrado).
 - Las carpetas por encima de la del ejecutable no se comprueban (quien pudiera cambiarlas también podría cambiar el ejecutable).
-- Con el ejecutable en una ruta de más de 260 caracteres, la raíz de SandboxGuard se corta (`GetVegaFlowExecutableDirectory` usa `MAX_PATH`) y `config.json` no se puede leer ni guardar; unificar con `ConfigFilePath` (decisión del usuario pendiente).
+- Con el ejecutable en una ruta de más de 260 caracteres, SandboxGuard y `config.json` ya usan la misma `ExecutableDirectory()`, que admite rutas largas (2026-11-10); sin `LongPathsEnabled` Windows no arranca el `.exe` desde una ruta así, así que no está probado en el laptop.
 - Anterior a la fase: si otra cuenta crea `C:\ProgramData\VegaFlow` antes de instalar y le añade un permiso explícito, `setup_tasks.ps1` no lo quita; podría cambiar el ejecutable.
 - Fase 5: la lista de procesos de Windows existe en Rust (`config_rules.rs`) y en C++ (`kExcludedProcesses` de `process_detector.cpp`); unificarlas. Además, el paso 3 de `DetectActiveGame` construye un juego aunque `InspectProcess` lo excluya.
 - El aviso de `config.json` ignorado o con valores rechazados solo sale por stderr en el modo daemon (oculto cuando lo lanza `ab_profile.ps1`). Redirigirlo a un log necesita comprobar en el escritorio que el daemon sigue sin ventana.

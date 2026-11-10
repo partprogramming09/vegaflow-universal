@@ -1,4 +1,5 @@
 #include "windows/sandbox_guard.hpp"
+#include "windows/config_location.hpp"
 #include "bridge/rust_bridge.h"
 #include "windows/steam_paths.hpp"
 #include "windows/unique_handle.hpp"
@@ -71,15 +72,6 @@ std::wstring GetSystemDirectoryPath() {
         return std::wstring(buf, len);
     }
     return L"C:\\Windows\\System32";
-}
-
-std::wstring GetVegaFlowExecutableDirectory() {
-    wchar_t buf[MAX_PATH] = {0};
-    DWORD len = GetModuleFileNameW(nullptr, buf, MAX_PATH);
-    if (len > 0 && len < MAX_PATH) {
-        return std::filesystem::path(buf).parent_path().wstring();
-    }
-    return L"";
 }
 
 uint64_t GetCurrentTimeMs() {
@@ -277,7 +269,7 @@ const std::vector<std::wstring>& SteamLibrariesLocked() {
 // folder of each Steam library, and the folders registered at run time.
 std::vector<Root> CollectAllowedRoots() {
     std::vector<Root> roots;
-    AddRoot(roots, GetVegaFlowExecutableDirectory(), true);
+    AddRoot(roots, ExecutableDirectory(), true);
     AddRoot(roots, GetEnvVarW(L"LOCALAPPDATA"), true);
     std::error_code ec;
     const std::filesystem::path temp = std::filesystem::temp_directory_path(ec);

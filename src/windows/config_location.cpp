@@ -46,18 +46,20 @@ bool IsDenyType(BYTE type) {
 
 } // namespace
 
-std::wstring ConfigFilePath() {
+std::wstring ExecutableDirectory() {
     std::vector<wchar_t> buf(MAX_PATH);
     for (;;) {
         const DWORD len = GetModuleFileNameW(nullptr, buf.data(), static_cast<DWORD>(buf.size()));
         if (len == 0) return L"";
-        if (len < buf.size()) {
-            const std::filesystem::path exe(std::wstring(buf.data(), len));
-            return (exe.parent_path() / L"config" / L"config.json").wstring();
-        }
+        if (len < buf.size()) return std::filesystem::path(std::wstring(buf.data(), len)).parent_path().wstring();
         if (buf.size() >= 32768) return L"";
         buf.resize(buf.size() * 2);
     }
+}
+
+std::wstring ConfigFilePath() {
+    const std::wstring dir = ExecutableDirectory();
+    return dir.empty() ? L"" : (std::filesystem::path(dir) / L"config" / L"config.json").wstring();
 }
 
 bool OnlyAdminsCanWrite(const std::wstring& path) {
