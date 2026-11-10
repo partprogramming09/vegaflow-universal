@@ -38,6 +38,7 @@
 #include "../test_support.hpp"
 #include "windows/safe_file_system.hpp"
 #include "windows/steam_paths.hpp"
+#include "session/text_convert.hpp"
 
 namespace vftest {
 
@@ -332,8 +333,8 @@ void Test39() {
     std::filesystem::remove_all(steam, ec);
     std::filesystem::create_directories(steam / L"steamapps", ec);
     const std::wstring install = steam.wstring();
-    std::string install_utf8;
-    for (wchar_t c : install) install_utf8 += (c == L'\\') ? std::string("\\\\") : std::string(1, static_cast<char>(c));
+    std::string install_utf8; // the vdf escapes each backslash
+    for (char c : vegaflow::app::WideToUtf8(install)) install_utf8 += (c == '\\') ? std::string("\\\\") : std::string(1, c);
     {
         std::ofstream vdf(steam / L"steamapps" / L"libraryfolders.vdf", std::ios::binary);
         vdf << "\"libraryfolders\"\n{\n\t\"0\"\n\t{\n\t\t\"path\"\t\t\"" << install_utf8 << "\"\n\t}\n"
@@ -350,7 +351,7 @@ void Test39() {
     std::filesystem::remove_all(steam, ec);
 
     std::string got;
-    for (const auto& f : folders) got += " [" + std::string(f.begin(), f.end()) + "]";
+    for (const auto& f : folders) got += " [" + vegaflow::app::WideToUtf8(f) + "]";
     RecordResult(listed_ok && empty_ok && no_file_ok, "Test 39: Steam library folders come from libraryfolders.vdf",
                  "found" + got + (empty_ok ? "" : ", empty install not empty") + (no_file_ok ? "" : ", missing file not just the install"));
 }

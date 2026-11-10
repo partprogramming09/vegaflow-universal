@@ -179,7 +179,6 @@ bool DxvkManager::DeployDxvk(
     }
 
     std::error_code ec;
-
     std::wstring assetsRoot = GetDxvkAssetsPath();
     if (assetsRoot.empty()) {
         if (out_message) {

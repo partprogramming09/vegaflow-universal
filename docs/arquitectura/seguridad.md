@@ -72,7 +72,7 @@ Implementado en [`src/windows/sandbox_guard.hpp`](../../src/windows/sandbox_guar
    - Solo se permite la lectura segura de metadatos (`SandboxAction::Read`).
 
 4. **Wrappers Seguros de I/O** (`SafeWriteFile`, `SafeCopyFile`, `SafeRemoveFile`, `SafeReadFile`):
-   - Primero validan la ruta. Después abren el archivo con `CreateFileW` y **vuelven a validar la ruta real del archivo abierto** (`GetFinalPathNameByHandleW`). Solo entonces cambian el contenido, por el mismo handle. Así, una carpeta cambiada por un junction entre la comprobación y la apertura se detecta (prueba 42).
+   - Primero validan la ruta. Después abren el archivo con `CreateFileW` y **vuelven a validar la ruta real del archivo abierto** (`GetFinalPathNameByHandleW`). Si esa ruta real coincide con la ya validada no se repite la decisión; si difiere, se decide de nuevo con ella. Solo entonces cambian el contenido, por el mismo handle. Así, una carpeta cambiada por un junction entre la comprobación y la apertura se detecta (prueba 42).
    - Escribir no vacía el archivo al abrirlo (`OPEN_ALWAYS`, no `CREATE_ALWAYS`): si la segunda comprobación falla, el contenido queda intacto, y un archivo recién creado se borra por su handle.
    - Copiar lee el origen por su handle (comprobado) y escribe el destino igual que `SafeWriteFile`; sin `overwrite`, un destino existente se rechaza (`CREATE_NEW`).
    - Borrar abre con `FILE_FLAG_OPEN_REPARSE_POINT` (un enlace se borra a sí mismo, nunca su destino) y borra por handle.

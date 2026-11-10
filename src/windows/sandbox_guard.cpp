@@ -14,9 +14,8 @@
 #include <algorithm>
 #include <chrono>
 #include <cwctype>
-#include <fstream>
 #include <mutex>
-#include <sstream>
+#include <optional>
 
 namespace vegaflow {
 
@@ -25,14 +24,18 @@ namespace {
 std::mutex g_sandbox_mutex;
 std::vector<std::wstring> g_custom_allowed_paths;
 std::vector<std::wstring> g_read_only_paths;
-std::vector<std::wstring> g_steam_libraries;
-bool g_steam_libraries_loaded = false;
+std::optional<std::vector<std::wstring>> g_steam_libraries; // empty: read from Steam on first use
 void (*g_before_open_hook)() = nullptr;
+std::vector<SandboxViolationRecord> g_violations;
 
 void BeforeOpen() {
     if (g_before_open_hook) g_before_open_hook();
 }
-std::vector<SandboxViolationRecord> g_violations;
+
+const uint16_t* U16(const std::wstring& s) {
+    static_assert(sizeof(wchar_t) == sizeof(uint16_t), "the Rust core reads Windows wchar_t as UTF-16");
+    return reinterpret_cast<const uint16_t*>(s.data());
+}
 
 std::wstring ToLowerW(std::wstring_view sv) {
     std::wstring result;
@@ -86,10 +89,6 @@ uint64_t GetCurrentTimeMs() {
         ).count()
     );
 }
-
-} // namespace
-
-namespace {
 
 constexpr wchar_t kLongPrefix[] = L"\\\\?\\";
 
@@ -202,21 +201,25 @@ const char* BlacklistReason(uint32_t verdict) {
     }
 }
 
+struct SystemDirs {
+    std::wstring win, sys;
+};
+
+// The Windows and System folders, lowercased; they do not change while the process runs.
+const SystemDirs& LoweredSystemDirs() {
+    static const SystemDirs dirs{ToLowerW(GetWindowsDirectoryPath()), ToLowerW(GetSystemDirectoryPath())};
+    return dirs;
+}
+
 } // namespace
 
 // The rules live in the Rust core (path_policy.rs). Case folding stays here with towlower, as before, so the
 // verdict cannot differ from the old C++ code for non-ASCII paths.
 bool SandboxGuard::IsBlacklisted(const std::wstring& canonical_path, std::string* out_reason) {
-    static_assert(sizeof(wchar_t) == sizeof(uint16_t), "the Rust core reads Windows wchar_t as UTF-16");
-
     const std::wstring lower = ToLowerW(canonical_path);
-    const std::wstring win_dir = ToLowerW(GetWindowsDirectoryPath());
-    const std::wstring sys_dir = ToLowerW(GetSystemDirectoryPath());
-
-    const uint32_t verdict = vf_rust_classify_blacklisted_path(
-        reinterpret_cast<const uint16_t*>(lower.data()), lower.size(),
-        reinterpret_cast<const uint16_t*>(win_dir.data()), win_dir.size(),
-        reinterpret_cast<const uint16_t*>(sys_dir.data()), sys_dir.size());
+    const SystemDirs& dirs = LoweredSystemDirs();
+    const uint32_t verdict = vf_rust_classify_blacklisted_path(U16(lower), lower.size(), U16(dirs.win), dirs.win.size(),
+                                                               U16(dirs.sys), dirs.sys.size());
 
     if (verdict == VF_PATH_ALLOWED) {
         return false;
@@ -239,11 +242,8 @@ void AddRoot(std::vector<Root>& roots, const std::wstring& path, bool writable) 
 }
 
 const std::vector<std::wstring>& SteamLibrariesLocked() {
-    if (!g_steam_libraries_loaded) {
-        g_steam_libraries = ReadSteamLibraryFolders(FindSteamInstallPath());
-        g_steam_libraries_loaded = true;
-    }
-    return g_steam_libraries;
+    if (!g_steam_libraries) g_steam_libraries = ReadSteamLibraryFolders(FindSteamInstallPath());
+    return *g_steam_libraries;
 }
 
 // The folders VegaFlow may touch: its own folder, LOCALAPPDATA, temp, My Games and Saved Games, the steamapps\common
@@ -275,16 +275,12 @@ std::vector<Root> CollectAllowedRoots() {
 
 uint32_t Decide(const std::wstring& canonical, bool write, bool anticheat, const std::vector<Root>& roots) {
     const std::wstring lower = ToLowerW(canonical);
-    const std::wstring win_dir = ToLowerW(GetWindowsDirectoryPath());
-    const std::wstring sys_dir = ToLowerW(GetSystemDirectoryPath());
+    const SystemDirs& dirs = LoweredSystemDirs();
     std::vector<VfAllowedRoot> raw;
     raw.reserve(roots.size());
-    for (const auto& r : roots) raw.push_back({reinterpret_cast<const uint16_t*>(r.lower.data()), r.lower.size(), r.writable});
-    return vf_rust_decide_file_access(
-        reinterpret_cast<const uint16_t*>(lower.data()), lower.size(),
-        reinterpret_cast<const uint16_t*>(win_dir.data()), win_dir.size(),
-        reinterpret_cast<const uint16_t*>(sys_dir.data()), sys_dir.size(),
-        write, anticheat, raw.data(), raw.size());
+    for (const auto& r : roots) raw.push_back({U16(r.lower), r.lower.size(), r.writable});
+    return vf_rust_decide_file_access(U16(lower), lower.size(), U16(dirs.win), dirs.win.size(), U16(dirs.sys),
+                                      dirs.sys.size(), write, anticheat, raw.data(), raw.size());
 }
 
 } // namespace
@@ -361,19 +357,8 @@ bool SandboxGuard::CanModifyGamePath(const std::filesystem::path& targetDir) {
         dir = dir.parent_path();
     }
 
-    std::wstring pathStr = dir.wstring();
-
-    // 1. Immediate Anti-Cheat detection by path signature or files in the directory
-    if (PathContainsAntiCheatSignature(pathStr) || DirectoryContainsAntiCheat(dir)) {
-        RecordViolation(pathStr, SandboxAction::Write, SandboxDenialReason::AntiCheatLocked,
-            "Bloqueo Anti-Cheat: Directorio bajo cuarentena de seguridad (anti-cheat detectado)");
-        return false;
-    }
-
-    // 2. Sandbox boundary validation
-    std::filesystem::path probe = dir / L"dxvk.conf";
-    auto val = ValidatePath(probe.wstring(), SandboxAction::Write, false);
-    return val.allowed;
+    // A write probe: ValidatePath also scans this folder and the ones above it for anti-cheat files.
+    return ValidatePath((dir / L"dxvk.conf").wstring(), SandboxAction::Write, false).allowed;
 }
 
 SandboxValidationResult SandboxGuard::ValidatePath(
@@ -497,6 +482,15 @@ bool CreateParentDirectories(const std::filesystem::path& p) {
 
 } // namespace
 
+// The real path of an opened file is checked again only when it differs from the path validated before opening;
+// that difference is what a folder swapped for a junction in between produces.
+bool SandboxGuard::OpenedFileAllowed(HANDLE h, const std::wstring& validated, SandboxAction action,
+                                     bool is_anticheat_protected) {
+    const std::wstring real = HandlePath(h);
+    if (real.empty()) return false;
+    return _wcsicmp(real.c_str(), validated.c_str()) == 0 || ValidatePath(real, action, is_anticheat_protected).allowed;
+}
+
 // The checks run on the path; the file is then opened and its real path checked again, so a folder swapped for a
 // junction in between is caught. Content is only changed after that second check (no truncation on open).
 bool SandboxGuard::WriteVerified(const std::wstring& canonical, const std::string& content, SandboxAction action,
@@ -513,8 +507,7 @@ bool SandboxGuard::WriteVerified(const std::wstring& canonical, const std::strin
         RecordViolation(canonical, action, SandboxDenialReason::IoError, "No se pudo abrir el archivo para escritura");
         return false;
     }
-    const std::wstring real = HandlePath(h.get());
-    if (real.empty() || !ValidatePath(real, action, is_anticheat_protected).allowed) {
+    if (!OpenedFileAllowed(h.get(), canonical, action, is_anticheat_protected)) {
         if (created) DeleteByHandle(h.get());
         return false;
     }
@@ -528,8 +521,7 @@ bool SandboxGuard::WriteVerified(const std::wstring& canonical, const std::strin
 bool SandboxGuard::ReadVerified(const std::wstring& canonical, std::string& out_content) {
     UniqueHandle h(CreateFileW(canonical.c_str(), GENERIC_READ, kShareAll, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr));
     if (!h || IsDirectoryHandle(h.get())) return false;
-    const std::wstring real = HandlePath(h.get());
-    if (real.empty() || !ValidatePath(real, SandboxAction::Read, false).allowed) return false;
+    if (!OpenedFileAllowed(h.get(), canonical, SandboxAction::Read, false)) return false;
     return ReadAll(h.get(), out_content);
 }
 
@@ -591,10 +583,7 @@ bool SandboxGuard::SafeRemoveFile(
         return false;
     }
     if (IsDirectoryHandle(h.get())) return false;
-    const std::wstring real = HandlePath(h.get());
-    if (real.empty() || !ValidatePath(real, SandboxAction::Delete, is_anticheat_protected).allowed) {
-        return false;
-    }
+    if (!OpenedFileAllowed(h.get(), val.canonical_path, SandboxAction::Delete, is_anticheat_protected)) return false;
     if (!DeleteByHandle(h.get())) {
         RecordViolation(val.canonical_path, SandboxAction::Delete, SandboxDenialReason::IoError, "No se pudo eliminar el archivo");
         return false;
@@ -611,18 +600,24 @@ bool SandboxGuard::SafeReadFile(const std::wstring& path, std::string& out_conte
     return ReadVerified(val.canonical_path, out_content);
 }
 
-void SandboxGuard::AddAllowedPath(const std::wstring& path) {
+namespace {
+
+void AddUniqueCanonical(std::vector<std::wstring>& list, const std::wstring& path) {
     if (path.empty()) return;
-    std::wstring canonical = CanonicalizePath(path);
+    std::wstring canonical = SandboxGuard::CanonicalizePath(path);
     if (canonical.empty()) return;
 
     std::lock_guard<std::mutex> lock(g_sandbox_mutex);
-    for (const auto& existing : g_custom_allowed_paths) {
-        if (_wcsicmp(existing.c_str(), canonical.c_str()) == 0) {
-            return;
-        }
+    for (const auto& existing : list) {
+        if (_wcsicmp(existing.c_str(), canonical.c_str()) == 0) return;
     }
-    g_custom_allowed_paths.push_back(canonical);
+    list.push_back(std::move(canonical));
+}
+
+} // namespace
+
+void SandboxGuard::AddAllowedPath(const std::wstring& path) {
+    AddUniqueCanonical(g_custom_allowed_paths, path);
 }
 
 void SandboxGuard::RemoveAllowedPath(const std::wstring& path) {
@@ -643,18 +638,12 @@ void SandboxGuard::RemoveAllowedPath(const std::wstring& path) {
 }
 
 void SandboxGuard::AddReadOnlyPath(const std::wstring& path) {
-    if (path.empty()) return;
-    std::lock_guard<std::mutex> lock(g_sandbox_mutex);
-    for (const auto& existing : g_read_only_paths) {
-        if (_wcsicmp(existing.c_str(), path.c_str()) == 0) return;
-    }
-    g_read_only_paths.push_back(path);
+    AddUniqueCanonical(g_read_only_paths, path);
 }
 
 void SandboxGuard::SetSteamLibraryFolders(std::vector<std::wstring> folders) {
     std::lock_guard<std::mutex> lock(g_sandbox_mutex);
     g_steam_libraries = std::move(folders);
-    g_steam_libraries_loaded = true;
 }
 
 void SandboxGuard::SetBeforeOpenHookForTesting(void (*hook)()) {
@@ -663,7 +652,7 @@ void SandboxGuard::SetBeforeOpenHookForTesting(void (*hook)()) {
 
 void SandboxGuard::ReloadSteamLibraryFolders() {
     std::lock_guard<std::mutex> lock(g_sandbox_mutex);
-    g_steam_libraries_loaded = false;
+    g_steam_libraries.reset();
 }
 
 void SandboxGuard::ClearCustomAllowedPaths() {

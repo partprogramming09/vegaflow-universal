@@ -57,23 +57,6 @@ std::string ReadFileToString(const std::filesystem::path& path) {
     return ss.str();
 }
 
-bool QueryRegString(HKEY hRoot, LPCWSTR subKey, LPCWSTR valueName, std::wstring& outValue) {
-    HKEY hKey = nullptr;
-    if (RegOpenKeyExW(hRoot, subKey, 0, KEY_READ, &hKey) != ERROR_SUCCESS) {
-        return false;
-    }
-    wchar_t buf[1024]{};
-    DWORD type = 0;
-    DWORD size = sizeof(buf);
-    LONG res = RegQueryValueExW(hKey, valueName, nullptr, &type, reinterpret_cast<LPBYTE>(buf), &size);
-    RegCloseKey(hKey);
-    if (res == ERROR_SUCCESS && (type == REG_SZ || type == REG_EXPAND_SZ)) {
-        outValue = buf;
-        return true;
-    }
-    return false;
-}
-
 std::wstring ResolveUnrealEngineIniPath(
     const SteamGameEntry& game,
     const std::wstring& custom_config_dir_override) {

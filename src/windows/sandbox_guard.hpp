@@ -101,6 +101,8 @@ private:
     static bool WriteVerified(const std::wstring& canonical, const std::string& content, SandboxAction action,
                               bool is_anticheat_protected, bool overwrite);
     static bool ReadVerified(const std::wstring& canonical, std::string& out_content);
+    static bool OpenedFileAllowed(HANDLE h, const std::wstring& validated, SandboxAction action,
+                                  bool is_anticheat_protected);
     static void RecordViolation(const std::wstring& path, SandboxAction action, SandboxDenialReason reason, const std::string& message);
 };
 

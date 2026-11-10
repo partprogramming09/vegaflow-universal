@@ -226,7 +226,7 @@ EngineOptimizationReport SteamEngineOptimizer::ApplyEngineUmaPreset(
 
         std::vector<std::string> lines;
         std::string existing;
-        if (std::filesystem::exists(pBoot, ec) && fs_.Read(pBoot.wstring(), existing)) {
+        if (fs_.Read(pBoot.wstring(), existing)) {
             std::istringstream in(existing);
             std::string line;
             while (std::getline(in, line)) {

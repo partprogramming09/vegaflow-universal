@@ -1,6 +1,6 @@
 #include "windows/steam_paths.hpp"
 #include "bridge/rust_bridge.h"
-#include "windows/unique_handle.hpp"
+#include "windows/registry.hpp"
 
 #include <algorithm>
 #include <filesystem>
@@ -10,18 +10,6 @@
 namespace vegaflow {
 
 namespace {
-
-bool QueryRegString(HKEY root, const wchar_t* sub_key, const wchar_t* value_name, std::wstring& out) {
-    UniqueRegKey key;
-    if (RegOpenKeyExW(root, sub_key, 0, KEY_READ, key.put()) != ERROR_SUCCESS) return false;
-    wchar_t buf[1024]{};
-    DWORD type = 0;
-    DWORD size = sizeof(buf) - sizeof(wchar_t);
-    if (RegQueryValueExW(key.get(), value_name, nullptr, &type, reinterpret_cast<LPBYTE>(buf), &size) != ERROR_SUCCESS) return false;
-    if (type != REG_SZ && type != REG_EXPAND_SZ) return false;
-    out = buf;
-    return true;
-}
 
 bool IsDirectory(const std::wstring& path) {
     std::error_code ec;

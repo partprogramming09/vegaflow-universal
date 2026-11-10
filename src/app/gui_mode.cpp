@@ -449,6 +449,7 @@ int RunGuiMode(
 
     callbacks.on_RescanSteamLibrary = [&]() -> std::string {
         cached_steam_games = SteamEngineOptimizer::ScanSteamLibrary();
+        SandboxGuard::ReloadSteamLibraryFolders(); // a library added in Steam becomes writable without a restart
         SyncSteamGamesToCustomExes(cached_steam_games, config);
         std::string msg = "Biblioteca Steam re-escaneada: " + std::to_string(cached_steam_games.size()) + " juegos detectados";
         last_gui_status = msg;

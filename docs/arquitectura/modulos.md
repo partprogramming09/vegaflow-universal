@@ -193,6 +193,7 @@ direct/
 │   │   ├── sandbox_guard.*       # E/S de archivos comprobada: normaliza la ruta, pide la decisión a Rust y vuelve a comprobar el archivo abierto
 │   │   ├── safe_file_system.*    # Puerto de archivos real: pasa todo por SandboxGuard
 │   │   ├── steam_paths.*         # Carpeta de instalación de Steam y sus bibliotecas (lee libraryfolders.vdf con Rust)
+│   │   ├── registry.*            # Lectura de un valor de texto del registro
 │   │   └── privileges.*          # Gestión de privilegios NT y elevación UAC
 │   └── bridge/
 │       └── rust_bridge.h         # Definición de tipos y firmas FFI C/Rust (Zero-Allocation)

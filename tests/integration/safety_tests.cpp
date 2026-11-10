@@ -292,6 +292,17 @@ void Test40() {
                  std::to_string(cases.size()) + " vectors" + (mismatches.empty() ? ", 0 mismatches" : "; mismatches:" + mismatches));
 }
 
+namespace {
+
+// A directory junction made with mklink, which needs no admin rights. True if it exists afterwards.
+bool MakeJunction(const std::filesystem::path& link, const std::filesystem::path& target) {
+    const std::wstring cmd = L"cmd /c mklink /J \"" + link.wstring() + L"\" \"" + target.wstring() + L"\" >nul 2>&1";
+    std::error_code ec;
+    return _wsystem(cmd.c_str()) == 0 && std::filesystem::exists(link, ec);
+}
+
+} // namespace
+
 void Test41() {
     // -------------------------------------------------------------------------
     // Test 41: each whitelist flaw of the old SandboxGuard is refused (docs/plan/maestro/03-fase-1.md)
@@ -322,8 +333,7 @@ void Test41() {
     // Flaw 2: a junction inside an allowed folder that leads outside.
     const std::filesystem::path junction = temp / L"vegaflow_test_junction";
     RemoveDirectoryW(junction.c_str());
-    const std::wstring mklink = L"cmd /c mklink /J \"" + junction.wstring() + L"\" \"" + outside.wstring() + L"\" >nul 2>&1";
-    const bool junction_made = _wsystem(mklink.c_str()) == 0 && std::filesystem::exists(junction, ec);
+    const bool junction_made = MakeJunction(junction, outside);
     expect(junction_made, "2 junction created");
     expect(denied((junction / L"vegaflow_flaw2.txt").wstring()), "2 junction to a folder outside");
     expect(!SandboxGuard::SafeWriteFile((junction / L"vegaflow_flaw2.txt").wstring(), "x") &&
@@ -363,8 +373,7 @@ std::filesystem::path g_race_target;  // where the junction leads: a folder no r
 void SwapRaceDirForJunction() {
     std::error_code ec;
     std::filesystem::remove_all(g_race_dir, ec);
-    const std::wstring cmd = L"cmd /c mklink /J \"" + g_race_dir.wstring() + L"\" \"" + g_race_target.wstring() + L"\" >nul 2>&1";
-    _wsystem(cmd.c_str());
+    MakeJunction(g_race_dir, g_race_target);
 }
 
 void ResetRaceDir() {
