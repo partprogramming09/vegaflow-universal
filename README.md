@@ -47,14 +47,17 @@ Guías: [compilar y probar](docs/guias/compilar-y-probar.md) y [uso del daemon](
 ```
 src/                código del daemon en C++20, agrupado por función (cada .hpp junto a su .cpp)
   app/                arranque, línea de comandos y modos (daemon, ventana, monitor)
-  detect/             hardware, procesos y SystemInfo
+  session/            casos de uso: un ciclo del daemon, informes, SystemInfo, config.json
+  model/              tipos compartidos (hardware, juego), sin lógica
+  ports/              interfaces que las pruebas sustituyen por versiones falsas (archivos, reloj)
+  detect/             hardware y procesos
   optimize/           las palancas: gráficos, memoria, CPU, DXVK, motores de Steam
   safety/             SandboxGuard y telemetría de cuadros
   ui/                 ventana Win32/GDI
-  windows/            llamadas nativas de Windows y privilegios
+  windows/            llamadas nativas de Windows, privilegios, cierre automático de handles y el sistema de archivos real
   bridge/             contrato entre C++ y Rust
 rust/vegaflow-core/ reglas puras en Rust (presión UMA, topología, confinamiento, Tiers, política de rutas, firmas)
-tests/              la suite de 36 pruebas de C++ (un archivo por módulo en tests/integration/) y los casos compartidos con Rust (tests/vectors/)
+tests/              la suite de 36 pruebas de C++ (tests/integration/ toca Windows de verdad, tests/unit/ usa puertos falsos) y los casos compartidos con Rust (tests/vectors/)
 scripts/            compilar, medir y operar el laptop de pruebas (ver scripts/README.md)
 assets/dxvk/        aquí se colocan las DLL de DXVK que el daemon instala en los juegos (no se incluyen; ver su README)
 config/             valores por defecto del daemon

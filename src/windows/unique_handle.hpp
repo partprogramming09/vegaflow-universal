@@ -3,7 +3,8 @@
 // returns and error paths. Move-only. (WIL does this too, but it does not support MinGW.)
 //
 //   UniqueHandle  CloseHandle  (processes, threads, events, snapshots, files). NULL and INVALID_HANDLE_VALUE both
-//                              count as "no handle": APIs return one or the other on failure.
+//                              count as "no handle": APIs return one or the other on failure. Test with
+//                              operator bool, not get(): a value written through put() is kept as the API left it.
 //   UniqueRegKey  RegCloseKey  (keys from RegOpenKeyExW / RegCreateKeyExW). Never wrap HKEY_LOCAL_MACHINE and the
 //                              other predefined roots.
 //   UniqueFindHandle FindClose (FindFirstFileW).

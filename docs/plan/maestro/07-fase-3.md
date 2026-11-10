@@ -124,6 +124,8 @@ Las filas de esta tabla se comprobaron contra Microsoft Learn el 2026-11-09 (fue
 - **El Tier y la conexión son datos distintos:** el Tier habla de cuánta memoria compartida hay; la conexión, de dónde está la GPU. No se crea un "Tier 5 eGPU" (como proponía el plan antiguo), porque mezclaría las dos cosas.
 - **Rust decide, porque es una decisión pura** y hoy está repartida entre los dos lenguajes, con reglas repetidas. Además, la parte que adivina por el nombre nunca se ha probado: los ejemplos actuales dan la arquitectura ya resuelta.
 
+**Heredado de R2:** el daemon y la GUI calculan la política una sola vez al arrancar. Una eGPU conectada en caliente no cambia la política hasta reiniciar el daemon; esta fase debe decidir cuándo se vuelve a leer el perfil (por ejemplo, al detectar un cambio de adaptador).
+
 **Terminado cuando:**
 - hay una tabla con al menos los equipos de arriba, más el Ryzen 5 4600H, un portátil iGPU+dGPU y una eGPU, todos simulados, y todos dan el Tier y la conexión correctos;
 - con GPU dedicada o externa no se escriben recortes visuales en el `Engine.ini`;

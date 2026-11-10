@@ -235,7 +235,7 @@ struct ApuOptimizationPolicy {
 
 #### 4.2. `DxvkManager` (Especialización DirectX 11 -> Vulkan)
 - En [`src/optimize/dxvk_manager.cpp`](../../src/optimize/dxvk_manager.cpp):
-  - En `DeployDxvk()` y `ConfigureApuProfile()`: Consultar `HardwareProfiler::BuildOptimizationPolicy(HardwareProfiler::DetectHardware())`.
+  - `DeployDxvk()` y `ConfigureApuProfile()` reciben la política ya calculada (`const ApuOptimizationPolicy&`; desde la fase R2 no detectan el hardware en cada llamada: el daemon la construye una vez al arrancar).
   - Escribir `dxvk.numCompilerThreads`, `dxgi.maxDeviceMemory` y `dxgi.maxSharedMemory` usando los valores de la política (`policy.dxvk_compiler_threads`, `policy.safe_vram_pool_mb`, `policy.safe_shared_pool_mb`).
   - En `ValidateDxvkApuProfile()`: Aceptar como válido cualquier `compilerThreads` entre `1` y `16` que coincida con la política del sistema (en el Ryzen 5 4600H seguirá siendo `6`, pasando el Test 24 sin cambios).
 

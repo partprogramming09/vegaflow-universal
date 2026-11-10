@@ -101,6 +101,8 @@ Hay un caso que se comprueba en el laptop antes de decidir nada: si las rutas co
 - casos permitidos que deben seguir funcionando (juego de Steam, LOCALAPPDATA, temp);
 - un enlace creado a mano en el laptop.
 
+**Heredado de R2:** `DxvkManager` todavía usa `std::filesystem` sin pasar por el puerto: lee `dxvk.conf` con `ifstream`, llama a `exists` y `create_directories`, y `RemoveApuProfile` borra con `std::filesystem::remove` si falla el puerto. `windows/safe_file_system` envuelve a `SandboxGuard` (excepción de migración `windows/` → `safety/` en `check_layers.sh`). Faltan pruebas: que `run_cycle` pase la política estática y no la viva, y que el reloj cubra también `memory_manager.cpp` en la purga real de `EvaluateAndOptimize`.
+
 **Terminado cuando:**
 - los 6 fallos tienen su prueba y pasan;
 - el Test 17 **se cambia a propósito**: hoy da por permitida una biblioteca de Steam inventada (`D:\SteamLibrary\...`, `tests/test_main.cpp:743`), que es justo el fallo nº 3. Pasa a usar una biblioteca listada en un `libraryfolders.vdf` de prueba. El Test 33 y los que escriben a través de `SandboxGuard` (13, 16, 22 y 24) siguen pasando;

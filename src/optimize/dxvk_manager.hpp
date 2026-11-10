@@ -17,8 +17,9 @@
 
 namespace vegaflow {
 
-// Installs and removes DXVK in a game folder. Every file change goes through the FileSystem port it is given
-// (the real one is windows/SafeFileSystem, i.e. SandboxGuard).
+// Installs and removes DXVK in a game folder. Writes, copies and removals go through the FileSystem port it is given
+// (the real one is windows/SafeFileSystem, i.e. SandboxGuard). Not yet: reading dxvk.conf (ifstream), exists/
+// create_directories, and the fallback std::filesystem::remove in RemoveApuProfile; they move to the port in phase 1.
 class DxvkManager {
 public:
     explicit DxvkManager(FileSystem& fs) : fs_(fs) {}

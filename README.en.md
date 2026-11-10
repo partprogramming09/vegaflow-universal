@@ -49,14 +49,17 @@ Guides: [build and test](docs/guias/compilar-y-probar.md) and [using the daemon]
 ```
 src/                C++20 daemon code, grouped by function (each .hpp next to its .cpp)
   app/                startup, command line and modes (daemon, window, monitor)
-  detect/             hardware, processes and SystemInfo
+  session/            use cases: one daemon cycle, reports, SystemInfo, config.json
+  model/              shared types (hardware, game), no logic
+  ports/              interfaces the tests replace with fakes (files, clock)
+  detect/             hardware and processes
   optimize/           the levers: graphics, memory, CPU, DXVK, Steam engines
   safety/             SandboxGuard and frame telemetry
   ui/                 Win32/GDI window
-  windows/            native Windows calls and privileges
+  windows/            native Windows calls, privileges, handle RAII and the real file system
   bridge/             contract between C++ and Rust
 rust/vegaflow-core/ pure rules in Rust (UMA pressure, topology, confinement, tiers, path policy, signatures)
-tests/              the 36 C++ tests (one file per module in tests/integration/) and the cases shared with Rust (tests/vectors/)
+tests/              the 36 C++ tests (tests/integration/ touches Windows, tests/unit/ uses fake ports) and the cases shared with Rust (tests/vectors/)
 scripts/            build, measure and operate the test laptop (see scripts/README.md)
 assets/dxvk/        where you put the DXVK DLLs the daemon installs into games (not included; see its README)
 config/             daemon defaults

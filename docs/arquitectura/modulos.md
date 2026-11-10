@@ -197,7 +197,7 @@ direct/
 │   ├── test_main.cpp             # Entrada de la suite: corre las 36 pruebas en orden y restaura el sistema al final
 │   ├── test_support.*            # Contadores, RecordResult y lector de los .tsv
 │   ├── integration/              # Pruebas que tocan Windows de verdad, un archivo por módulo
-│   ├── unit/                     # Pruebas con puertos falsos (no tocan el disco ni el registro)
+│   ├── unit/                     # Pruebas con puertos falsos (no escriben archivos de juegos ni el registro; como mucho una carpeta temporal vacía)
 │   └── vectors/                  # Casos compartidos con las pruebas de Rust
 ├── logs/
 │   └── session_reports.log       # Registro persistente de sesiones y telemetría

@@ -1,6 +1,6 @@
 # Plan maestro: arquitectura nueva, Rust, seguridad y soporte universal
 
-**Lector:** personas. Fecha: 2026-11-08. Estado: **aprobado el 2026-11-09**. Hechas: fase 0 y fase R1 (2026-11-09). Siguiente: R2.
+**Lector:** personas. Fecha: 2026-11-08. Estado: **aprobado el 2026-11-09**. Hechas: fase 0, R1 y R2 (2026-11-09). Siguiente: fase 1.
 
 Este es el único plan del proyecto. Junta tres cosas que antes iban por separado:
 - la **arquitectura nueva** y la modularización (decisión en el [ADR 0001](../../adr/0001-nucleo-que-decide-y-puertos.md));
@@ -19,7 +19,7 @@ Un archivo por fase, en el orden en que se hacen. Lo común va aparte:
 | [`arquitectura.md`](arquitectura.md) | Secciones 2 a 3c: qué pasa a Rust, arquitectura de destino, módulos y librerías |
 | ~~`00-fase-0.md`~~ | Fase 0: **hecha el 2026-11-09** (`538950b`); su pendiente de las DLL de DXVK está en [`fuera-del-plan.md`](fuera-del-plan.md) |
 | ~~`01-fase-r1.md`~~ | Fase R1: **hecha el 2026-11-09** (commits `8fb9daf` a la revisión final; el archivo se borró, la historia queda en git). Resultado en [`docs/arquitectura/modulos.md`](../../arquitectura/modulos.md) |
-| [`02-fase-r2.md`](02-fase-r2.md) | Fase R2: puertos de archivos y de reloj |
+| ~~`02-fase-r2.md`~~ | Fase R2: **hecha el 2026-11-09** (política inyectada, `ports/file_system.hpp` y `ports/clock.hpp`, `windows/unique_handle.hpp`; partir `gui_mode` pasó a la fase G). Resultado en [`docs/arquitectura/modulos.md`](../../arquitectura/modulos.md) |
 | [`03-fase-1.md`](03-fase-1.md) | Fase 1: seguridad de archivos (lista blanca de `SandboxGuard`) |
 | [`04-fase-1b.md`](04-fase-1b.md) | Fase 1b: configuración segura |
 | [`05-fase-2.md`](05-fase-2.md) | Fase 2: editor de `.ini` de juegos (Unreal y Unity) |
