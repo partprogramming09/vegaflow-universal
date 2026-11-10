@@ -17,7 +17,7 @@ El proyecto incluye el script automatizado [`scripts/build.ps1`](../../scripts/b
 # Compilar vegaflow_daemon.exe y vegaflow_tests.exe:
 powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
 
-# Compilar y ejecutar inmediatamente los 34 tests unitarios:
+# Compilar y ejecutar inmediatamente los 35 tests unitarios:
 powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1 -RunTests
 ```
 
@@ -107,9 +107,10 @@ Cualquier cambio en el repositorio debe ser validado ejecutando `build/vegaflow_
 [PASS] Test 34: rust_bridge.h structs have the same layout in C++ and Rust
 [PASS] Test 35: UniqueHandle and UniqueRegKey close what they own exactly once
 [PASS] Test 36: DxvkManager changes game files only through the FileSystem port (fake file system)
+[PASS] Test 37: the purge cooldown follows the injected clock
 
 ================================================================================
-TEST RESULTS: 34 PASSED, 0 FAILED
+TEST RESULTS: 35 PASSED, 0 FAILED
 ================================================================================
 ```
 

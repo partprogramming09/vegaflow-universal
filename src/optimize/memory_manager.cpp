@@ -71,8 +71,8 @@ bool EnablePrivilege(LPCWSTR privilegeName) {
 
 } // anonymous namespace
 
-MemoryManager::MemoryManager(const MemoryPurgeConfig& config)
-    : config_(config) {
+MemoryManager::MemoryManager(const MemoryPurgeConfig& config, Clock& clock)
+    : config_(config), clock_(clock) {
     // Acquire privileges required for Standby List queries and purges
     EnablePrivilege(SE_PROFILE_SINGLE_PROCESS);
     EnablePrivilege(SE_INCREASE_QUOTA);
@@ -191,7 +191,7 @@ MemoryActionReport MemoryManager::EvaluateAndOptimize(
     }
 
     // 2. Cooldown check
-    auto now = std::chrono::steady_clock::now();
+    auto now = clock_.Now();
     if (last_purge_time_.time_since_epoch().count() > 0) {
         auto elapsed_sec = std::chrono::duration_cast<std::chrono::seconds>(now - last_purge_time_).count();
         if (elapsed_sec < static_cast<int64_t>(config_.cooldown_seconds)) {
@@ -256,7 +256,7 @@ MemoryActionReport MemoryManager::EvaluateAndOptimize(
     }
 
     // 6. Purge Standby List via NtSetSystemInformation
-    last_purge_time_ = std::chrono::steady_clock::now();
+    last_purge_time_ = clock_.Now();
 
     static auto pfnNtSetSystemInformation = reinterpret_cast<PFN_NtSetSystemInformation>(
         reinterpret_cast<void*>(GetProcAddress(GetModuleHandleW(L"ntdll.dll"), "NtSetSystemInformation")));
@@ -332,7 +332,7 @@ ManualPurgeReport MemoryManager::ForcePurgeNow(const std::vector<uint32_t>& back
 
         if (NT_SUCCESS(status)) {
             report.standby_purge_succeeded = true;
-            last_purge_time_ = std::chrono::steady_clock::now();
+            last_purge_time_ = clock_.Now();
             report.status_message = "Standby list purged successfully";
         } else {
             report.standby_purge_succeeded = false;

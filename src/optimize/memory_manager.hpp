@@ -1,6 +1,7 @@
 #pragma once
 
 #include "model/hardware.hpp"
+#include "ports/clock.hpp"
 
 #include <chrono>
 #include <cstdint>
@@ -61,7 +62,8 @@ struct UmaGuardStatus {
 
 class MemoryManager {
 public:
-    explicit MemoryManager(const MemoryPurgeConfig& config = {});
+    // `clock` decides the purge cooldown; tests pass a fake one.
+    explicit MemoryManager(const MemoryPurgeConfig& config = {}, Clock& clock = SteadyClock::Instance());
     SystemMemoryTelemetry SampleTelemetry() const;
 
     // Evaluates hysteresis, checks that the game is not at a disk-read peak, and trims background processes + purges the Standby List
@@ -91,6 +93,7 @@ public:
 
 private:
     MemoryPurgeConfig config_;
+    Clock& clock_;
     std::chrono::steady_clock::time_point last_purge_time_{};
     mutable uint64_t last_game_read_bytes_ = 0;
     mutable std::chrono::steady_clock::time_point last_io_sample_time_{};

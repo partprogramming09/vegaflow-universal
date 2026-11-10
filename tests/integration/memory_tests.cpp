@@ -104,3 +104,44 @@ void Test23() {
 }
 
 } // namespace vftest
+
+namespace vftest {
+
+namespace {
+// A clock the test moves by hand. It starts far from zero: a zero time_point means "never" in MemoryManager.
+class ManualClock final : public vegaflow::Clock {
+public:
+    std::chrono::steady_clock::time_point now{std::chrono::hours(1000)};
+    std::chrono::steady_clock::time_point Now() const override { return now; }
+};
+} // namespace
+
+void Test37() {
+    // -------------------------------------------------------------------------
+    // Test 37: the purge cooldown follows the injected clock (no real waiting)
+    // -------------------------------------------------------------------------
+    vegaflow::MemoryPurgeConfig cfg{};
+    cfg.min_free_ram_mb = 1u << 30; // always "low free RAM"
+    cfg.min_standby_mb = 0;         // any standby is enough
+    cfg.cooldown_seconds = 90;
+    ManualClock clock;
+    vegaflow::MemoryManager mem(cfg, clock);
+
+    // A real standby purge, like Test 23, starts the cooldown at the clock's current time.
+    const auto purge = mem.ForcePurgeNow({}, false);
+
+    clock.now += std::chrono::seconds(10);
+    const auto during = mem.EvaluateAndOptimize(0, {}, true /* dry_run */);
+    clock.now += std::chrono::seconds(81); // 91 s after the purge
+    const auto after = mem.EvaluateAndOptimize(0, {}, true /* dry_run */);
+
+    const bool purged = purge.standby_purge_succeeded;
+    const bool blocked = during.skipped_due_to_cooldown && during.reason.find("80s remaining") != std::string::npos;
+    const bool released = !after.skipped_due_to_cooldown;
+    RecordResult(purged && blocked && released, "Test 37: the purge cooldown follows the injected clock",
+                 "real purge: " + std::string(purged ? "PASS" : "FAIL") + ", +10 s blocked (80s remaining): " +
+                     std::string(blocked ? "PASS" : "FAIL (" + during.reason + ")") + ", +91 s released: " +
+                     std::string(released ? "PASS" : "FAIL (" + after.reason + ")"));
+}
+
+} // namespace vftest

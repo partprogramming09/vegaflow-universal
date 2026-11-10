@@ -146,7 +146,8 @@ direct/
 │   │   ├── config.*              # config.json y lista de juegos
 │   │   └── text_convert.*        # UTF-8 <-> UTF-16
 │   ├── ports/                    # Interfaces que los casos de uso piden y las pruebas falsifican
-│   │   └── file_system.hpp       # Leer, escribir, copiar y borrar archivos de juegos
+│   │   ├── file_system.hpp       # Leer, escribir, copiar y borrar archivos de juegos
+│   │   └── clock.hpp             # La hora actual (y el reloj real); las pruebas lo adelantan a mano
 │   ├── model/                    # Tipos compartidos, sin lógica
 │   │   ├── hardware.hpp          # GPU, CPU, Tier de la APU y su política
 │   │   └── game.hpp              # Juego detectado y su API gráfica
@@ -193,7 +194,7 @@ direct/
 │   └── bridge/
 │       └── rust_bridge.h         # Definición de tipos y firmas FFI C/Rust (Zero-Allocation)
 ├── tests/
-│   ├── test_main.cpp             # Entrada de la suite: corre las 34 pruebas en orden y restaura el sistema al final
+│   ├── test_main.cpp             # Entrada de la suite: corre las 35 pruebas en orden y restaura el sistema al final
 │   ├── test_support.*            # Contadores, RecordResult y lector de los .tsv
 │   ├── integration/              # Pruebas que tocan Windows de verdad, un archivo por módulo
 │   ├── unit/                     # Pruebas con puertos falsos (no tocan el disco ni el registro)

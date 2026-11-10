@@ -13,7 +13,7 @@
 ### Invariantes del Runtime Demostrados en Pruebas Automatizadas
 * **Consumo de Memoria Privada (*Private Working Set*):** `<= 2.00 MB` en régimen estacionario (el presupuesto de diseño permitía hasta `15.00 MB`).
 * **Sobrecarga de CPU en Reposo (*Zero-Overhead Idle*):** `0.00%` sostenido; el daemon hiberna mediante `WaitForSingleObjectEx` y timers de alta precisión NT.
-* **Conjunto de Pruebas Automatizadas:** `27/27` tests unitarios deterministas en Rust (`vegaflow-core`, 28 en un Mac) y `34/34` tests de regresión y cobertura en C++20 pasando al 100%.
+* **Conjunto de Pruebas Automatizadas:** `27/27` tests unitarios deterministas en Rust (`vegaflow-core`, 28 en un Mac) y `35/35` tests de regresión y cobertura en C++20 pasando al 100%.
 * **Reversibilidad Garantizada (`RestoreAll`):** Cada modificación de afinidad, clase de prioridad, estado `EcoQoS` o claves en el Registro de Windows (`HKCU\Software\VegaFlow\RegBackup`) se restaura estrictamente al estado de fábrica al cerrar el daemon o terminar la sesión de juego.
 * **Seguridad Anti-Cheat en Tiempo Constante (*Zero-Tamper Boundary*):** Detección determinista de firmas de controladores anti-cheat (*HoYoKProtect*, *EasyAntiCheat*, *BattlEye*, *Vanguard*) con aislamiento de ruta en UTF-16 sobre pila (`stack-only`), impidiendo cualquier inyección o modificación sobre ejecutables protegidos.
 
@@ -196,7 +196,7 @@ Especificado en [`hardware-y-tiers.md`](hardware-y-tiers.md) e implementado en [
 #### 1.4. Runtime DXGI Pressure Guard y Blindaje Anti-Cheat
 - **Monitoreo en Tiempo Real (`EvaluateUmaPressureGuard`):** Sondaje del presupuesto DXGI 1.4 (`IDXGIAdapter3`). Si el consumo local alcanza el **85%** o la memoria física libre es inferior a **1536 MB**, mitiga proactivamente mediante recorte de conjuntos de trabajo secundarios sin pausas perceptibles.
 - **Zero-Trust Lockdown (`SandboxGuard`):** Aislamiento de rutas canónicas, whitelist estricta y bloqueo total ante firmas de kernel anti-cheat (HoYoKProtect, Vanguard, EAC, BattlEye, ACE).
-- **Cobertura de Pruebas:** **34 de 34 pruebas unitarias e integradas C++20 y 27 de 27 pruebas Rust (28 en un Mac) pasando en verde** (`TEST RESULTS: 34 PASSED, 0 FAILED`).
+- **Cobertura de Pruebas:** **35 de 35 pruebas unitarias e integradas C++20 y 27 de 27 pruebas Rust (28 en un Mac) pasando en verde** (`TEST RESULTS: 35 PASSED, 0 FAILED`).
 
 #### 1.5. Núcleo Híbrido Rust FFI (`vegaflow-core`)
 Implementado en el crate estático [`rust/vegaflow-core/`](../../rust/vegaflow-core) y enlazado sin sobrecarga vía C ABI ([`src/bridge/rust_bridge.h`](../../src/bridge/rust_bridge.h)):
