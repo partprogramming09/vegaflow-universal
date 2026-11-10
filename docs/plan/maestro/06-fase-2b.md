@@ -12,6 +12,8 @@
 - El Historial de la GUI lee este diario.
 - **Punto de restauración de Windows (opcional, adoptado el 2026-11-09):** antes del primer cambio de registro se ofrece crear uno. Es un complemento, no sustituye al diario. Sin verificar: si funciona con la protección del sistema apagada y cada cuánto deja Windows crear uno.
 
+**Hallado en R2 (2026-11-09):** `vegaflow_daemon.exe --once` aplica GameDVR y el perfil de energía de la APU (EPP 25, boost 4, ASPM 0) y sale sin devolverlos (`src/app/daemon_loop.cpp`, rama `once_mode`; ya era así antes de R2). Se recupera con `--apu-balanced`. Es el mismo defecto que esta fase resuelve: cambios que sobreviven al daemon.
+
 **Terminado cuando:**
 - en el laptop, matar el daemon con `Stop-Process -Force` y volver a arrancarlo ofrece devolver todo, y al aceptar `scripts/tweaks_state.ps1` no muestra ningún valor fuera de fábrica;
 - un diario corrupto no impide arrancar: se avisa y se ofrece `--restore-registry`.

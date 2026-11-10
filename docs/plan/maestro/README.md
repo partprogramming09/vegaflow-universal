@@ -42,7 +42,7 @@ Las fuentes externas están en [`docs/investigacion/`](../../investigacion/READM
 |---|---|---|---|
 | 0 | Preparar el laptop | Todas las fases se prueban allí | — |
 | R1 | Mover sin cambiar lógica: `model/`, separar `session/`, repartir `test_main.cpp` (con `main` propio; sin doctest ni cbindgen, ver la tabla de librerías) y el script de capas. **Hecha** | Deja el terreno listo y corta el ciclo. Solo mueve código, así que es lo menos arriesgado | — |
-| R2 | Puerto de archivos, puerto de reloj y RAII de Windows | Las fases 1 y 2 los necesitan | — |
+| R2 | Puerto de archivos, puerto de reloj y RAII de Windows. **Hecha** | Las fases 1 y 2 los necesitan | — |
 | 1 | Seguridad de archivos (lista blanca) | Hoy el daemon, como administrador, puede escribir en todo `C:\ProgramData` | **Alta** |
 | 1b | Configuración segura (`config.json`) | Hoy se lee con una ruta relativa a la carpeta de trabajo, se guarda borrando lo que no conoce y no se valida; las fases 5 y G dependen de ella | **Alta** |
 | 2 | Editor de `.ini` de juegos | Puede perder la configuración original del juego | **Alta** |
