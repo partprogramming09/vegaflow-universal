@@ -98,7 +98,7 @@ typedef struct VfTierInput {
 /* Returns the APU tier: 1 entry, 2 mid, 3 advanced, 4 discrete or custom. */
 uint8_t vf_rust_classify_apu_tier(const VfTierInput* input);
 
-/* SandboxGuard blacklist verdicts. */
+/* SandboxGuard verdicts: 1-8 come from the blacklist, 9-11 from the rest of vf_rust_decide_file_access. */
 enum VfPathVerdict {
     VF_PATH_ALLOWED = 0,
     VF_PATH_EMPTY = 1,
@@ -108,7 +108,10 @@ enum VfPathVerdict {
     VF_PATH_WINDOWS_OTHER_DRIVE = 5,
     VF_PATH_COMMON_FILES = 6,
     VF_PATH_SYSTEM_VOLUME_INFORMATION = 7,
-    VF_PATH_INTERNAL_ERROR = 8 /* the Rust classifier failed: refuse the path */
+    VF_PATH_INTERNAL_ERROR = 8, /* the Rust classifier failed: refuse the path */
+    VF_PATH_ANTICHEAT = 9,
+    VF_PATH_NOT_WHITELISTED = 10,
+    VF_PATH_NOT_LOCAL_PATH = 11 /* device or UNC prefix, relative, "." or ".." segment, or a ":" stream */
 };
 
 /* Classifies a canonical path against the blacklist. The path and both directories are UTF-16 and must already be
@@ -119,9 +122,26 @@ uint32_t vf_rust_classify_blacklisted_path(
     const uint16_t* sys_dir, size_t sys_dir_len
 );
 
+/* One allowed folder for vf_rust_decide_file_access: UTF-16, lower-cased, not owned by Rust. */
+typedef struct VfAllowedRoot {
+    const uint16_t* path;
+    size_t len;
+    bool writable; /* false: reading only */
+} VfAllowedRoot;
+
+/* SandboxGuard's whole decision: blacklist, plain local path, anti-cheat (writes only), then the allowed folders,
+   compared folder by folder. Same string rules as vf_rust_classify_blacklisted_path; null roots allow nothing. */
+uint32_t vf_rust_decide_file_access(
+    const uint16_t* path, size_t path_len,
+    const uint16_t* win_dir, size_t win_dir_len,
+    const uint16_t* sys_dir, size_t sys_dir_len,
+    bool write, bool anticheat,
+    const VfAllowedRoot* roots, size_t root_count
+);
+
 /* Layout check for the structs above (this header is written by hand). Writes, for each struct in the order
    VfUmaTelemetryInput, VfUmaGuardDecision, VfNtMemoryListSample, VfCpuCoreEntry, VfTopologyPartitionOut,
-   VfTierInput: its size, its alignment and the offset and size of each field in declaration order. Writes at most `cap`
+   VfTierInput, VfAllowedRoot: its size, its alignment and the offset and size of each field in declaration order. Writes at most `cap`
    numbers and returns how many there are in total. Checked by C++ Test 34. */
 size_t vf_rust_bridge_layout(size_t* out, size_t cap);
 

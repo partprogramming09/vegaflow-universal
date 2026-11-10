@@ -1,0 +1,69 @@
+# SandboxGuard whole decision (blacklist -> plain local path -> anti-cheat -> whitelist), checked by the Rust core
+# (policy/file_access.rs) and by C++ Test 39 through vf_rust_decide_file_access.
+# Paths are given as the C++ side passes them: canonical and lower-cased. Windows dir c:\windows, system dir
+# c:\windows\system32.
+#
+# "root" rows declare the allowed folders for every case below: root <TAB> path <TAB> rw|ro.
+# Case rows: id <TAB> path <TAB> action (read|write) <TAB> anti-cheat flag (0|1) <TAB> expected verdict.
+root	c:\users\u\appdata\local	rw
+root	c:\users\u\appdata\local\temp	rw
+root	d:\steamlibrary\steamapps\common	rw
+root	c:\dev\vf\build	rw
+root	c:\dev\vf\assets	ro
+# Roots that must be ignored: a drive root would allow a whole disk, and a relative or UNC root is not a local folder.
+root	c:\	rw
+root	e:	rw
+root	relative\folder	rw
+root	\\server\share\folder	rw
+root	<empty>	rw
+
+# Allowed: inside a root, component by component.
+a01	c:\users\u\appdata\local\game\saved\config\engine.ini	write	0	allowed
+a02	c:\users\u\appdata\local\temp\vegaflow_test\x.txt	write	0	allowed
+a03	d:\steamlibrary\steamapps\common\half-life\game.ini	write	0	allowed
+a04	c:\dev\vf\build\vegaflow.log	write	0	allowed
+a05	c:\dev\vf\assets\dxvk\x64\d3d11.dll	read	0	allowed
+a06	c:\users\u\appdata\local	write	0	allowed
+a07	c:\users\u\appdata\local\x.txt	read	1	allowed
+a08	c:\users\u\appdata\local\\double\x.txt	write	0	allowed
+
+# Flaw 1 (parent folder of the executable) and flaw 4 (working folder): no root covers them any more.
+f1a	c:\dev\vf\outside.txt	write	0	not_whitelisted
+f1b	c:\programdata\microsoft\windows\start menu\programs\startup\x.bat	write	0	not_whitelisted
+f4a	c:\dev\x.txt	write	0	not_whitelisted
+# Flaw 3: steamapps\common outside a real library.
+f3a	c:\program files\x\steamapps\common\y.ini	write	0	not_whitelisted
+f3b	c:\users\u\documents\steamapps\common\game\y.ini	write	0	not_whitelisted
+# Flaw 5: a root is a folder, not a text prefix.
+f5a	c:\users\u\appdata\localotracosa\x.txt	write	0	not_whitelisted
+f5b	d:\steamlibrary\steamapps\commonx\y.ini	write	0	not_whitelisted
+f5c	c:\dev\vf\buildx\x.txt	write	0	not_whitelisted
+
+# Read-only roots allow reading only.
+r01	c:\dev\vf\assets\dxvk\x64\d3d11.dll	write	0	not_whitelisted
+r02	c:\dev\vf\assets	read	0	allowed
+
+# Ignored roots: a drive root, a bare drive, a relative folder or a UNC folder never allows anything.
+i01	c:\other\x.txt	write	0	not_whitelisted
+i02	e:\other\x.txt	write	0	not_whitelisted
+i03	c:\relative\folder\x.txt	write	0	not_whitelisted
+
+# Only plain local drive paths: device, UNC and dot segments are refused even inside a root.
+n01	\\server\share\folder\x.txt	write	0	not_local_path
+n02	\\?\c:\users\u\appdata\local\x.txt	write	0	not_local_path
+n03	\\.\c:\users\u\appdata\local\x.txt	write	0	not_local_path
+n04	c:\users\u\appdata\local\..\..\x.txt	write	0	not_local_path
+n05	c:\users\u\appdata\local\.\x.txt	write	0	not_local_path
+n06	c:users\u\appdata\local\x.txt	write	0	not_local_path
+n07	users\u\appdata\local\x.txt	write	0	not_local_path
+n08	c:\users\u\appdata\local\x.txt:stream	write	0	not_local_path
+
+# Anti-cheat: refused for writes even inside a root; reads do not look at it.
+c01	d:\steamlibrary\steamapps\common\game\engine.ini	write	1	anticheat
+c02	d:\steamlibrary\steamapps\common\game\engine.ini	read	1	allowed
+
+# The blacklist comes first, with its own verdicts (the full list is in sandbox_blacklist.tsv).
+b01	<empty>	write	0	empty
+b02	c:\x.txt	write	0	drive_root
+b03	c:\windows\system32\x.dll	write	1	windows_dir
+b04	c:\users\u\appdata\local\pagefile.sys	write	0	critical_file

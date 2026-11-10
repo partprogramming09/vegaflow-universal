@@ -7,6 +7,7 @@ use std::os::raw::c_char;
 use crate::nt_memory;
 use crate::policy::apu_tier::{self, VfTierInput, TIER_ENTRY, TIER_MID};
 use crate::policy::cpu_governor::{self, VfCpuCoreEntry, VfTopologyPartitionOut, VF_MAX_LOGICAL_PROCESSORS};
+use crate::policy::file_access::{self, AllowedRoot};
 use crate::policy::path_policy::{self, VF_PATH_INTERNAL_ERROR};
 use crate::policy::sandbox_core;
 use crate::policy::uma_memory::{self, VfNtMemoryListSample, VfUmaGuardDecision, VfUmaTelemetryInput};
@@ -56,6 +57,46 @@ pub extern "C" fn vf_rust_classify_blacklisted_path(
             )
         };
         path_policy::classify(path, win_dir, sys_dir)
+    })
+}
+
+/// One allowed folder for `vf_rust_decide_file_access`: UTF-16, lower-cased, not owned.
+#[repr(C)]
+pub struct VfAllowedRoot {
+    pub path: *const u16,
+    pub len: usize,
+    pub writable: bool,
+}
+
+/// See `file_access::decide`. Null pointers count as empty strings; null `roots` counts as no roots.
+#[no_mangle]
+pub extern "C" fn vf_rust_decide_file_access(
+    path: *const u16,
+    path_len: usize,
+    win_dir: *const u16,
+    win_dir_len: usize,
+    sys_dir: *const u16,
+    sys_dir_len: usize,
+    write: bool,
+    anticheat: bool,
+    roots: *const VfAllowedRoot,
+    root_count: usize,
+) -> u32 {
+    ffi_guard(VF_PATH_INTERNAL_ERROR, || {
+        let (path, win_dir, sys_dir) = unsafe {
+            (
+                slice_or_empty(path, path_len),
+                slice_or_empty(win_dir, win_dir_len),
+                slice_or_empty(sys_dir, sys_dir_len),
+            )
+        };
+        let raw_roots: &[VfAllowedRoot] =
+            if roots.is_null() || root_count == 0 { &[] } else { unsafe { core::slice::from_raw_parts(roots, root_count) } };
+        let roots: Vec<AllowedRoot> = raw_roots
+            .iter()
+            .map(|r| AllowedRoot { path: unsafe { slice_or_empty(r.path, r.len) }, writable: r.writable })
+            .collect();
+        file_access::decide(path, win_dir, sys_dir, write, anticheat, &roots)
     })
 }
 
@@ -156,6 +197,7 @@ fn bridge_layout() -> Vec<usize> {
     layout!(v, VfTopologyPartitionOut, game_cpu_set_ids, game_count, background_cpu_set_ids, background_count,
         physical_cores, logical_processors, has_multiple_ccx, has_hybrid_cores);
     layout!(v, VfTierInput, total_ram_mb, physical_cores, arch_gen, dedicated_vram, is_nvidia);
+    layout!(v, VfAllowedRoot, path, len, writable);
     v
 }
 

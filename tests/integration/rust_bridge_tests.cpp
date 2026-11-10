@@ -189,6 +189,8 @@ void Test34() {
         VF_LAYOUT_BEGIN(VfTierInput)
         VF_FIELD(VfTierInput, total_ram_mb) VF_FIELD(VfTierInput, physical_cores) VF_FIELD(VfTierInput, arch_gen)
         VF_FIELD(VfTierInput, dedicated_vram) VF_FIELD(VfTierInput, is_nvidia)
+        VF_LAYOUT_BEGIN(VfAllowedRoot)
+        VF_FIELD(VfAllowedRoot, path) VF_FIELD(VfAllowedRoot, len) VF_FIELD(VfAllowedRoot, writable)
 #undef VF_FIELD
 #undef VF_LAYOUT_BEGIN
 
