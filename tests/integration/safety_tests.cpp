@@ -287,7 +287,7 @@ void Test40() {
             mismatches += " [" + col[0] + ": expected " + col[4] + ", got " + std::to_string(verdict) + "]";
         }
     }
-    const bool ok = cases.size() >= 37 && mismatches.empty();
+    const bool ok = cases.size() >= 42 && mismatches.empty();
     RecordResult(ok, "Test 40: file access decision matches the shared vector file",
                  std::to_string(cases.size()) + " vectors" + (mismatches.empty() ? ", 0 mismatches" : "; mismatches:" + mismatches));
 }

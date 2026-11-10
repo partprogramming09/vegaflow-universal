@@ -1,5 +1,5 @@
 # SandboxGuard whole decision (blacklist -> plain local path -> anti-cheat -> whitelist), checked by the Rust core
-# (policy/file_access.rs) and by C++ Test 39 through vf_rust_decide_file_access.
+# (policy/file_access.rs) and by C++ Test 40 through vf_rust_decide_file_access.
 # Paths are given as the C++ side passes them: canonical and lower-cased. Windows dir c:\windows, system dir
 # c:\windows\system32.
 #
@@ -25,7 +25,6 @@ a04	c:\dev\vf\build\vegaflow.log	write	0	allowed
 a05	c:\dev\vf\assets\dxvk\x64\d3d11.dll	read	0	allowed
 a06	c:\users\u\appdata\local	write	0	allowed
 a07	c:\users\u\appdata\local\x.txt	read	1	allowed
-a08	c:\users\u\appdata\local\\double\x.txt	write	0	allowed
 
 # Flaw 1 (parent folder of the executable) and flaw 4 (working folder): no root covers them any more.
 f1a	c:\dev\vf\outside.txt	write	0	not_whitelisted
@@ -59,6 +58,13 @@ n06	c:users\u\appdata\local\x.txt	write	0	not_local_path
 n07	users\u\appdata\local\x.txt	write	0	not_local_path
 n08	c:\users\u\appdata\local\x.txt:stream	write	0	not_local_path
 n09	\:\users\u\appdata\local\x.txt	write	0	not_local_path
+# Not in canonical form: Windows could read these as another path (a blacklisted one inside a root, for example).
+n10	c:\users\u\appdata\local\\double\x.txt	write	0	not_local_path
+n11	c:\users\u\appdata\local/windows/system32/x.dll	write	0	not_local_path
+n12	c:\users\u\appdata\local\x.txt.	write	0	not_local_path
+n13	c:\users\u\appdata\local\x.txt 	write	0	not_local_path
+n14	c:\users\u\appdata\local\dir.\x.txt	write	0	not_local_path
+n15	c:\users\u\appdata\local\x\	write	0	not_local_path
 
 # Anti-cheat: refused for writes even inside a root; reads do not look at it.
 c01	d:\steamlibrary\steamapps\common\game\engine.ini	write	1	anticheat

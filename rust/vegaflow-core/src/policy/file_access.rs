@@ -1,5 +1,5 @@
 //! SandboxGuard's whole decision for one canonical, lower-cased path: may VegaFlow read or write it?
-//! Vectors shared with C++ Test 39: `tests/vectors/file_access.tsv`.
+//! Vectors shared with C++ Test 40: `tests/vectors/file_access.tsv`.
 
 use super::path_policy::{self, VF_PATH_ALLOWED};
 
@@ -7,13 +7,15 @@ use super::path_policy::{self, VF_PATH_ALLOWED};
 pub const VF_PATH_ANTICHEAT: u32 = 9;
 /// No allowed folder contains the path (or only a read-only one does and the action is a write).
 pub const VF_PATH_NOT_WHITELISTED: u32 = 10;
-/// Not a plain local path: device or UNC prefix, relative, `.` or `..` segments, or an alternate data stream.
+/// Not a plain local path: device or UNC prefix, relative, an alternate data stream, or not in canonical form
+/// (`/`, empty folder names, a name ending in `.` or space, NUL), which Windows could read as another path.
 pub const VF_PATH_NOT_LOCAL_PATH: u32 = 11;
 
 const BACKSLASH: u16 = b'\\' as u16;
 const SLASH: u16 = b'/' as u16;
 const COLON: u16 = b':' as u16;
 const DOT: u16 = b'.' as u16;
+const SPACE: u16 = b' ' as u16;
 
 /// One allowed folder, lower-cased.
 pub struct AllowedRoot<'a> {
@@ -36,11 +38,16 @@ fn components(path: &[u16]) -> impl Iterator<Item = &[u16]> {
     path[3..].split(|&u| is_separator(u)).filter(|c| !c.is_empty())
 }
 
-/// A plain local path: drive prefix, no `:` after it, and no `.` or `..` folder.
+/// A plain local path in the form CanonicalizePath gives: `x:\`, then folder names joined by `\`, each non-empty,
+/// not ending in `.` or space (so no `.` or `..`); no `:` after the drive, no `/`, no NUL.
 fn is_plain_local_path(path: &[u16]) -> bool {
-    has_drive_prefix(path)
-        && !path[2..].contains(&COLON)
-        && components(path).all(|c| !(c == [DOT] || c == [DOT, DOT]))
+    if !has_drive_prefix(path) || path[2..].iter().any(|&u| u == COLON || u == SLASH || u == 0) {
+        return false;
+    }
+    path.len() == 3
+        || path[3..]
+            .split(|&u| u == BACKSLASH)
+            .all(|name| matches!(name.last(), Some(&last) if last != DOT && last != SPACE))
 }
 
 /// A usable allowed folder: a plain local path with at least one folder after the drive.
@@ -146,7 +153,7 @@ mod tests {
             assert_eq!(verdict, code_of(c[4]), "vector {} ({})", c[0], c[1]);
             checked += 1;
         }
-        assert!(checked >= 37, "expected at least 37 vectors, found {checked}");
+        assert!(checked >= 42, "expected at least 42 vectors, found {checked}");
     }
 
     #[test]
