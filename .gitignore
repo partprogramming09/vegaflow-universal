@@ -58,3 +58,5 @@ data/raw/
 # Third-party DXVK binaries (see assets/dxvk/README.md)
 assets/dxvk/dxvk-*/
 
+# Session handoff notes for this machine (read by the local hooks); not part of the product
+docs/estado.md
