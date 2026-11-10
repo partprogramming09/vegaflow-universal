@@ -47,8 +47,10 @@ public:
         return h;
     }
 
-    // Closes the current handle (if any) and takes `h`.
+    // Closes the current handle (if any) and takes `h`. Resetting to the handle already owned keeps it open:
+    // closing it and then holding it would close it a second time later.
     void reset(value_type h = Traits::Empty()) {
+        if (h == h_) return;
         if (Traits::IsValid(h_)) Traits::Close(h_);
         h_ = Traits::IsValid(h) ? h : Traits::Empty();
     }

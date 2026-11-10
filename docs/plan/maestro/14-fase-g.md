@@ -70,6 +70,7 @@ Lo que ya está bien: el texto secundario tiene entre 5,69:1 y 6,94:1, las etiqu
 **Cómo se construye (sin librerías nuevas):**
 - Sigue siendo Win32/GDI. El diseño usa solo lo que GDI dibuja bien: rectángulos redondeados, bordes de 1 px, barras y texto Segoe UI, con los mismos colores de `gui_components.hpp`.
 - Componentes de dibujo reutilizables en `src/ui/`: tarjeta, etiqueta (chip), interruptor, barra con marca, fila de lista. Hoy cada pestaña dibuja a mano.
+- **Heredado de R1 y R2:** la lógica de sesión de `src/app/gui_mode.cpp` (una función de 500 líneas con lambdas que comparten estado) pasa aquí a un objeto de `session/`. No se hizo en R2 porque esas lambdas devuelven `GuiDashboardData`, que vive en `ui/` (y `session/` no puede incluir `ui/`), porque la GUI solo se puede verificar abriéndola en el escritorio, y porque esta fase la reescribe.
 - La GUI **solo lee** un "modelo de pantalla" que prepara `session/` (por ejemplo, la lista de ajustes con su familia, su estado y su evidencia). Así la GUI no decide nada y cumple la tabla de capas.
 - La evidencia de cada ajuste sale de una sola tabla en el código, la misma que resume `docs/mediciones/estado-de-verificacion.md`.
 - Textos en español claro; los nombres técnicos (`r.AOQuality`, `MPO`) solo como detalle secundario.
