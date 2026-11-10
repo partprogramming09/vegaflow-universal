@@ -196,7 +196,7 @@ Especificado en [`hardware-y-tiers.md`](hardware-y-tiers.md) e implementado en [
 #### 1.4. Runtime DXGI Pressure Guard y Blindaje Anti-Cheat
 - **Monitoreo en Tiempo Real (`EvaluateUmaPressureGuard`):** Sondaje del presupuesto DXGI 1.4 (`IDXGIAdapter3`). Si el consumo local alcanza el **85%** o la memoria física libre es inferior a **1536 MB**, mitiga proactivamente mediante recorte de conjuntos de trabajo secundarios sin pausas perceptibles.
 - **Zero-Trust Lockdown (`SandboxGuard`):** Aislamiento de rutas canónicas, whitelist estricta y bloqueo total ante firmas de kernel anti-cheat (HoYoKProtect, Vanguard, EAC, BattlEye, ACE).
-- **Cobertura de Pruebas:** **41 de 41 pruebas unitarias e integradas C++20 y 27 de 27 pruebas Rust (28 en un Mac) pasando en verde** (`TEST RESULTS: 41 PASSED, 0 FAILED`).
+- **Cobertura de Pruebas:** **41 de 41 pruebas unitarias e integradas C++20 y 71 pruebas Rust en un Mac (45 del núcleo y 26 adversariales) pasando en verde** (`TEST RESULTS: 41 PASSED, 0 FAILED`).
 
 #### 1.5. Núcleo Híbrido Rust FFI (`vegaflow-core`)
 Implementado en el crate estático [`rust/vegaflow-core/`](../../rust/vegaflow-core) y enlazado sin sobrecarga vía C ABI ([`src/bridge/rust_bridge.h`](../../src/bridge/rust_bridge.h)):

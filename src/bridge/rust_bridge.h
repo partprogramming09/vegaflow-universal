@@ -111,7 +111,7 @@ enum VfPathVerdict {
     VF_PATH_INTERNAL_ERROR = 8, /* the Rust classifier failed: refuse the path */
     VF_PATH_ANTICHEAT = 9,
     VF_PATH_NOT_WHITELISTED = 10,
-    VF_PATH_NOT_LOCAL_PATH = 11 /* device or UNC prefix, relative, "." or ".." segment, or a ":" stream */
+    VF_PATH_NOT_LOCAL_PATH = 11 /* device or UNC prefix, relative, ":" stream, or not canonical: "/", empty name, name ending in "." or space, NUL */
 };
 
 /* Classifies a canonical path against the blacklist. The path and both directories are UTF-16 and must already be
