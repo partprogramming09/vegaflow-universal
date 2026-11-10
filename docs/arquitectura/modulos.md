@@ -194,7 +194,7 @@ direct/
 │   └── bridge/
 │       └── rust_bridge.h         # Definición de tipos y firmas FFI C/Rust (Zero-Allocation)
 ├── tests/
-│   ├── test_main.cpp             # Entrada de la suite: corre las 39 pruebas en orden y restaura el sistema al final
+│   ├── test_main.cpp             # Entrada de la suite: corre las 40 pruebas en orden y restaura el sistema al final
 │   ├── test_support.*            # Contadores, RecordResult y lector de los .tsv
 │   ├── integration/              # Pruebas que tocan Windows de verdad, un archivo por módulo
 │   ├── unit/                     # Pruebas con puertos falsos (no escriben archivos de juegos ni el registro; como mucho una carpeta temporal vacía)

@@ -27,6 +27,11 @@ std::vector<std::wstring> g_custom_allowed_paths;
 std::vector<std::wstring> g_read_only_paths;
 std::vector<std::wstring> g_steam_libraries;
 bool g_steam_libraries_loaded = false;
+void (*g_before_open_hook)() = nullptr;
+
+void BeforeOpen() {
+    if (g_before_open_hook) g_before_open_hook();
+}
 std::vector<SandboxViolationRecord> g_violations;
 
 std::wstring ToLowerW(std::wstring_view sv) {
@@ -101,21 +106,25 @@ bool StripLongPrefix(std::wstring& path) {
     return true;
 }
 
-// The real path of an existing file or folder, with junctions, symlinks and 8.3 names resolved by Windows.
-std::wstring FinalPathOf(const std::wstring& existing) {
-    UniqueHandle h(CreateFileW(existing.c_str(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
-                               OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr));
-    if (!h) return L"";
+// The real path of an open file, in the form CanonicalizePath gives.
+std::wstring HandlePath(HANDLE h) {
     std::wstring buf(1024, L'\0');
-    DWORD n = GetFinalPathNameByHandleW(h.get(), buf.data(), static_cast<DWORD>(buf.size()), FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
+    DWORD n = GetFinalPathNameByHandleW(h, buf.data(), static_cast<DWORD>(buf.size()), FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
     if (n >= buf.size()) {
         buf.resize(n + 1);
-        n = GetFinalPathNameByHandleW(h.get(), buf.data(), static_cast<DWORD>(buf.size()), FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
+        n = GetFinalPathNameByHandleW(h, buf.data(), static_cast<DWORD>(buf.size()), FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
     }
     if (n == 0 || n >= buf.size()) return L"";
     buf.resize(n);
     StripLongPrefix(buf); // a "\\?\UNC\" result stays as it is and is refused as not local
     return buf;
+}
+
+// The real path of an existing file or folder, with junctions, symlinks and 8.3 names resolved by Windows.
+std::wstring FinalPathOf(const std::wstring& existing) {
+    UniqueHandle h(CreateFileW(existing.c_str(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+                               OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr));
+    return h ? HandlePath(h.get()) : L"";
 }
 
 } // namespace
@@ -436,6 +445,94 @@ SandboxValidationResult SandboxGuard::ValidatePath(
     return result;
 }
 
+namespace {
+
+constexpr DWORD kShareAll = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE;
+
+bool IsDirectoryHandle(HANDLE h) {
+    BY_HANDLE_FILE_INFORMATION info{};
+    return !GetFileInformationByHandle(h, &info) || (info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+}
+
+bool ReadAll(HANDLE h, std::string& out) {
+    LARGE_INTEGER size{};
+    if (!GetFileSizeEx(h, &size) || size.QuadPart < 0 || size.QuadPart > (1LL << 30)) return false;
+    std::string data(static_cast<size_t>(size.QuadPart), '\0');
+    size_t done = 0;
+    while (done < data.size()) {
+        DWORD got = 0;
+        const DWORD want = static_cast<DWORD>(std::min<size_t>(data.size() - done, 1u << 20));
+        if (!ReadFile(h, data.data() + done, want, &got, nullptr) || got == 0) return false;
+        done += got;
+    }
+    out = std::move(data);
+    return true;
+}
+
+bool ReplaceContent(HANDLE h, const std::string& data) {
+    LARGE_INTEGER zero{};
+    if (!SetFilePointerEx(h, zero, nullptr, FILE_BEGIN) || !SetEndOfFile(h)) return false;
+    size_t done = 0;
+    while (done < data.size()) {
+        DWORD put = 0;
+        const DWORD want = static_cast<DWORD>(std::min<size_t>(data.size() - done, 1u << 20));
+        if (!WriteFile(h, data.data() + done, want, &put, nullptr) || put == 0) return false;
+        done += put;
+    }
+    return true;
+}
+
+bool DeleteByHandle(HANDLE h) {
+    FILE_DISPOSITION_INFO info{};
+    info.DeleteFile = TRUE;
+    return SetFileInformationByHandle(h, FileDispositionInfo, &info, sizeof(info)) != 0;
+}
+
+bool CreateParentDirectories(const std::filesystem::path& p) {
+    std::error_code ec;
+    if (p.parent_path().empty() || std::filesystem::exists(p.parent_path(), ec)) return true;
+    std::filesystem::create_directories(p.parent_path(), ec);
+    return !ec;
+}
+
+} // namespace
+
+// The checks run on the path; the file is then opened and its real path checked again, so a folder swapped for a
+// junction in between is caught. Content is only changed after that second check (no truncation on open).
+bool SandboxGuard::WriteVerified(const std::wstring& canonical, const std::string& content, SandboxAction action,
+                                 bool is_anticheat_protected, bool overwrite) {
+    std::filesystem::path p(canonical);
+    if (!CreateParentDirectories(p)) {
+        RecordViolation(canonical, action, SandboxDenialReason::IoError, "No se pudo crear el directorio de destino");
+        return false;
+    }
+    UniqueHandle h(CreateFileW(p.c_str(), GENERIC_WRITE | DELETE, FILE_SHARE_READ, nullptr,
+                               overwrite ? OPEN_ALWAYS : CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr));
+    const bool created = (GetLastError() != ERROR_ALREADY_EXISTS);
+    if (!h) {
+        RecordViolation(canonical, action, SandboxDenialReason::IoError, "No se pudo abrir el archivo para escritura");
+        return false;
+    }
+    const std::wstring real = HandlePath(h.get());
+    if (real.empty() || !ValidatePath(real, action, is_anticheat_protected).allowed) {
+        if (created) DeleteByHandle(h.get());
+        return false;
+    }
+    if (!ReplaceContent(h.get(), content)) {
+        RecordViolation(canonical, action, SandboxDenialReason::IoError, "Error durante la escritura del archivo en disco");
+        return false;
+    }
+    return true;
+}
+
+bool SandboxGuard::ReadVerified(const std::wstring& canonical, std::string& out_content) {
+    UniqueHandle h(CreateFileW(canonical.c_str(), GENERIC_READ, kShareAll, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr));
+    if (!h || IsDirectoryHandle(h.get())) return false;
+    const std::wstring real = HandlePath(h.get());
+    if (real.empty() || !ValidatePath(real, SandboxAction::Read, false).allowed) return false;
+    return ReadAll(h.get(), out_content);
+}
+
 bool SandboxGuard::SafeWriteFile(
     const std::wstring& path,
     const std::string& content,
@@ -445,36 +542,8 @@ bool SandboxGuard::SafeWriteFile(
     if (!val.allowed) {
         return false;
     }
-
-    std::error_code ec;
-    std::filesystem::path p(val.canonical_path);
-
-    // Create the parent directory if it does not exist
-    if (!p.parent_path().empty() && !std::filesystem::exists(p.parent_path(), ec)) {
-        std::filesystem::create_directories(p.parent_path(), ec);
-        if (ec) {
-            RecordViolation(val.canonical_path, SandboxAction::Write, SandboxDenialReason::IoError,
-                            "No se pudo crear el directorio de destino: " + ec.message());
-            return false;
-        }
-    }
-
-    std::ofstream out(p, std::ios::out | std::ios::binary | std::ios::trunc);
-    if (!out.is_open()) {
-        RecordViolation(val.canonical_path, SandboxAction::Write, SandboxDenialReason::IoError,
-                        "No se pudo abrir el archivo para escritura");
-        return false;
-    }
-
-    out.write(content.data(), static_cast<std::streamsize>(content.size()));
-    out.flush();
-    if (!out.good()) {
-        RecordViolation(val.canonical_path, SandboxAction::Write, SandboxDenialReason::IoError,
-                        "Error durante la escritura del archivo en disco");
-        return false;
-    }
-
-    return true;
+    BeforeOpen();
+    return WriteVerified(val.canonical_path, content, SandboxAction::Write, is_anticheat_protected, true);
 }
 
 bool SandboxGuard::SafeCopyFile(
@@ -483,49 +552,23 @@ bool SandboxGuard::SafeCopyFile(
     bool overwrite,
     bool is_anticheat_protected) {
 
-    // Validate source for reading
     auto valSrc = ValidatePath(src, SandboxAction::Read, false);
     if (!valSrc.allowed) {
         return false;
     }
-
-    // Validate destination for writing / copying
     auto valDst = ValidatePath(dst, SandboxAction::Copy, is_anticheat_protected);
     if (!valDst.allowed) {
         return false;
     }
+    BeforeOpen();
 
-    std::error_code ec;
-    std::filesystem::path pSrc(valSrc.canonical_path);
-    std::filesystem::path pDst(valDst.canonical_path);
-
-    if (!std::filesystem::exists(pSrc, ec)) {
+    std::string content;
+    if (!ReadVerified(valSrc.canonical_path, content)) {
         RecordViolation(valSrc.canonical_path, SandboxAction::Copy, SandboxDenialReason::IoError,
-                        "El archivo de origen no existe");
+                        "No se pudo leer el archivo de origen");
         return false;
     }
-
-    // Create the destination parent directory if it does not exist
-    if (!pDst.parent_path().empty() && !std::filesystem::exists(pDst.parent_path(), ec)) {
-        std::filesystem::create_directories(pDst.parent_path(), ec);
-        if (ec) {
-            RecordViolation(valDst.canonical_path, SandboxAction::Copy, SandboxDenialReason::IoError,
-                            "No se pudo crear el directorio padre del archivo destino: " + ec.message());
-            return false;
-        }
-    }
-
-    auto copyOptions = overwrite ? std::filesystem::copy_options::overwrite_existing
-                                 : std::filesystem::copy_options::none;
-
-    std::filesystem::copy_file(pSrc, pDst, copyOptions, ec);
-    if (ec) {
-        RecordViolation(valDst.canonical_path, SandboxAction::Copy, SandboxDenialReason::IoError,
-                        "Fallo al copiar archivo: " + ec.message());
-        return false;
-    }
-
-    return true;
+    return WriteVerified(valDst.canonical_path, content, SandboxAction::Copy, is_anticheat_protected, overwrite);
 }
 
 bool SandboxGuard::SafeRemoveFile(
@@ -536,21 +579,26 @@ bool SandboxGuard::SafeRemoveFile(
     if (!val.allowed) {
         return false;
     }
+    BeforeOpen();
 
-    std::error_code ec;
-    std::filesystem::path p(val.canonical_path);
-
-    if (!std::filesystem::exists(p, ec)) {
-        return true; // Already gone
-    }
-
-    bool removed = std::filesystem::remove(p, ec);
-    if (ec || !removed) {
-        RecordViolation(val.canonical_path, SandboxAction::Delete, SandboxDenialReason::IoError,
-                        "No se pudo eliminar el archivo: " + ec.message());
+    // FILE_FLAG_OPEN_REPARSE_POINT: a link is removed itself, never the file it points to.
+    UniqueHandle h(CreateFileW(val.canonical_path.c_str(), DELETE, kShareAll, nullptr, OPEN_EXISTING,
+                               FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+    if (!h) {
+        const DWORD err = GetLastError();
+        if (err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND) return true; // Already gone
+        RecordViolation(val.canonical_path, SandboxAction::Delete, SandboxDenialReason::IoError, "No se pudo abrir el archivo para eliminarlo");
         return false;
     }
-
+    if (IsDirectoryHandle(h.get())) return false;
+    const std::wstring real = HandlePath(h.get());
+    if (real.empty() || !ValidatePath(real, SandboxAction::Delete, is_anticheat_protected).allowed) {
+        return false;
+    }
+    if (!DeleteByHandle(h.get())) {
+        RecordViolation(val.canonical_path, SandboxAction::Delete, SandboxDenialReason::IoError, "No se pudo eliminar el archivo");
+        return false;
+    }
     return true;
 }
 
@@ -559,22 +607,8 @@ bool SandboxGuard::SafeReadFile(const std::wstring& path, std::string& out_conte
     if (!val.allowed) {
         return false;
     }
-
-    std::error_code ec;
-    std::filesystem::path p(val.canonical_path);
-    if (!std::filesystem::exists(p, ec) || !std::filesystem::is_regular_file(p, ec)) {
-        return false;
-    }
-
-    std::ifstream in(p, std::ios::in | std::ios::binary);
-    if (!in.is_open()) {
-        return false;
-    }
-
-    std::ostringstream ss;
-    ss << in.rdbuf();
-    out_content = ss.str();
-    return true;
+    BeforeOpen();
+    return ReadVerified(val.canonical_path, out_content);
 }
 
 void SandboxGuard::AddAllowedPath(const std::wstring& path) {
@@ -621,6 +655,10 @@ void SandboxGuard::SetSteamLibraryFolders(std::vector<std::wstring> folders) {
     std::lock_guard<std::mutex> lock(g_sandbox_mutex);
     g_steam_libraries = std::move(folders);
     g_steam_libraries_loaded = true;
+}
+
+void SandboxGuard::SetBeforeOpenHookForTesting(void (*hook)()) {
+    g_before_open_hook = hook;
 }
 
 void SandboxGuard::ReloadSteamLibraryFolders() {

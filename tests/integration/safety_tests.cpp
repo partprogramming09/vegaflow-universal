@@ -355,4 +355,79 @@ void Test41() {
                  failures.empty() ? "flaws 1-5, junction, \\\\?\\ and UNC checked" : "failed:" + failures);
 }
 
+namespace {
+
+std::filesystem::path g_race_dir;     // a real folder inside temp, swapped for a junction by the hook
+std::filesystem::path g_race_target;  // where the junction leads: a folder no rule allows
+
+void SwapRaceDirForJunction() {
+    std::error_code ec;
+    std::filesystem::remove_all(g_race_dir, ec);
+    const std::wstring cmd = L"cmd /c mklink /J \"" + g_race_dir.wstring() + L"\" \"" + g_race_target.wstring() + L"\" >nul 2>&1";
+    _wsystem(cmd.c_str());
+}
+
+void ResetRaceDir() {
+    std::error_code ec;
+    RemoveDirectoryW(g_race_dir.c_str()); // removes a junction, never its target
+    std::filesystem::remove_all(g_race_dir, ec);
+    std::filesystem::create_directories(g_race_dir, ec);
+}
+
+} // namespace
+
+void Test42() {
+    // -------------------------------------------------------------------------
+    // Test 42: a folder swapped for a junction between the check and the open is caught on the opened file
+    // -------------------------------------------------------------------------
+    using vegaflow::SandboxGuard;
+    std::error_code ec;
+    const std::filesystem::path base = std::filesystem::temp_directory_path(ec) / L"vegaflow_test_race";
+    g_race_dir = base / L"game";
+    g_race_target = L"C:\\Users\\Public\\vegaflow_test_race_target";
+    std::filesystem::remove_all(g_race_target, ec);
+    std::filesystem::create_directories(g_race_target, ec);
+    { std::ofstream(g_race_target / L"victim.txt") << "original"; }
+    { std::ofstream(base / L"source.txt") << "source"; }
+    std::string failures;
+    auto expect = [&](bool ok, const std::string& name) { if (!ok) failures += " [" + name + "]"; };
+    auto read_file = [](const std::filesystem::path& p) { std::ifstream f(p); std::stringstream ss; ss << f.rdbuf(); return ss.str(); };
+
+    ResetRaceDir();
+    SandboxGuard::SetBeforeOpenHookForTesting(SwapRaceDirForJunction);
+    const bool wrote = SandboxGuard::SafeWriteFile((g_race_dir / L"new.txt").wstring(), "escaped");
+    expect(!wrote && !std::filesystem::exists(g_race_target / L"new.txt", ec), "write");
+
+    ResetRaceDir();
+    const bool overwrote = SandboxGuard::SafeWriteFile((g_race_dir / L"victim.txt").wstring(), "escaped");
+    expect(!overwrote && read_file(g_race_target / L"victim.txt") == "original", "overwrite keeps the content");
+
+    ResetRaceDir();
+    const bool copied = SandboxGuard::SafeCopyFile((base / L"source.txt").wstring(), (g_race_dir / L"victim.txt").wstring(), true);
+    expect(!copied && read_file(g_race_target / L"victim.txt") == "original", "copy");
+
+    ResetRaceDir();
+    const bool removed = SandboxGuard::SafeRemoveFile((g_race_dir / L"victim.txt").wstring());
+    expect(!removed && std::filesystem::exists(g_race_target / L"victim.txt", ec), "remove");
+
+    ResetRaceDir();
+    { std::ofstream(g_race_target / L"victim.txt") << "original"; }
+    std::string content;
+    const bool read = SandboxGuard::SafeReadFile((g_race_dir / L"victim.txt").wstring(), content);
+    expect(!read && content.empty(), "read");
+
+    SandboxGuard::SetBeforeOpenHookForTesting(nullptr);
+    ResetRaceDir();
+    const bool normal_write = SandboxGuard::SafeWriteFile((g_race_dir / L"ok.txt").wstring(), "ok") &&
+                              read_file(g_race_dir / L"ok.txt") == "ok";
+    expect(normal_write, "a write without the swap still works");
+
+    RemoveDirectoryW(g_race_dir.c_str());
+    std::filesystem::remove_all(base, ec);
+    std::filesystem::remove_all(g_race_target, ec);
+    SandboxGuard::ClearViolations();
+    RecordResult(failures.empty(), "Test 42: SandboxGuard checks the opened file, not only the path it validated",
+                 failures.empty() ? "write, overwrite, copy, remove and read refused after the swap" : "failed:" + failures);
+}
+
 } // namespace vftest

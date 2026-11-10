@@ -83,6 +83,9 @@ public:
     // Steam libraries whose steamapps\common folders are allowed. Read once from libraryfolders.vdf unless set here.
     static void SetSteamLibraryFolders(std::vector<std::wstring> folders);
     static void ReloadSteamLibraryFolders();
+
+    // Test seam: runs after a path is validated and before the file is opened (Test 42 swaps a folder there).
+    static void SetBeforeOpenHookForTesting(void (*hook)());
     static std::vector<std::wstring> GetAllowedPaths();
 
     // Security violation log
@@ -95,6 +98,9 @@ public:
     static const char* DenialReasonToString(SandboxDenialReason reason);
 
 private:
+    static bool WriteVerified(const std::wstring& canonical, const std::string& content, SandboxAction action,
+                              bool is_anticheat_protected, bool overwrite);
+    static bool ReadVerified(const std::wstring& canonical, std::string& out_content);
     static void RecordViolation(const std::wstring& path, SandboxAction action, SandboxDenialReason reason, const std::string& message);
 };
 
