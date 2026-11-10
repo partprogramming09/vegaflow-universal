@@ -82,51 +82,78 @@ pub enum SaveRefused {
 
 const VERSION: NumberRule = NumberRule { key: "version", in_memory: false, min: 0, max: u64::MAX, default: CURRENT_VERSION };
 
-const NUMBER_KEYS: [(&NumberRule, u32); 6] = [
-    (&rules::POLL_INTERVAL_MS, VF_CONFIG_KEY_POLL_INTERVAL_MS),
-    (&rules::TIMER_RESOLUTION_NS100, VF_CONFIG_KEY_TIMER_RESOLUTION_NS100),
-    (&rules::MIN_FREE_RAM_MB, VF_CONFIG_KEY_MIN_FREE_RAM_MB),
-    (&rules::MIN_STANDBY_MB, VF_CONFIG_KEY_MIN_STANDBY_MB),
-    (&rules::COOLDOWN_SECONDS, VF_CONFIG_KEY_COOLDOWN_SECONDS),
-    (&rules::MAX_GAME_DISK_READ_MB_S, VF_CONFIG_KEY_MAX_GAME_DISK_READ_MB_S),
+/// One numeric setting: its rule, its `VF_CONFIG_KEY_*` bit and its field in `Settings`.
+struct NumberKey {
+    rule: &'static NumberRule,
+    bit: u32,
+    get: fn(&Settings) -> u64,
+    /// Only called with a value already inside the rule's range, so the u32 fields cannot be truncated.
+    set: fn(&mut Settings, u64),
+}
+
+const NUMBER_KEYS: [NumberKey; 6] = [
+    NumberKey {
+        rule: &rules::POLL_INTERVAL_MS,
+        bit: VF_CONFIG_KEY_POLL_INTERVAL_MS,
+        get: |s| s.poll_interval_ms as u64,
+        set: |s, n| s.poll_interval_ms = n as u32,
+    },
+    NumberKey {
+        rule: &rules::TIMER_RESOLUTION_NS100,
+        bit: VF_CONFIG_KEY_TIMER_RESOLUTION_NS100,
+        get: |s| s.timer_resolution_ns100 as u64,
+        set: |s, n| s.timer_resolution_ns100 = n as u32,
+    },
+    NumberKey {
+        rule: &rules::MIN_FREE_RAM_MB,
+        bit: VF_CONFIG_KEY_MIN_FREE_RAM_MB,
+        get: |s| s.min_free_ram_mb,
+        set: |s, n| s.min_free_ram_mb = n,
+    },
+    NumberKey {
+        rule: &rules::MIN_STANDBY_MB,
+        bit: VF_CONFIG_KEY_MIN_STANDBY_MB,
+        get: |s| s.min_standby_mb,
+        set: |s, n| s.min_standby_mb = n,
+    },
+    NumberKey {
+        rule: &rules::COOLDOWN_SECONDS,
+        bit: VF_CONFIG_KEY_COOLDOWN_SECONDS,
+        get: |s| s.cooldown_seconds as u64,
+        set: |s, n| s.cooldown_seconds = n as u32,
+    },
+    NumberKey {
+        rule: &rules::MAX_GAME_DISK_READ_MB_S,
+        bit: VF_CONFIG_KEY_MAX_GAME_DISK_READ_MB_S,
+        get: |s| s.max_game_disk_read_mb_s,
+        set: |s, n| s.max_game_disk_read_mb_s = n,
+    },
 ];
-const BOOL_KEYS: [(&str, u32); 2] = [
-    ("timer_forced_manual", VF_CONFIG_KEY_TIMER_FORCED_MANUAL),
-    ("restrict_game_cpu_sets", VF_CONFIG_KEY_RESTRICT_GAME_CPU_SETS),
+
+/// One true/false setting: its key, its `VF_CONFIG_KEY_*` bit and its field in `Settings`.
+struct BoolKey {
+    key: &'static str,
+    bit: u32,
+    get: fn(&Settings) -> bool,
+    set: fn(&mut Settings, bool),
+}
+
+const BOOL_KEYS: [BoolKey; 2] = [
+    BoolKey {
+        key: "timer_forced_manual",
+        bit: VF_CONFIG_KEY_TIMER_FORCED_MANUAL,
+        get: |s| s.timer_forced_manual,
+        set: |s, b| s.timer_forced_manual = b,
+    },
+    BoolKey {
+        key: "restrict_game_cpu_sets",
+        bit: VF_CONFIG_KEY_RESTRICT_GAME_CPU_SETS,
+        get: |s| s.restrict_game_cpu_sets,
+        set: |s, b| s.restrict_game_cpu_sets = b,
+    },
 ];
 const GAME_EXES_KEY: &str = "custom_game_exes";
 const MEMORY_KEY: &str = "memory";
-
-fn number_of(s: &Settings, rule: &NumberRule) -> u64 {
-    match rule.key {
-        "poll_interval_ms" => s.poll_interval_ms as u64,
-        "timer_resolution_ns100" => s.timer_resolution_ns100 as u64,
-        "min_free_ram_mb" => s.min_free_ram_mb,
-        "min_standby_mb" => s.min_standby_mb,
-        "cooldown_seconds" => s.cooldown_seconds as u64,
-        _ => s.max_game_disk_read_mb_s,
-    }
-}
-
-/// Only called with a value already inside the rule's range, so the u32 fields cannot be truncated.
-fn set_number(s: &mut Settings, rule: &NumberRule, n: u64) {
-    match rule.key {
-        "poll_interval_ms" => s.poll_interval_ms = n as u32,
-        "timer_resolution_ns100" => s.timer_resolution_ns100 = n as u32,
-        "min_free_ram_mb" => s.min_free_ram_mb = n,
-        "min_standby_mb" => s.min_standby_mb = n,
-        "cooldown_seconds" => s.cooldown_seconds = n as u32,
-        _ => s.max_game_disk_read_mb_s = n,
-    }
-}
-
-fn bool_of(s: &Settings, key: &str) -> bool {
-    if key == "timer_forced_manual" { s.timer_forced_manual } else { s.restrict_game_cpu_sets }
-}
-
-fn set_bool(s: &mut Settings, key: &str, b: bool) {
-    if key == "timer_forced_manual" { s.timer_forced_manual = b } else { s.restrict_game_cpu_sets = b }
-}
 
 fn is_blank(bytes: &[u8]) -> bool {
     let rest = bytes.strip_prefix(b"\xEF\xBB\xBF").unwrap_or(bytes);
@@ -170,7 +197,7 @@ pub fn load(bytes: &[u8]) -> Loaded {
         }
     };
 
-    for (rule, bit) in NUMBER_KEYS {
+    for NumberKey { rule, bit, set, .. } in NUMBER_KEYS {
         // The reader before phase 1b found the memory keys anywhere, so an old file may have them at the top level too.
         // Every place is checked; the memory object wins when both are valid.
         let places = if rule.in_memory {
@@ -189,14 +216,14 @@ pub fn load(bytes: &[u8]) -> Loaded {
             }
         }
         if let (Some(n), 0) = (value, rejected & bit) {
-            set_number(&mut out.settings, rule, n);
+            set(&mut out.settings, n);
         }
     }
 
-    for (key, bit) in BOOL_KEYS {
+    for BoolKey { key, bit, set, .. } in BOOL_KEYS {
         match root.get(key) {
             None => {}
-            Some(Value::Bool(b)) => set_bool(&mut out.settings, key, *b),
+            Some(Value::Bool(b)) => set(&mut out.settings, *b),
             Some(_) => rejected |= bit,
         }
     }
@@ -230,8 +257,8 @@ pub fn load(bytes: &[u8]) -> Loaded {
 /// `VF_CONFIG_KEY_*` bits of the settings that break their own rule.
 fn invalid_settings(s: &Settings) -> u32 {
     let mut bits = 0;
-    for (rule, bit) in NUMBER_KEYS {
-        if !(rule.min..=rule.max).contains(&number_of(s, rule)) {
+    for NumberKey { rule, bit, get, .. } in NUMBER_KEYS {
+        if !(rule.min..=rule.max).contains(&get(s)) {
             bits |= bit;
         }
     }
@@ -271,19 +298,19 @@ pub fn save(original: &[u8], settings: &Settings) -> Result<String, SaveRefused>
 
     if loaded.status & VF_CONFIG_OLD_VERSION != 0 {
         // Moved into `memory` below: the current format reads the memory keys only there.
-        root.retain(|(k, _)| !NUMBER_KEYS.iter().any(|(rule, _)| rule.in_memory && rule.key == k));
+        root.retain(|(k, _)| !NUMBER_KEYS.iter().any(|nk| nk.rule.in_memory && nk.rule.key == k));
     }
     let mut memory = match root.iter().find(|(k, _)| k == MEMORY_KEY) {
         Some((_, Value::Object(m))) => m.clone(),
         _ => Vec::new(), // absent; load() already refused a memory that is not an object
     };
-    for (rule, _) in NUMBER_KEYS {
-        let value = Value::Number(number_of(settings, rule).to_string());
+    for NumberKey { rule, get, .. } in NUMBER_KEYS {
+        let value = Value::Number(get(settings).to_string());
         set_member(if rule.in_memory { &mut memory } else { &mut root }, rule.key, value);
     }
     set_member(&mut root, MEMORY_KEY, Value::Object(memory));
-    for (key, _) in BOOL_KEYS {
-        set_member(&mut root, key, Value::Bool(bool_of(settings, key)));
+    for BoolKey { key, get, .. } in BOOL_KEYS {
+        set_member(&mut root, key, Value::Bool(get(settings)));
     }
 
     let names = settings.custom_game_exes.iter().cloned().map(Value::String).collect();
