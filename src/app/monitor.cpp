@@ -14,6 +14,7 @@
 #include "optimize/cpu_orchestrator.hpp"
 #include "safety/frame_telemetry.hpp"
 #include "app/app_state.hpp"
+#include "windows/safe_file_system.hpp"
 #include "session/run_cycle.hpp"
 #include "session/text_convert.hpp"
 
@@ -28,6 +29,7 @@ void RunMonitorDashboard(
     bool once_mode) {
 
     using namespace vegaflow;
+    SafeFileSystem file_system; // the real FileSystem port (SandboxGuard)
     bool game_active = false;
     uint32_t active_game_pid = 0;
     std::wstring active_game_exe;
@@ -43,7 +45,7 @@ void RunMonitorDashboard(
 
     auto print_line = [&]() {
         RunSingleIteration(
-            config, hw, cpu_orchestrator, mem_mgr, telemetry_monitor,
+            config, file_system, hw, cpu_orchestrator, mem_mgr, telemetry_monitor,
             game_active, active_game_pid, active_game_exe, active_game_api, active_game_hwnd, timer_boosted);
 
         auto mem = mem_mgr.SampleTelemetry();

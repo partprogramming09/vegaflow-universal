@@ -1,7 +1,6 @@
 #include "optimize/steam/steam_engine_optimizer.hpp"
 #include "optimize/steam/steam_internal.hpp"
 #include "optimize/graphics/graphics_optimizer.hpp"
-#include "safety/sandbox_guard.hpp"
 
 namespace vegaflow {
 
@@ -9,8 +8,8 @@ using namespace steam_internal;
 
 namespace {
 
-bool WriteStringToFile(const std::filesystem::path& path, const std::string& content, bool is_anticheat_protected = false) {
-    return SandboxGuard::SafeWriteFile(path.wstring(), content, is_anticheat_protected);
+bool WriteStringToFile(FileSystem& fs, const std::filesystem::path& path, const std::string& content, bool is_anticheat_protected = false) {
+    return fs.Write(path.wstring(), content, is_anticheat_protected);
 }
 
 } // namespace
@@ -116,13 +115,13 @@ EngineOptimizationReport SteamEngineOptimizer::ApplyEngineUmaPreset(
 
             if (!std::filesystem::exists(pBak, ec)) {
                 if (std::filesystem::exists(pIni, ec)) {
-                    report.backup_created = SandboxGuard::SafeCopyFile(
+                    report.backup_created = fs_.Copy(
                         pIni.wstring(),
                         pBak.wstring(),
                         true,
                         game.has_anticheat);
                 } else {
-                    WriteStringToFile(pBak, "; VegaFlow Empty Backup\n", game.has_anticheat);
+                    WriteStringToFile(fs_, pBak, "; VegaFlow Empty Backup\n", game.has_anticheat);
                     report.backup_created = true;
                 }
             }
@@ -171,7 +170,7 @@ EngineOptimizationReport SteamEngineOptimizer::ApplyEngineUmaPreset(
             existingContent = std::move(cleanedContent);
 
             std::string finalContent = existingContent + umaBlock;
-            if (WriteStringToFile(pIni, finalContent, game.has_anticheat)) {
+            if (WriteStringToFile(fs_, pIni, finalContent, game.has_anticheat)) {
                 any_applied = true;
             }
         }
@@ -209,13 +208,13 @@ EngineOptimizationReport SteamEngineOptimizer::ApplyEngineUmaPreset(
 
         if (!std::filesystem::exists(pBak, ec)) {
             if (std::filesystem::exists(pBoot, ec)) {
-                report.backup_created = SandboxGuard::SafeCopyFile(
+                report.backup_created = fs_.Copy(
                     pBoot.wstring(),
                     pBak.wstring(),
                     true,
                     game.has_anticheat);
             } else {
-                WriteStringToFile(pBak, "; VegaFlow Empty Backup\n", game.has_anticheat);
+                WriteStringToFile(fs_, pBak, "; VegaFlow Empty Backup\n", game.has_anticheat);
                 report.backup_created = true;
             }
         }
@@ -261,7 +260,7 @@ EngineOptimizationReport SteamEngineOptimizer::ApplyEngineUmaPreset(
             ss << l << "\n";
         }
 
-        if (!WriteStringToFile(pBoot, ss.str(), game.has_anticheat)) {
+        if (!WriteStringToFile(fs_, pBoot, ss.str(), game.has_anticheat)) {
             report.success = false;
             report.status_message = "No se pudo abrir boot.config para escritura";
             return report;
@@ -306,15 +305,15 @@ EngineOptimizationReport SteamEngineOptimizer::RestoreEngineOriginalConfig(
 
                 std::string bakContent = ReadFileToString(pBak);
                 if (bakContent.find("; VegaFlow Empty Backup") != std::string::npos) {
-                    SandboxGuard::SafeRemoveFile(pIni.wstring(), game.has_anticheat);
+                    fs_.Remove(pIni.wstring(), game.has_anticheat);
                 } else {
-                    SandboxGuard::SafeCopyFile(
+                    fs_.Copy(
                         pBak.wstring(),
                         pIni.wstring(),
                         true,
                         game.has_anticheat);
                 }
-                SandboxGuard::SafeRemoveFile(pBak.wstring(), game.has_anticheat);
+                fs_.Remove(pBak.wstring(), game.has_anticheat);
                 any_restored = true;
                 continue;
             }
@@ -350,7 +349,7 @@ EngineOptimizationReport SteamEngineOptimizer::RestoreEngineOriginalConfig(
                         content.pop_back();
                     }
                     if (!content.empty()) content += "\n";
-                    WriteStringToFile(pIni, content, game.has_anticheat);
+                    WriteStringToFile(fs_, pIni, content, game.has_anticheat);
                     any_restored = true;
                 }
             }
@@ -387,15 +386,15 @@ EngineOptimizationReport SteamEngineOptimizer::RestoreEngineOriginalConfig(
 
             std::string bakContent = ReadFileToString(pBak);
             if (bakContent.find("; VegaFlow Empty Backup") != std::string::npos) {
-                SandboxGuard::SafeRemoveFile(pBoot.wstring(), game.has_anticheat);
+                fs_.Remove(pBoot.wstring(), game.has_anticheat);
             } else {
-                SandboxGuard::SafeCopyFile(
+                fs_.Copy(
                     pBak.wstring(),
                     pBoot.wstring(),
                     true,
                     game.has_anticheat);
             }
-            SandboxGuard::SafeRemoveFile(pBak.wstring(), game.has_anticheat);
+            fs_.Remove(pBak.wstring(), game.has_anticheat);
 
             report.success = true;
             report.status_message = "Configuracion original de Unity restaurada desde .vegaflow.bak";

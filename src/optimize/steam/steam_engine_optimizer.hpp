@@ -1,6 +1,7 @@
 #pragma once
 
 #include "model/hardware.hpp"
+#include "ports/file_system.hpp"
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -53,8 +54,12 @@ struct ApuShadowConfig {
     uint32_t volumetric_fog = 0;        // r.VolumetricFog (0 = disabled, 1 = active)
 };
 
+// Steam library scan (static, read-only) and engine presets. The methods that change game files are members and go
+// through the FileSystem port given to the constructor (the real one is windows/SafeFileSystem, i.e. SandboxGuard).
 class SteamEngineOptimizer {
 public:
+    explicit SteamEngineOptimizer(FileSystem& fs) : fs_(fs) {}
+
     // Reads HKCU\Software\Valve\Steam -> RunningAppID (0 if no Steam game is running)
     static uint32_t GetRunningSteamAppId();
 
@@ -73,7 +78,7 @@ public:
     // Applies the hidden engine preset for APU UMA (and DXGI Flip Model).
     // If has_anticheat == true, blocks editing of engine files and only applies the safe DXGI Flip Model.
     // Always creates a .vegaflow.bak backup before modifying Engine.ini or boot.config.
-    static EngineOptimizationReport ApplyEngineUmaPreset(
+    EngineOptimizationReport ApplyEngineUmaPreset(
         const SteamGameEntry& game,
         const ApuOptimizationPolicy& policy,
         uint32_t vram_pool_mb = 4096,
@@ -81,22 +86,25 @@ public:
         const std::wstring& custom_config_dir_override = L"");
 
     // Restores the original engine configuration from the .vegaflow.bak file
-    static EngineOptimizationReport RestoreEngineOriginalConfig(
+    EngineOptimizationReport RestoreEngineOriginalConfig(
         const SteamGameEntry& game,
         bool dry_run = false,
         const std::wstring& custom_config_dir_override = L"");
 
     // Injects or updates shadow settings optimized for the Vega 6 APU in [SystemSettings] of iniPath.
-    // Validates the path via SandboxGuard::CanModifyGamePath and blocks if kernel-level Anti-Cheat is detected.
-    static bool ApplyApuShadowConfig(const std::filesystem::path& iniPath, const ApuShadowConfig& config, bool dryRun = false);
+    // Validates the path via the FileSystem port (CanModifyGameDir) and blocks if kernel-level Anti-Cheat is detected.
+    bool ApplyApuShadowConfig(const std::filesystem::path& iniPath, const ApuShadowConfig& config, bool dryRun = false);
 
     // Restores the shadow settings from the .bak backup or removes the injected keys.
-    static bool RestoreApuShadowConfig(const std::filesystem::path& iniPath, bool dryRun = false);
+    bool RestoreApuShadowConfig(const std::filesystem::path& iniPath, bool dryRun = false);
 
     // Parses [SystemSettings] of iniPath and extracts the current values of the 5 optimized shadow variables.
-    static bool QueryApuShadowConfig(const std::filesystem::path& iniPath, ApuShadowConfig& currentConfig);
+    bool QueryApuShadowConfig(const std::filesystem::path& iniPath, ApuShadowConfig& currentConfig);
 
     static const char* EngineTypeToString(GameEngineType type);
+
+private:
+    FileSystem& fs_;
 };
 
 } // namespace vegaflow

@@ -16,6 +16,7 @@
 #include "app/app_state.hpp"
 #include "session/config.hpp"
 #include "session/reports.hpp"
+#include "windows/safe_file_system.hpp"
 #include "session/run_cycle.hpp"
 #include "session/text_convert.hpp"
 
@@ -32,6 +33,7 @@ int RunDaemon(
     using namespace vegaflow;
     // Built once from the boot profile, the same way each optimizer used to rebuild it on every call.
     const ApuOptimizationPolicy policy = HardwareProfiler::BuildOptimizationPolicy(hw);
+    SafeFileSystem file_system; // the real FileSystem port (SandboxGuard)
 
     bool game_active = false;
     uint32_t active_game_pid = 0;
@@ -45,7 +47,7 @@ int RunDaemon(
 
     if (once_mode) {
         RunSingleIteration(
-            config, hw, cpu_orchestrator, mem_mgr, telemetry_monitor,
+            config, file_system, hw, cpu_orchestrator, mem_mgr, telemetry_monitor,
             game_active, active_game_pid, active_game_exe, active_game_api, active_game_hwnd, timer_boosted);
         if (game_active) {
             telemetry_monitor.SaveSessionReportToFile(WideToUtf8(active_game_exe), "logs/session_reports.log");
@@ -114,7 +116,7 @@ int RunDaemon(
             break;
         } else if (wait_res == WAIT_OBJECT_0 + 1) {
             RunSingleIteration(
-                config, hw, cpu_orchestrator, mem_mgr, telemetry_monitor,
+                config, file_system, hw, cpu_orchestrator, mem_mgr, telemetry_monitor,
                 game_active, active_game_pid, active_game_exe, active_game_api, active_game_hwnd, timer_boosted);
         } else {
             break;

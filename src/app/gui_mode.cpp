@@ -39,6 +39,7 @@ int RunGuiMode(
     const ApuOptimizationPolicy policy = HardwareProfiler::BuildOptimizationPolicy(hw);
     SafeFileSystem file_system;
     DxvkManager dxvk(file_system);
+    SteamEngineOptimizer steam(file_system);
     bool game_active = false;
     uint32_t active_game_pid = 0;
     std::wstring active_game_exe;
@@ -91,7 +92,7 @@ int RunGuiMode(
     callbacks.on_PollTelemetry = [&]() -> GuiDashboardData {
         std::function<void(const std::string&)> audit_fn = AddAuditLog;
         RunSingleIteration(
-            config, hw, cpu_orchestrator, mem_mgr, telemetry_monitor,
+            config, file_system, hw, cpu_orchestrator, mem_mgr, telemetry_monitor,
             game_active, active_game_pid, active_game_exe, active_game_api, active_game_hwnd, timer_boosted,
             &active_game_full_path, &cached_noisy_count, &audit_fn);
 
@@ -460,7 +461,7 @@ int RunGuiMode(
         uint32_t pool_mb = pol.safe_vram_pool_mb;
         for (auto& sg : cached_steam_games) {
             if (sg.app_id == app_id) {
-                auto rep = SteamEngineOptimizer::ApplyEngineUmaPreset(sg, policy, pool_mb, false);
+                auto rep = steam.ApplyEngineUmaPreset(sg, policy, pool_mb, false);
                 if (rep.success) {
                     sg.engine_preset_applied = true;
                     sg.flip_model_applied = true;
@@ -479,7 +480,7 @@ int RunGuiMode(
     callbacks.on_RestoreGameEngineConfig = [&](uint32_t app_id) -> std::string {
         for (auto& sg : cached_steam_games) {
             if (sg.app_id == app_id) {
-                auto rep = SteamEngineOptimizer::RestoreEngineOriginalConfig(sg, false);
+                auto rep = steam.RestoreEngineOriginalConfig(sg, false);
                 if (rep.success) {
                     sg.engine_preset_applied = false;
                 }

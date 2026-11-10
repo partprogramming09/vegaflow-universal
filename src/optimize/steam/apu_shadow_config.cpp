@@ -1,6 +1,5 @@
 #include "optimize/steam/steam_engine_optimizer.hpp"
 #include "optimize/steam/steam_internal.hpp"
-#include "safety/sandbox_guard.hpp"
 
 namespace vegaflow {
 
@@ -58,16 +57,15 @@ bool SteamEngineOptimizer::ApplyApuShadowConfig(
         targetDir = std::filesystem::current_path(ec);
     }
 
-    // 1. Validate the path via SandboxGuard (kernel-level anti-cheat safety)
-    if (!SandboxGuard::CanModifyGamePath(targetDir)) {
+    // 1. Validate the path through the FileSystem port (SandboxGuard: kernel-level anti-cheat safety)
+    if (!fs_.CanModifyGameDir(targetDir)) {
         return false;
     }
-    if (SandboxGuard::PathContainsAntiCheatSignature(iniPath.wstring())) {
+    if (fs_.HasAntiCheatSignature(iniPath.wstring())) {
         return false;
     }
 
-    auto val = SandboxGuard::ValidatePath(iniPath.wstring(), SandboxAction::Write, false);
-    if (!val.allowed) {
+    if (!fs_.CanWrite(iniPath.wstring())) {
         return false;
     }
 
@@ -88,11 +86,11 @@ bool SteamEngineOptimizer::ApplyApuShadowConfig(
     std::filesystem::path bakPath = iniPath.wstring() + L".bak";
     if (!std::filesystem::exists(bakPath, ec)) {
         if (std::filesystem::exists(iniPath, ec)) {
-            if (!SandboxGuard::SafeCopyFile(iniPath.wstring(), bakPath.wstring(), true, false)) {
+            if (!fs_.Copy(iniPath.wstring(), bakPath.wstring(), true, false)) {
                 return false;
             }
         } else {
-            if (!SandboxGuard::SafeWriteFile(bakPath.wstring(), "; VegaFlow Empty Backup\n", false)) {
+            if (!fs_.Write(bakPath.wstring(), "; VegaFlow Empty Backup\n", false)) {
                 return false;
             }
         }
@@ -202,7 +200,7 @@ bool SteamEngineOptimizer::ApplyApuShadowConfig(
         out << l << "\n";
     }
 
-    return SandboxGuard::SafeWriteFile(iniPath.wstring(), out.str(), false);
+    return fs_.Write(iniPath.wstring(), out.str(), false);
 }
 
 bool SteamEngineOptimizer::RestoreApuShadowConfig(
@@ -219,16 +217,15 @@ bool SteamEngineOptimizer::RestoreApuShadowConfig(
         targetDir = std::filesystem::current_path(ec);
     }
 
-    // 1. Validate the path via SandboxGuard
-    if (!SandboxGuard::CanModifyGamePath(targetDir)) {
+    // 1. Validate the path through the FileSystem port (SandboxGuard)
+    if (!fs_.CanModifyGameDir(targetDir)) {
         return false;
     }
-    if (SandboxGuard::PathContainsAntiCheatSignature(iniPath.wstring())) {
+    if (fs_.HasAntiCheatSignature(iniPath.wstring())) {
         return false;
     }
 
-    auto val = SandboxGuard::ValidatePath(iniPath.wstring(), SandboxAction::Write, false);
-    if (!val.allowed) {
+    if (!fs_.CanWrite(iniPath.wstring())) {
         return false;
     }
 
@@ -250,12 +247,12 @@ bool SteamEngineOptimizer::RestoreApuShadowConfig(
         std::string bakContent = ReadFileToString(bakPath);
         bool restoredOk = false;
         if (bakContent.find("; VegaFlow Empty Backup") != std::string::npos) {
-            restoredOk = SandboxGuard::SafeRemoveFile(iniPath.wstring(), false);
+            restoredOk = fs_.Remove(iniPath.wstring(), false);
         } else {
-            restoredOk = SandboxGuard::SafeCopyFile(bakPath.wstring(), iniPath.wstring(), true, false);
+            restoredOk = fs_.Copy(bakPath.wstring(), iniPath.wstring(), true, false);
         }
         if (restoredOk) {
-            SandboxGuard::SafeRemoveFile(bakPath.wstring(), false);
+            fs_.Remove(bakPath.wstring(), false);
             return true;
         }
         return false;
@@ -319,7 +316,7 @@ bool SteamEngineOptimizer::RestoreApuShadowConfig(
             out << l << "\n";
         }
 
-        return SandboxGuard::SafeWriteFile(iniPath.wstring(), out.str(), false);
+        return fs_.Write(iniPath.wstring(), out.str(), false);
     }
 
     return false;
@@ -339,7 +336,7 @@ bool SteamEngineOptimizer::QueryApuShadowConfig(
     }
 
     std::string content;
-    if (!SandboxGuard::SafeReadFile(iniPath.wstring(), content)) {
+    if (!fs_.Read(iniPath.wstring(), content)) {
         return false;
     }
 

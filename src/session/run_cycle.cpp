@@ -23,6 +23,7 @@ namespace vegaflow::app {
 
 void RunSingleIteration(
     const AppConfig& config,
+    vegaflow::FileSystem& file_system,
     vegaflow::SystemHardwareProfile& hw,
     vegaflow::CpuOrchestrator& cpu_orchestrator,
     vegaflow::MemoryManager& mem_mgr,
@@ -131,7 +132,7 @@ void RunSingleIteration(
                 std::string preset_msg = "[ENGINE] Unreal Engine detectado. Preset UMA (" + policy.guard_mode_name +
                     ") aplicado (Pool " + std::to_string(pool_mb) + " MB, LimitVRAM=0, AsyncCompute=" + async_comp_str + ").";
                 if (!inspected.engine_preset_applied) {
-                    SteamEngineOptimizer::ApplyEngineUmaPreset(inspected, static_policy, pool_mb, false);
+                    SteamEngineOptimizer(file_system).ApplyEngineUmaPreset(inspected, static_policy, pool_mb, false);
                     emit_profile_msg(preset_msg);
                 } else {
                     emit_profile_msg(preset_msg);

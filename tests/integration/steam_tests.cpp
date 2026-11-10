@@ -36,8 +36,18 @@
 #include <fstream>
 
 #include "../test_support.hpp"
+#include "windows/safe_file_system.hpp"
 
 namespace vftest {
+
+namespace {
+// SteamEngineOptimizer over the real file system (SandboxGuard), as the daemon uses it.
+vegaflow::SteamEngineOptimizer& RealSteam() {
+    static vegaflow::SafeFileSystem file_system;
+    static vegaflow::SteamEngineOptimizer optimizer(file_system);
+    return optimizer;
+}
+} // namespace
 
 void Test13() {
     // -------------------------------------------------------------------------
@@ -70,7 +80,7 @@ void Test13() {
             out << "[Core.System]\nPaths=../../../Engine/Content\n";
         }
 
-        auto rep_apply = vegaflow::SteamEngineOptimizer::ApplyEngineUmaPreset(game, DetectedPolicy(), 3000, false, custom_cfg_dir.wstring());
+        auto rep_apply = RealSteam().ApplyEngineUmaPreset(game, DetectedPolicy(), 3000, false, custom_cfg_dir.wstring());
         bool apply_ok = rep_apply.success;
         bool bak_created = rep_apply.backup_created;
         auto bak_path = custom_cfg_dir / "Engine.ini.vegaflow.bak";
@@ -88,7 +98,7 @@ void Test13() {
                           (modified_content.find("r.Streaming.MaxNumTexturesToStreamPerFrame=120") != std::string::npos);
 
         // 3. Restoration of original config from .vegaflow.bak
-        auto rep_restore = vegaflow::SteamEngineOptimizer::RestoreEngineOriginalConfig(game, false, custom_cfg_dir.wstring());
+        auto rep_restore = RealSteam().RestoreEngineOriginalConfig(game, false, custom_cfg_dir.wstring());
         bool restore_ok = rep_restore.success;
         bool bak_removed = !std::filesystem::exists(bak_path, ec);
 
@@ -111,7 +121,7 @@ void Test13() {
         auto game_protected = vegaflow::SteamEngineOptimizer::InspectGameDirectory(temp_base.wstring(), 999999, "My Protected Game");
         bool ac_detect_ok = game_protected.has_anticheat;
 
-        auto rep_ac = vegaflow::SteamEngineOptimizer::ApplyEngineUmaPreset(game_protected, DetectedPolicy(), 3000, false, custom_cfg_dir.wstring());
+        auto rep_ac = RealSteam().ApplyEngineUmaPreset(game_protected, DetectedPolicy(), 3000, false, custom_cfg_dir.wstring());
         bool ac_block_ok = (rep_ac.blocked_by_anticheat && rep_ac.success);
 
         // 4b. HoYoverse Anti-Cheat safety verification (HoYoKProtect / mhypbase)
@@ -123,7 +133,7 @@ void Test13() {
         }
         auto game_hoyo = vegaflow::SteamEngineOptimizer::InspectGameDirectory(temp_base.wstring(), 999999, "Zenless Zone Zero");
         bool hoyo_detect_ok = game_hoyo.has_anticheat;
-        auto rep_hoyo = vegaflow::SteamEngineOptimizer::ApplyEngineUmaPreset(game_hoyo, DetectedPolicy(), 3000, false, custom_cfg_dir.wstring());
+        auto rep_hoyo = RealSteam().ApplyEngineUmaPreset(game_hoyo, DetectedPolicy(), 3000, false, custom_cfg_dir.wstring());
         bool hoyo_block_ok = (rep_hoyo.blocked_by_anticheat && rep_hoyo.success);
 
         // Cleanup
@@ -217,7 +227,7 @@ void Test24() {
         config.volumetric_fog = 0;
 
         // 2. Dry-Run simulation of ApplyApuShadowConfig
-        bool dry_apply_ok = vegaflow::SteamEngineOptimizer::ApplyApuShadowConfig(ini_path, config, true /* dryRun */);
+        bool dry_apply_ok = RealSteam().ApplyApuShadowConfig(ini_path, config, true /* dryRun */);
         bool dry_no_bak = !std::filesystem::exists(bak_path, ec);
         std::string post_dry_content;
         {
@@ -229,11 +239,11 @@ void Test24() {
         bool dry_unchanged = (post_dry_content == initial_ini);
 
         // 3. Real application and configuration query
-        bool apply_real_ok = vegaflow::SteamEngineOptimizer::ApplyApuShadowConfig(ini_path, config, false /* dryRun */);
+        bool apply_real_ok = RealSteam().ApplyApuShadowConfig(ini_path, config, false /* dryRun */);
         bool bak_created = std::filesystem::exists(bak_path, ec);
 
         vegaflow::ApuShadowConfig queried{};
-        bool query_ok = vegaflow::SteamEngineOptimizer::QueryApuShadowConfig(ini_path, queried);
+        bool query_ok = RealSteam().QueryApuShadowConfig(ini_path, queried);
 
         bool values_match = (queried.max_cascades == 2) &&
                             (std::abs(queried.distance_scale - 0.7f) < 0.001f) &&
@@ -266,20 +276,20 @@ void Test24() {
             out << "[SystemSettings]\n";
         }
 
-        bool ac_apply_blocked = !vegaflow::SteamEngineOptimizer::ApplyApuShadowConfig(ac_ini, config, false);
-        bool ac_dry_blocked = !vegaflow::SteamEngineOptimizer::ApplyApuShadowConfig(ac_ini, config, true);
-        bool ac_restore_blocked = !vegaflow::SteamEngineOptimizer::RestoreApuShadowConfig(ac_ini, false);
+        bool ac_apply_blocked = !RealSteam().ApplyApuShadowConfig(ac_ini, config, false);
+        bool ac_dry_blocked = !RealSteam().ApplyApuShadowConfig(ac_ini, config, true);
+        bool ac_restore_blocked = !RealSteam().RestoreApuShadowConfig(ac_ini, false);
         bool ac_shield_ok = ac_apply_blocked && ac_dry_blocked && ac_restore_blocked;
 
         // Immediately clean up the anti-cheat directory to isolate the temporary environment
         std::filesystem::remove_all(ac_dir, ec);
 
         // 5. Dry-Run simulation of RestoreApuShadowConfig
-        bool dry_restore_ok = vegaflow::SteamEngineOptimizer::RestoreApuShadowConfig(ini_path, true /* dryRun */);
+        bool dry_restore_ok = RealSteam().RestoreApuShadowConfig(ini_path, true /* dryRun */);
         bool bak_still_exists = std::filesystem::exists(bak_path, ec);
 
         // 6. Real clean restoration from .bak
-        bool restore_real_ok = vegaflow::SteamEngineOptimizer::RestoreApuShadowConfig(ini_path, false /* dryRun */);
+        bool restore_real_ok = RealSteam().RestoreApuShadowConfig(ini_path, false /* dryRun */);
         bool bak_deleted = !std::filesystem::exists(bak_path, ec);
 
         std::string restored_content;

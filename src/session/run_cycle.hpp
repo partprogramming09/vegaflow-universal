@@ -5,6 +5,7 @@
 #include <functional>
 #include <string>
 
+#include "ports/file_system.hpp"
 #include "session/config.hpp"
 #include "detect/hardware_profiler.hpp"
 #include "optimize/cpu_orchestrator.hpp"
@@ -15,6 +16,7 @@ namespace vegaflow::app {
 
 void RunSingleIteration(
     const AppConfig& config,
+    vegaflow::FileSystem& file_system,
     vegaflow::SystemHardwareProfile& hw,
     vegaflow::CpuOrchestrator& cpu_orchestrator,
     vegaflow::MemoryManager& mem_mgr,
