@@ -16,6 +16,15 @@ $dir = 'C:\ProgramData\VegaFlow'
 $source = Join-Path $PSScriptRoot 'tweaks_state.ps1'
 $setupLog = Join-Path $dir 'setup.log'
 
+# Decided before the permissions below change: an existing config.json is kept only if an administrator already
+# owned it. A file planted before the first install by another account would otherwise become trusted.
+$configDst = Join-Path $dir 'config\config.json'
+$keepConfig = $false
+if (Test-Path $configDst) {
+    $ownerSid = (Get-Acl $configDst).GetOwner([System.Security.Principal.SecurityIdentifier]).Value
+    $keepConfig = $ownerSid -in @('S-1-5-18', 'S-1-5-32-544')
+}
+
 New-Item -ItemType Directory -Force -Path $dir | Out-Null
 # SIDs for SYSTEM, Administrators and Users: text names fail on Windows in another language.
 icacls $dir /grant:r '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-32-545:(OI)(CI)RX' | Out-Null
@@ -36,9 +45,8 @@ $daemonSrc = Join-Path $PSScriptRoot '..\build\vegaflow_daemon.exe'
 if (-not (Test-Path $daemonSrc)) { throw "Falta $daemonSrc; compila con scripts\build.ps1." }
 Copy-Item $daemonSrc (Join-Path $dir 'vegaflow_daemon.exe') -Force
 New-Item -ItemType Directory -Force -Path (Join-Path $dir 'config'), (Join-Path $dir 'logs') | Out-Null
-# Only the first install copies config.json: a reinstall keeps the settings already there.
-$configDst = Join-Path $dir 'config\config.json'
-if (-not (Test-Path $configDst)) { Copy-Item (Join-Path $PSScriptRoot '..\config\config.json') $configDst }
+# A reinstall keeps the settings already there; any other config.json is replaced by the one from the repository.
+if (-not $keepConfig) { Copy-Item (Join-Path $PSScriptRoot '..\config\config.json') $configDst -Force }
 $hashDaemon = (Get-FileHash (Join-Path $dir 'vegaflow_daemon.exe') -Algorithm SHA256).Hash
 # Owner Administrators: the daemon only reads config.json when no other account owns or can write the folder.
 icacls $dir /setowner '*S-1-5-32-544' /T /C | Out-Null
