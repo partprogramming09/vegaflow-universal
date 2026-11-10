@@ -96,6 +96,20 @@ Hay un caso que se comprueba en el laptop antes de decidir nada: si las rutas co
 - Steam solo en bibliotecas reales: Steam guarda la lista de sus bibliotecas en `libraryfolders.vdf`, y se acepta solo lo que esté dentro de ellas. El proyecto ya lee ese archivo en C++ (`src/optimize/steam/steam_library.cpp`). Ese lector pasa a Rust (`policy/steam_library.rs`), porque ahora decide la seguridad: es dato de fuera y en Rust se ataca con proptest y fuzzing. No se usa una librería ajena (sección 3c).
 - Comprobar la ruta ya abierta: es la única forma de cerrar la carrera entre comprobar y escribir. Esto lo hace Windows, así que va en C++.
 
+**Sondas en el laptop (2026-11-10, `ValidatePath` del commit `f59fc17`, escritura):**
+
+| Ruta probada | Resultado hoy | Qué significa |
+|---|---|---|
+| `%TEMP%\enlace\drivers\etc\x.txt`, con `enlace` un junction (`mklink /J`) a `C:\Windows\System32` | **Permitida** | La normalización no resuelve junctions: el fallo nº 2 existe sin necesidad de carrera |
+| `C:\vfprobe\outside.txt` con el ejecutable en `C:\vfprobe\bin` | Permitida | Fallo nº 1 confirmado |
+| `C:\vfprobe\cwd\x.txt` con la carpeta de trabajo en `C:\vfprobe\cwd` | Permitida | Fallo nº 4 confirmado |
+| `C:\Program Files\X\steamapps\common\y.ini` | Permitida | Fallo nº 3 confirmado |
+| `%LOCALAPPDATA%OtraCosa\x.txt` | Permitida | Fallo nº 5 confirmado |
+| `\\?\C:\Windows\System32\x.dll`, `\\?\UNC\...`, `\\.\C:\...`, `\\?\GLOBALROOT\...`, `\\localhost\C$\...` | Negada | El prefijo no salta la lista negra, pero la normalización lo deja roto (`C:\?\C:\...`): una ruta `\\?\` legítima también se niega |
+| `C:\PROGRA~1\COMMON~1\x.dll` (nombre corto 8.3) | Negada solo por la lista blanca | La lista negra no ve los nombres cortos; mirar la ruta real ya abierta lo cubre |
+
+Por eso la comprobación de la ruta ya abierta (`GetFinalPathNameByHandleW`, que devuelve nombres largos y sin enlaces) es la que cierra los fallos 2 y los nombres cortos, y la normalización debe quitar `\\?\` y negar `\\?\UNC\`, `\\.\` y `GLOBALROOT`.
+
 **Pruebas nuevas:**
 - un caso por cada fallo de la tabla, que hoy debe fallar;
 - casos permitidos que deben seguir funcionando (juego de Steam, LOCALAPPDATA, temp);
