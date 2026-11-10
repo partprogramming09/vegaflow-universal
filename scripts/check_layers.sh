@@ -14,11 +14,11 @@ allowed() {
     ui) echo "session model" ;;
     session) echo "model ports bridge detect optimize safety windows" ;; # Migration: detect optimize safety windows
     ports) echo "model" ;;
-    windows) echo "ports model bridge" ;;
+    windows) echo "ports model bridge safety" ;; # Migration: safety (SafeFileSystem wraps SandboxGuard until phase 1)
     model) echo "" ;;
     bridge) echo "" ;;
     detect) echo "model windows bridge safety" ;;
-    optimize) echo "model windows bridge safety" ;;
+    optimize) echo "model ports windows bridge safety" ;;
     safety) echo "model windows bridge" ;;
     *) echo "UNKNOWN" ;;
     esac

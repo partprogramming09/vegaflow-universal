@@ -11,6 +11,7 @@
 #include "detect/hardware_profiler.hpp"
 #include "optimize/graphics/graphics_optimizer.hpp"
 #include "optimize/dxvk_manager.hpp"
+#include "windows/safe_file_system.hpp"
 #include "session/system_info.hpp"
 #include "app/app_state.hpp"
 #include "session/config.hpp"
@@ -103,6 +104,7 @@ std::optional<int> RunOneShotCommand(const CliOptions& opts, int argc, char* arg
     auto detected_policy = [] {
         return vegaflow::HardwareProfiler::BuildOptimizationPolicy(vegaflow::HardwareProfiler::DetectHardware());
     };
+    vegaflow::SafeFileSystem file_system;
     if (opts.system_info_flag) {
         vegaflow::SystemInfo sys_info;
         std::cout << sys_info.ToJson() << "\n";
@@ -233,7 +235,7 @@ std::optional<int> RunOneShotCommand(const CliOptions& opts, int argc, char* arg
     if (!opts.dxvk_install_path.empty()) {
         std::wstring wpath = Utf8ToWide(opts.dxvk_install_path);
         std::string msg;
-        bool ok = vegaflow::DxvkManager::DeployDxvk(wpath, detected_policy(), false, true, opts.dry_run_flag, &msg);
+        bool ok = vegaflow::DxvkManager(file_system).DeployDxvk(wpath, detected_policy(), false, true, opts.dry_run_flag, &msg);
         std::cout << "[DXVK] " << msg << "\n";
         return ok ? 0 : 1;
     }
@@ -241,7 +243,7 @@ std::optional<int> RunOneShotCommand(const CliOptions& opts, int argc, char* arg
     if (!opts.dxvk_remove_path.empty()) {
         std::wstring wpath = Utf8ToWide(opts.dxvk_remove_path);
         std::string msg;
-        bool ok = vegaflow::DxvkManager::RemoveDxvk(wpath, opts.dry_run_flag, &msg);
+        bool ok = vegaflow::DxvkManager(file_system).RemoveDxvk(wpath, opts.dry_run_flag, &msg);
         std::cout << "[DXVK] " << msg << "\n";
         return ok ? 0 : 1;
     }

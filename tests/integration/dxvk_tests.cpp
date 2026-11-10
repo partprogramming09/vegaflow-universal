@@ -36,8 +36,18 @@
 #include <fstream>
 
 #include "../test_support.hpp"
+#include "windows/safe_file_system.hpp"
 
 namespace vftest {
+
+namespace {
+// DxvkManager over the real file system (SandboxGuard), as the daemon uses it.
+vegaflow::DxvkManager& RealDxvk() {
+    static vegaflow::SafeFileSystem file_system;
+    static vegaflow::DxvkManager manager(file_system);
+    return manager;
+}
+} // namespace
 
 void Test16() {
     // -------------------------------------------------------------------------
@@ -78,13 +88,13 @@ void Test16() {
 
         // 2. AntiCheat Block Verification
         std::string ac_msg;
-        bool ac_blocked = !vegaflow::DxvkManager::DeployDxvk(game_exe.wstring(), DetectedPolicy(), true /* has_anticheat */, true, false, &ac_msg);
+        bool ac_blocked = !RealDxvk().DeployDxvk(game_exe.wstring(), DetectedPolicy(), true /* has_anticheat */, true, false, &ac_msg);
         bool ac_msg_ok = (ac_msg.find("Anti-Cheat") != std::string::npos);
         bool no_files_installed = !vegaflow::DxvkManager::IsDxvkInstalled(game_exe.wstring());
 
         // 3. Dry-Run Verification
         std::string dry_msg;
-        bool dry_ok = vegaflow::DxvkManager::DeployDxvk(game_exe.wstring(), DetectedPolicy(), false, true, true /* dry_run */, &dry_msg);
+        bool dry_ok = RealDxvk().DeployDxvk(game_exe.wstring(), DetectedPolicy(), false, true, true /* dry_run */, &dry_msg);
         bool still_no_files = !vegaflow::DxvkManager::IsDxvkInstalled(game_exe.wstring());
 
         // 4. Pre-existing custom DLL backup test
@@ -96,7 +106,7 @@ void Test16() {
 
         // 5. Real Deployment Execution
         std::string deploy_msg;
-        bool deploy_ok = vegaflow::DxvkManager::DeployDxvk(game_exe.wstring(), DetectedPolicy(), false, true, false, &deploy_msg);
+        bool deploy_ok = RealDxvk().DeployDxvk(game_exe.wstring(), DetectedPolicy(), false, true, false, &deploy_msg);
         bool is_installed = vegaflow::DxvkManager::IsDxvkInstalled(game_exe.wstring());
 
         bool d3d11_exists = std::filesystem::exists(temp_base / "d3d11.dll", ec);
@@ -139,7 +149,7 @@ void Test16() {
         }
 
         std::string remove_msg;
-        bool remove_ok = vegaflow::DxvkManager::RemoveDxvk(game_exe.wstring(), false, &remove_msg);
+        bool remove_ok = RealDxvk().RemoveDxvk(game_exe.wstring(), false, &remove_msg);
 
         bool conf_deleted = !std::filesystem::exists(temp_base / "dxvk.conf", ec);
         bool logs_deleted = !std::filesystem::exists(temp_base / "shooter_d3d11.log", ec) &&
@@ -197,18 +207,18 @@ void Test22() {
         std::filesystem::remove_all(test_dir / "quarantine_zzz", ec);
 
         // 1. Dry-Run simulation (validation without writing to disk)
-        bool dry_res = vegaflow::DxvkManager::ConfigureApuProfile(test_dir, DetectedPolicy(), true /* dryRun */);
+        bool dry_res = RealDxvk().ConfigureApuProfile(test_dir, DetectedPolicy(), true /* dryRun */);
         bool dry_no_file = !std::filesystem::exists(test_dir / "dxvk.conf", ec);
         bool dry_ok = dry_res && dry_no_file;
 
         // 2. Real generation of an optimized profile for Zen 2 / Vega 6 APU
-        bool config_ok = vegaflow::DxvkManager::ConfigureApuProfile(test_dir, DetectedPolicy(), false /* dryRun */);
+        bool config_ok = RealDxvk().ConfigureApuProfile(test_dir, DetectedPolicy(), false /* dryRun */);
         bool conf_exists = std::filesystem::exists(test_dir / "dxvk.conf", ec);
 
         // 3. Validation of active directives
         bool async_active = false;
         uint32_t compiler_threads = 0;
-        bool validate_ok = vegaflow::DxvkManager::ValidateDxvkApuProfile(test_dir, async_active, compiler_threads);
+        bool validate_ok = RealDxvk().ValidateDxvkApuProfile(test_dir, async_active, compiler_threads);
         bool directives_val_ok = validate_ok && async_active && (compiler_threads == 6);
 
         // Verification of directives in the physical file
@@ -234,7 +244,7 @@ void Test22() {
             std::ofstream custom_tweak(test_dir / "dxvk.conf", std::ios::app);
             custom_tweak << "d3d11.samplerAnisotropy = 8\n";
         }
-        bool reconfigure_ok = vegaflow::DxvkManager::ConfigureApuProfile(test_dir, DetectedPolicy(), false /* dryRun */);
+        bool reconfigure_ok = RealDxvk().ConfigureApuProfile(test_dir, DetectedPolicy(), false /* dryRun */);
         bool custom_preserved = false;
         {
             std::ifstream cfile(test_dir / "dxvk.conf");
@@ -252,8 +262,8 @@ void Test22() {
             ac_file << "dummy_genshin_binary";
         }
         bool genshin_guard_blocked = !vegaflow::SandboxGuard::CanModifyGamePath(genshin_dir);
-        bool genshin_deploy_blocked = !vegaflow::DxvkManager::ConfigureApuProfile(genshin_dir, DetectedPolicy(), false);
-        bool genshin_dry_blocked = !vegaflow::DxvkManager::ConfigureApuProfile(genshin_dir, DetectedPolicy(), true);
+        bool genshin_deploy_blocked = !RealDxvk().ConfigureApuProfile(genshin_dir, DetectedPolicy(), false);
+        bool genshin_dry_blocked = !RealDxvk().ConfigureApuProfile(genshin_dir, DetectedPolicy(), true);
         bool genshin_no_conf = !std::filesystem::exists(genshin_dir / "dxvk.conf", ec);
 
         // 5b. Simulated directory with ZenlessZoneZero.exe
@@ -264,8 +274,8 @@ void Test22() {
             ac_file << "dummy_zzz_binary";
         }
         bool zzz_guard_blocked = !vegaflow::SandboxGuard::CanModifyGamePath(zzz_dir);
-        bool zzz_deploy_blocked = !vegaflow::DxvkManager::ConfigureApuProfile(zzz_dir, DetectedPolicy(), false);
-        bool zzz_dry_blocked = !vegaflow::DxvkManager::ConfigureApuProfile(zzz_dir, DetectedPolicy(), true);
+        bool zzz_deploy_blocked = !RealDxvk().ConfigureApuProfile(zzz_dir, DetectedPolicy(), false);
+        bool zzz_dry_blocked = !RealDxvk().ConfigureApuProfile(zzz_dir, DetectedPolicy(), true);
         bool zzz_no_conf = !std::filesystem::exists(zzz_dir / "dxvk.conf", ec);
 
         bool anticheat_protection_ok = genshin_guard_blocked && genshin_deploy_blocked &&
@@ -274,15 +284,15 @@ void Test22() {
                                        zzz_dry_blocked && zzz_no_conf;
 
         // 6. Clean removal (RemoveApuProfile)
-        bool remove_dry_ok = vegaflow::DxvkManager::RemoveApuProfile(test_dir, true /* dryRun */);
+        bool remove_dry_ok = RealDxvk().RemoveApuProfile(test_dir, true /* dryRun */);
         bool conf_still_there = std::filesystem::exists(test_dir / "dxvk.conf", ec);
 
-        bool remove_real_ok = vegaflow::DxvkManager::RemoveApuProfile(test_dir, false /* dryRun */);
+        bool remove_real_ok = RealDxvk().RemoveApuProfile(test_dir, false /* dryRun */);
         bool conf_deleted = !std::filesystem::exists(test_dir / "dxvk.conf", ec);
 
         bool post_async = false;
         uint32_t post_threads = 0;
-        bool post_val_fails = !vegaflow::DxvkManager::ValidateDxvkApuProfile(test_dir, post_async, post_threads);
+        bool post_val_fails = !RealDxvk().ValidateDxvkApuProfile(test_dir, post_async, post_threads);
 
         bool removal_ok = remove_dry_ok && conf_still_there && remove_real_ok && conf_deleted && post_val_fails;
 

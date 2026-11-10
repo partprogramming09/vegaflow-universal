@@ -16,6 +16,7 @@
 #include "ui/gui_window.hpp"
 #include "optimize/steam/steam_engine_optimizer.hpp"
 #include "optimize/dxvk_manager.hpp"
+#include "windows/safe_file_system.hpp"
 #include "safety/sandbox_guard.hpp"
 #include "session/system_info.hpp"
 #include <filesystem>
@@ -36,6 +37,8 @@ int RunGuiMode(
     using namespace vegaflow;
     // Built once from the boot profile, the same way each optimizer used to rebuild it on every call.
     const ApuOptimizationPolicy policy = HardwareProfiler::BuildOptimizationPolicy(hw);
+    SafeFileSystem file_system;
+    DxvkManager dxvk(file_system);
     bool game_active = false;
     uint32_t active_game_pid = 0;
     std::wstring active_game_exe;
@@ -496,12 +499,12 @@ int RunGuiMode(
             if (sg.app_id == app_id) {
                 std::string msg;
                 if (sg.dxvk_installed) {
-                    bool ok = DxvkManager::RemoveDxvk(sg.primary_exe_path, false, &msg);
+                    bool ok = dxvk.RemoveDxvk(sg.primary_exe_path, false, &msg);
                     if (ok) {
                         sg.dxvk_installed = false;
                     }
                 } else {
-                    bool ok = DxvkManager::DeployDxvk(sg.primary_exe_path, policy, sg.has_anticheat, true, false, &msg);
+                    bool ok = dxvk.DeployDxvk(sg.primary_exe_path, policy, sg.has_anticheat, true, false, &msg);
                     if (ok) {
                         sg.dxvk_installed = true;
                     }

@@ -145,6 +145,8 @@ direct/
 │   │   ├── system_info.*         # Informe SystemInfo (hardware, UMA, SMBIOS RAM, OS y JSON)
 │   │   ├── config.*              # config.json y lista de juegos
 │   │   └── text_convert.*        # UTF-8 <-> UTF-16
+│   ├── ports/                    # Interfaces que los casos de uso piden y las pruebas falsifican
+│   │   └── file_system.hpp       # Leer, escribir, copiar y borrar archivos de juegos
 │   ├── model/                    # Tipos compartidos, sin lógica
 │   │   ├── hardware.hpp          # GPU, CPU, Tier de la APU y su política
 │   │   └── game.hpp              # Juego detectado y su API gráfica
@@ -186,13 +188,15 @@ direct/
 │   ├── windows/                  # Envolturas de la API de Windows
 │   │   ├── nt_defs.hpp           # Typedefs y llamadas nativas indocumentadas de NTDLL
 │   │   ├── unique_handle.hpp     # Cierre automático de handles, claves de registro y búsquedas (RAII)
+│   │   ├── safe_file_system.*    # Puerto de archivos real: pasa todo por SandboxGuard
 │   │   └── privileges.*          # Gestión de privilegios NT y elevación UAC
 │   └── bridge/
 │       └── rust_bridge.h         # Definición de tipos y firmas FFI C/Rust (Zero-Allocation)
 ├── tests/
-│   ├── test_main.cpp             # Entrada de la suite: corre las 33 pruebas en orden y restaura el sistema al final
+│   ├── test_main.cpp             # Entrada de la suite: corre las 34 pruebas en orden y restaura el sistema al final
 │   ├── test_support.*            # Contadores, RecordResult y lector de los .tsv
-│   ├── integration/              # Las pruebas, un archivo por módulo (tocan Windows de verdad)
+│   ├── integration/              # Pruebas que tocan Windows de verdad, un archivo por módulo
+│   ├── unit/                     # Pruebas con puertos falsos (no tocan el disco ni el registro)
 │   └── vectors/                  # Casos compartidos con las pruebas de Rust
 ├── logs/
 │   └── session_reports.log       # Registro persistente de sesiones y telemetría

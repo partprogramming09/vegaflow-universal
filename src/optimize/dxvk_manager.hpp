@@ -9,6 +9,7 @@
 #include <windows.h>
 
 #include "model/hardware.hpp"
+#include "ports/file_system.hpp"
 
 #include <cstdint>
 #include <filesystem>
@@ -16,14 +17,18 @@
 
 namespace vegaflow {
 
+// Installs and removes DXVK in a game folder. Every file change goes through the FileSystem port it is given
+// (the real one is windows/SafeFileSystem, i.e. SandboxGuard).
 class DxvkManager {
 public:
+    explicit DxvkManager(FileSystem& fs) : fs_(fs) {}
+
     // Checks whether d3d11.dll and dxgi.dll exist in the directory of game_exe_path
     static bool IsDxvkInstalled(const std::wstring& game_exe_path);
 
     // Deploys DXVK (DirectX 11 to Vulkan with asynchronous GPL compilation)
     // If has_anticheat == true, refuses the installation to protect the user's account.
-    static bool DeployDxvk(
+    bool DeployDxvk(
         const std::wstring& game_exe_path,
         const ApuOptimizationPolicy& policy,
         bool has_anticheat = false,
@@ -32,7 +37,7 @@ public:
         std::string* out_message = nullptr);
 
     // Removes DXVK and restores the original .original.bak files if they existed
-    static bool RemoveDxvk(
+    bool RemoveDxvk(
         const std::wstring& game_exe_path,
         bool dry_run = false,
         std::string* out_message = nullptr);
@@ -41,13 +46,16 @@ public:
     static std::wstring GetDxvkAssetsPath();
 
     // Generates or updates dxvk.conf with parameters calibrated for APU Zen 2 / Vega 6
-    static bool ConfigureApuProfile(const std::filesystem::path& targetDir, const ApuOptimizationPolicy& policy, bool dryRun = false);
+    bool ConfigureApuProfile(const std::filesystem::path& targetDir, const ApuOptimizationPolicy& policy, bool dryRun = false);
 
     // Reads and validates the contents of dxvk.conf in targetDir
-    static bool ValidateDxvkApuProfile(const std::filesystem::path& targetDir, bool& asyncEnabled, uint32_t& compilerThreads);
+    bool ValidateDxvkApuProfile(const std::filesystem::path& targetDir, bool& asyncEnabled, uint32_t& compilerThreads);
 
     // Cleanly deletes dxvk.conf in targetDir
-    static bool RemoveApuProfile(const std::filesystem::path& targetDir, bool dryRun = false);
+    bool RemoveApuProfile(const std::filesystem::path& targetDir, bool dryRun = false);
+
+private:
+    FileSystem& fs_;
 };
 
 } // namespace vegaflow

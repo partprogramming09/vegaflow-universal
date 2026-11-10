@@ -17,7 +17,7 @@ El proyecto incluye el script automatizado [`scripts/build.ps1`](../../scripts/b
 # Compilar vegaflow_daemon.exe y vegaflow_tests.exe:
 powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
 
-# Compilar y ejecutar inmediatamente los 33 tests unitarios:
+# Compilar y ejecutar inmediatamente los 34 tests unitarios:
 powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1 -RunTests
 ```
 
@@ -61,7 +61,7 @@ g++ $FLAGS $COMMON src/app/*.cpp -o build/vegaflow_daemon.exe $RUST $LIBS
 
 #### Compilar la Suite de Pruebas Unitarias (`vegaflow_tests.exe`):
 ```bash
-g++ $FLAGS $COMMON tests/*.cpp tests/integration/*.cpp -o build/vegaflow_tests.exe $RUST $LIBS
+g++ $FLAGS $COMMON tests/*.cpp tests/integration/*.cpp tests/unit/*.cpp -o build/vegaflow_tests.exe $RUST $LIBS
 ```
 
 Si se añade una carpeta nueva dentro de `src/`, hay que añadirla a `COMMON`. `build.ps1` y `build-cross.sh` la encuentran solos.
@@ -106,9 +106,10 @@ Cualquier cambio en el repositorio debe ser validado ejecutando `build/vegaflow_
 [PASS] Test 33: SandboxGuard blacklist matches the shared vector file
 [PASS] Test 34: rust_bridge.h structs have the same layout in C++ and Rust
 [PASS] Test 35: UniqueHandle and UniqueRegKey close what they own exactly once
+[PASS] Test 36: DxvkManager changes game files only through the FileSystem port (fake file system)
 
 ================================================================================
-TEST RESULTS: 33 PASSED, 0 FAILED
+TEST RESULTS: 34 PASSED, 0 FAILED
 ================================================================================
 ```
 
