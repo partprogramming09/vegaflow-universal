@@ -24,6 +24,16 @@
 - ZZZ: `CanModifyGameDir` dice que sí porque los archivos de anti-cheat están en subcarpetas (solo se mira hacia arriba). Es anterior a la fase 1; el preset sigue bloqueado por `has_anticheat`.
 - La prueba de que `run_cycle` pasa la política estática se movió a la fase 3 ([`07-fase-3.md`](07-fase-3.md)).
 
+## Pendiente heredado de la fase 1b
+
+- `ACCESS_SYSTEM_SECURITY` no cuenta como permiso de escritura (solo cambia la auditoría y exige un privilegio de administrador).
+- Si la carpeta del ejecutable hereda permisos de escritura a otras cuentas, la carpeta `config` o el archivo creados después no pasan la comprobación y se usan los valores de fábrica (falla en cerrado).
+- Las carpetas por encima de la del ejecutable no se comprueban (quien pudiera cambiarlas también podría cambiar el ejecutable).
+- Con el ejecutable en una ruta de más de 260 caracteres, la raíz de SandboxGuard se corta (`GetVegaFlowExecutableDirectory` usa `MAX_PATH`) y `config.json` no se puede leer ni guardar; unificar con `ConfigFilePath` (decisión del usuario pendiente).
+- Anterior a la fase: si otra cuenta crea `C:\ProgramData\VegaFlow` antes de instalar y le añade un permiso explícito, `setup_tasks.ps1` no lo quita; podría cambiar el ejecutable.
+- Fase 5: la lista de procesos de Windows existe en Rust (`config_rules.rs`) y en C++ (`kExcludedProcesses` de `process_detector.cpp`); unificarlas. Además, el paso 3 de `DetectActiveGame` construye un juego aunque `InspectProcess` lo excluya.
+- Fase G: con un `config.json` corrupto, con un valor rechazado o de versión más nueva, la GUI solo avisa; el botón para que la persona decida (restaurar valores de fábrica o abrir el archivo) es de la fase G. Tras corregir el archivo hay que reiniciar VegaFlow.
+
 ## 9. Ideas sin fase todavía
 
 Salieron de la ronda de ideas del 2026-11-09. Ninguna se empieza sin decidirla antes; las marcadas "sin verificar" necesitan investigación.

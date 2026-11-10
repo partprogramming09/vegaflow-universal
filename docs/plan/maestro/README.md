@@ -1,6 +1,6 @@
 # Plan maestro: arquitectura nueva, Rust, seguridad y soporte universal
 
-**Lector:** personas. Fecha: 2026-11-08. Estado: **aprobado el 2026-11-09**. Hechas: fase 0, R1 y R2 (2026-11-09) y fase 1 (2026-11-10). Siguiente: fase 1b.
+**Lector:** personas. Fecha: 2026-11-08. Estado: **aprobado el 2026-11-09**. Hechas: fase 0, R1 y R2 (2026-11-09), fase 1 y fase 1b (2026-11-10). Siguiente: fase 2.
 
 Este es el único plan del proyecto. Junta tres cosas que antes iban por separado:
 - la **arquitectura nueva** y la modularización (decisión en el [ADR 0001](../../adr/0001-nucleo-que-decide-y-puertos.md));
@@ -21,7 +21,7 @@ Un archivo por fase, en el orden en que se hacen. Lo común va aparte:
 | ~~`01-fase-r1.md`~~ | Fase R1: **hecha el 2026-11-09** (commits `8fb9daf` a la revisión final; el archivo se borró, la historia queda en git). Resultado en [`docs/arquitectura/modulos.md`](../../arquitectura/modulos.md) |
 | ~~`02-fase-r2.md`~~ | Fase R2: **hecha el 2026-11-09** (política inyectada, `ports/file_system.hpp` y `ports/clock.hpp`, `windows/unique_handle.hpp`; partir `gui_mode` pasó a la fase G). Resultado en [`docs/arquitectura/modulos.md`](../../arquitectura/modulos.md) |
 | ~~`03-fase-1.md`~~ | Fase 1: **hecha el 2026-11-10** (decisión entera en Rust `policy/file_access.rs`, lector de `libraryfolders.vdf` en Rust, junctions y 8.3 resueltos, E/S comprobada por handle, carpetas permitidas sin enlaces; el archivo se borró, la historia queda en git). Resultado en [`docs/arquitectura/seguridad.md`](../../arquitectura/seguridad.md); pendientes en [`fuera-del-plan.md`](fuera-del-plan.md) |
-| [`04-fase-1b.md`](04-fase-1b.md) | Fase 1b: configuración segura |
+| ~~`04-fase-1b.md`~~ | Fase 1b: **hecha el 2026-11-10** (`da5b0ee`, `574324e`, `45326bf`, `03bf476`: una sola ruta junto al `.exe` que solo se lee si nadie más pudo escribirla, lector JSON propio en Rust, rangos y nombres de juego validados, guardado sin perder claves; el archivo se borró, la historia queda en git). Resultado en [`docs/arquitectura/seguridad.md`](../../arquitectura/seguridad.md), punto 5; pendientes en [`fuera-del-plan.md`](fuera-del-plan.md) |
 | [`05-fase-2.md`](05-fase-2.md) | Fase 2: editor de `.ini` de juegos (Unreal y Unity) |
 | [`06-fase-2b.md`](06-fase-2b.md) | Fase 2b: diario de cambios |
 | [`07-fase-3.md`](07-fase-3.md) | Fase 3: perfil del equipo (empieza por la GPU) |
@@ -44,7 +44,7 @@ Las fuentes externas están en [`docs/investigacion/`](../../investigacion/READM
 | R1 | Mover sin cambiar lógica: `model/`, separar `session/`, repartir `test_main.cpp` (con `main` propio; sin doctest ni cbindgen, ver la tabla de librerías) y el script de capas. **Hecha** | Deja el terreno listo y corta el ciclo. Solo mueve código, así que es lo menos arriesgado | — |
 | R2 | Puerto de archivos, puerto de reloj y RAII de Windows. **Hecha** | Las fases 1 y 2 los necesitan | — |
 | 1 | Seguridad de archivos (lista blanca). **Hecha** | Hoy el daemon, como administrador, puede escribir en todo `C:\ProgramData` | **Alta** |
-| 1b | Configuración segura (`config.json`) | Hoy se lee con una ruta relativa a la carpeta de trabajo, se guarda borrando lo que no conoce y no se valida; las fases 5 y G dependen de ella | **Alta** |
+| 1b | Configuración segura (`config.json`). **Hecha** | Hoy se lee con una ruta relativa a la carpeta de trabajo, se guarda borrando lo que no conoce y no se valida; las fases 5 y G dependen de ella | **Alta** |
 | 2 | Editor de `.ini` de juegos | Puede perder la configuración original del juego | **Alta** |
 | 2b | Diario de cambios | Si el daemon se cierra a la fuerza, los cambios se quedan aplicados y nadie lo sabe | **Alta** |
 | 3 | Perfil del equipo: CPU, GPU (con su **tipo de conexión**), RAM, disco, energía, pantalla, Windows y arquitectura | Clasifica mal varias APU modernas y no distingue una eGPU | Media |
