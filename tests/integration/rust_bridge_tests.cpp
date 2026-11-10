@@ -213,6 +213,19 @@ void Test34() {
             const size_t a = i < actual.size() ? actual[i] : SIZE_MAX;
             if (e != a) diffs += " [#" + std::to_string(i) + ": C++ " + std::to_string(e) + ", Rust " + std::to_string(a) + "]";
         }
+        // The #defines Rust also defines: a value changed on one side only would be read as another status or key.
+        const std::vector<uint32_t> expected_constants = {
+            VF_CONFIG_CORRUPT, VF_CONFIG_KEY_REJECTED, VF_CONFIG_NEWER_VERSION, VF_CONFIG_OLD_VERSION, VF_CONFIG_EMPTY,
+            VF_CONFIG_BLOCKS_SAVE, VF_CONFIG_KEY_VERSION, VF_CONFIG_KEY_POLL_INTERVAL_MS,
+            VF_CONFIG_KEY_TIMER_RESOLUTION_NS100, VF_CONFIG_KEY_TIMER_FORCED_MANUAL, VF_CONFIG_KEY_RESTRICT_GAME_CPU_SETS,
+            VF_CONFIG_KEY_MIN_FREE_RAM_MB, VF_CONFIG_KEY_MIN_STANDBY_MB, VF_CONFIG_KEY_COOLDOWN_SECONDS,
+            VF_CONFIG_KEY_MAX_GAME_DISK_READ_MB_S, VF_CONFIG_KEY_CUSTOM_GAME_EXES, VF_CONFIG_KEY_MEMORY,
+            VF_CONFIG_SAVE_OK, VF_CONFIG_SAVE_BLOCKED, VF_CONFIG_SAVE_INVALID, VF_SID_OTHER, VF_SID_SYSTEM,
+            VF_SID_ADMINISTRATORS, VF_SID_TRUSTED_INSTALLER};
+        std::vector<uint32_t> rust_constants(expected_constants.size() + 8, 0);
+        const size_t constant_count = vf_rust_bridge_constants(rust_constants.data(), rust_constants.size());
+        rust_constants.resize(std::min(constant_count, rust_constants.size()));
+        if (rust_constants != expected_constants) diffs += " [constants differ]";
         const bool t34_ok = (rust_count == expected.size()) && diffs.empty();
         RecordResult(t34_ok, "Test 34: rust_bridge.h structs have the same layout in C++ and Rust",
                      std::to_string(expected.size()) + " numbers from C++, " + std::to_string(rust_count) + " from Rust" +

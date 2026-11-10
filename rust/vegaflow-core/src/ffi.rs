@@ -414,6 +414,29 @@ fn bridge_layout() -> Vec<usize> {
     v
 }
 
+/// The constants rust_bridge.h repeats by hand, in its order: config status bits, config key bits, save results and
+/// SID kinds. Writes at most `cap` and returns how many there are; C++ Test 34 compares them with its #defines.
+#[no_mangle]
+pub extern "C" fn vf_rust_bridge_constants(out: *mut u32, cap: usize) -> usize {
+    use crate::policy::config_file::*;
+    ffi_guard(0, || {
+        let constants = [
+            VF_CONFIG_CORRUPT, VF_CONFIG_KEY_REJECTED, VF_CONFIG_NEWER_VERSION, VF_CONFIG_OLD_VERSION, VF_CONFIG_EMPTY,
+            VF_CONFIG_BLOCKS_SAVE, VF_CONFIG_KEY_VERSION, VF_CONFIG_KEY_POLL_INTERVAL_MS,
+            VF_CONFIG_KEY_TIMER_RESOLUTION_NS100, VF_CONFIG_KEY_TIMER_FORCED_MANUAL, VF_CONFIG_KEY_RESTRICT_GAME_CPU_SETS,
+            VF_CONFIG_KEY_MIN_FREE_RAM_MB, VF_CONFIG_KEY_MIN_STANDBY_MB, VF_CONFIG_KEY_COOLDOWN_SECONDS,
+            VF_CONFIG_KEY_MAX_GAME_DISK_READ_MB_S, VF_CONFIG_KEY_CUSTOM_GAME_EXES, VF_CONFIG_KEY_MEMORY,
+            VF_CONFIG_SAVE_OK, VF_CONFIG_SAVE_BLOCKED, VF_CONFIG_SAVE_INVALID, VF_SID_OTHER as u32, VF_SID_SYSTEM as u32,
+            VF_SID_ADMINISTRATORS as u32, VF_SID_TRUSTED_INSTALLER as u32,
+        ];
+        if !out.is_null() {
+            let n = constants.len().min(cap);
+            unsafe { core::ptr::copy_nonoverlapping(constants.as_ptr(), out, n) };
+        }
+        constants.len()
+    })
+}
+
 /// See `bridge_layout`. Writes at most `cap` numbers to `out` and returns how many there are in total.
 #[no_mangle]
 pub extern "C" fn vf_rust_bridge_layout(out: *mut usize, cap: usize) -> usize {

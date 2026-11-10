@@ -227,6 +227,11 @@ bool vf_rust_only_admins_can_write(bool has_dacl, uint8_t owner_kind, const VfAc
    numbers and returns how many there are in total. Checked by C++ Test 34. */
 size_t vf_rust_bridge_layout(size_t* out, size_t cap);
 
+/* The #defines above that Rust also defines, in this order: VF_CONFIG_CORRUPT .. VF_CONFIG_EMPTY, VF_CONFIG_BLOCKS_SAVE,
+   VF_CONFIG_KEY_VERSION .. VF_CONFIG_KEY_MEMORY, VF_CONFIG_SAVE_OK .. VF_CONFIG_SAVE_INVALID, VF_SID_OTHER ..
+   VF_SID_TRUSTED_INSTALLER. Writes at most `cap` and returns how many there are. Checked by C++ Test 34. */
+size_t vf_rust_bridge_constants(uint32_t* out, size_t cap);
+
 #ifdef __cplusplus
 }
 #endif

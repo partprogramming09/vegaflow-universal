@@ -450,6 +450,18 @@ mod tests {
         );
     }
 
+    #[test]
+    fn writes_nested_levels_with_their_own_indent_and_leaves_spaces_as_they_are() {
+        let v = Value::Object(vec![(
+            "a b".into(),
+            Value::Array(vec![Value::Object(vec![("c".into(), Value::Array(vec![num("1")]))])]),
+        )]);
+        assert_eq!(
+            write_pretty(&v),
+            "{\n  \"a b\": [\n    {\n      \"c\": [\n        1\n      ]\n    }\n  ]\n}\n"
+        );
+    }
+
     mod properties {
         use super::super::*;
         use proptest::prelude::*;

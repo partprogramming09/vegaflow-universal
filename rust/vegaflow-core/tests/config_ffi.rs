@@ -108,3 +108,17 @@ fn game_name_rule_through_the_bridge() {
     }
     assert!(!vf_rust_is_allowed_game_exe(std::ptr::null(), 3));
 }
+
+#[test]
+fn constants_shared_with_cpp_have_fixed_values() {
+    // Same order and values as the #defines in rust_bridge.h; C++ Test 34 compares them too.
+    let expected: [u32; 24] = [
+        1, 2, 4, 8, 16, 7, // VF_CONFIG_CORRUPT .. VF_CONFIG_EMPTY, VF_CONFIG_BLOCKS_SAVE
+        1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, // VF_CONFIG_KEY_VERSION .. VF_CONFIG_KEY_MEMORY
+        0, 1, 2, // VF_CONFIG_SAVE_OK, _BLOCKED, _INVALID
+        0, 1, 2, 3, // VF_SID_OTHER, _SYSTEM, _ADMINISTRATORS, _TRUSTED_INSTALLER
+    ];
+    let mut actual = [0u32; 32];
+    let n = vegaflow_core::ffi::vf_rust_bridge_constants(actual.as_mut_ptr(), actual.len());
+    assert_eq!(&actual[..n], &expected[..]);
+}
