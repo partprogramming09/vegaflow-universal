@@ -32,4 +32,8 @@ bool SafeFileSystem::CanWrite(const std::wstring& path) {
     return SandboxGuard::ValidatePath(path, SandboxAction::Write, false).allowed;
 }
 
+void SafeFileSystem::AllowReading(const std::wstring& dir) {
+    SandboxGuard::AddReadOnlyPath(dir);
+}
+
 } // namespace vegaflow

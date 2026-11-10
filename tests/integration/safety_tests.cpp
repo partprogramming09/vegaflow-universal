@@ -119,9 +119,12 @@ void Test17() {
         bool win_del_blocked = !vegaflow::SandboxGuard::SafeRemoveFile(L"C:\\Windows\\System32\\calc.exe");
 
         // 4. Whitelist of Allowed Zones
-        // 4a. Steam Library (steamapps/common/...)
+        // 4a. Steam Library (steamapps/common/...): only a library listed in libraryfolders.vdf
+        vegaflow::SandboxGuard::SetSteamLibraryFolders({L"D:\\SteamLibrary"});
         auto val_steam = vegaflow::SandboxGuard::ValidatePath(L"D:\\SteamLibrary\\steamapps\\common\\Half-Life\\game.ini", vegaflow::SandboxAction::Write);
-        bool steam_whitelisted = val_steam.allowed;
+        auto val_unlisted = vegaflow::SandboxGuard::ValidatePath(L"E:\\OtherLibrary\\steamapps\\common\\Half-Life\\game.ini", vegaflow::SandboxAction::Write);
+        vegaflow::SandboxGuard::ReloadSteamLibraryFolders();
+        bool steam_whitelisted = val_steam.allowed && !val_unlisted.allowed;
 
         // 4b. %LOCALAPPDATA% (game settings and Saved/Config)
         wchar_t localAppBuf[MAX_PATH] = {0};
@@ -240,6 +243,116 @@ void Test33() {
                      std::to_string(total) + " vectors" + (windows_on_c ? "" : ", Windows is not in C:\\Windows") +
                      (mismatches.empty() ? ", 0 mismatches" : "; mismatches:" + mismatches));
     }
+}
+
+void Test40() {
+    // -------------------------------------------------------------------------
+    // Test 40: the whole file access decision matches the shared vector file (same vectors as the Rust core)
+    // -------------------------------------------------------------------------
+    auto code_of = [](const std::string& name) -> int {
+        if (name == "allowed") return VF_PATH_ALLOWED;
+        if (name == "empty") return VF_PATH_EMPTY;
+        if (name == "drive_root") return VF_PATH_DRIVE_ROOT;
+        if (name == "critical_file") return VF_PATH_CRITICAL_FILE;
+        if (name == "windows_dir") return VF_PATH_WINDOWS_DIR;
+        if (name == "anticheat") return VF_PATH_ANTICHEAT;
+        if (name == "not_whitelisted") return VF_PATH_NOT_WHITELISTED;
+        if (name == "not_local_path") return VF_PATH_NOT_LOCAL_PATH;
+        return -1;
+    };
+    auto wide = [](const std::string& s) { return s == "<empty>" ? std::wstring() : std::wstring(s.begin(), s.end()); };
+
+    std::vector<std::pair<std::wstring, bool>> root_paths;
+    std::vector<std::vector<std::string>> cases;
+    std::string mismatches;
+    ForEachTsvRow("tests/vectors/file_access.tsv", [&](const std::vector<std::string>& col, const std::string& line) {
+        if (col.size() == 3 && col[0] == "root") root_paths.emplace_back(wide(col[1]), col[2] == "rw");
+        else if (col.size() == 5) cases.push_back(col);
+        else mismatches += " [bad row: " + line + "]";
+    });
+    std::vector<VfAllowedRoot> roots;
+    for (const auto& [path, writable] : root_paths) {
+        roots.push_back({reinterpret_cast<const uint16_t*>(path.data()), path.size(), writable});
+    }
+    const std::wstring win = L"c:\\windows";
+    const std::wstring sys = L"c:\\windows\\system32";
+    for (const auto& col : cases) {
+        const std::wstring path = wide(col[1]);
+        const uint32_t verdict = vf_rust_decide_file_access(
+            reinterpret_cast<const uint16_t*>(path.data()), path.size(),
+            reinterpret_cast<const uint16_t*>(win.data()), win.size(),
+            reinterpret_cast<const uint16_t*>(sys.data()), sys.size(),
+            col[2] == "write", col[3] == "1", roots.data(), roots.size());
+        if (static_cast<int>(verdict) != code_of(col[4])) {
+            mismatches += " [" + col[0] + ": expected " + col[4] + ", got " + std::to_string(verdict) + "]";
+        }
+    }
+    const bool ok = cases.size() >= 37 && mismatches.empty();
+    RecordResult(ok, "Test 40: file access decision matches the shared vector file",
+                 std::to_string(cases.size()) + " vectors" + (mismatches.empty() ? ", 0 mismatches" : "; mismatches:" + mismatches));
+}
+
+void Test41() {
+    // -------------------------------------------------------------------------
+    // Test 41: each whitelist flaw of the old SandboxGuard is refused (docs/plan/maestro/03-fase-1.md)
+    // -------------------------------------------------------------------------
+    using vegaflow::SandboxAction;
+    using vegaflow::SandboxGuard;
+    std::error_code ec;
+    std::string failures;
+    auto expect = [&](bool ok, const std::string& name) { if (!ok) failures += " [" + name + "]"; };
+    auto denied = [](const std::wstring& p) { return !SandboxGuard::ValidatePath(p, SandboxAction::Write).allowed; };
+
+    wchar_t exe_buf[MAX_PATH] = {0};
+    GetModuleFileNameW(nullptr, exe_buf, MAX_PATH);
+    const std::filesystem::path exe_dir = std::filesystem::path(exe_buf).parent_path();
+    const std::filesystem::path temp = std::filesystem::temp_directory_path(ec);
+    wchar_t local_buf[MAX_PATH] = {0};
+    GetEnvironmentVariableW(L"LOCALAPPDATA", local_buf, MAX_PATH);
+    const std::wstring local_app(local_buf);
+    // A folder no rule allows, writable by any user: the junction and the working folder point here, never at Windows.
+    const std::filesystem::path outside = L"C:\\Users\\Public\\vegaflow_test_outside";
+    std::filesystem::remove_all(outside, ec);
+    std::filesystem::create_directories(outside, ec);
+
+    // Flaw 1: the parent folder of the executable.
+    expect(denied((exe_dir.parent_path() / L"vegaflow_flaw1.txt").wstring()), "1 parent of the executable folder");
+    expect(!denied((exe_dir / L"vegaflow_flaw1.txt").wstring()), "1 executable folder still allowed");
+
+    // Flaw 2: a junction inside an allowed folder that leads outside.
+    const std::filesystem::path junction = temp / L"vegaflow_test_junction";
+    RemoveDirectoryW(junction.c_str());
+    const std::wstring mklink = L"cmd /c mklink /J \"" + junction.wstring() + L"\" \"" + outside.wstring() + L"\" >nul 2>&1";
+    const bool junction_made = _wsystem(mklink.c_str()) == 0 && std::filesystem::exists(junction, ec);
+    expect(junction_made, "2 junction created");
+    expect(denied((junction / L"vegaflow_flaw2.txt").wstring()), "2 junction to a folder outside");
+    expect(!SandboxGuard::SafeWriteFile((junction / L"vegaflow_flaw2.txt").wstring(), "x") &&
+           !std::filesystem::exists(outside / L"vegaflow_flaw2.txt", ec), "2 nothing written through the junction");
+    RemoveDirectoryW(junction.c_str());
+
+    // Flaw 3: steamapps\common outside a real Steam library.
+    expect(denied(L"C:\\Program Files\\VegaFlowTest\\steamapps\\common\\Game\\Engine.ini"), "3 steamapps\\common anywhere");
+
+    // Flaw 4: the working folder.
+    const std::filesystem::path original_cwd = std::filesystem::current_path(ec);
+    std::filesystem::current_path(outside, ec);
+    expect(!ec, "4 working folder changed");
+    expect(denied((outside / L"vegaflow_flaw4.txt").wstring()), "4 working folder");
+    std::filesystem::current_path(original_cwd, ec);
+
+    // Flaw 5: a folder name that only starts like an allowed one.
+    expect(denied(local_app + L"OtraCosa\\vegaflow_flaw5.txt"), "5 LOCALAPPDATA prefix as text");
+    expect(!denied(local_app + L"\\VegaFlowTest\\x.txt"), "5 LOCALAPPDATA itself still allowed");
+
+    // The \\?\ prefix of an allowed path is the same path; other device prefixes are refused.
+    expect(!denied(L"\\\\?\\" + (temp / L"vegaflow_prefix.txt").wstring()), "\\\\?\\ prefix of an allowed path");
+    expect(denied(L"\\\\.\\" + (temp / L"vegaflow_prefix.txt").wstring()), "\\\\.\\ device prefix");
+    expect(denied(L"\\\\localhost\\C$\\Users\\Public\\vegaflow_test_outside\\x.txt"), "UNC path");
+
+    std::filesystem::remove_all(outside, ec);
+    SandboxGuard::ClearViolations();
+    RecordResult(failures.empty(), "Test 41: SandboxGuard refuses each old whitelist flaw",
+                 failures.empty() ? "flaws 1-5, junction, \\\\?\\ and UNC checked" : "failed:" + failures);
 }
 
 } // namespace vftest

@@ -62,12 +62,12 @@ public:
     // Boundary validation and path security
     static SandboxValidationResult ValidatePath(const std::wstring& path, SandboxAction action, bool is_anticheat_protected = false);
 
-    // Canonical normalization (GetFullPathNameW + weakly_canonical, resolves '..', '.', symlinks)
+    // Absolute path with "." and ".." resolved, "\\?\X:\" removed, and the existing part replaced by its real path
+    // (junctions, symlinks and 8.3 names resolved). Other paths starting with "\\" come back unchanged.
     static std::wstring CanonicalizePath(const std::wstring& path);
 
-    // Evaluation rules
+    // Blacklist alone (Test 33); ValidatePath runs the whole decision in the Rust core (policy/file_access.rs).
     static bool IsBlacklisted(const std::wstring& canonical_path, std::string* out_reason = nullptr);
-    static bool IsWhitelisted(const std::wstring& canonical_path, std::string* out_reason = nullptr);
 
     // Anti-Cheat detection and inspection
     static bool DirectoryContainsAntiCheat(const std::filesystem::path& dir);
@@ -77,7 +77,12 @@ public:
     // Dynamic whitelist (for registered game libraries or test directories)
     static void AddAllowedPath(const std::wstring& path);
     static void RemoveAllowedPath(const std::wstring& path);
-    static void ClearCustomAllowedPaths();
+    static void ClearCustomAllowedPaths(); // also clears the read-only folders
+    static void AddReadOnlyPath(const std::wstring& path);
+
+    // Steam libraries whose steamapps\common folders are allowed. Read once from libraryfolders.vdf unless set here.
+    static void SetSteamLibraryFolders(std::vector<std::wstring> folders);
+    static void ReloadSteamLibraryFolders();
     static std::vector<std::wstring> GetAllowedPaths();
 
     // Security violation log

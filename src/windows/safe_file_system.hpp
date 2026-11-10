@@ -15,6 +15,7 @@ public:
     bool CanModifyGameDir(const std::filesystem::path& dir) override;
     bool HasAntiCheatSignature(const std::wstring& path) override;
     bool CanWrite(const std::wstring& path) override;
+    void AllowReading(const std::wstring& dir) override;
 };
 
 } // namespace vegaflow

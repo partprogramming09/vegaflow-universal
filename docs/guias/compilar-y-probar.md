@@ -17,7 +17,7 @@ El proyecto incluye el script automatizado [`scripts/build.ps1`](../../scripts/b
 # Compilar vegaflow_daemon.exe y vegaflow_tests.exe:
 powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
 
-# Compilar y ejecutar inmediatamente los 36 tests unitarios:
+# Compilar y ejecutar inmediatamente los 39 tests unitarios:
 powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1 -RunTests
 ```
 
@@ -111,7 +111,7 @@ Cualquier cambio en el repositorio debe ser validado ejecutando `build/vegaflow_
 [PASS] Test 38: UniqueResource edge cases
 
 ================================================================================
-TEST RESULTS: 36 PASSED, 0 FAILED
+TEST RESULTS: 39 PASSED, 0 FAILED
 ================================================================================
 ```
 

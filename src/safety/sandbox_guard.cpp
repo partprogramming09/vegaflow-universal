@@ -1,5 +1,7 @@
 #include "safety/sandbox_guard.hpp"
 #include "bridge/rust_bridge.h"
+#include "windows/steam_paths.hpp"
+#include "windows/unique_handle.hpp"
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -22,6 +24,9 @@ namespace {
 
 std::mutex g_sandbox_mutex;
 std::vector<std::wstring> g_custom_allowed_paths;
+std::vector<std::wstring> g_read_only_paths;
+std::vector<std::wstring> g_steam_libraries;
+bool g_steam_libraries_loaded = false;
 std::vector<SandboxViolationRecord> g_violations;
 
 std::wstring ToLowerW(std::wstring_view sv) {
@@ -31,29 +36,6 @@ std::wstring ToLowerW(std::wstring_view sv) {
         result.push_back(static_cast<wchar_t>(std::towlower(c)));
     }
     return result;
-}
-
-bool StartsWithInsensitiveW(std::wstring_view str, std::wstring_view prefix) {
-    if (prefix.size() > str.size()) return false;
-    for (size_t i = 0; i < prefix.size(); ++i) {
-        if (std::towlower(str[i]) != std::towlower(prefix[i])) {
-            return false;
-        }
-    }
-    return true;
-}
-
-bool ContainsInsensitiveW(std::wstring_view haystack, std::wstring_view needle) {
-    if (needle.empty()) return true;
-    if (needle.size() > haystack.size()) return false;
-    auto it = std::search(
-        haystack.begin(), haystack.end(),
-        needle.begin(), needle.end(),
-        [](wchar_t ch1, wchar_t ch2) {
-            return std::towlower(ch1) == std::towlower(ch2);
-        }
-    );
-    return it != haystack.end();
 }
 
 std::wstring GetEnvVarW(const wchar_t* name) {
@@ -102,42 +84,81 @@ uint64_t GetCurrentTimeMs() {
 
 } // namespace
 
+namespace {
+
+constexpr wchar_t kLongPrefix[] = L"\\\\?\\";
+
+// "\\?\X:\..." names the same file as "X:\...". Any other path starting with two separators (UNC, "\\.\", other
+// "\\?\" forms) is returned unchanged so the decision refuses it as not local.
+bool StripLongPrefix(std::wstring& path) {
+    if (path.size() >= 2 && path[0] == L'\\' && path[1] == L'\\') {
+        if (path.size() >= 7 && path.compare(0, 4, kLongPrefix) == 0 && path[5] == L':' && path[6] == L'\\') {
+            path.erase(0, 4);
+            return true;
+        }
+        return false;
+    }
+    return true;
+}
+
+// The real path of an existing file or folder, with junctions, symlinks and 8.3 names resolved by Windows.
+std::wstring FinalPathOf(const std::wstring& existing) {
+    UniqueHandle h(CreateFileW(existing.c_str(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+                               OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr));
+    if (!h) return L"";
+    std::wstring buf(1024, L'\0');
+    DWORD n = GetFinalPathNameByHandleW(h.get(), buf.data(), static_cast<DWORD>(buf.size()), FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
+    if (n >= buf.size()) {
+        buf.resize(n + 1);
+        n = GetFinalPathNameByHandleW(h.get(), buf.data(), static_cast<DWORD>(buf.size()), FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
+    }
+    if (n == 0 || n >= buf.size()) return L"";
+    buf.resize(n);
+    StripLongPrefix(buf); // a "\\?\UNC\" result stays as it is and is refused as not local
+    return buf;
+}
+
+} // namespace
+
 std::wstring SandboxGuard::CanonicalizePath(const std::wstring& path) {
     if (path.empty()) return L"";
 
-    // 1. Strip quotes and separators
     std::wstring cleaned = path;
     if (cleaned.size() >= 2 && cleaned.front() == L'"' && cleaned.back() == L'"') {
         cleaned = cleaned.substr(1, cleaned.size() - 2);
     }
     std::replace(cleaned.begin(), cleaned.end(), L'/', L'\\');
+    if (!StripLongPrefix(cleaned)) return cleaned;
 
-    // 2. Resolve relative components (. and ..) via GetFullPathNameW
-    wchar_t fullPath[MAX_PATH * 4] = {0};
-    DWORD ret = GetFullPathNameW(cleaned.c_str(), _countof(fullPath), fullPath, nullptr);
-    std::wstring resolvedStr = (ret > 0 && ret < _countof(fullPath)) ? fullPath : cleaned;
+    // Resolves "." and ".." and makes the path absolute.
+    wchar_t full[MAX_PATH * 4] = {0};
+    const DWORD ret = GetFullPathNameW(cleaned.c_str(), _countof(full), full, nullptr);
+    if (ret == 0 || ret >= _countof(full)) return L"";
+    std::filesystem::path p = std::filesystem::path(full).lexically_normal();
 
-    // 3. Weak canonical normalization (resolves symlinks and normalizes segments that do not exist yet)
+    // The deepest part that exists is replaced by its real path; the rest (not created yet) is appended as written.
+    std::filesystem::path existing = p;
+    std::filesystem::path rest;
     std::error_code ec;
-    std::filesystem::path p(resolvedStr);
-    std::filesystem::path canonical = std::filesystem::weakly_canonical(p, ec);
-    if (ec) {
-        canonical = p.lexically_normal();
+    while (!existing.empty() && !std::filesystem::exists(existing, ec)) {
+        if (existing == existing.root_path()) break;
+        rest = existing.filename() / rest;
+        existing = existing.parent_path();
     }
-
-    std::wstring res = canonical.wstring();
+    std::wstring res = p.wstring();
+    if (!existing.empty() && std::filesystem::exists(existing, ec)) {
+        const std::wstring real = FinalPathOf(existing.wstring());
+        if (real.empty()) return L"";
+        res = rest.empty() ? real : (std::filesystem::path(real) / rest).wstring();
+    }
     std::replace(res.begin(), res.end(), L'/', L'\\');
 
-    // Uppercase the drive letter if applicable (e.g. c:\ -> C:\)
     if (res.size() >= 2 && res[1] == L':' && std::iswlower(res[0])) {
         res[0] = static_cast<wchar_t>(std::towupper(res[0]));
     }
-
-    // Remove the trailing backslash unless it is the drive root (e.g. C:\)
     if (res.size() > 3 && res.back() == L'\\') {
         res.pop_back();
     }
-
     return res;
 }
 
@@ -147,7 +168,8 @@ namespace {
 // verdict to the wrong rule and message without any other error.
 static_assert(VF_PATH_ALLOWED == 0 && VF_PATH_EMPTY == 1 && VF_PATH_DRIVE_ROOT == 2 && VF_PATH_CRITICAL_FILE == 3 &&
               VF_PATH_WINDOWS_DIR == 4 && VF_PATH_WINDOWS_OTHER_DRIVE == 5 && VF_PATH_COMMON_FILES == 6 &&
-              VF_PATH_SYSTEM_VOLUME_INFORMATION == 7 && VF_PATH_INTERNAL_ERROR == 8,
+              VF_PATH_SYSTEM_VOLUME_INFORMATION == 7 && VF_PATH_INTERNAL_ERROR == 8 && VF_PATH_ANTICHEAT == 9 &&
+              VF_PATH_NOT_WHITELISTED == 10 && VF_PATH_NOT_LOCAL_PATH == 11,
               "VfPathVerdict must match path_policy.rs");
 
 const char* BlacklistReason(uint32_t verdict) {
@@ -194,79 +216,69 @@ bool SandboxGuard::IsBlacklisted(const std::wstring& canonical_path, std::string
     return true;
 }
 
-bool SandboxGuard::IsWhitelisted(const std::wstring& canonical_path, std::string* out_reason) {
-    if (canonical_path.empty()) return false;
+namespace {
 
-    std::wstring lower = ToLowerW(canonical_path);
+struct Root {
+    std::wstring lower;
+    bool writable;
+};
 
-    // 1. VegaFlow executable folder and current working directory
-    std::wstring exeDir = ToLowerW(GetVegaFlowExecutableDirectory());
-    if (!exeDir.empty() && StartsWithInsensitiveW(lower, exeDir)) {
-        return true;
+void AddRoot(std::vector<Root>& roots, const std::wstring& path, bool writable) {
+    if (path.empty()) return;
+    std::wstring canonical = SandboxGuard::CanonicalizePath(path);
+    if (!canonical.empty()) roots.push_back({ToLowerW(canonical), writable});
+}
+
+const std::vector<std::wstring>& SteamLibrariesLocked() {
+    if (!g_steam_libraries_loaded) {
+        g_steam_libraries = ReadSteamLibraryFolders(FindSteamInstallPath());
+        g_steam_libraries_loaded = true;
     }
+    return g_steam_libraries;
+}
 
-    // If the executable is inside a build/ or bin/ subdirectory, allow the project root
+// The folders VegaFlow may touch: its own folder, LOCALAPPDATA, temp, My Games and Saved Games, the steamapps\common
+// folder of each Steam library, and the folders registered at run time.
+std::vector<Root> CollectAllowedRoots() {
+    std::vector<Root> roots;
+    AddRoot(roots, GetVegaFlowExecutableDirectory(), true);
+    AddRoot(roots, GetEnvVarW(L"LOCALAPPDATA"), true);
     std::error_code ec;
-    std::filesystem::path exeDirPath(GetVegaFlowExecutableDirectory());
-    if (!exeDirPath.empty()) {
-        std::wstring parentDir = ToLowerW(exeDirPath.parent_path().wstring());
-        if (!parentDir.empty() && StartsWithInsensitiveW(lower, parentDir)) {
-            return true;
-        }
+    const std::filesystem::path temp = std::filesystem::temp_directory_path(ec);
+    if (!ec) AddRoot(roots, temp.wstring(), true);
+    const std::wstring profile = GetEnvVarW(L"USERPROFILE");
+    if (!profile.empty()) {
+        AddRoot(roots, profile + L"\\Documents\\My Games", true);
+        AddRoot(roots, profile + L"\\Saved Games", true);
     }
-
-    std::wstring cwd = ToLowerW(std::filesystem::current_path(ec).wstring());
-    if (!ec && !cwd.empty() && StartsWithInsensitiveW(lower, cwd)) {
-        return true;
-    }
-
-    // 2. Steam libraries (steamapps/common/...)
-    if (ContainsInsensitiveW(lower, L"\\steamapps\\common\\") ||
-        ContainsInsensitiveW(lower, L"/steamapps/common/")) {
-        return true;
-    }
-
-    // 3. User folders under %LOCALAPPDATA%
-    std::wstring localApp = ToLowerW(GetEnvVarW(L"LOCALAPPDATA"));
-    if (!localApp.empty() && StartsWithInsensitiveW(lower, localApp)) {
-        return true;
-    }
-
-    // 4. Windows temp directory (std::filesystem::temp_directory_path)
-    std::wstring tempDir = ToLowerW(std::filesystem::temp_directory_path(ec).wstring());
-    if (!ec && !tempDir.empty()) {
-        if (tempDir.back() == L'\\') tempDir.pop_back();
-        if (StartsWithInsensitiveW(lower, tempDir)) {
-            return true;
-        }
-    }
-
-    // 5. User documents and saved games (%USERPROFILE%\Documents\My Games, Saved Games)
-    std::wstring userProfile = ToLowerW(GetEnvVarW(L"USERPROFILE"));
-    if (!userProfile.empty()) {
-        std::wstring myGames = userProfile + L"\\documents\\my games";
-        std::wstring savedGames = userProfile + L"\\saved games";
-        if (StartsWithInsensitiveW(lower, myGames) || StartsWithInsensitiveW(lower, savedGames)) {
-            return true;
-        }
-    }
-
-    // 6. Dynamic whitelist explicitly registered
+    std::vector<std::wstring> libraries, custom, read_only;
     {
         std::lock_guard<std::mutex> lock(g_sandbox_mutex);
-        for (const auto& allowed : g_custom_allowed_paths) {
-            std::wstring allowedLower = ToLowerW(allowed);
-            if (!allowedLower.empty() && StartsWithInsensitiveW(lower, allowedLower)) {
-                return true;
-            }
-        }
+        libraries = SteamLibrariesLocked();
+        custom = g_custom_allowed_paths;
+        read_only = g_read_only_paths;
     }
-
-    if (out_reason) {
-        *out_reason = "La ruta se encuentra fuera de los límites autorizados por VegaFlow Sandbox";
-    }
-    return false;
+    for (const auto& lib : libraries) AddRoot(roots, lib + L"\\steamapps\\common", true);
+    for (const auto& p : custom) AddRoot(roots, p, true);
+    for (const auto& p : read_only) AddRoot(roots, p, false);
+    return roots;
 }
+
+uint32_t Decide(const std::wstring& canonical, bool write, bool anticheat, const std::vector<Root>& roots) {
+    const std::wstring lower = ToLowerW(canonical);
+    const std::wstring win_dir = ToLowerW(GetWindowsDirectoryPath());
+    const std::wstring sys_dir = ToLowerW(GetSystemDirectoryPath());
+    std::vector<VfAllowedRoot> raw;
+    raw.reserve(roots.size());
+    for (const auto& r : roots) raw.push_back({reinterpret_cast<const uint16_t*>(r.lower.data()), r.lower.size(), r.writable});
+    return vf_rust_decide_file_access(
+        reinterpret_cast<const uint16_t*>(lower.data()), lower.size(),
+        reinterpret_cast<const uint16_t*>(win_dir.data()), win_dir.size(),
+        reinterpret_cast<const uint16_t*>(sys_dir.data()), sys_dir.size(),
+        write, anticheat, raw.data(), raw.size());
+}
+
+} // namespace
 
 bool SandboxGuard::PathContainsAntiCheatSignature(const std::wstring& path) {
     if (path.empty()) return false;
@@ -370,10 +382,8 @@ SandboxValidationResult SandboxGuard::ValidatePath(
         return result;
     }
 
-    // 1. Canonical normalization
     std::wstring canonical = CanonicalizePath(path);
     result.canonical_path = canonical;
-
     if (canonical.empty()) {
         result.reason = SandboxDenialReason::PathTraversalDetected;
         result.message = "Fallo en la resolución canónica de la ruta";
@@ -381,47 +391,48 @@ SandboxValidationResult SandboxGuard::ValidatePath(
         return result;
     }
 
-    std::filesystem::path canonicalPathObj(canonical);
-
-    // 2. Check Blacklist (highest priority)
-    std::string blacklistReason;
-    if (IsBlacklisted(canonical, &blacklistReason)) {
-        result.reason = SandboxDenialReason::BlacklistedSystemDirectory;
-        result.message = blacklistReason;
-        RecordViolation(canonical, action, result.reason, result.message);
-        return result;
+    // The anti-cheat scan reads the disk, so it only runs for a write that every other rule allows.
+    const bool write = (action != SandboxAction::Read);
+    const std::vector<Root> roots = CollectAllowedRoots();
+    uint32_t verdict = Decide(canonical, write, false, roots);
+    bool detected = false;
+    if (verdict == VF_PATH_ALLOWED && write) {
+        detected = !is_anticheat_protected &&
+                   (PathContainsAntiCheatSignature(canonical) ||
+                    DirectoryContainsAntiCheat(std::filesystem::path(canonical).parent_path()));
+        if (is_anticheat_protected || detected) verdict = Decide(canonical, write, true, roots);
     }
 
-    // 3. Anti-Cheat protection (immediate lockdown if kernel technology or active flag is detected)
-    if (action != SandboxAction::Read) {
-        if (is_anticheat_protected) {
-            result.reason = SandboxDenialReason::AntiCheatLocked;
-            result.message = "Bloqueo Anti-Cheat activo: Prohibida toda modificación en juegos con protección a nivel de kernel";
-            RecordViolation(canonical, action, result.reason, result.message);
+    switch (verdict) {
+        case VF_PATH_ALLOWED:
+            result.allowed = true;
+            result.reason = SandboxDenialReason::None;
+            result.message = "Operación autorizada dentro de los límites del sandbox";
             return result;
-        }
-
-        if (PathContainsAntiCheatSignature(canonical) || DirectoryContainsAntiCheat(canonicalPathObj.parent_path())) {
+        case VF_PATH_EMPTY:
+            result.reason = SandboxDenialReason::EmptyPath;
+            result.message = "Ruta vacía o no especificada";
+            break;
+        case VF_PATH_ANTICHEAT:
             result.reason = SandboxDenialReason::AntiCheatLocked;
-            result.message = "Firma de Anti-Cheat detectada en el directorio: Escritura abortada para salvaguardar la cuenta del usuario";
-            RecordViolation(canonical, action, result.reason, result.message);
-            return result;
-        }
+            result.message = detected
+                ? "Firma de Anti-Cheat detectada en el directorio: Escritura abortada para salvaguardar la cuenta del usuario"
+                : "Bloqueo Anti-Cheat activo: Prohibida toda modificación en juegos con protección a nivel de kernel";
+            break;
+        case VF_PATH_NOT_WHITELISTED:
+            result.reason = SandboxDenialReason::NotWhitelisted;
+            result.message = "La ruta se encuentra fuera de los límites autorizados por VegaFlow Sandbox";
+            break;
+        case VF_PATH_NOT_LOCAL_PATH:
+            result.reason = SandboxDenialReason::PathTraversalDetected;
+            result.message = "Ruta no local: prefijo de dispositivo o de red, segmentos '.' o '..', o flujo ':'";
+            break;
+        default:
+            result.reason = SandboxDenialReason::BlacklistedSystemDirectory;
+            result.message = BlacklistReason(verdict);
+            break;
     }
-
-    // 4. Comprobar Lista Blanca (Whitelist)
-    std::string whitelistReason;
-    if (!IsWhitelisted(canonical, &whitelistReason)) {
-        result.reason = SandboxDenialReason::NotWhitelisted;
-        result.message = whitelistReason;
-        RecordViolation(canonical, action, result.reason, result.message);
-        return result;
-    }
-
-    // Acceso autorizado
-    result.allowed = true;
-    result.reason = SandboxDenialReason::None;
-    result.message = "Operación autorizada dentro de los límites del sandbox";
+    RecordViolation(canonical, action, result.reason, result.message);
     return result;
 }
 
@@ -597,9 +608,30 @@ void SandboxGuard::RemoveAllowedPath(const std::wstring& path) {
     );
 }
 
+void SandboxGuard::AddReadOnlyPath(const std::wstring& path) {
+    if (path.empty()) return;
+    std::lock_guard<std::mutex> lock(g_sandbox_mutex);
+    for (const auto& existing : g_read_only_paths) {
+        if (_wcsicmp(existing.c_str(), path.c_str()) == 0) return;
+    }
+    g_read_only_paths.push_back(path);
+}
+
+void SandboxGuard::SetSteamLibraryFolders(std::vector<std::wstring> folders) {
+    std::lock_guard<std::mutex> lock(g_sandbox_mutex);
+    g_steam_libraries = std::move(folders);
+    g_steam_libraries_loaded = true;
+}
+
+void SandboxGuard::ReloadSteamLibraryFolders() {
+    std::lock_guard<std::mutex> lock(g_sandbox_mutex);
+    g_steam_libraries_loaded = false;
+}
+
 void SandboxGuard::ClearCustomAllowedPaths() {
     std::lock_guard<std::mutex> lock(g_sandbox_mutex);
     g_custom_allowed_paths.clear();
+    g_read_only_paths.clear();
 }
 
 std::vector<std::wstring> SandboxGuard::GetAllowedPaths() {

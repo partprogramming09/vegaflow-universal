@@ -23,6 +23,8 @@ public:
     virtual bool HasAntiCheatSignature(const std::wstring& path) = 0;
     // Whether a write to this path would be allowed, without writing.
     virtual bool CanWrite(const std::wstring& path) = 0;
+    // Lets Read and the source of Copy use files under `dir` (writing there stays refused).
+    virtual void AllowReading(const std::wstring& dir) = 0;
 };
 
 } // namespace vegaflow

@@ -195,6 +195,7 @@ bool DxvkManager::DeployDxvk(
         }
         return false;
     }
+    fs_.AllowReading(assetsRoot);
 
     // Detect whether the executable is 64-bit or 32-bit if possible
     std::filesystem::path pExe(game_exe_path);

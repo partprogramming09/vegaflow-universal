@@ -46,9 +46,10 @@ Cualquier intento de desplegar DXVK o sobreescribir archivos en un directorio co
 Implementado en [`src/safety/sandbox_guard.hpp`](../../src/safety/sandbox_guard.hpp) y [`src/safety/sandbox_guard.cpp`](../../src/safety/sandbox_guard.cpp), el subsistema `SandboxGuard` formaliza el paradigma de seguridad **Zero-Trust File Access**:
 
 1. **Normalización Canónica (`CanonicalizePath`)**:
-   - Neutraliza de raíz vectores de ataque o errores de **Path Traversal** (`..`, `.`, dobles barras invertidas y symlinks).
-   - Utiliza la API nativa Win32 `GetFullPathNameW` para resolver rutas relativas y el motor `std::filesystem::weakly_canonical` para resolver enlaces simbólicos y junctions en directorios existentes o en vías de creación.
-   - Estandariza letras de unidad a mayúsculas y suprime separadores finales redundantes.
+   - `GetFullPathNameW` vuelve absoluta la ruta y quita `.` y `..`.
+   - La parte de la ruta que ya existe se abre y se cambia por su ruta real (`GetFinalPathNameByHandleW`): así se resuelven junctions, enlaces simbólicos y nombres cortos 8.3 (`PROGRA~1`). Hasta 2026-11-10 se usaba `weakly_canonical`, que con MinGW **no** resolvía junctions: un junction dentro de temp hacia `System32` pasaba la comprobación (medido en el laptop; ver `docs/plan/maestro/03-fase-1.md`).
+   - `\\?\C:\...` se trata como `C:\...`. Cualquier otra ruta que empiece por `\\` (red, `\\.\`, otras formas de `\\?\`) se deja igual y la decisión la rechaza por no ser local.
+   - Pone la letra de unidad en mayúscula y quita la barra final.
 
 2. **Whitelist Estricta vs Blacklist de Sistema (Prioridad Inviolable)**:
    - **Blacklist (Máxima Prioridad)**:
@@ -57,13 +58,13 @@ Implementado en [`src/safety/sandbox_guard.hpp`](../../src/safety/sandbox_guard.
      - Directorios de Windows y del Sistema (`GetWindowsDirectoryPath()`, `GetSystemDirectoryPath()`, `C:\Windows\System32`, `SysWOW64`, `WinSxS` y equivalentes en cualquier volumen).
      - Carpetas de sistema compartidas: `Program Files\Common Files` y `System Volume Information`.
    - **Dónde vive esta regla:** la clasificación de la blacklist la decide el núcleo Rust ([`path_policy.rs`](../../rust/vegaflow-core/src/policy/path_policy.rs)), no C++. C++ canonicaliza la ruta, la pasa a minúsculas con `towlower` (igual que siempre, para no diferir con texto no ASCII) y recibe un veredicto; los mensajes de error siguen siendo los mismos. Rust y C++ se comprueban con el mismo archivo de casos, [`tests/vectors/sandbox_blacklist.tsv`](../../tests/vectors/sandbox_blacklist.tsv) (52 casos; los usan la prueba 33 de C++ y las pruebas de Rust). Dos comportamientos que parecen raros se conservan a propósito porque es lo que hacía el código: `C:\WindowsApps` se bloquea por prefijo de `C:\Windows`, y una ruta `\\servidor\recurso` no cuenta como raíz de disco.
-   - **Whitelist Estricta (Límites Autorizados)**:
-     - Raíz del binario de VegaFlow y directorio de trabajo del proyecto.
-     - Bibliotecas de juegos de Steam (`steamapps\common\...`).
-     - Almacenamiento local de aplicaciones del usuario (`%LOCALAPPDATA%`).
-     - Carpeta de archivos temporales del sistema (`temp_directory_path`).
-     - Carpetas de documentos y partidas del usuario (`Saved Games`, `Documents\My Games`).
-     - Lista blanca dinámica (`AddAllowedPath`, `RemoveAllowedPath`, `ClearCustomAllowedPaths`) protegida con `std::mutex`.
+   - **Lista blanca (carpetas permitidas)**, comparadas carpeta por carpeta (`...\Local` no permite `...\LocalOtraCosa`):
+     - la carpeta del ejecutable de VegaFlow (ya no su carpeta padre ni la carpeta de trabajo);
+     - `steamapps\common` de cada biblioteca de Steam listada en `libraryfolders.vdf` (ya no cualquier ruta que contenga `steamapps\common`). El archivo lo lee el núcleo Rust ([`steam_library.rs`](../../rust/vegaflow-core/src/policy/steam_library.rs)) una vez por ejecución;
+     - `%LOCALAPPDATA%`, la carpeta temporal, `Documents\My Games` y `Saved Games`;
+     - las carpetas registradas en ejecución (`AddAllowedPath`) y las de **solo lectura** (`AddReadOnlyPath`, por ejemplo las DLL de origen de DXVK: se pueden leer y copiar, no escribir).
+   - **Una sola decisión en Rust:** [`file_access.rs`](../../rust/vegaflow-core/src/policy/file_access.rs) aplica, en este orden, la lista negra, "solo rutas locales" (sin prefijos de dispositivo o red, sin `.` ni `..`, sin flujos `:`), el anti-cheat (solo al escribir) y la lista blanca. Una carpeta permitida que sea la raíz de un disco, relativa o de red se ignora. C++ reúne las carpetas y mira el disco (anti-cheat); Rust decide. Casos compartidos: [`tests/vectors/file_access.tsv`](../../tests/vectors/file_access.tsv) (prueba 40 de C++ y pruebas de Rust); la prueba 41 comprueba cada fallo de la lista blanca anterior en Windows.
+   - **Riesgo que queda:** `libraryfolders.vdf` y la ruta de Steam del registro (`HKCU`) los puede cambiar el usuario. Sumar una biblioteca falsa solo permite su `steamapps\common`, una carpeta que ese usuario ya puede escribir.
 
 3. **Cuarentena y Lockdown Anti-Cheat**:
    - Si se detecta una tecnología de anti-cheat activa a través de `DirectoryContainsAntiCheat` (escaneo recursivo de hasta 4 niveles superiores en el árbol de carpetas) o `PathContainsAntiCheatSignature`, o si se pasa explícitamente el flag `is_anticheat_protected = true`, el sandbox activa un **Lockdown Inmediato**:

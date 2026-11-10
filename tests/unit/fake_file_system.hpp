@@ -41,6 +41,8 @@ public:
     bool CanModifyGameDir(const std::filesystem::path&) override { return allow_game_dir; }
     bool HasAntiCheatSignature(const std::wstring&) override { return false; }
     bool CanWrite(const std::wstring&) override { return true; }
+    void AllowReading(const std::wstring& dir) override { readable_dirs.push_back(dir); }
+    std::vector<std::wstring> readable_dirs;
 
     size_t Changes() const { return writes.size() + copies.size() + removes.size(); }
 };

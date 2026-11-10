@@ -194,12 +194,9 @@ void Test22() {
     // -------------------------------------------------------------------------
     {
         std::error_code ec;
-        std::filesystem::path test_dir = "scratch/test_dxvk_apu";
+        // Under temp: the working folder is not an allowed folder.
+        const std::filesystem::path test_dir = std::filesystem::temp_directory_path() / "test_dxvk_apu";
         std::filesystem::create_directories(test_dir, ec);
-        if (ec || !std::filesystem::exists(test_dir, ec)) {
-            test_dir = std::filesystem::temp_directory_path() / "test_dxvk_apu";
-            std::filesystem::create_directories(test_dir, ec);
-        }
 
         // Clean up residual files inside the test directory
         std::filesystem::remove(test_dir / "dxvk.conf", ec);
