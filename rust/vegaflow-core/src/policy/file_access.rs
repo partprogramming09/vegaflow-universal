@@ -146,7 +146,7 @@ mod tests {
             assert_eq!(verdict, code_of(c[4]), "vector {} ({})", c[0], c[1]);
             checked += 1;
         }
-        assert!(checked >= 35, "expected at least 35 vectors, found {checked}");
+        assert!(checked >= 37, "expected at least 37 vectors, found {checked}");
     }
 
     #[test]

@@ -139,6 +139,11 @@ uint32_t vf_rust_decide_file_access(
     const VfAllowedRoot* roots, size_t root_count
 );
 
+/* Steam's libraryfolders.vdf: calls on_path(ctx, path, len) for each library folder listed (absolute drive paths only,
+   UTF-8, not NUL-terminated, valid only during the call) and returns how many there were. on_path may be null. */
+typedef void (*VfSteamLibraryFn)(void* ctx, const char* utf8_path, size_t len);
+size_t vf_rust_steam_library_paths(const char* vdf, size_t len, VfSteamLibraryFn on_path, void* ctx);
+
 /* Layout check for the structs above (this header is written by hand). Writes, for each struct in the order
    VfUmaTelemetryInput, VfUmaGuardDecision, VfNtMemoryListSample, VfCpuCoreEntry, VfTopologyPartitionOut,
    VfTierInput, VfAllowedRoot: its size, its alignment and the offset and size of each field in declaration order. Writes at most `cap`

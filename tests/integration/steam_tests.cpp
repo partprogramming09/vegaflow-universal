@@ -37,6 +37,7 @@
 
 #include "../test_support.hpp"
 #include "windows/safe_file_system.hpp"
+#include "windows/steam_paths.hpp"
 
 namespace vftest {
 
@@ -320,6 +321,38 @@ void Test24() {
 
         RecordResult(t24_success, "Test 24: APU Shadow & Cascades Optimizer (CSM 2-Splits & Half-Res AO)", details);
     }
+}
+
+void Test39() {
+    // -------------------------------------------------------------------------
+    // Test 39: Steam library folders are read from libraryfolders.vdf by the Rust reader
+    // -------------------------------------------------------------------------
+    std::error_code ec;
+    const std::filesystem::path steam = std::filesystem::temp_directory_path(ec) / L"vegaflow_test_steam_libraries";
+    std::filesystem::remove_all(steam, ec);
+    std::filesystem::create_directories(steam / L"steamapps", ec);
+    const std::wstring install = steam.wstring();
+    std::string install_utf8;
+    for (wchar_t c : install) install_utf8 += (c == L'\\') ? std::string("\\\\") : std::string(1, static_cast<char>(c));
+    {
+        std::ofstream vdf(steam / L"steamapps" / L"libraryfolders.vdf", std::ios::binary);
+        vdf << "\"libraryfolders\"\n{\n\t\"0\"\n\t{\n\t\t\"path\"\t\t\"" << install_utf8 << "\"\n\t}\n"
+            << "\t\"1\"\n\t{\n\t\t\"path\"\t\t\"D:\\\\SteamLibrary\"\n\t\t\"apps\" { \"1\" \"2\" }\n\t}\n"
+            << "\t\"2\"\n\t{\n\t\t\"path\"\t\t\"relative\\\\lib\"\n\t}\n"
+            << "\t\"3\"\n\t{\n\t\t\"path\"\t\t\"E:/Games/\"\n\t}\n}\n";
+    }
+    const auto folders = vegaflow::ReadSteamLibraryFolders(install);
+    const std::vector<std::wstring> expected = {install, L"D:\\SteamLibrary", L"E:\\Games"};
+    const bool listed_ok = folders == expected;
+    const bool empty_ok = vegaflow::ReadSteamLibraryFolders(L"").empty();
+    const auto no_file = vegaflow::ReadSteamLibraryFolders((steam / L"missing").wstring());
+    const bool no_file_ok = no_file.size() == 1;
+    std::filesystem::remove_all(steam, ec);
+
+    std::string got;
+    for (const auto& f : folders) got += " [" + std::string(f.begin(), f.end()) + "]";
+    RecordResult(listed_ok && empty_ok && no_file_ok, "Test 39: Steam library folders come from libraryfolders.vdf",
+                 "found" + got + (empty_ok ? "" : ", empty install not empty") + (no_file_ok ? "" : ", missing file not just the install"));
 }
 
 } // namespace vftest

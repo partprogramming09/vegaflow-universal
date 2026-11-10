@@ -5,5 +5,6 @@ pub mod apu_tier;
 pub mod cpu_governor;
 pub mod file_access;
 pub mod path_policy;
+pub mod steam_library;
 pub mod sandbox_core;
 pub mod uma_memory;

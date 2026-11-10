@@ -1,6 +1,7 @@
 #include "optimize/steam/steam_engine_optimizer.hpp"
 #include "optimize/steam/steam_internal.hpp"
 #include "optimize/dxvk_manager.hpp"
+#include "windows/steam_paths.hpp"
 
 namespace vegaflow {
 
@@ -51,80 +52,16 @@ uint32_t SteamEngineOptimizer::GetRunningSteamAppId() {
 }
 
 std::wstring SteamEngineOptimizer::GetSteamInstallPath() {
-    std::wstring path;
-    if (QueryRegString(HKEY_CURRENT_USER, L"Software\\Valve\\Steam", L"SteamPath", path) && !path.empty()) {
-        std::replace(path.begin(), path.end(), L'/', L'\\');
-        std::error_code ec;
-        if (std::filesystem::exists(path, ec) && std::filesystem::is_directory(path, ec)) {
-            return path;
-        }
-    }
-    if (QueryRegString(HKEY_LOCAL_MACHINE, L"SOFTWARE\\WOW6432Node\\Valve\\Steam", L"InstallPath", path) && !path.empty()) {
-        std::replace(path.begin(), path.end(), L'/', L'\\');
-        std::error_code ec;
-        if (std::filesystem::exists(path, ec) && std::filesystem::is_directory(path, ec)) {
-            return path;
-        }
-    }
-    std::wstring fallback = L"C:\\Program Files (x86)\\Steam";
-    std::error_code ec;
-    if (std::filesystem::exists(fallback, ec) && std::filesystem::is_directory(fallback, ec)) {
-        return fallback;
-    }
-    return L"";
+    return FindSteamInstallPath();
 }
 
 std::vector<SteamGameEntry> SteamEngineOptimizer::ScanSteamLibrary() {
     std::vector<SteamGameEntry> games;
-    std::wstring steam_path = GetSteamInstallPath();
-    if (steam_path.empty()) {
-        return games;
-    }
-
-    std::vector<std::filesystem::path> steamapps_dirs;
     std::error_code ec;
-    std::filesystem::path primary_steamapps = std::filesystem::path(steam_path) / L"steamapps";
-    if (std::filesystem::exists(primary_steamapps, ec)) {
-        steamapps_dirs.push_back(primary_steamapps);
-    }
-
-    std::filesystem::path vdf_path = primary_steamapps / L"libraryfolders.vdf";
-    if (std::filesystem::exists(vdf_path, ec)) {
-        std::ifstream vdfFile(vdf_path);
-        if (vdfFile.is_open()) {
-            std::string line;
-            while (std::getline(vdfFile, line)) {
-                std::string pathVal;
-                if (ExtractVdfValue(line, "path", pathVal)) {
-                    std::string unescaped;
-                    unescaped.reserve(pathVal.size());
-                    for (size_t i = 0; i < pathVal.size(); ++i) {
-                        if (pathVal[i] == '\\' && i + 1 < pathVal.size() && pathVal[i + 1] == '\\') {
-                            unescaped.push_back('\\');
-                            i++;
-                        } else {
-                            unescaped.push_back(pathVal[i]);
-                        }
-                    }
-                    std::wstring wpath = Utf8ToWide(unescaped);
-                    std::replace(wpath.begin(), wpath.end(), L'/', L'\\');
-                    std::filesystem::path extra_steamapps = std::filesystem::path(wpath) / L"steamapps";
-                    if (std::filesystem::exists(extra_steamapps, ec)) {
-                        bool dup = false;
-                        for (const auto& existing : steamapps_dirs) {
-                            if (EqualsInsensitiveW(existing.wstring(), extra_steamapps.wstring())) {
-                                dup = true;
-                                break;
-                            }
-                        }
-                        if (!dup) {
-                            steamapps_dirs.push_back(extra_steamapps);
-                        }
-                    }
-                }
-            }
-            vdfFile.close();
-        }
+    std::vector<std::filesystem::path> steamapps_dirs;
+    for (const auto& library : ReadSteamLibraryFolders(FindSteamInstallPath())) {
+        std::filesystem::path steamapps = std::filesystem::path(library) / L"steamapps";
+        if (std::filesystem::exists(steamapps, ec)) steamapps_dirs.push_back(steamapps);
     }
 
     for (const auto& sdir : steamapps_dirs) {

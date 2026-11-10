@@ -38,6 +38,7 @@ f3b	c:\users\u\documents\steamapps\common\game\y.ini	write	0	not_whitelisted
 f5a	c:\users\u\appdata\localotracosa\x.txt	write	0	not_whitelisted
 f5b	d:\steamlibrary\steamapps\commonx\y.ini	write	0	not_whitelisted
 f5c	c:\dev\vf\buildx\x.txt	write	0	not_whitelisted
+f5d	c:\steamlibrary\steamapps\common\game\x.ini	write	0	not_whitelisted
 
 # Read-only roots allow reading only.
 r01	c:\dev\vf\assets\dxvk\x64\d3d11.dll	write	0	not_whitelisted
@@ -57,6 +58,7 @@ n05	c:\users\u\appdata\local\.\x.txt	write	0	not_local_path
 n06	c:users\u\appdata\local\x.txt	write	0	not_local_path
 n07	users\u\appdata\local\x.txt	write	0	not_local_path
 n08	c:\users\u\appdata\local\x.txt:stream	write	0	not_local_path
+n09	\:\users\u\appdata\local\x.txt	write	0	not_local_path
 
 # Anti-cheat: refused for writes even inside a root; reads do not look at it.
 c01	d:\steamlibrary\steamapps\common\game\engine.ini	write	1	anticheat

@@ -2,7 +2,7 @@
 //! `ffi_guard` and calls the rule in `policy/` (or the ntdll call in `nt_memory`). The C declarations are in
 //! `src/bridge/rust_bridge.h`.
 
-use std::os::raw::c_char;
+use std::os::raw::{c_char, c_void};
 
 use crate::nt_memory;
 use crate::policy::apu_tier::{self, VfTierInput, TIER_ENTRY, TIER_MID};
@@ -10,6 +10,7 @@ use crate::policy::cpu_governor::{self, VfCpuCoreEntry, VfTopologyPartitionOut, 
 use crate::policy::file_access::{self, AllowedRoot};
 use crate::policy::path_policy::{self, VF_PATH_INTERNAL_ERROR};
 use crate::policy::sandbox_core;
+use crate::policy::steam_library;
 use crate::policy::uma_memory::{self, VfNtMemoryListSample, VfUmaGuardDecision, VfUmaTelemetryInput};
 
 /// Runs `f` for an `extern "C"` function and returns `fallback` if it panics. A panic must never cross into C++ (that is
@@ -97,6 +98,26 @@ pub extern "C" fn vf_rust_decide_file_access(
             .map(|r| AllowedRoot { path: unsafe { slice_or_empty(r.path, r.len) }, writable: r.writable })
             .collect();
         file_access::decide(path, win_dir, sys_dir, write, anticheat, &roots)
+    })
+}
+
+/// Called once per library folder found by `vf_rust_steam_library_paths`: UTF-8, not NUL-terminated, valid only during the call.
+pub type VfSteamLibraryFn = Option<unsafe extern "C" fn(ctx: *mut c_void, utf8_path: *const u8, len: usize)>;
+
+/// See `steam_library::library_paths`. Calls `on_path` for each library in file order and returns how many there were.
+#[no_mangle]
+pub extern "C" fn vf_rust_steam_library_paths(vdf: *const u8, len: usize, on_path: VfSteamLibraryFn, ctx: *mut c_void) -> usize {
+    ffi_guard(0, || {
+        if vdf.is_null() || len == 0 {
+            return 0;
+        }
+        let paths = steam_library::library_paths(unsafe { core::slice::from_raw_parts(vdf, len) });
+        if let Some(callback) = on_path {
+            for p in &paths {
+                unsafe { callback(ctx, p.as_ptr(), p.len()) };
+            }
+        }
+        paths.len()
     })
 }
 
