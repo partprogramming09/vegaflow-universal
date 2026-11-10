@@ -33,7 +33,7 @@ fn has_drive_prefix(path: &[u16]) -> bool {
     path.len() >= 3 && !is_separator(path[0]) && path[1] == COLON && is_separator(path[2])
 }
 
-/// The folders after `x:\`, skipping empty ones (`a\\b` is `a\b`, a trailing separator adds nothing).
+/// The folders after `x:\`. Empty names are skipped, but decide only gets here for paths without them.
 fn components(path: &[u16]) -> impl Iterator<Item = &[u16]> {
     path[3..].split(|&u| is_separator(u)).filter(|c| !c.is_empty())
 }

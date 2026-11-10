@@ -373,6 +373,13 @@ void Test41() {
     std::filesystem::create_directories(lib / L"steamapps" / L"common", ec);
     expect(!denied((lib / L"steamapps" / L"common" / L"vegaflow_root.txt").wstring()), "real library root still allowed");
     SandboxGuard::ReloadSteamLibraryFolders();
+    {
+        std::ofstream(outside / L"vegaflow_ro.txt") << "secret";
+        SandboxGuard::AddReadOnlyPath(lib_link.wstring());
+        std::string read_back;
+        expect(!SandboxGuard::SafeReadFile((lib_link / L"vegaflow_ro.txt").wstring(), read_back), "read-only root that is a junction");
+        SandboxGuard::ClearCustomAllowedPaths();
+    }
     RemoveDirectoryW(lib_link.c_str());
     std::filesystem::remove_all(lib, ec);
 

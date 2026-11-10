@@ -235,26 +235,37 @@ struct Root {
     bool writable;
 };
 
-// True if the folder or one above it is a junction or a symbolic link (not, e.g., a OneDrive placeholder). Such a
-// folder can be pointed anywhere by the user who owns it, so it must not become an allowed folder.
-bool UnderNameSurrogate(const std::wstring& path) {
+// The folder as written, absolute, with 8.3 names of its existing part expanded and no trailing separator. Unlike
+// CanonicalizePath it never follows a junction or symbolic link. Empty on error.
+std::wstring LongPathOf(const std::wstring& path) {
     wchar_t full[MAX_PATH * 4] = {0};
-    const DWORD ret = GetFullPathNameW(path.c_str(), _countof(full), full, nullptr);
-    if (ret == 0 || ret >= _countof(full)) return true;
-    for (std::filesystem::path p = full; p.has_relative_path(); p = p.parent_path()) {
-        WIN32_FIND_DATAW data{};
-        UniqueFindHandle find(FindFirstFileW(p.c_str(), &data));
-        if (find && (data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) && IsReparseTagNameSurrogate(data.dwReserved0)) {
-            return true;
-        }
+    const DWORD n = GetFullPathNameW(path.c_str(), _countof(full), full, nullptr);
+    if (n == 0 || n >= _countof(full)) return L"";
+    std::filesystem::path existing = std::filesystem::path(full).lexically_normal();
+    std::filesystem::path rest;
+    wchar_t long_path[MAX_PATH * 4] = {0};
+    DWORD len = 0;
+    while (existing.has_relative_path() &&
+           ((len = GetLongPathNameW(existing.c_str(), long_path, _countof(long_path))) == 0 || len >= _countof(long_path))) {
+        rest = existing.filename() / rest;
+        existing = existing.parent_path();
     }
-    return false;
+    std::wstring res = existing.has_relative_path() ? std::wstring(long_path, len) : existing.wstring();
+    if (!rest.empty()) res = (std::filesystem::path(res) / rest).wstring();
+    std::replace(res.begin(), res.end(), L'/', L'\\');
+    while (res.size() > 3 && res.back() == L'\\') res.pop_back();
+    return res;
 }
 
+// A folder counts only if its real path is the path as written: under a junction or symbolic link (which its owner
+// could point at C:\Program Files) it allows nothing. One resolution decides, so swapping the link meanwhile cannot
+// pass.
 void AddRoot(std::vector<Root>& roots, const std::wstring& path, bool writable) {
-    if (path.empty() || UnderNameSurrogate(path)) return;
-    std::wstring canonical = SandboxGuard::CanonicalizePath(path);
-    if (!canonical.empty()) roots.push_back({ToLowerW(canonical), writable});
+    if (path.empty()) return;
+    const std::wstring canonical = SandboxGuard::CanonicalizePath(path);
+    const std::wstring written = LongPathOf(path);
+    if (canonical.empty() || written.empty() || _wcsicmp(canonical.c_str(), written.c_str()) != 0) return;
+    roots.push_back({ToLowerW(canonical), writable});
 }
 
 const std::vector<std::wstring>& SteamLibrariesLocked() {
@@ -435,7 +446,7 @@ SandboxValidationResult SandboxGuard::ValidatePath(
             break;
         case VF_PATH_NOT_LOCAL_PATH:
             result.reason = SandboxDenialReason::PathTraversalDetected;
-            result.message = "Ruta no local: prefijo de dispositivo o de red, segmentos '.' o '..', o flujo ':'";
+            result.message = "Ruta no local o no canónica: prefijo de dispositivo o de red, flujo ':', '/', separador doble o final, nombre acabado en '.' o espacio";
             break;
         default:
             result.reason = SandboxDenialReason::BlacklistedSystemDirectory;
@@ -616,24 +627,16 @@ bool SandboxGuard::SafeReadFile(const std::wstring& path, std::string& out_conte
     return ReadVerified(val.canonical_path, out_content);
 }
 
-namespace {
-
-void AddUniqueCanonical(std::vector<std::wstring>& list, const std::wstring& path) {
+void SandboxGuard::AddAllowedPath(const std::wstring& path) {
     if (path.empty()) return;
-    std::wstring canonical = SandboxGuard::CanonicalizePath(path);
+    std::wstring canonical = CanonicalizePath(path);
     if (canonical.empty()) return;
 
     std::lock_guard<std::mutex> lock(g_sandbox_mutex);
-    for (const auto& existing : list) {
+    for (const auto& existing : g_custom_allowed_paths) {
         if (_wcsicmp(existing.c_str(), canonical.c_str()) == 0) return;
     }
-    list.push_back(std::move(canonical));
-}
-
-} // namespace
-
-void SandboxGuard::AddAllowedPath(const std::wstring& path) {
-    AddUniqueCanonical(g_custom_allowed_paths, path);
+    g_custom_allowed_paths.push_back(std::move(canonical));
 }
 
 void SandboxGuard::RemoveAllowedPath(const std::wstring& path) {
@@ -653,8 +656,14 @@ void SandboxGuard::RemoveAllowedPath(const std::wstring& path) {
     );
 }
 
+// Stored as written (not resolved), so AddRoot still refuses it if it is under a junction.
 void SandboxGuard::AddReadOnlyPath(const std::wstring& path) {
-    AddUniqueCanonical(g_read_only_paths, path);
+    if (path.empty()) return;
+    std::lock_guard<std::mutex> lock(g_sandbox_mutex);
+    for (const auto& existing : g_read_only_paths) {
+        if (_wcsicmp(existing.c_str(), path.c_str()) == 0) return;
+    }
+    g_read_only_paths.push_back(path);
 }
 
 void SandboxGuard::SetSteamLibraryFolders(std::vector<std::wstring> folders) {
