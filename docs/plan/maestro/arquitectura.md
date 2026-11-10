@@ -64,7 +64,7 @@ Es como los permisos de un edificio: cada planta puede bajar a las de abajo, per
 | `ui/` (GUI) | `session/`, `model/` | `windows/` directamente, salvo Win32 para dibujar |
 | `session/` (casos de uso) | `model/`, `ports/`, `bridge/` | `windows/`, `<windows.h>` (durante la migración se permiten, igual que `detect/`, `optimize/` y `safety/`: el código movido en R1 aún los usa; `check_layers.sh` los marca como migración) |
 | `ports/` (interfaces) | `model/` | todo lo demás |
-| `windows/` (adaptadores) | `ports/`, `model/`, `bridge/` (y `safety/` durante la migración: `SafeFileSystem` envuelve a `SandboxGuard` hasta la fase 1) | `session/`, `app/`, `ui/` |
+| `windows/` (adaptadores) | `ports/`, `model/`, `bridge/` (desde la fase 1, `SandboxGuard` vive aquí y ya no hay excepción con `safety/`) | `session/`, `app/`, `ui/` |
 | `model/` (tipos) | la librería estándar y, mientras haga falta, los tipos básicos de `<windows.h>` (`HWND`, `ULONG`) | `ports/`, `windows/`, `session/`, `app/`, `ui/` |
 | `detect/`, `optimize/`, `safety/` (lo viejo, mientras dure la migración) | lo mismo que hoy, salvo el ciclo: `detect/` ya no incluye `optimize/` y, desde R2, `optimize/` tampoco incluye `detect/` (recibe la política); `optimize/` puede incluir `ports/` | `session/`, `app/`, `ui/` |
 | `rust/` (núcleo) | nada del C++ | — |

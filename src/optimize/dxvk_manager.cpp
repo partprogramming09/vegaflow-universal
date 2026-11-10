@@ -179,14 +179,6 @@ bool DxvkManager::DeployDxvk(
     }
 
     std::error_code ec;
-    if (!std::filesystem::exists(dir, ec)) {
-        if (!std::filesystem::create_directories(dir, ec)) {
-            if (out_message) {
-                *out_message = "Error: No se pudo crear el directorio de destino";
-            }
-            return false;
-        }
-    }
 
     std::wstring assetsRoot = GetDxvkAssetsPath();
     if (assetsRoot.empty()) {
@@ -367,13 +359,6 @@ bool DxvkManager::ConfigureApuProfile(const std::filesystem::path& targetDir, co
         return true;
     }
 
-    if (!std::filesystem::exists(dir, ec)) {
-        std::filesystem::create_directories(dir, ec);
-        if (ec) {
-            return false;
-        }
-    }
-
     std::filesystem::path confPath = dir / L"dxvk.conf";
 
     const std::vector<std::pair<std::string, std::string>> requiredSettings = {
@@ -394,15 +379,16 @@ bool DxvkManager::ConfigureApuProfile(const std::filesystem::path& targetDir, co
         }
         newContent = ss.str();
     } else {
-        std::ifstream inFile(confPath);
-        if (!inFile.is_open()) return false;
+        std::string existing;
+        if (!fs_.Read(confPath.wstring(), existing)) return false;
 
         std::vector<std::string> lines;
+        std::istringstream in(existing);
         std::string line;
-        while (std::getline(inFile, line)) {
+        while (std::getline(in, line)) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
             lines.push_back(line);
         }
-        inFile.close();
 
         std::vector<bool> keyApplied(requiredSettings.size(), false);
         std::ostringstream ss;
@@ -484,9 +470,7 @@ bool DxvkManager::ValidateDxvkApuProfile(
 
     std::string content;
     if (!fs_.Read(confPath.wstring(), content)) {
-        std::ifstream f(confPath, std::ios::binary);
-        if (!f.is_open()) return false;
-        content.assign((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+        return false;
     }
 
     if (content.empty()) {
@@ -585,11 +569,7 @@ bool DxvkManager::RemoveApuProfile(const std::filesystem::path& targetDir, bool 
         return true;
     }
 
-    if (!fs_.Remove(confPath.wstring(), false)) {
-        std::filesystem::remove(confPath, ec);
-    }
-
-    return !std::filesystem::exists(confPath, ec);
+    return fs_.Remove(confPath.wstring(), false);
 }
 
 } // namespace vegaflow

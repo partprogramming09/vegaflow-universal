@@ -128,7 +128,9 @@ direct/
 │           └── policy/           # Las reglas, una por archivo, sin punteros ni llamadas al sistema
 │               ├── apu_tier.rs     # Tier de la APU (1 a 4)
 │               ├── cpu_governor.rs # CPU Sets según topología L3 / CCX e histéresis del confinamiento
+│               ├── file_access.rs  # Decisión completa de SandboxGuard: lista negra, ruta local, anti-cheat y carpetas permitidas
 │               ├── path_policy.rs  # Lista negra de rutas de SandboxGuard
+│               ├── steam_library.rs # Lector de libraryfolders.vdf (bibliotecas de Steam)
 │               ├── sandbox_core.rs # Firmas de anti-cheat y archivos críticos del sistema
 │               └── uma_memory.rs   # Presión de memoria UMA
 ├── src/                          # Cada .hpp vive junto a su .cpp, agrupado por función
@@ -180,7 +182,6 @@ direct/
 │   │   ├── cpu_orchestrator.*    # Asignación de CPU Sets y aislamiento de procesos
 │   │   └── dxvk_manager.*        # Despliegue seguro de DXVK-GPLAsync y backups
 │   ├── safety/                   # Lo que protege al sistema y al juego
-│   │   ├── sandbox_guard.*       # Aislamiento Zero-Trust, normalización canónica, whitelist y cuarentena anti-cheat
 │   │   └── frame_telemetry.*     # Monitoreo estadístico de frametimes (1% y 0.1% Lows)
 │   ├── ui/                       # Ventana nativa Win32/GDI
 │   │   ├── gui_window.*          # Interfaz Slate/Zinc y System Tray
@@ -189,12 +190,14 @@ direct/
 │   ├── windows/                  # Envolturas de la API de Windows
 │   │   ├── nt_defs.hpp           # Typedefs y llamadas nativas indocumentadas de NTDLL
 │   │   ├── unique_handle.hpp     # Cierre automático de handles, claves de registro y búsquedas (RAII)
+│   │   ├── sandbox_guard.*       # E/S de archivos comprobada: normaliza la ruta, pide la decisión a Rust y vuelve a comprobar el archivo abierto
 │   │   ├── safe_file_system.*    # Puerto de archivos real: pasa todo por SandboxGuard
+│   │   ├── steam_paths.*         # Carpeta de instalación de Steam y sus bibliotecas (lee libraryfolders.vdf con Rust)
 │   │   └── privileges.*          # Gestión de privilegios NT y elevación UAC
 │   └── bridge/
 │       └── rust_bridge.h         # Definición de tipos y firmas FFI C/Rust (Zero-Allocation)
 ├── tests/
-│   ├── test_main.cpp             # Entrada de la suite: corre las 40 pruebas en orden y restaura el sistema al final
+│   ├── test_main.cpp             # Entrada de la suite: corre las 41 pruebas en orden y restaura el sistema al final
 │   ├── test_support.*            # Contadores, RecordResult y lector de los .tsv
 │   ├── integration/              # Pruebas que tocan Windows de verdad, un archivo por módulo
 │   ├── unit/                     # Pruebas con puertos falsos (no escriben archivos de juegos ni el registro; como mucho una carpeta temporal vacía)

@@ -2,7 +2,7 @@
 
 ## 3. Seguridad Absoluta Frente a Sistemas Anti-Cheat y Subsistema SandboxGuard
 
-VegaFlow Universal implementa una política de seguridad estricta e inviolable: **bajo ninguna circunstancia se inyectarán DLLs ni se modificarán archivos de juegos protegidos por sistemas Anti-Cheat.** Toda operación sobre el disco y los procesos se rige por un modelo de aislamiento y contención formalizado en el módulo [`SandboxGuard`](../../src/safety/sandbox_guard.hpp).
+VegaFlow Universal implementa una política de seguridad estricta e inviolable: **bajo ninguna circunstancia se inyectarán DLLs ni se modificarán archivos de juegos protegidos por sistemas Anti-Cheat.** Toda operación sobre el disco y los procesos se rige por un modelo de aislamiento y contención formalizado en el módulo [`SandboxGuard`](../../src/windows/sandbox_guard.hpp).
 
 ```
 +------------------------------------------------------------------------------------+
@@ -43,7 +43,7 @@ VegaFlow Universal implementa una política de seguridad estricta e inviolable: 
 Cualquier intento de desplegar DXVK o sobreescribir archivos en un directorio con estas firmas es **rechazado en seco por el código** (`blocked_by_anticheat = true`), salvaguardando la cuenta del usuario de cualquier riesgo de baneo.
 
 ### 3.1. Arquitectura de Aislamiento y Contención: `SandboxGuard`
-Implementado en [`src/safety/sandbox_guard.hpp`](../../src/safety/sandbox_guard.hpp) y [`src/safety/sandbox_guard.cpp`](../../src/safety/sandbox_guard.cpp), el subsistema `SandboxGuard` formaliza el paradigma de seguridad **Zero-Trust File Access**:
+Implementado en [`src/windows/sandbox_guard.hpp`](../../src/windows/sandbox_guard.hpp) y [`src/windows/sandbox_guard.cpp`](../../src/windows/sandbox_guard.cpp), el subsistema `SandboxGuard` formaliza el paradigma de seguridad **Zero-Trust File Access**:
 
 1. **Normalización Canónica (`CanonicalizePath`)**:
    - `GetFullPathNameW` vuelve absoluta la ruta y quita `.` y `..`.

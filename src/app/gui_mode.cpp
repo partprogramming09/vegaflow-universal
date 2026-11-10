@@ -17,7 +17,7 @@
 #include "optimize/steam/steam_engine_optimizer.hpp"
 #include "optimize/dxvk_manager.hpp"
 #include "windows/safe_file_system.hpp"
-#include "safety/sandbox_guard.hpp"
+#include "windows/sandbox_guard.hpp"
 #include "session/system_info.hpp"
 #include <filesystem>
 #include "app/app_state.hpp"

@@ -29,7 +29,7 @@
 #include "safety/frame_telemetry.hpp"
 #include "optimize/steam/steam_engine_optimizer.hpp"
 #include "optimize/dxvk_manager.hpp"
-#include "safety/sandbox_guard.hpp"
+#include "windows/sandbox_guard.hpp"
 #include "session/system_info.hpp"
 #include "bridge/rust_bridge.h"
 #include <filesystem>
@@ -111,6 +111,7 @@ int main() {
         {40, vftest::Test40},
         {41, vftest::Test41},
         {42, vftest::Test42},
+        {43, vftest::Test43},
     };
     for (const auto& [number, run] : tests) {
         try {

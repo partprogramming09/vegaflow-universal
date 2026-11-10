@@ -1,6 +1,6 @@
 # Continuous integration on GitHub-hosted runners only.
 #
-# What runs here: the Rust core tests and a cross-compile of the Windows daemon and test suite. The 40 C++
+# What runs here: the Rust core tests and a cross-compile of the Windows daemon and test suite. The 41 C++
 # tests change the registry and the power plan of a real Windows machine and need a GPU, so they are run by hand
 # on the test laptop (scripts/remote/vfdev cross-test), never on a self-hosted runner: a public repository lets
 # any fork run code on such a runner.

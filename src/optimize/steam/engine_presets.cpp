@@ -111,8 +111,6 @@ EngineOptimizationReport SteamEngineOptimizer::ApplyEngineUmaPreset(
             std::filesystem::path pIni(engine_ini_path);
             std::filesystem::path pBak(engine_ini_path + L".vegaflow.bak");
 
-            std::filesystem::create_directories(pIni.parent_path(), ec);
-
             if (!std::filesystem::exists(pBak, ec)) {
                 if (std::filesystem::exists(pIni, ec)) {
                     report.backup_created = fs_.Copy(
@@ -204,8 +202,6 @@ EngineOptimizationReport SteamEngineOptimizer::ApplyEngineUmaPreset(
             return report;
         }
 
-        std::filesystem::create_directories(pBoot.parent_path(), ec);
-
         if (!std::filesystem::exists(pBak, ec)) {
             if (std::filesystem::exists(pBoot, ec)) {
                 report.backup_created = fs_.Copy(
@@ -229,8 +225,9 @@ EngineOptimizationReport SteamEngineOptimizer::ApplyEngineUmaPreset(
         };
 
         std::vector<std::string> lines;
-        if (std::filesystem::exists(pBoot, ec)) {
-            std::ifstream in(pBoot);
+        std::string existing;
+        if (std::filesystem::exists(pBoot, ec) && fs_.Read(pBoot.wstring(), existing)) {
+            std::istringstream in(existing);
             std::string line;
             while (std::getline(in, line)) {
                 if (!line.empty() && line.back() == '\r') {
@@ -238,7 +235,6 @@ EngineOptimizationReport SteamEngineOptimizer::ApplyEngineUmaPreset(
                 }
                 lines.push_back(line);
             }
-            in.close();
         }
 
         for (const auto& [k, v] : keysToSet) {

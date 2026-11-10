@@ -29,7 +29,7 @@
 #include "safety/frame_telemetry.hpp"
 #include "optimize/steam/steam_engine_optimizer.hpp"
 #include "optimize/dxvk_manager.hpp"
-#include "safety/sandbox_guard.hpp"
+#include "windows/sandbox_guard.hpp"
 #include "session/system_info.hpp"
 #include "bridge/rust_bridge.h"
 #include <filesystem>
@@ -353,6 +353,33 @@ void Test39() {
     for (const auto& f : folders) got += " [" + std::string(f.begin(), f.end()) + "]";
     RecordResult(listed_ok && empty_ok && no_file_ok, "Test 39: Steam library folders come from libraryfolders.vdf",
                  "found" + got + (empty_ok ? "" : ", empty install not empty") + (no_file_ok ? "" : ", missing file not just the install"));
+}
+
+void Test43() {
+    // -------------------------------------------------------------------------
+    // Test 43: an engine preset does not create folders where SandboxGuard refuses to write (flaw 6)
+    // -------------------------------------------------------------------------
+    std::error_code ec;
+    const auto game_dir = std::filesystem::temp_directory_path(ec) / "vegaflow_test_flaw6_game";
+    std::filesystem::remove_all(game_dir, ec);
+    std::filesystem::create_directories(game_dir / "Engine" / "Binaries" / "Win64", ec);
+    { std::ofstream(game_dir / "MyGame-Win64-Shipping.exe", std::ios::binary) << "MZ dummy executable header"; }
+    auto game = vegaflow::SteamEngineOptimizer::InspectGameDirectory(game_dir.wstring(), 999998, "Flaw 6 Game");
+
+    const std::filesystem::path outside = L"C:\\Users\\Public\\vegaflow_test_flaw6";
+    std::filesystem::remove_all(outside, ec);
+    const auto config_dir = outside / L"Saved" / L"Config";
+    const auto report = RealSteam().ApplyEngineUmaPreset(game, DetectedPolicy(), 3000, false, config_dir.wstring());
+    const bool created = std::filesystem::exists(outside, ec);
+
+    std::filesystem::remove_all(outside, ec);
+    std::filesystem::remove_all(game_dir, ec);
+    vegaflow::SandboxGuard::ClearViolations();
+    const bool is_unreal = game.engine == vegaflow::GameEngineType::UnrealEngine4_5;
+    RecordResult(is_unreal && !report.success && !created,
+                 "Test 43: engine presets create no folder outside the allowed ones",
+                 std::string("Unreal detected: ") + (is_unreal ? "yes" : "no") + ", preset applied: " +
+                 (report.success ? "yes" : "no") + ", folder created: " + (created ? "yes" : "no"));
 }
 
 } // namespace vftest

@@ -85,7 +85,7 @@
 - **Perfil de Energía APU Térmicamente Eficiente:** Limita el modo boost agresivo de la CPU y estabiliza frecuencias en 3.2 GHz, cediendo ~20W de presupuesto térmico continuo a la GPU integrada para mantener sus 1500 MHz de forma ininterrumpida.
 
 ### 2.6. Subsistema SandboxGuard (Aislamiento de Archivos & Cuarentena Anti-Cheat)
-El subsistema [`SandboxGuard`](../../src/safety/sandbox_guard.hpp) implementa una arquitectura estricta de aislamiento de archivos con modelo de confianza cero (**Zero-Trust File Access**):
+El subsistema [`SandboxGuard`](../../src/windows/sandbox_guard.hpp) implementa una arquitectura estricta de aislamiento de archivos con modelo de confianza cero (**Zero-Trust File Access**):
 - **Normalización Canónica Antifraude:** Neutraliza ataques o desbordamientos por *Path Traversal* (`..`, `.`, dobles barras invertidas y symlinks). Combina la API Win32 `GetFullPathNameW` con `std::filesystem::weakly_canonical` para resolver de forma anticipada enlaces simbólicos y junctions antes de cualquier chequeo de acceso.
 - **Whitelist Estricta vs Blacklist Inviolable:**
   - *Blacklist (Prioridad Máxima):* Bloqueo categórico de escrituras en la raíz de unidades (`C:\`, `D:\`) y archivos hijo directos (`C:\bootmgr`), archivos de paginación (`pagefile.sys`, `hiberfil.sys`, `swapfile.sys`), carpetas del núcleo del sistema operativo (`C:\Windows`, `System32`, `SysWOW64`, `WinSxS`), `Program Files\Common Files` y `System Volume Information`.

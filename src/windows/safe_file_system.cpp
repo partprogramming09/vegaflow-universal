@@ -1,6 +1,6 @@
 #include "windows/safe_file_system.hpp"
 
-#include "safety/sandbox_guard.hpp" // Migration: SandboxGuard's I/O moves here in phase 1 (docs/plan/maestro/).
+#include "windows/sandbox_guard.hpp" // Migration: SandboxGuard's I/O moves here in phase 1 (docs/plan/maestro/).
 
 namespace vegaflow {
 

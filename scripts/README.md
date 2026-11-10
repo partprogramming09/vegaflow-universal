@@ -6,7 +6,7 @@ Solo Windows (PowerShell) salvo `remote/`, que corre en la Mac. Ninguno forma pa
 
 | Script | Qué hace |
 | --- | --- |
-| `build.ps1` | Compila el daemon y la suite de pruebas; con `-RunTests` corre las 40 |
+| `build.ps1` | Compila el daemon y la suite de pruebas; con `-RunTests` corre las 41 |
 | `build-cross.sh` | Lo mismo desde un Mac o Linux con mingw-w64 (compilación cruzada); los `.exe` se prueban luego en Windows |
 | `check_layers.sh` | Comprueba que cada carpeta de `src/` solo incluye las capas permitidas (tabla en el plan maestro, sección 3b); corre en el CI |
 

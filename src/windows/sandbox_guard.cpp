@@ -1,4 +1,4 @@
-#include "safety/sandbox_guard.hpp"
+#include "windows/sandbox_guard.hpp"
 #include "bridge/rust_bridge.h"
 #include "windows/steam_paths.hpp"
 #include "windows/unique_handle.hpp"
