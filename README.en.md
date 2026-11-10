@@ -56,7 +56,7 @@ src/                C++20 daemon code, grouped by function (each .hpp next to it
   windows/            native Windows calls and privileges
   bridge/             contract between C++ and Rust
 rust/vegaflow-core/ pure rules in Rust (UMA pressure, topology, confinement, tiers, path policy, signatures)
-tests/              the 32 C++ tests (one file per module in tests/integration/) and the cases shared with Rust (tests/vectors/)
+tests/              the 33 C++ tests (one file per module in tests/integration/) and the cases shared with Rust (tests/vectors/)
 scripts/            build, measure and operate the test laptop (see scripts/README.md)
 assets/dxvk/        where you put the DXVK DLLs the daemon installs into games (not included; see its README)
 config/             daemon defaults

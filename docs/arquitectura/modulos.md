@@ -185,11 +185,12 @@ direct/
 │   │   └── gui_tabs.cpp          # Contenido de cada pestaña
 │   ├── windows/                  # Envolturas de la API de Windows
 │   │   ├── nt_defs.hpp           # Typedefs y llamadas nativas indocumentadas de NTDLL
+│   │   ├── unique_handle.hpp     # Cierre automático de handles, claves de registro y búsquedas (RAII)
 │   │   └── privileges.*          # Gestión de privilegios NT y elevación UAC
 │   └── bridge/
 │       └── rust_bridge.h         # Definición de tipos y firmas FFI C/Rust (Zero-Allocation)
 ├── tests/
-│   ├── test_main.cpp             # Entrada de la suite: corre las 32 pruebas en orden y restaura el sistema al final
+│   ├── test_main.cpp             # Entrada de la suite: corre las 33 pruebas en orden y restaura el sistema al final
 │   ├── test_support.*            # Contadores, RecordResult y lector de los .tsv
 │   ├── integration/              # Las pruebas, un archivo por módulo (tocan Windows de verdad)
 │   └── vectors/                  # Casos compartidos con las pruebas de Rust

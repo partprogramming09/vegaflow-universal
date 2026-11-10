@@ -17,7 +17,7 @@ El proyecto incluye el script automatizado [`scripts/build.ps1`](../../scripts/b
 # Compilar vegaflow_daemon.exe y vegaflow_tests.exe:
 powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
 
-# Compilar y ejecutar inmediatamente los 32 tests unitarios:
+# Compilar y ejecutar inmediatamente los 33 tests unitarios:
 powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1 -RunTests
 ```
 
@@ -105,9 +105,10 @@ Cualquier cambio en el repositorio debe ser validado ejecutando `build/vegaflow_
 [PASS] Test 32: APU tier classification matches the shared vector file
 [PASS] Test 33: SandboxGuard blacklist matches the shared vector file
 [PASS] Test 34: rust_bridge.h structs have the same layout in C++ and Rust
+[PASS] Test 35: UniqueHandle and UniqueRegKey close what they own exactly once
 
 ================================================================================
-TEST RESULTS: 32 PASSED, 0 FAILED
+TEST RESULTS: 33 PASSED, 0 FAILED
 ================================================================================
 ```
 

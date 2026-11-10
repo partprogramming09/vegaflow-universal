@@ -1,4 +1,5 @@
 #include "optimize/graphics/graphics_internal.hpp"
+#include "windows/unique_handle.hpp"
 
 namespace vegaflow {
 
@@ -44,8 +45,9 @@ bool GraphicsOptimizer::SetAmdDx11UmaDriverBoost(bool enable, const ApuOptimizat
 
     for (const auto* sub : kAdapterSubkeys) {
         std::wstring adapter_path = class_base + L"\\" + sub;
-        HKEY hAdapter = nullptr;
-        if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, adapter_path.c_str(), 0, KEY_READ | KEY_WRITE, &hAdapter) == ERROR_SUCCESS) {
+        UniqueRegKey adapter;
+        if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, adapter_path.c_str(), 0, KEY_READ | KEY_WRITE, adapter.put()) == ERROR_SUCCESS) {
+            const HKEY hAdapter = adapter.get();
             bool is_amd = false;
             wchar_t desc_buf[256] = {0};
             DWORD desc_size = sizeof(desc_buf);
@@ -68,8 +70,8 @@ bool GraphicsOptimizer::SetAmdDx11UmaDriverBoost(bool enable, const ApuOptimizat
                 }
             }
 
-            HKEY hUmd = nullptr;
-            LSTATUS umd_status = RegOpenKeyExW(hAdapter, L"UMD", 0, KEY_READ | KEY_WRITE, &hUmd);
+            UniqueRegKey umd;
+            LSTATUS umd_status = RegOpenKeyExW(hAdapter, L"UMD", 0, KEY_READ | KEY_WRITE, umd.put());
             if (umd_status == ERROR_SUCCESS) {
                 is_amd = true;
             }
@@ -82,7 +84,8 @@ bool GraphicsOptimizer::SetAmdDx11UmaDriverBoost(bool enable, const ApuOptimizat
             }
 
             if (is_amd) {
-                if (hUmd || RegCreateKeyExW(hAdapter, L"UMD", 0, nullptr, REG_OPTION_NON_VOLATILE, KEY_READ | KEY_WRITE, nullptr, &hUmd, nullptr) == ERROR_SUCCESS) {
+                if (umd || RegCreateKeyExW(hAdapter, L"UMD", 0, nullptr, REG_OPTION_NON_VOLATILE, KEY_READ | KEY_WRITE, nullptr, umd.put(), nullptr) == ERROR_SUCCESS) {
+                    const HKEY hUmd = umd.get();
                     const std::wstring umd_path = adapter_path + L"\\UMD";
                     if (enable) {
                         for (const wchar_t* n : kUmdBoostValues) RegBackupValue(kHiveLocalMachine, umd_path, hUmd, n);
@@ -113,11 +116,6 @@ bool GraphicsOptimizer::SetAmdDx11UmaDriverBoost(bool enable, const ApuOptimizat
                     }
                 }
             }
-
-            if (hUmd) {
-                RegCloseKey(hUmd);
-            }
-            RegCloseKey(hAdapter);
         }
     }
 
