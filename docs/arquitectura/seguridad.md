@@ -47,7 +47,7 @@ Implementado en [`src/windows/sandbox_guard.hpp`](../../src/windows/sandbox_guar
 
 1. **Normalización Canónica (`CanonicalizePath`)**:
    - `GetFullPathNameW` vuelve absoluta la ruta y quita `.` y `..`.
-   - La parte de la ruta que ya existe se abre y se cambia por su ruta real (`GetFinalPathNameByHandleW`): así se resuelven junctions, enlaces simbólicos y nombres cortos 8.3 (`PROGRA~1`). Hasta 2026-11-10 se usaba `weakly_canonical`, que con MinGW **no** resolvía junctions: un junction dentro de temp hacia `System32` pasaba la comprobación (medido en el laptop; ver `docs/plan/maestro/03-fase-1.md`).
+   - La parte de la ruta que ya existe se abre y se cambia por su ruta real (`GetFinalPathNameByHandleW`): así se resuelven junctions, enlaces simbólicos y nombres cortos 8.3 (`PROGRA~1`). Hasta 2026-11-10 se usaba `weakly_canonical`, que con MinGW **no** resolvía junctions: un junction dentro de temp hacia `System32` pasaba la comprobación (medido en el laptop el 2026-11-10).
    - `\\?\C:\...` se trata como `C:\...`. Cualquier otra ruta que empiece por `\\` (red, `\\.\`, otras formas de `\\?\`) se deja igual y la decisión la rechaza por no ser local.
    - Pone la letra de unidad en mayúscula y quita la barra final.
 

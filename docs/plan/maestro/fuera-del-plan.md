@@ -17,6 +17,13 @@
 - **DLL de DXVK-GPLAsync:** ya no están en el repo. Falta decidir de dónde salen (lo previsto era un `scripts/fetch_dxvk.ps1` con versión y sha256 fijos, si existe una descarga estable de esa variante parcheada). Hasta entonces, `assets/dxvk/README.md` explica cómo colocarlas a mano. Investigado el 2026-11-09 en [`dxvk-descarga.md`](../../investigacion/dxvk-descarga.md): existe una URL de GPLAsync fijada a un commit, sin checksum ni licencia publicados; decisión pendiente del usuario.
 - `scripts/remote/archive/` no tenía nada versionado (solo un `__pycache__` local, borrado).
 
+## Pendiente heredado de la fase 1
+
+- Un hardlink dentro de una carpeta permitida hacia un archivo protegido no se detecta (la ruta del handle es la del enlace). No se midió si un usuario sin permisos sobre el archivo puede crear ese hardlink.
+- Las carpetas permitidas se reúnen y se resuelven en cada validación; el coste no se midió. Guardarlas en caché reabriría la carrera con junctions.
+- ZZZ: `CanModifyGameDir` dice que sí porque los archivos de anti-cheat están en subcarpetas (solo se mira hacia arriba). Es anterior a la fase 1; el preset sigue bloqueado por `has_anticheat`.
+- La prueba de que `run_cycle` pasa la política estática se movió a la fase 3 ([`07-fase-3.md`](07-fase-3.md)).
+
 ## 9. Ideas sin fase todavía
 
 Salieron de la ronda de ideas del 2026-11-09. Ninguna se empieza sin decidirla antes; las marcadas "sin verificar" necesitan investigación.
