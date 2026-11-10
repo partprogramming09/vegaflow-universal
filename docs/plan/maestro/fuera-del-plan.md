@@ -32,6 +32,8 @@
 - Con el ejecutable en una ruta de más de 260 caracteres, la raíz de SandboxGuard se corta (`GetVegaFlowExecutableDirectory` usa `MAX_PATH`) y `config.json` no se puede leer ni guardar; unificar con `ConfigFilePath` (decisión del usuario pendiente).
 - Anterior a la fase: si otra cuenta crea `C:\ProgramData\VegaFlow` antes de instalar y le añade un permiso explícito, `setup_tasks.ps1` no lo quita; podría cambiar el ejecutable.
 - Fase 5: la lista de procesos de Windows existe en Rust (`config_rules.rs`) y en C++ (`kExcludedProcesses` de `process_detector.cpp`); unificarlas. Además, el paso 3 de `DetectActiveGame` construye un juego aunque `InspectProcess` lo excluya.
+- El aviso de `config.json` ignorado o con valores rechazados solo sale por stderr en el modo daemon (oculto cuando lo lanza `ab_profile.ps1`). Redirigirlo a un log necesita comprobar en el escritorio que el daemon sigue sin ventana.
+- Sospechas de la revisión sin confirmar: una excepción de C++ (`bad_alloc`) dentro del callback que llama Rust cruzaría frames `extern "C"`; `icacls /setowner /T /C` en `setup_tasks.ps1` puede devolver 0 aunque falle un archivo y no está comprobado si sigue junctions.
 - Fase G: con un `config.json` corrupto, con un valor rechazado o de versión más nueva, la GUI solo avisa; el botón para que la persona decida (restaurar valores de fábrica o abrir el archivo) es de la fase G. Tras corregir el archivo hay que reiniciar VegaFlow.
 
 ## 9. Ideas sin fase todavía

@@ -10,7 +10,7 @@
     Requires administrator. By default it uses the protected copy in C:\ProgramData\VegaFlow; -Dir allows
     another folder with vegaflow_daemon.exe, config\config.json, logs\ and tweaks_state.ps1 (elevated SSH session, no tasks).
     The daemon only reads config\config.json when only administrators can write that folder; otherwise it uses the
-    factory values. Its warnings go to logs\daemon_stderr.log and are copied to ab.log.
+    factory values and warns only on its (hidden) console.
 #>
 param(
     [switch]$Start,
@@ -48,14 +48,10 @@ function Get-AbDaemon {
 if ($Start) {
     if (Get-AbDaemon) { throw 'El daemon ya esta corriendo (ab.pid).' }
     if (-not (Test-Path $exe)) { throw "No existe $exe; ejecuta setup_tasks.ps1." }
-    $stderrLog = Join-Path $dir 'logs\daemon_stderr.log'
-    New-Item -ItemType Directory -Force -Path (Split-Path $stderrLog) | Out-Null
-    $p = Start-Process -FilePath $exe -WorkingDirectory $dir -WindowStyle Hidden -PassThru -RedirectStandardError $stderrLog
+    $p = Start-Process -FilePath $exe -WorkingDirectory $dir -WindowStyle Hidden -PassThru
     Set-Content -Path $pidFile -Value $p.Id
     Start-Sleep -Seconds 3
     if ($p.HasExited) { throw "El daemon salio al arrancar (codigo $($p.ExitCode))." }
-    # A config.json that is ignored or partly refused must show up next to the measurement, not only in a hidden console.
-    Get-Content $stderrLog -ErrorAction SilentlyContinue | Where-Object { $_ -like '`[WARN`]*' } | ForEach-Object { Write-Ab $_ }
     Write-Ab "Start pid=$($p.Id) sha256=$((Get-FileHash $exe -Algorithm SHA256).Hash)"
     $p.WaitForExit()
     Write-Ab "Start: el daemon salio con codigo $($p.ExitCode)"
