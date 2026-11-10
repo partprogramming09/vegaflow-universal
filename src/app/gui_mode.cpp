@@ -30,6 +30,7 @@ namespace vegaflow::app {
 
 int RunGuiMode(
     AppConfig& config,
+    ConfigStore& config_store,
     vegaflow::SystemHardwareProfile& hw,
     vegaflow::CpuOrchestrator& cpu_orchestrator,
     vegaflow::MemoryManager& mem_mgr,
@@ -71,6 +72,15 @@ int RunGuiMode(
         if (audit_log.size() > 200) {
             audit_log.erase(audit_log.begin());
         }
+    };
+    if (const std::string warning = config_store.Report().Warning(); !warning.empty()) {
+        last_gui_status = warning;
+        AddAuditLog(warning);
+    }
+    // Saves the setting the person just changed; when config.json must not be overwritten, says so instead.
+    auto SaveSettings = [&](std::string& msg) {
+        std::string why;
+        if (!config_store.Save(config, false, &why)) msg += " (no se guardó en config.json: " + why + ")";
     };
 
     AddAuditLog("Sesión iniciada. Hardware: " + hw.cpu_topology.brand_string + " (" +
@@ -306,7 +316,7 @@ int RunGuiMode(
             msg = ok ? "Timer de Kernel restaurado a valor dinámico de Windows" : "Fallo al restaurar temporizador";
         }
         config.timer_forced_manual = timer_forced_manual;
-        SaveConfig("config/config.json", config);
+        SaveSettings(msg);
         last_gui_status = msg;
         AddAuditLog("Resolución de Kernel: " + msg);
         return msg;
@@ -426,7 +436,6 @@ int RunGuiMode(
         timer_boosted = false;
         timer_forced_manual = false;
         config.timer_forced_manual = false;
-        SaveConfig("config/config.json", config);
         GraphicsOptimizer::SetMpoDisabled(false, false);
         GraphicsOptimizer::SetAmdShaderCacheForced(false, policy, false);
         GraphicsOptimizer::SetMemoryCompressionEnabled(true, false);
@@ -442,6 +451,7 @@ int RunGuiMode(
         cpu_orchestrator.RestoreAll(false);
         last_isolated_count = 0;
         std::string msg = "Todos los ajustes dinámicos han sido revertidos a los valores por defecto de Windows";
+        SaveSettings(msg);
         last_gui_status = msg;
         AddAuditLog(msg);
         return msg;

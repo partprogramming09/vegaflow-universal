@@ -11,6 +11,7 @@ namespace vegaflow::app {
 
 int RunGuiMode(
     AppConfig& config,
+    ConfigStore& config_store,
     vegaflow::SystemHardwareProfile& hw,
     vegaflow::CpuOrchestrator& cpu_orchestrator,
     vegaflow::MemoryManager& mem_mgr,

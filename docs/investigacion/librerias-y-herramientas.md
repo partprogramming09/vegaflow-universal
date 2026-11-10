@@ -13,7 +13,7 @@ Restricciones del proyecto: se compila con **MinGW (g++)**, también de forma cr
 | doctest | MIT, una sola cabecera; nombra GCC, no MinGW | [doctest](https://github.com/doctest/doctest) | Media | Sí, si compila (se prueba en R1) |
 | Catch2 v3 | Librería estática; menos coste de inclusión que v2 | [Migración v2 a v3](https://github.com/catchorg/Catch2/blob/devel/docs/migrate-v2-to-v3.md) | Alta | No: doctest es más ligero |
 | krabsetw | MIT, solo cabeceras, se distribuye como solución de Visual Studio; MinGW sin confirmar | [krabsetw](https://github.com/microsoft/krabsetw) | Media | No (la fase 6 quita la captura) |
-| json.h | Unlicense, una sola cabecera, un solo `malloc`, soporta GCC | [json.h](https://github.com/sheredom/json.h) | Alta | Sí (fase 1b) |
+| json.h | Unlicense, una sola cabecera, un solo `malloc`, soporta GCC | [json.h](https://github.com/sheredom/json.h) | Alta | No (2026-11-10): arregló desbordamientos de memoria el 5 y el 8 de noviembre de 2026; la fase 1b usa un lector propio en Rust |
 | nlohmann/json | MIT, una cabecera grande; MinGW solo con una libstdc++ completa | [nlohmann/json](https://github.com/nlohmann/json) | Alta | No: más grande |
 | keyvalues-parser (Rust) | Lee VDF v1 pero arrastra `pest` | [docs.rs](https://docs.rs/keyvalues-parser/latest/keyvalues_parser/) | Alta | No: lector propio en Rust |
 | hwloc | BSD, lista MinGW, pero es una dependencia compilada | [hwloc](https://www.open-mpi.org/projects/hwloc/) | Alta | No: Windows ya da la topología |
@@ -22,4 +22,4 @@ Restricciones del proyecto: se compila con **MinGW (g++)**, también de forma cr
 | cargo-mutants | Soporte de Windows y licencia | — | Sin verificar | Sí, en el CI de Linux |
 | PresentMon / PresentData | MIT (Intel); consume solo ETW | [LICENSE](https://github.com/GameTechDev/PresentMon/blob/main/LICENSE.txt) | Alta | Solo en `scripts/bench.ps1` y en la prueba A/B del modo desarrollador |
 
-**Sin medir todavía:** el tamaño que añaden json.h y doctest; se mide al compilar.
+**Sin medir todavía:** el tamaño que añadiría doctest (json.h y doctest no se adoptaron).

@@ -1,4 +1,5 @@
 {
+  "version": 1,
   "poll_interval_ms": 1500,
   "timer_resolution_ns100": 5000,
   "timer_forced_manual": true,

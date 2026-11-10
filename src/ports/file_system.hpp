@@ -16,6 +16,10 @@ public:
     virtual bool Write(const std::wstring& path, const std::string& content, bool anticheat_protected = false) = 0;
     virtual bool Copy(const std::wstring& src, const std::wstring& dst, bool overwrite, bool anticheat_protected = false) = 0;
     virtual bool Remove(const std::wstring& path, bool anticheat_protected = false) = 0;
+    // Replaces the whole file in one step: an interrupted write leaves the old content or the new one, never a mix.
+    virtual bool Replace(const std::wstring& path, const std::string& content) = 0;
+    // Whether something is at this path; true when it cannot tell (any error other than "not found").
+    virtual bool Exists(const std::wstring& path) = 0;
 
     // Whether files of a game folder may be changed at all (allowed folder and no anti-cheat in it).
     virtual bool CanModifyGameDir(const std::filesystem::path& dir) = 0;

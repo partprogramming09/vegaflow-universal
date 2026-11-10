@@ -6,8 +6,11 @@ use std::os::raw::{c_char, c_void};
 
 use crate::nt_memory;
 use crate::policy::apu_tier::{self, VfTierInput, TIER_ENTRY, TIER_MID};
+use crate::policy::config_file::{self, SaveRefused, Settings};
+use crate::policy::config_rules;
 use crate::policy::cpu_governor::{self, VfCpuCoreEntry, VfTopologyPartitionOut, VF_MAX_LOGICAL_PROCESSORS};
 use crate::policy::file_access::{self, AllowedRoot};
+use crate::policy::folder_trust::{self, Ace, SidKind};
 use crate::policy::path_policy::{self, VF_PATH_INTERNAL_ERROR};
 use crate::policy::sandbox_core;
 use crate::policy::steam_library;
@@ -193,6 +196,191 @@ pub extern "C" fn vf_rust_eval_bg_confinement(logical_cores_used: f64, currently
     ffi_guard(false, || cpu_governor::eval_bg_confinement(logical_cores_used, currently_confined))
 }
 
+/// Called once per string handed back to C++: UTF-8, not NUL-terminated, valid only during the call.
+pub type VfUtf8Fn = Option<unsafe extern "C" fn(ctx: *mut c_void, utf8: *const u8, len: usize)>;
+
+/// Every setting of `config.json`; the game names travel apart.
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct VfConfigSettings {
+    pub poll_interval_ms: u32,
+    pub timer_resolution_ns100: u32,
+    pub cooldown_seconds: u32,
+    pub timer_forced_manual: bool,
+    pub restrict_game_cpu_sets: bool,
+    pub min_free_ram_mb: u64,
+    pub min_standby_mb: u64,
+    pub max_game_disk_read_mb_s: u64,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct VfConfigLoad {
+    pub settings: VfConfigSettings,
+    /// `VF_CONFIG_*` status bits (`policy::config_file`).
+    pub status: u32,
+    /// `VF_CONFIG_KEY_*` bits of the keys that took their factory value.
+    pub rejected_keys: u32,
+}
+
+pub const VF_CONFIG_SAVE_OK: u32 = 0;
+/// The current file is corrupt, has a rejected key or is from a newer version: nothing written.
+pub const VF_CONFIG_SAVE_BLOCKED: u32 = 1;
+/// A setting or game name breaks its rule, or the arguments are malformed: nothing written.
+pub const VF_CONFIG_SAVE_INVALID: u32 = 2;
+
+fn to_ffi(s: &Settings) -> VfConfigSettings {
+    VfConfigSettings {
+        poll_interval_ms: s.poll_interval_ms,
+        timer_resolution_ns100: s.timer_resolution_ns100,
+        cooldown_seconds: s.cooldown_seconds,
+        timer_forced_manual: s.timer_forced_manual,
+        restrict_game_cpu_sets: s.restrict_game_cpu_sets,
+        min_free_ram_mb: s.min_free_ram_mb,
+        min_standby_mb: s.min_standby_mb,
+        max_game_disk_read_mb_s: s.max_game_disk_read_mb_s,
+    }
+}
+
+/// Game names as C++ passes them: each one UTF-8 and followed by a NUL. None if the buffer breaks that shape.
+fn game_names(buf: &[u8]) -> Option<Vec<String>> {
+    if buf.is_empty() {
+        return Some(Vec::new());
+    }
+    let body = buf.strip_suffix(&[0])?;
+    body.split(|&b| b == 0).map(|n| String::from_utf8(n.to_vec()).ok()).collect()
+}
+
+/// See `config_file::load`. Fills `out` and calls `on_game_exe` once per accepted game name. False only for bad pointers.
+#[no_mangle]
+pub extern "C" fn vf_rust_config_load(
+    bytes: *const u8,
+    len: usize,
+    out: *mut VfConfigLoad,
+    on_game_exe: VfUtf8Fn,
+    ctx: *mut c_void,
+) -> bool {
+    ffi_guard(false, || {
+        if out.is_null() || (bytes.is_null() && len != 0) {
+            return false;
+        }
+        let text = if len == 0 { &[][..] } else { unsafe { core::slice::from_raw_parts(bytes, len) } };
+        let loaded = config_file::load(text);
+        unsafe {
+            *out = VfConfigLoad {
+                settings: to_ffi(&loaded.settings),
+                status: loaded.status,
+                rejected_keys: loaded.rejected_keys,
+            }
+        };
+        if let Some(callback) = on_game_exe {
+            for name in &loaded.settings.custom_game_exes {
+                unsafe { callback(ctx, name.as_ptr(), name.len()) };
+            }
+        }
+        true
+    })
+}
+
+/// See `config_file::save`. `game_exes` holds each name followed by a NUL. On `VF_CONFIG_SAVE_OK` calls `on_text` once
+/// with the whole new file; otherwise it is not called.
+#[no_mangle]
+pub extern "C" fn vf_rust_config_save(
+    original: *const u8,
+    original_len: usize,
+    settings: *const VfConfigSettings,
+    game_exes: *const u8,
+    game_exes_len: usize,
+    on_text: VfUtf8Fn,
+    ctx: *mut c_void,
+) -> u32 {
+    ffi_guard(VF_CONFIG_SAVE_INVALID, || {
+        if settings.is_null() || (original.is_null() && original_len != 0) || (game_exes.is_null() && game_exes_len != 0) {
+            return VF_CONFIG_SAVE_INVALID;
+        }
+        let original = if original_len == 0 { &[][..] } else { unsafe { core::slice::from_raw_parts(original, original_len) } };
+        let names = if game_exes_len == 0 { &[][..] } else { unsafe { core::slice::from_raw_parts(game_exes, game_exes_len) } };
+        let Some(custom_game_exes) = game_names(names) else {
+            return VF_CONFIG_SAVE_INVALID;
+        };
+        let s = unsafe { &*settings };
+        let settings = Settings {
+            poll_interval_ms: s.poll_interval_ms,
+            timer_resolution_ns100: s.timer_resolution_ns100,
+            timer_forced_manual: s.timer_forced_manual,
+            restrict_game_cpu_sets: s.restrict_game_cpu_sets,
+            min_free_ram_mb: s.min_free_ram_mb,
+            min_standby_mb: s.min_standby_mb,
+            cooldown_seconds: s.cooldown_seconds,
+            max_game_disk_read_mb_s: s.max_game_disk_read_mb_s,
+            custom_game_exes,
+        };
+        match config_file::save(original, &settings) {
+            Ok(text) => {
+                if let Some(callback) = on_text {
+                    unsafe { callback(ctx, text.as_ptr(), text.len()) };
+                }
+                VF_CONFIG_SAVE_OK
+            }
+            Err(SaveRefused::Blocked(_)) => VF_CONFIG_SAVE_BLOCKED,
+            Err(SaveRefused::InvalidSetting(_)) => VF_CONFIG_SAVE_INVALID,
+        }
+    })
+}
+
+/// See `config_rules::is_allowed_game_exe`, for a name in UTF-8. False for invalid UTF-8, bad pointers or a panic.
+#[no_mangle]
+pub extern "C" fn vf_rust_is_allowed_game_exe(utf8_name: *const u8, len: usize) -> bool {
+    ffi_guard(false, || {
+        if utf8_name.is_null() {
+            return false;
+        }
+        let bytes = unsafe { core::slice::from_raw_parts(utf8_name, len) };
+        std::str::from_utf8(bytes).is_ok_and(config_rules::is_allowed_game_exe)
+    })
+}
+
+/// Who a SID is, for `vf_rust_only_admins_can_write`; any other number counts as another account.
+pub const VF_SID_OTHER: u8 = 0;
+pub const VF_SID_SYSTEM: u8 = 1;
+pub const VF_SID_ADMINISTRATORS: u8 = 2;
+pub const VF_SID_TRUSTED_INSTALLER: u8 = 3;
+
+/// One DACL entry, as C++ reads it.
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct VfAceEntry {
+    pub mask: u32,
+    pub sid_kind: u8,
+    pub allows: bool,
+    pub inherit_only: bool,
+}
+
+fn sid_kind(k: u8) -> SidKind {
+    match k {
+        VF_SID_SYSTEM => SidKind::System,
+        VF_SID_ADMINISTRATORS => SidKind::Administrators,
+        VF_SID_TRUSTED_INSTALLER => SidKind::TrustedInstaller,
+        _ => SidKind::Other,
+    }
+}
+
+/// See `folder_trust::only_admins_can_write`. False for bad pointers or a panic.
+#[no_mangle]
+pub extern "C" fn vf_rust_only_admins_can_write(has_dacl: bool, owner_kind: u8, aces: *const VfAceEntry, count: usize) -> bool {
+    ffi_guard(false, || {
+        if aces.is_null() && count != 0 {
+            return false;
+        }
+        let entries = if count == 0 { &[][..] } else { unsafe { core::slice::from_raw_parts(aces, count) } };
+        let aces: Vec<Ace> = entries
+            .iter()
+            .map(|e| Ace { mask: e.mask, sid: sid_kind(e.sid_kind), allows: e.allows, inherit_only: e.inherit_only })
+            .collect();
+        folder_trust::only_admins_can_write(has_dacl, sid_kind(owner_kind), &aces)
+    })
+}
+
 /// Size, alignment and the offset and size of each field of every struct shared with C++, in the order documented in rust_bridge.h.
 /// rust_bridge.h is written by hand; C++ Test 34 compares these numbers with its own sizeof/alignof/offsetof.
 fn bridge_layout() -> Vec<usize> {
@@ -219,6 +407,10 @@ fn bridge_layout() -> Vec<usize> {
         physical_cores, logical_processors, has_multiple_ccx, has_hybrid_cores);
     layout!(v, VfTierInput, total_ram_mb, physical_cores, arch_gen, dedicated_vram, is_nvidia);
     layout!(v, VfAllowedRoot, path, len, writable);
+    layout!(v, VfConfigSettings, poll_interval_ms, timer_resolution_ns100, cooldown_seconds, timer_forced_manual,
+        restrict_game_cpu_sets, min_free_ram_mb, min_standby_mb, max_game_disk_read_mb_s);
+    layout!(v, VfConfigLoad, settings, status, rejected_keys);
+    layout!(v, VfAceEntry, mask, sid_kind, allows, inherit_only);
     v
 }
 

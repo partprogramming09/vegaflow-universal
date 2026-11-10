@@ -127,8 +127,12 @@ direct/
 │           ├── nt_memory.rs      # Llamadas a ntdll: leer las listas de memoria y descartar la Standby List
 │           └── policy/           # Las reglas, una por archivo, sin punteros ni llamadas al sistema
 │               ├── apu_tier.rs     # Tier de la APU (1 a 4)
+│               ├── config_file.rs  # Leer y guardar config.json sin perder claves desconocidas
+│               ├── config_rules.rs # Rangos de config.json y nombres de juego permitidos
 │               ├── cpu_governor.rs # CPU Sets según topología L3 / CCX e histéresis del confinamiento
 │               ├── file_access.rs  # Decisión completa de SandboxGuard: lista negra, ruta local, anti-cheat y carpetas permitidas
+│               ├── folder_trust.rs # ¿Solo administradores pueden escribir esta carpeta? (dueño y DACL)
+│               ├── json_text.rs    # Lector y escritor JSON estricto, sin dependencias
 │               ├── path_policy.rs  # Lista negra de rutas de SandboxGuard
 │               ├── steam_library.rs # Lector de libraryfolders.vdf (bibliotecas de Steam)
 │               ├── sandbox_core.rs # Firmas de anti-cheat y archivos críticos del sistema
@@ -145,10 +149,10 @@ direct/
 │   │   ├── run_cycle.*           # Un ciclo de evaluación: detectar juego, aplicar o soltar
 │   │   ├── reports.*             # --status, --dry-run y --purge-now
 │   │   ├── system_info.*         # Informe SystemInfo (hardware, UMA, SMBIOS RAM, OS y JSON)
-│   │   ├── config.*              # config.json y lista de juegos
+│   │   ├── config.*              # ConfigStore: leer y guardar config.json (reglas en Rust) y lista de juegos
 │   │   └── text_convert.*        # UTF-8 <-> UTF-16
 │   ├── ports/                    # Interfaces que los casos de uso piden y las pruebas falsifican
-│   │   ├── file_system.hpp       # Leer, escribir, copiar y borrar archivos de juegos
+│   │   ├── file_system.hpp       # Leer, escribir, reemplazar entero, copiar y borrar archivos
 │   │   └── clock.hpp             # La hora actual (y el reloj real); las pruebas lo adelantan a mano
 │   ├── model/                    # Tipos compartidos, sin lógica
 │   │   ├── hardware.hpp          # GPU, CPU, Tier de la APU y su política
@@ -192,13 +196,14 @@ direct/
 │   │   ├── unique_handle.hpp     # Cierre automático de handles, claves de registro y búsquedas (RAII)
 │   │   ├── sandbox_guard.*       # E/S de archivos comprobada: normaliza la ruta, pide la decisión a Rust y vuelve a comprobar el archivo abierto
 │   │   ├── safe_file_system.*    # Puerto de archivos real: pasa todo por SandboxGuard
+│   │   ├── config_location.*     # Ruta de config.json junto al .exe y si solo administradores pueden escribirla
 │   │   ├── steam_paths.*         # Carpeta de instalación de Steam y sus bibliotecas (lee libraryfolders.vdf con Rust)
 │   │   ├── registry.*            # Lectura de un valor de texto del registro
 │   │   └── privileges.*          # Gestión de privilegios NT y elevación UAC
 │   └── bridge/
 │       └── rust_bridge.h         # Definición de tipos y firmas FFI C/Rust (Zero-Allocation)
 ├── tests/
-│   ├── test_main.cpp             # Entrada de la suite: corre las 41 pruebas en orden y restaura el sistema al final
+│   ├── test_main.cpp             # Entrada de la suite: corre las 45 pruebas en orden y restaura el sistema al final
 │   ├── test_support.*            # Contadores, RecordResult y lector de los .tsv
 │   ├── integration/              # Pruebas que tocan Windows de verdad, un archivo por módulo
 │   ├── unit/                     # Pruebas con puertos falsos (no escriben archivos de juegos ni el registro; como mucho una carpeta temporal vacía)

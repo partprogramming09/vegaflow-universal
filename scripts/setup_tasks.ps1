@@ -36,8 +36,13 @@ $daemonSrc = Join-Path $PSScriptRoot '..\build\vegaflow_daemon.exe'
 if (-not (Test-Path $daemonSrc)) { throw "Falta $daemonSrc; compila con scripts\build.ps1." }
 Copy-Item $daemonSrc (Join-Path $dir 'vegaflow_daemon.exe') -Force
 New-Item -ItemType Directory -Force -Path (Join-Path $dir 'config'), (Join-Path $dir 'logs') | Out-Null
-Copy-Item (Join-Path $PSScriptRoot '..\config\config.json') (Join-Path $dir 'config\config.json') -Force
+# Only the first install copies config.json: a reinstall keeps the settings already there.
+$configDst = Join-Path $dir 'config\config.json'
+if (-not (Test-Path $configDst)) { Copy-Item (Join-Path $PSScriptRoot '..\config\config.json') $configDst }
 $hashDaemon = (Get-FileHash (Join-Path $dir 'vegaflow_daemon.exe') -Algorithm SHA256).Hash
+# Owner Administrators: the daemon only reads config.json when no other account owns or can write the folder.
+icacls $dir /setowner '*S-1-5-32-544' /T /C | Out-Null
+if ($LASTEXITCODE -ne 0) { throw 'icacls no pudo fijar el propietario de la carpeta protegida.' }
 
 $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -RunLevel Highest -LogonType Interactive
 $settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 10)

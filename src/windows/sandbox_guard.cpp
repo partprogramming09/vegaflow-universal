@@ -521,7 +521,7 @@ bool SandboxGuard::OpenedFileAllowed(HANDLE h, const std::wstring& validated, Sa
 // The checks run on the path; the file is then opened and its real path checked again, so a folder swapped for a
 // junction in between is caught. Content is only changed after that second check (no truncation on open).
 bool SandboxGuard::WriteVerified(const std::wstring& canonical, const std::string& content, SandboxAction action,
-                                 bool is_anticheat_protected, bool overwrite) {
+                                 bool is_anticheat_protected, bool overwrite, bool flush) {
     std::filesystem::path p(canonical);
     if (!CreateParentDirectories(p)) {
         RecordViolation(canonical, action, SandboxDenialReason::IoError, "No se pudo crear el directorio de destino");
@@ -538,7 +538,7 @@ bool SandboxGuard::WriteVerified(const std::wstring& canonical, const std::strin
         if (created) DeleteByHandle(h.get());
         return false;
     }
-    if (!ReplaceContent(h.get(), content)) {
+    if (!ReplaceContent(h.get(), content) || (flush && !FlushFileBuffers(h.get()))) {
         RecordViolation(canonical, action, SandboxDenialReason::IoError, "Error durante la escritura del archivo en disco");
         return false;
     }
@@ -613,6 +613,28 @@ bool SandboxGuard::SafeRemoveFile(
     if (!OpenedFileAllowed(h.get(), val.canonical_path, SandboxAction::Delete, is_anticheat_protected)) return false;
     if (!DeleteByHandle(h.get())) {
         RecordViolation(val.canonical_path, SandboxAction::Delete, SandboxDenialReason::IoError, "No se pudo eliminar el archivo");
+        return false;
+    }
+    return true;
+}
+
+// The rename is by path after both paths were checked; it relies on the folder being writable only by administrators
+// (the config folder is checked for that before any save).
+bool SandboxGuard::SafeReplaceFile(const std::wstring& path, const std::string& content) {
+    const auto val = ValidatePath(path, SandboxAction::Write, false);
+    if (!val.allowed) return false;
+    const auto tmp = ValidatePath(val.canonical_path + L".vegaflow.tmp", SandboxAction::Write, false);
+    if (!tmp.allowed) return false;
+    BeforeOpen();
+    if (!WriteVerified(tmp.canonical_path, content, SandboxAction::Write, false, true, true)) {
+        DeleteFileW(tmp.canonical_path.c_str());
+        return false;
+    }
+    if (!MoveFileExW(tmp.canonical_path.c_str(), val.canonical_path.c_str(),
+                     MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
+        RecordViolation(val.canonical_path, SandboxAction::Write, SandboxDenialReason::IoError,
+                        "No se pudo reemplazar el archivo con su copia temporal");
+        DeleteFileW(tmp.canonical_path.c_str());
         return false;
     }
     return true;

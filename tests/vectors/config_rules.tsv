@@ -1,0 +1,85 @@
+# Which values of config.json are accepted, checked by the Rust core (policy/config_file.rs) and by C++ Test 45
+# through vf_rust_config_load. Each row is read as a file holding only that key: {"key": value}, or
+# {"memory": {"key": value}} for the memory keys, or {"custom_game_exes": [value]} for game_exe.
+# Row: id <TAB> key <TAB> value as JSON text <TAB> accepted|rejected.
+# Ranges (factory value in brackets): poll_interval_ms 250..60000 [1500], timer_resolution_ns100 5000..156250
+# [5000], min_free_ram_mb and min_standby_mb 128..1048576 [1200, 1500], cooldown_seconds 10..3600 [90],
+# max_game_disk_read_mb_s 1..100000 [15]. They keep the daemon working; they are not tuning advice.
+p01	poll_interval_ms	1500	accepted
+p02	poll_interval_ms	250	accepted
+p03	poll_interval_ms	60000	accepted
+p04	poll_interval_ms	0	rejected
+p05	poll_interval_ms	249	rejected
+p06	poll_interval_ms	60001	rejected
+p07	poll_interval_ms	-1	rejected
+p08	poll_interval_ms	1500.0	rejected
+p09	poll_interval_ms	1.5e3	rejected
+p10	poll_interval_ms	"1500"	rejected
+p11	poll_interval_ms	true	rejected
+p12	poll_interval_ms	null	rejected
+p13	poll_interval_ms	4294967296	rejected
+p14	poll_interval_ms	99999999999999999999999	rejected
+t01	timer_resolution_ns100	5000	accepted
+t02	timer_resolution_ns100	156250	accepted
+t03	timer_resolution_ns100	4999	rejected
+t04	timer_resolution_ns100	156251	rejected
+t05	timer_resolution_ns100	0	rejected
+b01	timer_forced_manual	true	accepted
+b02	timer_forced_manual	false	accepted
+b03	timer_forced_manual	1	rejected
+b04	timer_forced_manual	"true"	rejected
+b05	restrict_game_cpu_sets	false	accepted
+b06	restrict_game_cpu_sets	0	rejected
+m01	min_free_ram_mb	1200	accepted
+m02	min_free_ram_mb	128	accepted
+m03	min_free_ram_mb	1048576	accepted
+m04	min_free_ram_mb	127	rejected
+m05	min_free_ram_mb	1048577	rejected
+m06	min_standby_mb	1500	accepted
+m07	min_standby_mb	0	rejected
+c01	cooldown_seconds	90	accepted
+c02	cooldown_seconds	10	accepted
+c03	cooldown_seconds	3600	accepted
+c04	cooldown_seconds	0	rejected
+c05	cooldown_seconds	9	rejected
+c06	cooldown_seconds	3601	rejected
+d01	max_game_disk_read_mb_s	15	accepted
+d02	max_game_disk_read_mb_s	1	accepted
+d03	max_game_disk_read_mb_s	100000	accepted
+d04	max_game_disk_read_mb_s	0	rejected
+d05	max_game_disk_read_mb_s	100001	rejected
+d06	max_game_disk_read_mb_s	18446744073709551615	rejected
+g01	game_exe	"MyGame.exe"	accepted
+g02	game_exe	"juego ñ.EXE"	accepted
+g03	game_exe	"Octopath_Traveler2-Win64-Shipping.exe"	accepted
+g04	game_exe	"explorer.exe"	rejected
+g05	game_exe	"EXPLORER.EXE"	rejected
+g06	game_exe	"csrss.exe"	rejected
+g07	game_exe	"svchost.exe"	rejected
+g08	game_exe	"dwm.exe"	rejected
+g09	game_exe	"lsass.exe"	rejected
+g10	game_exe	"vegaflow_daemon.exe"	rejected
+g11	game_exe	"explorer"	rejected
+g12	game_exe	"C:\\Windows\\explorer.exe"	rejected
+g13	game_exe	"games/MyGame.exe"	rejected
+g14	game_exe	"MyGame.exe "	rejected
+g15	game_exe	"MyGame.exe."	rejected
+g16	game_exe	" MyGame.exe"	rejected
+g17	game_exe	".exe"	rejected
+g18	game_exe	""	rejected
+g19	game_exe	"My:Game.exe"	rejected
+g20	game_exe	"MyGame.exe:stream"	rejected
+g21	game_exe	"My\tGame.exe"	rejected
+g22	game_exe	"My*Game.exe"	rejected
+g23	game_exe	"MyGame.txt"	rejected
+g24	game_exe	12	rejected
+g25	game_exe	null	rejected
+g26	game_exe	"CON.exe"	rejected
+g27	game_exe	"COM1.exe"	rejected
+g28	game_exe	"lpt9.EXE"	rejected
+g29	game_exe	"nul.exe"	rejected
+g30	game_exe	"COM¹.exe"	rejected
+g31	game_exe	"wmpnetwk.exe"	rejected
+g32	game_exe	"LogonUI.exe"	rejected
+g33	game_exe	"Console.exe"	accepted
+g34	game_exe	"COM10.exe"	accepted

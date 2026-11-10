@@ -191,6 +191,16 @@ void Test34() {
         VF_FIELD(VfTierInput, dedicated_vram) VF_FIELD(VfTierInput, is_nvidia)
         VF_LAYOUT_BEGIN(VfAllowedRoot)
         VF_FIELD(VfAllowedRoot, path) VF_FIELD(VfAllowedRoot, len) VF_FIELD(VfAllowedRoot, writable)
+        VF_LAYOUT_BEGIN(VfConfigSettings)
+        VF_FIELD(VfConfigSettings, poll_interval_ms) VF_FIELD(VfConfigSettings, timer_resolution_ns100)
+        VF_FIELD(VfConfigSettings, cooldown_seconds) VF_FIELD(VfConfigSettings, timer_forced_manual)
+        VF_FIELD(VfConfigSettings, restrict_game_cpu_sets) VF_FIELD(VfConfigSettings, min_free_ram_mb)
+        VF_FIELD(VfConfigSettings, min_standby_mb) VF_FIELD(VfConfigSettings, max_game_disk_read_mb_s)
+        VF_LAYOUT_BEGIN(VfConfigLoad)
+        VF_FIELD(VfConfigLoad, settings) VF_FIELD(VfConfigLoad, status) VF_FIELD(VfConfigLoad, rejected_keys)
+        VF_LAYOUT_BEGIN(VfAceEntry)
+        VF_FIELD(VfAceEntry, mask) VF_FIELD(VfAceEntry, sid_kind) VF_FIELD(VfAceEntry, allows)
+        VF_FIELD(VfAceEntry, inherit_only)
 #undef VF_FIELD
 #undef VF_LAYOUT_BEGIN
 

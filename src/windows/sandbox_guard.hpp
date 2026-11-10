@@ -58,6 +58,8 @@ public:
     static bool SafeCopyFile(const std::wstring& src, const std::wstring& dst, bool overwrite, bool is_anticheat_protected = false);
     static bool SafeRemoveFile(const std::wstring& path, bool is_anticheat_protected = false);
     static bool SafeReadFile(const std::wstring& path, std::string& out_content);
+    // Writes "<path>.vegaflow.tmp" with the checks of SafeWriteFile, flushes it and renames it over `path` in one step.
+    static bool SafeReplaceFile(const std::wstring& path, const std::string& content);
 
     // Boundary validation and path security
     static SandboxValidationResult ValidatePath(const std::wstring& path, SandboxAction action, bool is_anticheat_protected = false);
@@ -99,7 +101,7 @@ public:
 
 private:
     static bool WriteVerified(const std::wstring& canonical, const std::string& content, SandboxAction action,
-                              bool is_anticheat_protected, bool overwrite);
+                              bool is_anticheat_protected, bool overwrite, bool flush = false);
     static bool ReadVerified(const std::wstring& canonical, std::string& out_content);
     static bool OpenedFileAllowed(HANDLE h, const std::wstring& validated, SandboxAction action,
                                   bool is_anticheat_protected);

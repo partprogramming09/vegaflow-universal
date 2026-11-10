@@ -14,9 +14,10 @@
 
 **Qué se hace:**
 - **Una sola ruta,** junto al ejecutable (`GetModuleFileNameW`). Se quita la segunda opción. Al arrancar se comprueba que solo administradores y SYSTEM pueden escribir en esa carpeta; si no, se avisa y se usan los valores de fábrica.
-- **Lector JSON real** (json.h, sección 3c), con un campo `version` para poder migrar un archivo viejo.
+- **Lector JSON propio en Rust** (`policy/json_text.rs`), sin dependencias, con un campo `version` para poder migrar un archivo viejo. Rust lee, valida y reescribe el texto; C++ solo lee y escribe el archivo. Decisión del 2026-11-10: json.h corrigió desbordamientos de memoria el 5 y el 8 de noviembre de 2026 y su versión con esos arreglos tenía dos días; un lector propio en Rust no puede tener fallos de memoria y se ataca con proptest.
 - **Guardar sin perder nada:** se conservan las claves desconocidas y se escribe en un archivo temporal que luego reemplaza al original (`MoveFileEx`), así un corte a mitad no deja el archivo roto.
 - **Validación en Rust** (`policy/config_rules.rs`), con ejemplos: rangos para cada número (la pausa entre purgas y el intervalo nunca pueden ser 0) y una lista de procesos de Windows que no se pueden añadir como juego ni como excepción.
+- **Un valor malo invalida solo su clave** (decisión del 2026-11-10): esa clave toma el valor de fábrica, el resto se lee, se avisa y el archivo no se sobrescribe, igual que con un archivo corrupto.
 - Si el archivo está corrupto: se avisa en la GUI, se usan los valores de fábrica y **no se sobrescribe** el archivo hasta que la persona decida.
 
 **Terminado cuando:**

@@ -144,9 +144,86 @@ uint32_t vf_rust_decide_file_access(
 typedef void (*VfSteamLibraryFn)(void* ctx, const char* utf8_path, size_t len);
 size_t vf_rust_steam_library_paths(const char* vdf, size_t len, VfSteamLibraryFn on_path, void* ctx);
 
+/* config.json (policy/config_file.rs). Status bits of VfConfigLoad.status: */
+#define VF_CONFIG_CORRUPT        (1u << 0) /* not JSON or not an object: every setting at its factory value */
+#define VF_CONFIG_KEY_REJECTED   (1u << 1) /* some keys broke their rule and took their factory value */
+#define VF_CONFIG_NEWER_VERSION  (1u << 2) /* written by a newer VegaFlow: read, never overwritten */
+#define VF_CONFIG_OLD_VERSION    (1u << 3) /* no "version": the format before phase 1b; saving updates it */
+#define VF_CONFIG_EMPTY          (1u << 4) /* empty or only whitespace: factory values, may be saved */
+#define VF_CONFIG_BLOCKS_SAVE    (VF_CONFIG_CORRUPT | VF_CONFIG_KEY_REJECTED | VF_CONFIG_NEWER_VERSION)
+/* Bits of VfConfigLoad.rejected_keys, one per key. */
+#define VF_CONFIG_KEY_VERSION                  (1u << 0)
+#define VF_CONFIG_KEY_POLL_INTERVAL_MS         (1u << 1)
+#define VF_CONFIG_KEY_TIMER_RESOLUTION_NS100   (1u << 2)
+#define VF_CONFIG_KEY_TIMER_FORCED_MANUAL      (1u << 3)
+#define VF_CONFIG_KEY_RESTRICT_GAME_CPU_SETS   (1u << 4)
+#define VF_CONFIG_KEY_MIN_FREE_RAM_MB          (1u << 5)
+#define VF_CONFIG_KEY_MIN_STANDBY_MB           (1u << 6)
+#define VF_CONFIG_KEY_COOLDOWN_SECONDS         (1u << 7)
+#define VF_CONFIG_KEY_MAX_GAME_DISK_READ_MB_S  (1u << 8)
+#define VF_CONFIG_KEY_CUSTOM_GAME_EXES         (1u << 9)
+#define VF_CONFIG_KEY_MEMORY                   (1u << 10)
+/* Results of vf_rust_config_save. */
+#define VF_CONFIG_SAVE_OK       0u
+#define VF_CONFIG_SAVE_BLOCKED  1u /* the current file has a VF_CONFIG_BLOCKS_SAVE status */
+#define VF_CONFIG_SAVE_INVALID  2u /* a setting or game name breaks its rule, or malformed arguments */
+
+/* Every setting of config.json; the game names travel apart. */
+typedef struct VfConfigSettings {
+    uint32_t poll_interval_ms;
+    uint32_t timer_resolution_ns100;
+    uint32_t cooldown_seconds;
+    bool timer_forced_manual;
+    bool restrict_game_cpu_sets;
+    uint64_t min_free_ram_mb;
+    uint64_t min_standby_mb;
+    uint64_t max_game_disk_read_mb_s;
+} VfConfigSettings;
+
+typedef struct VfConfigLoad {
+    VfConfigSettings settings;
+    uint32_t status;        /* VF_CONFIG_* bits */
+    uint32_t rejected_keys; /* VF_CONFIG_KEY_* bits */
+} VfConfigLoad;
+
+/* Called once per string handed back: UTF-8, not NUL-terminated, valid only during the call. */
+typedef void (*VfUtf8Fn)(void* ctx, const char* utf8, size_t len);
+
+/* Reads the text of config.json into `out` and calls on_game_exe once per accepted game name (may be null).
+   Returns false only for bad pointers. */
+bool vf_rust_config_load(const char* bytes, size_t len, VfConfigLoad* out, VfUtf8Fn on_game_exe, void* ctx);
+
+/* The new text of config.json: `original` (the current file) with the settings replaced, unknown keys kept and
+   "version" set to the current one. `game_exes` holds each name followed by a NUL. On VF_CONFIG_SAVE_OK calls on_text
+   once with the whole new file; otherwise nothing is called. */
+uint32_t vf_rust_config_save(const char* original, size_t original_len, const VfConfigSettings* settings,
+                             const char* game_exes, size_t game_exes_len, VfUtf8Fn on_text, void* ctx);
+
+/* The rule for a name in custom_game_exes (also applied to names found in the Steam library): a bare .exe file name
+   that Windows reads as written, not a device name and not a Windows process. UTF-8; false for invalid UTF-8. */
+bool vf_rust_is_allowed_game_exe(const char* utf8_name, size_t len);
+
+/* Who a SID is, for vf_rust_only_admins_can_write; any other number counts as another account. */
+#define VF_SID_OTHER              0
+#define VF_SID_SYSTEM             1
+#define VF_SID_ADMINISTRATORS     2
+#define VF_SID_TRUSTED_INSTALLER  3
+
+/* One DACL entry. */
+typedef struct VfAceEntry {
+    uint32_t mask;
+    uint8_t sid_kind;  /* VF_SID_* */
+    bool allows;       /* any allow type; deny entries only take rights away */
+    bool inherit_only; /* applies only to children */
+} VfAceEntry;
+
+/* True when only SYSTEM, Administrators and TrustedInstaller can change the object: the owner is one of them, the
+   DACL is not NULL (has_dacl) and no entry gives another account a right to write, delete or change permissions. */
+bool vf_rust_only_admins_can_write(bool has_dacl, uint8_t owner_kind, const VfAceEntry* aces, size_t count);
+
 /* Layout check for the structs above (this header is written by hand). Writes, for each struct in the order
    VfUmaTelemetryInput, VfUmaGuardDecision, VfNtMemoryListSample, VfCpuCoreEntry, VfTopologyPartitionOut,
-   VfTierInput, VfAllowedRoot: its size, its alignment and the offset and size of each field in declaration order. Writes at most `cap`
+   VfTierInput, VfAllowedRoot, VfConfigSettings, VfConfigLoad, VfAceEntry: its size, its alignment and the offset and size of each field in declaration order. Writes at most `cap`
    numbers and returns how many there are in total. Checked by C++ Test 34. */
 size_t vf_rust_bridge_layout(size_t* out, size_t cap);
 

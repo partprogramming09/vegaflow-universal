@@ -1,5 +1,13 @@
 #include "windows/safe_file_system.hpp"
 
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+
 #include "windows/sandbox_guard.hpp"
 
 namespace vegaflow {
@@ -18,6 +26,16 @@ bool SafeFileSystem::Copy(const std::wstring& src, const std::wstring& dst, bool
 
 bool SafeFileSystem::Remove(const std::wstring& path, bool anticheat_protected) {
     return SandboxGuard::SafeRemoveFile(path, anticheat_protected);
+}
+
+bool SafeFileSystem::Replace(const std::wstring& path, const std::string& content) {
+    return SandboxGuard::SafeReplaceFile(path, content);
+}
+
+bool SafeFileSystem::Exists(const std::wstring& path) {
+    if (GetFileAttributesW(path.c_str()) != INVALID_FILE_ATTRIBUTES) return true;
+    const DWORD error = GetLastError();
+    return error != ERROR_FILE_NOT_FOUND && error != ERROR_PATH_NOT_FOUND;
 }
 
 bool SafeFileSystem::CanModifyGameDir(const std::filesystem::path& dir) {

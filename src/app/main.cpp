@@ -20,6 +20,8 @@
 #include "app/gui_mode.hpp"
 #include "app/monitor.hpp"
 #include "session/reports.hpp"
+#include "windows/config_location.hpp"
+#include "windows/safe_file_system.hpp"
 
 using namespace vegaflow::app;
 
@@ -40,12 +42,13 @@ int main(int argc, char* argv[]) {
     if (const auto exit_code = ParseCommandLine(argc, argv, opts)) return *exit_code;
     if (const auto exit_code = RunOneShotCommand(opts, argc, argv)) return *exit_code;
 
-    AppConfig config = LoadConfig("config/config.json");
-    if (config.custom_game_exes.empty()) {
-        AppConfig root_cfg = LoadConfig("config.json");
-        if (!root_cfg.custom_game_exes.empty() || root_cfg.poll_interval_ms != 1500) {
-            config = root_cfg;
-        }
+    // One path, next to the executable; it is only read when no account without administrator rights could write it.
+    vegaflow::SafeFileSystem config_fs;
+    const std::wstring config_path = vegaflow::ConfigFilePath();
+    ConfigStore config_store(config_fs, config_path, vegaflow::ConfigLocationTrusted(config_path));
+    AppConfig config = config_store.Load();
+    if (const std::string warning = config_store.Report().Warning(); !warning.empty()) {
+        std::cerr << "[WARN] " << warning << "\n";
     }
 
     if (opts.dry_run_flag && !opts.monitor_flag) {
@@ -93,7 +96,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (opts.gui_flag) {
-        return RunGuiMode(config, hw, cpu_orchestrator, mem_mgr, telemetry_monitor);
+        return RunGuiMode(config, config_store, hw, cpu_orchestrator, mem_mgr, telemetry_monitor);
     }
 
     return RunDaemon(config, hw, cpu_orchestrator, mem_mgr, telemetry_monitor, priv, opts.once_flag);
