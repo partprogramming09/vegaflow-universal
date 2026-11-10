@@ -115,7 +115,7 @@ Por eso la comprobación de la ruta ya abierta (`GetFinalPathNameByHandleW`, que
 - casos permitidos que deben seguir funcionando (juego de Steam, LOCALAPPDATA, temp);
 - un enlace creado a mano en el laptop.
 
-**Heredado de R2:** `DxvkManager` todavía usa `std::filesystem` sin pasar por el puerto: lee `dxvk.conf` con `ifstream`, llama a `exists` y `create_directories`, y `RemoveApuProfile` borra con `std::filesystem::remove` si falla el puerto. `windows/safe_file_system` envuelve a `SandboxGuard` (excepción de migración `windows/` → `safety/` en `check_layers.sh`). Faltan pruebas: que `run_cycle` pase la política estática y no la viva, y que el reloj cubra también `memory_manager.cpp` en la purga real de `EvaluateAndOptimize`.
+**Heredado de R2 (hecho el 2026-11-10):** `DxvkManager` lee `dxvk.conf` por el puerto, ya no crea carpetas ni borra sin él (solo mira metadatos y compara DLL directamente); `SandboxGuard` pasó a `windows/` y `check_layers.sh` ya no tiene la excepción `windows/` → `safety/`; la Test 37 cubre también la purga de `EvaluateAndOptimize`. La prueba de que `run_cycle` pasa la política estática se aplazó a la fase 3 (ver `07-fase-3.md`).
 
 **Terminado cuando:**
 - los 6 fallos tienen su prueba y pasan;

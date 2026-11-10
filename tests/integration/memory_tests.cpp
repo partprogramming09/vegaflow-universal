@@ -135,13 +135,22 @@ void Test37() {
     clock.now += std::chrono::seconds(81); // 91 s after the purge
     const auto after = mem.EvaluateAndOptimize(0, {}, true /* dry_run */);
 
+    // The purge EvaluateAndOptimize does itself also starts the cooldown at the clock's time.
+    const auto cycle_purge = mem.EvaluateAndOptimize(0, {}, false);
+    clock.now += std::chrono::seconds(30);
+    const auto after_cycle = mem.EvaluateAndOptimize(0, {}, true /* dry_run */);
+
     const bool purged = purge.standby_purge_succeeded;
     const bool blocked = during.skipped_due_to_cooldown && during.reason.find("80s remaining") != std::string::npos;
     const bool released = !after.skipped_due_to_cooldown;
-    RecordResult(purged && blocked && released, "Test 37: the purge cooldown follows the injected clock",
+    const bool cycle_blocked = !cycle_purge.skipped_due_to_cooldown && after_cycle.skipped_due_to_cooldown &&
+                               after_cycle.reason.find("60s remaining") != std::string::npos;
+    RecordResult(purged && blocked && released && cycle_blocked, "Test 37: the purge cooldown follows the injected clock",
                  "real purge: " + std::string(purged ? "PASS" : "FAIL") + ", +10 s blocked (80s remaining): " +
                      std::string(blocked ? "PASS" : "FAIL (" + during.reason + ")") + ", +91 s released: " +
-                     std::string(released ? "PASS" : "FAIL (" + after.reason + ")"));
+                     std::string(released ? "PASS" : "FAIL (" + after.reason + ")") +
+                     ", cycle purge then +30 s blocked (60s remaining): " +
+                     std::string(cycle_blocked ? "PASS" : "FAIL (" + after_cycle.reason + ")"));
 }
 
 } // namespace vftest
