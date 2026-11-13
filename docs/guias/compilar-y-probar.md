@@ -1,5 +1,7 @@
 # Compilar y probar
 
+**Lector:** personas
+
 ## 5. Compilación, Enlace y Verificación de Pruebas
 
 VegaFlow Universal está escrito en **C++20 estándar** con enlace estático en Windows, sin dependencias pesadas de runtime externas (MSVCRT/VCRedist no requeridos con MinGW).

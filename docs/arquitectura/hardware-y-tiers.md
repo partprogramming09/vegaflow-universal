@@ -1,30 +1,14 @@
 # Hardware APU y Tiers
 
+**Lector:** personas
+
 ## 2. Arquitectura de Hardware y Restricciones APU (AMD Ryzen 5 4600H + Radeon RX Vega 6)
 
 VegaFlow está optimizado a nivel de microarquitectura para APUs (Accelerated Processing Units) de AMD, con el banco de pruebas principal centrado en el procesador **AMD Ryzen 5 4600H** (6 núcleos, 12 hilos, arquitectura Zen 2 a 3.0 GHz base / 4.0 GHz boost) acoplado a gráficos integrados **AMD Radeon RX Vega 6** (6 Compute Units / 384 Stream Processors a 1500 MHz, arquitectura GCN 5.0).
 
-```
-+----------------------------------------------------------------------------------+
-|                     ARQUITECTURA UMA (UNIFIED MEMORY)                            |
-|                                                                                  |
-|   +-----------------------+              +-----------------------+               |
-|   |   CPU Zen 2 (6C/12T)  |              |   iGPU Vega 6 (6 CUs) |               |
-|   |  35W-45W Thermal TDP  |              |  384 Stream Processors|               |
-|   +-----------+-----------+              +-----------+-----------+               |
-|               |                                      |                           |
-|               +------------------+-------------------+                           |
-|                                  |                                               |
-|                    [ Infinity Fabric Bus / IMC ]                                 |
-|                                  |                                               |
-|                     Canal Dual DDR4-3200 MHz                                     |
-|                  Ancho de Banda: ~38 - 42 GB/s                                   |
-|                                                                                  |
-|      [ Memoria Física Compartida: 16 GB Total ]                                  |
-|      - Falso reporte de BIOS: 512 MB "VRAM Dedicada"                             |
-|      - Memoria real compartida disponible para GPU: Hasta 8192 MB                |
-+----------------------------------------------------------------------------------+
-```
+![Arquitectura UMA: la CPU Zen 2 y la iGPU Vega 6 pasan por el mismo Infinity Fabric e IMC, en doble canal DDR4-3200, a 16 GB de memoria compartida; la BIOS informa de 512 MB dedicados, pero la GPU puede usar hasta 8192 MB](../diagrams/arquitectura-uma.png)
+
+[Ver el diagrama a pantalla completa](../diagrams/arquitectura-uma.html)
 
 ### 2.1. El Cuello de Botella de la Memoria UMA (Unified Memory Architecture)
 A diferencia de una tarjeta gráfica dedicada que cuenta con su propio bus GDDR6 de 128 o 256 bits (ancho de banda de 200 a 500+ GB/s), la APU comparte la memoria RAM del sistema a través de un bus DDR4 de 128 bits dual-channel con un ancho de banda teórico de ~42 GB/s.

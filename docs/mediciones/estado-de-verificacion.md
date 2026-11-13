@@ -1,5 +1,7 @@
 # Estado de verificación (2026-11-05)
 
+**Lector:** personas
+
 Las secciones anteriores describen lo que el código hace y la intención de cada optimización; no todo está medido. Medido con `scripts/bench.ps1` (PresentMon) y A/B intercalado ABBA; detalle en [`docs/mediciones/2026-11-ab-daemon.md`](2026-11-ab-daemon.md) y [`docs/mediciones/2026-11-base.md`](2026-11-base.md).
 
 - **Quitado por costar rendimiento medido:** `CPMINCORES=100` en el perfil APU (-21% en `drawstress` D3D11) y confinar al juego a 8 de 12 hilos (entre -19% y -24%; ahora es opción `restrict_game_cpu_sets`, apagada por defecto).

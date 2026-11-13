@@ -1,5 +1,7 @@
 # Documentación de VegaFlow Universal
 
+**Lector:** personas y agentes
+
 Empieza aquí. Cada documento responde una sola pregunta; busca la tuya.
 
 ## ¿Qué quieres hacer?
@@ -20,7 +22,9 @@ Empieza aquí. Cada documento responde una sola pregunta; busca la tuya.
 | Ver cifras y cómo se midieron | [`mediciones/`](mediciones/) |
 | Usar los scripts de medición o los trabajos remotos | [`../scripts/README.md`](../scripts/README.md) |
 
-## Los 43 documentos, por carpeta
+## Los documentos, por carpeta
+
+Cada documento dice en su segunda línea para quién es (`**Lector:**`).
 
 **`arquitectura/`: cómo funciona**
 
@@ -39,7 +43,9 @@ Empieza aquí. Cada documento responde una sola pregunta; busca la tuya.
 
 **`adr/`: decisiones.** `0001-nucleo-que-decide-y-puertos.md` (Rust decide, C++ actúa a través de puertos).
 
-**`investigacion/`: lo ya investigado.** Fuentes oficiales con fecha y confianza, para no repetir búsquedas: `cpu-energia-y-procesos.md`, `graficas-y-perfil-del-equipo.md`, `librerias-y-herramientas.md`, `gui-y-accesibilidad.md`, `recursos-de-windows.md`, `apis-graficas-dx-y-vulkan.md`, `fps-y-estabilidad.md` y un `README.md` con lo que falta por investigar.
+**`investigacion/`: lo ya investigado.** Un documento por tema, con fuente, fecha y confianza en cada dato, para no repetir búsquedas: `cpu-energia-y-procesos.md`, `graficas-y-perfil-del-equipo.md`, `librerias-y-herramientas.md`, `gui-y-accesibilidad.md`, `recursos-de-windows.md`, `apis-graficas-dx-y-vulkan.md`, `fps-y-estabilidad.md` y `dxvk-descarga.md`. Su `README.md` es el índice: reglas, caducidad de los datos y lo que falta por investigar; se mira antes de buscar en la web.
+
+**`diagrams/`: los diagramas de los documentos.** Cada uno es un `.html` (el original, el que se edita) y su `.png` exportado; el documento muestra la imagen y enlaza al HTML para verlo a pantalla completa. Cómo se cambian: `diagrams/README.md`.
 
 **`guias/`: cómo se hace.** `compilar-y-probar.md` y `uso-y-funciones.md`.
 
@@ -48,6 +54,6 @@ Empieza aquí. Cada documento responde una sola pregunta; busca la tuya.
 1. Una medición lleva fecha y no se reescribe; si cambia el método, va un archivo nuevo.
 2. Un plan hecho se borra: git guarda el historial (los documentos viejos, como la PARTE IV original o los planes de implementación, están en el commit `d59739f`, carpeta `docs/archivo/`).
 3. Cada cifra vive en un solo sitio y los demás la enlazan.
-4. Un documento nuevo solo se crea si ninguno de los 39 responde su pregunta.
+4. Un documento nuevo solo se crea si ninguno de los que ya hay responde su pregunta.
 
-Los docs privados (entorno, decisiones, estado, pruebas) no están en git: viven en `.claude/`.
+Fuera de git: `docs/estado.md`, la libreta de relevo de cada máquina (lo hecho, lo abierto y lo que sigue), y la carpeta `.claude/`.

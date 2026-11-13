@@ -1,36 +1,14 @@
 # Seguridad: anti-cheat y SandboxGuard
 
+**Lector:** personas
+
 ## 3. Seguridad Absoluta Frente a Sistemas Anti-Cheat y Subsistema SandboxGuard
 
 VegaFlow Universal implementa una política de seguridad estricta e inviolable: **bajo ninguna circunstancia se inyectarán DLLs ni se modificarán archivos de juegos protegidos por sistemas Anti-Cheat.** Toda operación sobre el disco y los procesos se rige por un modelo de aislamiento y contención formalizado en el módulo [`SandboxGuard`](../../src/windows/sandbox_guard.hpp).
 
-```
-+------------------------------------------------------------------------------------+
-|                         MATRIZ DE DECISIÓN DE SEGURIDAD                            |
-+------------------------------------------------------------------------------------+
-|                                                                                    |
-|                     ¿Se detecta tecnología Anti-Cheat?                             |
-|       (HoYoKProtect, Vanguard, EAC, BattlEye, ACE, mhypbase, etc.)                 |
-|                                                                                    |
-|                   /                                   \                            |
-|                 SÍ                                     NO                          |
-|                /                                         \                         |
-|   +-----------------------------+        +-----------------------------------+     |
-|   |   RUTA DE OPTIMIZACIÓN      |        |   RUTA DE OPTIMIZACIÓN COMPLETA   |     |
-|   |         NO INVASIVA         |        |         (NATIVA + MOTOR)          |     |
-|   +-----------------------------+        +-----------------------------------+     |
-|   | 1. DXGI Flip Model vía      |        | 1. DXGI Flip Model (Registro).    |     |
-|   |    registro de Windows.     |        | 2. CPU Sets cooperativos.         |     |
-|   | 2. CPU Sets cooperativos.   |        | 3. DXVK-GPLAsync en carpeta.      |     |
-|   | 3. Temporizador NT a 0.5 ms |        | 4. Presets UMA Engine.ini /       |     |
-|   | 4. MMCSS Gaming GPU Prio 8. |        |    boot.config con .vegaflow.bak  |     |
-|   | 5. PROHIBIDO MODIFICAR O    |        | 5. Purga de memoria inteligente.  |     |
-|   |    INYECTAR ARCHIVOS        |        |                                   |     |
-|   |    (LOCKDOWN TOTAL SANDBOX) |        |                                   |     |
-|   +-----------------------------+        +-----------------------------------+     |
-|                                                                                    |
-+------------------------------------------------------------------------------------+
-```
+![Matriz de decisión: con anti-cheat, ruta no invasiva que solo cambia ajustes de Windows y prohíbe modificar o inyectar archivos; sin anti-cheat, ruta completa con DXVK, presets del motor y purga de memoria](../diagrams/matriz-seguridad-anticheat.png)
+
+[Ver el diagrama a pantalla completa](../diagrams/matriz-seguridad-anticheat.html)
 
 ### Firmas Monitoreadas en Tiempo Real:
 - **EasyAntiCheat**: `easyanticheat`, `EasyAntiCheat_EOS.dll`

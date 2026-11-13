@@ -1,5 +1,7 @@
 # Mediciones con juegos reales (2026-11-05)
 
+**Lector:** personas
+
 Octopath Traveler II y Zenless Zone Zero, fallos inyectados y ciclos de reposo. Método y límites generales: [`2026-11-ab-daemon.md`](2026-11-ab-daemon.md).
 
 ## Juego real: Octopath Traveler II (2026-11-05, D3D11)

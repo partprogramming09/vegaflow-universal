@@ -1,5 +1,7 @@
 # Módulos y estructura del repositorio
 
+**Lector:** personas
+
 ### 3.2. Subsistema `SystemInfo`: Telemetría Desacoplada y Detección de Hardware
 Implementado en [`src/session/system_info.hpp`](../../src/session/system_info.hpp) y [`src/session/system_info.cpp`](../../src/session/system_info.cpp), este módulo aísla toda la lógica de recopilación de hardware y sistema operativo en una biblioteca reutilizable:
 - **Detección de CPU**:

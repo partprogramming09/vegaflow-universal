@@ -1,44 +1,14 @@
 # Núcleo híbrido C++20 + Rust
 
+**Lector:** personas
+
 ## 1.3 Arquitectura del Puente Híbrido C++20 ↔ Rust (`libvegaflow_core.a`)
 
 Para garantizar que el propio software de optimización no introduzca latencia ni compita por la memoria del sistema, toda la lógica algorítmica y de evaluación en tiempo real fue desarrollada en **Rust**, compilada como `staticlib` sin dependencia de la biblioteca estándar de C runtime (CRT) en el bucle caliente, operando exclusivamente sobre estructuras POD (*Plain Old Data*) `#[repr(C)]` ubicadas en la pila:
 
-```
-┌─ Capa de Sistema C++20 (Win32 / DXGI / GUI) ───────────────────────────────────────────────┐
-│ main.cpp                Bucle de servicio y despacho                                       │
-│ hardware_profiler.cpp   Topología Win32 y detección                                        │
-│ cpu_orchestrator.cpp    Gestión de Handles de proceso                                      │
-│ memory_manager.cpp      Presupuesto DXGI 1.4                                               │
-│ sandbox_guard.cpp       Validación perimetral                                              │
-└────────────────────────────────────────────────────────────────────────────────────────────┘
-        │
-        ▼  hardware_profiler, cpu_orchestrator, memory_manager y sandbox_guard ──► rust_bridge.h
-┌─ Puente C ABI #[repr(C)] ──────────────────────────────────────────────────────────────────┐
-│ rust_bridge.h   Estructuras POD de tamaño fijo                                             │
-└────────────────────────────────────────────────────────────────────────────────────────────┘
-        │
-        ▼  rust_bridge.h ──► ffi.rs (todas las vf_rust_*) ──► reglas en policy/ y llamadas NT en nt_memory.rs
-┌─ Núcleo Determinista en Rust (rust/vegaflow-core) ─────────────────────────────────────────┐
-│ cpu_governor.rs   • vf_rust_partition_cpu_topology()                                       │
-│                   • vf_rust_eval_bg_confinement()                                          │
-│ uma_memory.rs     • vf_rust_evaluate_uma_pressure()                                        │
-│ nt_memory.rs      • vf_rust_query_nt_memory_lists(), vf_rust_purge_nt_standby_list()       │
-│ sandbox_core.rs   • vf_rust_is_critical_system_filename()                                  │
-│                   • vf_rust_has_anticheat_signature()                                      │
-│ apu_tier.rs       • vf_rust_classify_apu_tier()                                            │
-│ path_policy.rs    • vf_rust_classify_blacklisted_path()                                    │
-└────────────────────────────────────────────────────────────────────────────────────────────┘
-        │
-        ▼  nt_memory.rs ──► NT1  |  cpu_orchestrator.cpp ──► NT2 (llamada directa desde C++)
-┌─ Kernel NT (ntdll.dll / kernel32.dll) ─────────────────────────────────────────────────────┐
-│ NT1  NtQuerySystemInformation(Class 80)                                                    │
-│      NtSetSystemInformation(Purge Standby)                                                 │
-│ NT2  SetProcessDefaultCpuSets                                                              │
-│      SetProcessInformation(EcoQoS)                                                         │
-│      NtSetInformationProcess(I/O VeryLow)                                                  │
-└────────────────────────────────────────────────────────────────────────────────────────────┘
-```
+![Las cuatro capas del daemon: C++20 llama al núcleo Rust por el puente C rust_bridge.h; Rust lee y purga la memoria en el kernel NT y C++ aplica directamente CPU Sets, EcoQoS y prioridad de E/S](../diagrams/puente-cpp-rust.png)
+
+[Ver el diagrama a pantalla completa](../diagrams/puente-cpp-rust.html)
 
 ### Módulos del Núcleo Rust:
 * **[`cpu_governor.rs`](../../rust/vegaflow-core/src/policy/cpu_governor.rs):** Recibe la lista plana de identificadores de CPU Sets del sistema, calcula los índices de pertenencia a complejos de núcleos y determina si un proceso ruidoso debe ingresar o salir del estado de confinamiento mediante un algoritmo de histéresis sin asignaciones dinámicas.
@@ -53,46 +23,9 @@ Para garantizar que el propio software de optimización no introduzca latencia n
 
 El diagrama de secuencia describe el ciclo de vida continuo del servicio desde su arranque en sesión elevada hasta la terminación de la aplicación:
 
-```
-Participantes:  U = Usuario / Sistema        D = Daemon C++20 (main.cpp)
-                R = Núcleo Rust (vegaflow-core)   K = Kernel Windows NT / Driver GPU
-                G = Proceso de Juego 3D
+![Secuencia del daemon en 15 pasos entre juego, usuario, daemon C++20, núcleo Rust y kernel NT: arranque y partición de CPU, bucle de reposo cada 1.5 s, comprobación de anti-cheat al abrir el juego, confinamiento o liberación de procesos de fondo y purga de memoria durante la partida, y RestoreAll al cerrarlo](../diagrams/ciclo-de-vida-daemon.png)
 
- 1  U ──► D  Inicia servicio vegaflow_daemon.exe
- 2  D ──► R  vf_rust_partition_cpu_topology(topología lógica)
- 3  R ──► D  Partición calculada: Game Sets [0..9] | Background [10..11]
- 4  D ──► K  Crea respaldo en Registro (RegBackup) y configura EPP
-
- ┌─ loop: cada 1.5 s en reposo (0.00% CPU, 1.99 MB RAM) ───────────────────────────────────┐
- │  5  D ──► K  Monitorea ventana en primer plano (GetForegroundWindow)                    │
- └─────────────────────────────────────────────────────────────────────────────────────────┘
-
- 6  U ──► G  Ejecución del Juego (ej. Octopath Traveler II)
- 7  D ──► R  vf_rust_has_anticheat_signature(ruta del binario)
- ┌─ alt: presencia de Anti-Cheat (ej. HoYoKProtect / BattlEye) ────────────────────────────┐
- │  8  R ──► D  Retorna LOCKDOWN -> Se deshabilitan escrituras en disco                    │
- ├─ else: binario sin Anti-Cheat ──────────────────────────────────────────────────────────┤
- │  8  R ──► D  Perfil estándar -> Aplica Preset optimizado de motor                       │
- └─────────────────────────────────────────────────────────────────────────────────────────┘
-
- ┌─ loop: durante la sesión de juego ──────────────────────────────────────────────────────┐
- │  9  D ──► R  vf_rust_eval_bg_confinement(telemetría de CPU de procesos)                 │
- │  ┌─ alt: proceso de fondo supera umbral (CPU >= 0.5) ────────────────────────────────┐  │
- │  │ 10  R ──► D  Confinamiento requerido                                              │  │
- │  │ 11  D ──► K  Aplica Afinidad 0xC00 + EcoQoS + I/O VeryLow                         │  │
- │  ├─ else: proceso de fondo cae bajo umbral (CPU < 0.25) ─────────────────────────────┤  │
- │  │ 10  R ──► D  Liberación permitida                                                 │  │
- │  │ 11  D ──► K  Restaura Afinidad global y Prioridad normal                          │  │
- │  └───────────────────────────────────────────────────────────────────────────────────┘  │
- │  12  D ──► R  vf_rust_evaluate_uma_pressure()                                           │
- │  ┌─ opt: presión de memoria crítica (>85% y disco inactivo) ─────────────────────────┐  │
- │  │ 13  R ──► K  NtSetSystemInformation (Purga Standby List)                          │  │
- │  └───────────────────────────────────────────────────────────────────────────────────┘  │
- └─────────────────────────────────────────────────────────────────────────────────────────┘
-
-14  U ──► G  Cierre del Juego
-15  D ──► K  RestoreAll() -> Revierte afinidades, prioridades, energía y registro
-```
+[Ver el diagrama a pantalla completa](../diagrams/ciclo-de-vida-daemon.html)
 
 ---
 
@@ -136,22 +69,9 @@ La migración progresiva hacia una **arquitectura híbrida Rust + C++20** median
 
 ### 2. Arquitectura del Subsistema Híbrido (`rust/vegaflow-core`)
 
-```
-+-----------------------------------------------------------------------------------+
-|                        BINARIO ÚNICO (vegaflow_daemon.exe)                        |
-|                    Enlace Estático MinGW-w64 (g++ 16.2 + Rust)                    |
-+-----------------------------------------------------------------------------------+
-|  Capa C++20 (GUI Win32/GDI, DXGI/D3D COM, Registro Windows, Orquestación Win32)   |
-|    - MemoryManager        --->  src/bridge/rust_bridge.h  --->  uma_memory.rs   |
-|    - HardwareProfiler     --->  (Contrato #[repr(C)] FFI)   --->  cpu_governor.rs |
-|    - CpuOrchestrator      --->  (Cero Heap / Zero-Copy)     --->  cpu_governor.rs |
-|    - SandboxGuard         --->                              --->  sandbox_core.rs |
-+-----------------------------------------------------------------------------------+
-|  Crate Rust: rust/vegaflow-core (staticlib + rlib, panic="unwind", opt-level=3)   |
-|    - Llamadas nativas NTDLL (NtQuerySystemInformation / NtSetSystemInformation)   |
-|    - Cálculos deterministas en pila sin std::vector / std::string en bucle activo |
-+-----------------------------------------------------------------------------------+
-```
+![Binario único vegaflow_daemon.exe: MemoryManager, HardwareProfiler, CpuOrchestrator y SandboxGuard de la capa C++20 llaman por rust_bridge.h a uma_memory.rs, cpu_governor.rs y sandbox_core.rs del crate rust/vegaflow-core](../diagrams/subsistema-hibrido.png)
+
+[Ver el diagrama a pantalla completa](../diagrams/subsistema-hibrido.html)
 
 #### 2.1. Configuración del Crate (`rust/vegaflow-core/Cargo.toml`)
 - **Nombre del paquete:** `vegaflow-core` (`lib` name: `vegaflow_core`).
