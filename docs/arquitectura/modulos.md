@@ -132,8 +132,10 @@ direct/
 │               ├── config_file.rs  # Leer y guardar config.json sin perder claves desconocidas
 │               ├── config_rules.rs # Rangos de config.json y nombres de juego permitidos
 │               ├── cpu_governor.rs # CPU Sets según topología L3 / CCX e histéresis del confinamiento
+│               ├── device_profile.rs # Perfil universal del equipo: GPU (PCI ID/DXCore/pref), energía, ARM64 y banderas prudentes
 │               ├── file_access.rs  # Decisión completa de SandboxGuard: lista negra, ruta local, anti-cheat y carpetas permitidas
 │               ├── folder_trust.rs # ¿Solo administradores pueden escribir esta carpeta? (dueño y DACL)
+│               ├── ini_merge.rs    # Editor atómico .ini (Unreal) y boot.config (Unity) preservando BOM/UTF-16/CRLF
 │               ├── json_text.rs    # Lector y escritor JSON estricto, sin dependencias
 │               ├── path_policy.rs  # Lista negra de rutas de SandboxGuard
 │               ├── steam_library.rs # Lector de libraryfolders.vdf (bibliotecas de Steam)
@@ -149,6 +151,7 @@ direct/
 │   │   └── app_state.*           # Estado compartido y manejador de Ctrl+C
 │   ├── session/                  # Casos de uso: lo que hace el daemon con un juego
 │   │   ├── run_cycle.*           # Un ciclo de evaluación: detectar juego, aplicar o soltar
+│   │   ├── game_session.*        # Sesión inyectable por puertos, detección de hot-plug GPU y paso estático vs vivo
 │   │   ├── reports.*             # --status, --dry-run y --purge-now
 │   │   ├── system_info.*         # Informe SystemInfo (hardware, UMA, SMBIOS RAM, OS y JSON)
 │   │   ├── config.*              # ConfigStore: leer y guardar config.json (reglas en Rust) y lista de juegos
@@ -157,12 +160,13 @@ direct/
 │   ├── ports/                    # Interfaces que los casos de uso piden y las pruebas falsifican
 │   │   ├── file_system.hpp       # Leer, escribir, reemplazar entero, copiar y borrar archivos
 │   │   ├── clock.hpp             # La hora actual y fecha legible (`WallNow`); las pruebas lo adelantan a mano
+│   │   ├── device_probe.hpp      # Sonda de equipo (GPU/DXCore/SetupAPI, disco por juego, energía, pantallas, ARM64)
 │   │   └── change_journal.hpp    # Diario de cambios atómico y puerto de reversión del sistema
 │   ├── model/                    # Tipos compartidos, sin lógica
-│   │   ├── hardware.hpp          # GPU, CPU, Tier de la APU y su política
+│   │   ├── hardware.hpp          # GPU (conexión, PCI IDs, driver), CPU, disco, energía, Tier y política
 │   │   └── game.hpp              # Juego detectado y su API gráfica
 │   ├── detect/                   # Qué hardware y qué juego hay
-│   │   ├── hardware_profiler.*   # Análisis de hardware universal y topología de CPU
+│   │   ├── hardware_profiler.*   # Orquestación de sonda universal y política desde Rust (`device_profile.rs`)
 │   │   └── process_detector.*    # Detección no invasiva de juegos y APIs (DX11/12/VK)
 │   ├── optimize/                 # Las optimizaciones
 │   │   ├── graphics/             # Ajustes de Windows y del driver (un tema por archivo)
@@ -198,6 +202,7 @@ direct/
 │   ├── windows/                  # Envolturas de la API de Windows
 │   │   ├── nt_defs.hpp           # Typedefs y llamadas nativas indocumentadas de NTDLL
 │   │   ├── unique_handle.hpp     # Cierre automático de handles, claves de registro y búsquedas (RAII)
+│   │   ├── device_probe.*        # Sonda real Windows (DXCore COM, DXGI, SetupAPI RemovalPolicy, Storage SeekPenalty/BusType, Power, IsWow64Process2)
 │   │   ├── sandbox_guard.*       # E/S de archivos comprobada: normaliza la ruta, pide la decisión a Rust y vuelve a comprobar el archivo abierto
 │   │   ├── safe_file_system.*    # Puerto de archivos real: pasa todo por SandboxGuard
 │   │   ├── config_location.*     # Ruta de config.json junto al .exe y si solo administradores pueden escribirla
@@ -208,7 +213,7 @@ direct/
 │   └── bridge/
 │       └── rust_bridge.h         # Definición de tipos y firmas FFI C/Rust (Zero-Allocation)
 ├── tests/
-│   ├── test_main.cpp             # Entrada de la suite: corre las 45 pruebas en orden y restaura el sistema al final
+│   ├── test_main.cpp             # Entrada de la suite: corre todas las pruebas en orden y restaura el sistema al final
 │   ├── test_support.*            # Contadores, RecordResult y lector de los .tsv
 │   ├── integration/              # Pruebas que tocan Windows de verdad, un archivo por módulo
 │   ├── unit/                     # Pruebas con puertos falsos (no escriben archivos de juegos ni el registro; como mucho una carpeta temporal vacía)

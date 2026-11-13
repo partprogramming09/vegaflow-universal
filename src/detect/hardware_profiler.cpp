@@ -1,14 +1,13 @@
 #include "detect/hardware_profiler.hpp"
 #include "bridge/rust_bridge.h"
-
-#include <dxgi.h>
-#include <intrin.h>
+#include "windows/device_probe.hpp"
 
 #include <algorithm>
-#include <cwctype>
 #include <map>
 #include <set>
+#include <string>
 #include <utility>
+#include <vector>
 
 namespace vegaflow {
 
@@ -28,6 +27,37 @@ const char* HardwareProfiler::MemArchToString(MemoryArchitecture m) {
         case MemoryArchitecture::Dedicated_VRAM: return "Dedicated_VRAM";
         case MemoryArchitecture::Unknown:
         default:                                 return "Unknown";
+    }
+}
+
+const char* HardwareProfiler::ConnectionToString(GpuConnection c) {
+    switch (c) {
+        case GpuConnection::Integrated: return "Integrada";
+        case GpuConnection::Discrete:   return "Dedicada";
+        case GpuConnection::External:   return "Externa";
+        case GpuConnection::Unknown:
+        default:                        return "No se pudo leer";
+    }
+}
+
+const char* HardwareProfiler::DiskTypeToString(GameDiskType d) {
+    switch (d) {
+        case GameDiskType::HDD:     return "HDD";
+        case GameDiskType::SSD:     return "SSD";
+        case GameDiskType::NVMe:    return "NVMe";
+        case GameDiskType::Unknown:
+        default:                    return "No se pudo leer";
+    }
+}
+
+const char* HardwareProfiler::SystemArchToString(SystemArch a) {
+    switch (a) {
+        case SystemArch::X64:            return "x64";
+        case SystemArch::ARM64_Emulated: return "ARM64 (x64 emulado)";
+        case SystemArch::ARM64_Native:   return "ARM64";
+        case SystemArch::X86:            return "x86";
+        case SystemArch::Unknown:
+        default:                         return "No se pudo leer";
     }
 }
 
@@ -56,199 +86,57 @@ const char* HardwareProfiler::ArchGenToString(GpuArchitectureGen gen) {
 
 namespace {
 
-std::string QueryCpuBrandString() {
-    int cpu_info[4] = {0};
-    __cpuid(cpu_info, 0x80000000);
-    const unsigned int max_extended_id = static_cast<unsigned int>(cpu_info[0]);
-    if (max_extended_id < 0x80000004) {
-        return {};
-    }
-
-    char brand[49] = {0};
-    __cpuid(reinterpret_cast<int*>(brand), 0x80000002);
-    __cpuid(reinterpret_cast<int*>(brand + 16), 0x80000003);
-    __cpuid(reinterpret_cast<int*>(brand + 32), 0x80000004);
-
-    const char* start = brand;
-    while (*start == ' ' || *start == '\t') {
-        ++start;
-    }
-    std::string s(start);
-    while (!s.empty() && (s.back() == ' ' || s.back() == '\t' || s.back() == '\0')) {
-        s.pop_back();
-    }
-    return s;
+std::string WideToUtf8Profiler(const std::wstring& w) {
+    if (w.empty()) return {};
+    int needed = WideCharToMultiByte(CP_UTF8, 0, w.data(), static_cast<int>(w.size()), nullptr, 0, nullptr, nullptr);
+    if (needed <= 0) return {};
+    std::string out(static_cast<size_t>(needed), '\0');
+    WideCharToMultiByte(CP_UTF8, 0, w.data(), static_cast<int>(w.size()), out.data(), needed, nullptr, nullptr);
+    return out;
 }
 
-void DetectGpu(GpuProfile& gpu_profile) {
-    HMODULE dxgi_lib = LoadLibraryW(L"dxgi.dll");
-    if (!dxgi_lib) {
-        return;
+uint32_t VendorIdFromEnum(GpuVendor v) {
+    switch (v) {
+        case GpuVendor::AMD:    return 0x1002u;
+        case GpuVendor::Intel:  return 0x8086u;
+        case GpuVendor::NVIDIA: return 0x10DEu;
+        default:                return 0u;
     }
-
-    using PFN_CreateDXGIFactory1 = HRESULT(WINAPI*)(REFIID, void**);
-#if defined(__GNUC__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wcast-function-type"
-#endif
-    auto pCreateDXGIFactory1 = reinterpret_cast<PFN_CreateDXGIFactory1>(
-        GetProcAddress(dxgi_lib, "CreateDXGIFactory1"));
-#if defined(__GNUC__)
-#pragma GCC diagnostic pop
-#endif
-
-    if (pCreateDXGIFactory1) {
-        IDXGIFactory1* factory = nullptr;
-        if (SUCCEEDED(pCreateDXGIFactory1(__uuidof(IDXGIFactory1), reinterpret_cast<void**>(&factory))) && factory) {
-            IDXGIAdapter1* adapter = nullptr;
-            bool found_hardware_gpu = false;
-            DXGI_ADAPTER_DESC1 best_desc{};
-
-            for (UINT i = 0; factory->EnumAdapters1(i, &adapter) != DXGI_ERROR_NOT_FOUND; ++i) {
-                DXGI_ADAPTER_DESC1 desc{};
-                if (SUCCEEDED(adapter->GetDesc1(&desc))) {
-                    const bool is_software = (desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) != 0 || (desc.VendorId == 0x1414);
-                    if (!is_software) {
-                        if (!found_hardware_gpu) {
-                            best_desc = desc;
-                            found_hardware_gpu = true;
-                        } else if (desc.DedicatedVideoMemory > best_desc.DedicatedVideoMemory) {
-                            best_desc = desc;
-                        }
-                    }
-                }
-                adapter->Release();
-            }
-            factory->Release();
-
-            if (found_hardware_gpu) {
-                gpu_profile.description = best_desc.Description;
-                gpu_profile.vendor_id = best_desc.VendorId;
-                gpu_profile.device_id = best_desc.DeviceId;
-                gpu_profile.dedicated_vram_bytes = static_cast<uint64_t>(best_desc.DedicatedVideoMemory);
-                gpu_profile.shared_system_bytes = static_cast<uint64_t>(best_desc.SharedSystemMemory);
-
-                if (best_desc.VendorId == 0x1002) {
-                    gpu_profile.vendor = GpuVendor::AMD;
-                } else if (best_desc.VendorId == 0x8086) {
-                    gpu_profile.vendor = GpuVendor::Intel;
-                } else if (best_desc.VendorId == 0x10DE) {
-                    gpu_profile.vendor = GpuVendor::NVIDIA;
-                } else {
-                    gpu_profile.vendor = GpuVendor::Unknown;
-                }
-
-                constexpr uint64_t two_gb = 2ULL * 1024 * 1024 * 1024;
-                if (gpu_profile.dedicated_vram_bytes <= two_gb) {
-                    gpu_profile.mem_arch = MemoryArchitecture::UMA_Integrated;
-                } else {
-                    gpu_profile.mem_arch = MemoryArchitecture::Dedicated_VRAM;
-                }
-            }
-        }
-    }
-    FreeLibrary(dxgi_lib);
 }
 
-void DetectCpuTopology(CpuTopologyProfile& cpu_topology) {
-    cpu_topology.brand_string = QueryCpuBrandString();
-
-    ULONG buffer_length = 0;
-    GetSystemCpuSetInformation(nullptr, 0, &buffer_length, GetCurrentProcess(), 0);
-
-    if (buffer_length > 0) {
-        std::vector<BYTE> buffer(buffer_length);
-        if (GetSystemCpuSetInformation(
-                reinterpret_cast<PSYSTEM_CPU_SET_INFORMATION>(buffer.data()),
-                buffer_length,
-                &buffer_length,
-                GetCurrentProcess(),
-                0)) {
-            const BYTE* ptr = buffer.data();
-            const BYTE* end = ptr + buffer_length;
-            while (ptr < end) {
-                const auto info = reinterpret_cast<const SYSTEM_CPU_SET_INFORMATION*>(ptr);
-                if (info->Size == 0) {
-                    break;
-                }
-                if (info->Type == CpuSetInformation) {
-                    CpuCoreSetInfo core_set{};
-                    core_set.cpu_set_id = info->CpuSet.Id;
-                    core_set.core_index = info->CpuSet.CoreIndex;
-                    core_set.logical_processor_index = info->CpuSet.LogicalProcessorIndex;
-                    core_set.last_level_cache_index = info->CpuSet.LastLevelCacheIndex;
-                    core_set.efficiency_class = info->CpuSet.EfficiencyClass;
-                    cpu_topology.all_cpu_sets.push_back(core_set);
-                }
-                ptr += info->Size;
-            }
-        }
+uint8_t SystemArchToFfi(SystemArch a) {
+    switch (a) {
+        case SystemArch::X64:            return VF_ARCH_X64;
+        case SystemArch::ARM64_Emulated: return VF_ARCH_ARM64_EMULATED;
+        case SystemArch::ARM64_Native:   return VF_ARCH_ARM64_NATIVE;
+        case SystemArch::X86:            return VF_ARCH_X86;
+        case SystemArch::Unknown:
+        default:                         return VF_ARCH_UNKNOWN;
     }
-
-    if (cpu_topology.all_cpu_sets.empty()) {
-        SYSTEM_INFO sys_info{};
-        GetNativeSystemInfo(&sys_info);
-        cpu_topology.logical_processors = sys_info.dwNumberOfProcessors;
-        cpu_topology.physical_cores = sys_info.dwNumberOfProcessors;
-        return;
-    }
-
-    HardwareProfiler::PartitionCpuSetsFromTopology(cpu_topology);
 }
 
-GpuArchitectureGen ResolveArchGen(const GpuProfile& gpu) {
-    if (gpu.arch_gen != GpuArchitectureGen::Unknown) {
-        return gpu.arch_gen;
+const char* GuardModeForTierAndConn(ApuTier tier, GpuConnection conn) {
+    if (conn == GpuConnection::External) return "eGPU Pass-Through Guard";
+    if (conn == GpuConnection::Discrete || conn == GpuConnection::Unknown) return "Pass-Through Guard";
+    switch (tier) {
+        case ApuTier::Tier1_EntryUMA:   return "Survival Guard";
+        case ApuTier::Tier2_MidVegaUMA: return "Sweet-Spot Guard";
+        case ApuTier::Tier3_AdvancedUMA:return "Do-No-Harm Guard";
+        case ApuTier::Tier4_DiscreteOrCustom:
+        default:                        return "Pass-Through Guard";
     }
+}
 
-    if (gpu.mem_arch == MemoryArchitecture::Dedicated_VRAM || gpu.vendor == GpuVendor::NVIDIA) {
-        return GpuArchitectureGen::Discrete_GPU;
+std::string TierLabelFor(ApuTier tier, GpuConnection conn) {
+    if (conn == GpuConnection::External) return "Tier 4: External eGPU [Pass-Through Guard]";
+    if (conn == GpuConnection::Unknown)  return "Tier 4: Unknown Connection [Prudent Pass-Through]";
+    switch (tier) {
+        case ApuTier::Tier1_EntryUMA:   return "Tier 1: Entry UMA [Survival Guard]";
+        case ApuTier::Tier2_MidVegaUMA: return "Tier 2: Mid Vega UMA [Sweet-Spot Guard]";
+        case ApuTier::Tier3_AdvancedUMA:return "Tier 3: Advanced UMA [Do-No-Harm Guard]";
+        case ApuTier::Tier4_DiscreteOrCustom:
+        default:                        return "Tier 4: Discrete GPU / Custom [Pass-Through Guard]";
     }
-
-    std::wstring lower_desc = gpu.description;
-    for (auto& c : lower_desc) {
-        c = static_cast<wchar_t>(std::towlower(c));
-    }
-
-    const bool is_uma_or_default = (gpu.mem_arch == MemoryArchitecture::UMA_Integrated ||
-                                    gpu.mem_arch == MemoryArchitecture::Unknown);
-
-    if (gpu.vendor == GpuVendor::AMD && is_uma_or_default) {
-        int cpu_info[4] = {0};
-        __cpuid(cpu_info, 1);
-        const int family = ((cpu_info[0] >> 8) & 0xF) + ((cpu_info[0] >> 20) & 0xFF);
-        const int model = ((cpu_info[0] >> 4) & 0xF) | (((cpu_info[0] >> 16) & 0xF) << 4);
-
-        if (lower_desc.find(L"780m") != std::wstring::npos ||
-            lower_desc.find(L"760m") != std::wstring::npos ||
-            lower_desc.find(L"740m") != std::wstring::npos ||
-            lower_desc.find(L"880m") != std::wstring::npos ||
-            lower_desc.find(L"890m") != std::wstring::npos ||
-            family >= 0x1A ||
-            (family == 0x19 && model >= 0x70)) {
-            return GpuArchitectureGen::AMD_RDNA3_Plus;
-        }
-
-        if (lower_desc.find(L"680m") != std::wstring::npos ||
-            lower_desc.find(L"660m") != std::wstring::npos ||
-            lower_desc.find(L"610m") != std::wstring::npos ||
-            (family == 0x19 && model >= 0x40 && model <= 0x4F)) {
-            return GpuArchitectureGen::AMD_RDNA2;
-        }
-
-        return GpuArchitectureGen::AMD_GCN5_Vega;
-    }
-
-    if (gpu.vendor == GpuVendor::Intel && is_uma_or_default) {
-        if (lower_desc.find(L"arc") != std::wstring::npos ||
-            lower_desc.find(L"iris") != std::wstring::npos ||
-            lower_desc.find(L"xe") != std::wstring::npos) {
-            return GpuArchitectureGen::Intel_Xe_Arc;
-        }
-        return GpuArchitectureGen::Intel_Gen9_11_UHD;
-    }
-
-    return GpuArchitectureGen::Unknown;
 }
 
 } // namespace
@@ -257,114 +145,175 @@ ApuOptimizationPolicy HardwareProfiler::BuildOptimizationPolicy(
     const SystemHardwareProfile& profile,
     uint64_t live_dxgi_local_budget_bytes) {
 
-    ApuOptimizationPolicy policy{};
-    const GpuArchitectureGen arch_gen = ResolveArchGen(profile.primary_gpu);
-    policy.arch_gen = arch_gen;
+    static_assert(static_cast<int>(GpuArchitectureGen::AMD_RDNA2) == 2 &&
+                  static_cast<int>(GpuArchitectureGen::AMD_RDNA3_Plus) == 3 &&
+                  static_cast<int>(GpuArchitectureGen::Intel_Gen9_11_UHD) == 4 &&
+                  static_cast<int>(GpuArchitectureGen::Intel_Xe_Arc) == 5 &&
+                  static_cast<int>(GpuArchitectureGen::Discrete_GPU) == 6,
+                  "GpuArchitectureGen must match device_profile.rs");
+    static_assert(static_cast<int>(ApuTier::Tier1_EntryUMA) == 1 &&
+                  static_cast<int>(ApuTier::Tier4_DiscreteOrCustom) == 4,
+                  "ApuTier must match device_profile.rs");
 
-    const uint64_t total_ram_mb = profile.total_physical_ram_bytes / (1024ULL * 1024ULL);
-    const uint32_t cores = (profile.cpu_topology.physical_cores > 0) ? profile.cpu_topology.physical_cores : 4u;
+    std::vector<std::string> adapter_names;
+    std::vector<VfGpuAdapterInput> ffi_adapters;
 
-    // arch_gen and the returned tier are numbers shared with rust/vegaflow-core/src/policy/apu_tier.rs.
-    static_assert(static_cast<int>(GpuArchitectureGen::AMD_RDNA2) == 2 && static_cast<int>(GpuArchitectureGen::AMD_RDNA3_Plus) == 3 &&
-                  static_cast<int>(GpuArchitectureGen::Intel_Gen9_11_UHD) == 4 && static_cast<int>(GpuArchitectureGen::Intel_Xe_Arc) == 5 &&
-                  static_cast<int>(GpuArchitectureGen::Discrete_GPU) == 6, "GpuArchitectureGen must match apu_tier.rs");
-    static_assert(static_cast<int>(ApuTier::Tier1_EntryUMA) == 1 && static_cast<int>(ApuTier::Tier4_DiscreteOrCustom) == 4,
-                  "ApuTier must match apu_tier.rs");
-    VfTierInput tier_input{};
-    tier_input.total_ram_mb = total_ram_mb;
-    tier_input.physical_cores = profile.cpu_topology.physical_cores;
-    tier_input.arch_gen = static_cast<uint8_t>(arch_gen);
-    tier_input.dedicated_vram = (profile.primary_gpu.mem_arch == MemoryArchitecture::Dedicated_VRAM);
-    tier_input.is_nvidia = (profile.primary_gpu.vendor == GpuVendor::NVIDIA);
-    const ApuTier tier = static_cast<ApuTier>(vf_rust_classify_apu_tier(&tier_input));
+    const auto append_gpu = [&](const GpuProfile& g, bool force_synthetic_dxcore) {
+        adapter_names.push_back(WideToUtf8Profiler(g.description));
+        VfGpuAdapterInput a{};
+        a.vendor_id = (g.vendor_id != 0) ? g.vendor_id : VendorIdFromEnum(g.vendor);
+        a.device_id = g.device_id;
+        a.dedicated_vram_mb = g.dedicated_vram_bytes / (1024ULL * 1024ULL);
+        a.shared_sys_mb = g.shared_system_bytes / (1024ULL * 1024ULL);
 
-    policy.tier = tier;
-
-    switch (tier) {
-        case ApuTier::Tier1_EntryUMA: {
-            policy.tier_label = "Tier 1: Entry UMA [Survival Guard]";
-            policy.guard_mode_name = "Survival Guard";
-            policy.os_reserve_floor_mb = 3072;
-            policy.safe_vram_pool_mb = std::clamp(static_cast<uint32_t>((total_ram_mb * 22) / 100), 1536u, 2048u);
-            policy.safe_shared_pool_mb = 4096;
-            policy.runtime_pressure_threshold = 0.85;
-            policy.dxvk_compiler_threads = std::clamp(cores > 1 ? cores - 1 : 1u, 1u, 3u);
-            policy.amd_tessellation_cap = 8;
-            policy.max_anisotropy = 2;
-            policy.recommend_dxvk_gplasync = true;
-            policy.disable_dx12_async_compute = true;
-            policy.ue_max_csm_resolution = 512;
-            policy.ue_max_shadow_cascades = 1;
-            policy.disable_volumetric_fog = true;
-            policy.cpu_stapm_cap_mhz = 0;
-            policy.apply_uma_vram_reg_override = true;
-            break;
+        if (g.connection != GpuConnection::Unknown) {
+            a.dxcore_available = g.dxcore_available || force_synthetic_dxcore;
+            a.dxcore_integrated = (g.connection == GpuConnection::Integrated);
+            a.dxcore_detachable = (g.connection == GpuConnection::External);
+            a.removal_detachable = g.removal_policy_detachable;
+        } else if (g.dxcore_available) {
+            a.dxcore_available = true;
+            a.dxcore_integrated = g.dxcore_integrated;
+            a.dxcore_detachable = g.dxcore_detachable;
+            a.removal_detachable = g.removal_policy_detachable;
+        } else if (force_synthetic_dxcore && g.mem_arch != MemoryArchitecture::Unknown) {
+            // Backward compatibility for legacy synthetic tests setting only mem_arch.
+            a.dxcore_available = true;
+            a.dxcore_integrated = (g.mem_arch == MemoryArchitecture::UMA_Integrated);
+            a.dxcore_detachable = false;
+            a.removal_detachable = g.removal_policy_detachable;
+        } else {
+            a.dxcore_available = false;
+            a.dxcore_integrated = false;
+            a.dxcore_detachable = g.dxcore_detachable;
+            a.removal_detachable = g.removal_policy_detachable;
         }
-        case ApuTier::Tier2_MidVegaUMA: {
-            policy.tier_label = "Tier 2: Mid Vega UMA [Sweet-Spot Guard]";
-            policy.guard_mode_name = "Sweet-Spot Guard";
-            policy.os_reserve_floor_mb = 4096;
-            policy.safe_vram_pool_mb = 4096;
-            policy.safe_shared_pool_mb = 8192;
-            policy.runtime_pressure_threshold = 0.85;
-            policy.dxvk_compiler_threads = std::clamp(cores, 4u, 6u);
-            policy.amd_tessellation_cap = 16;
-            policy.max_anisotropy = 4;
-            policy.recommend_dxvk_gplasync = true;
-            policy.disable_dx12_async_compute = true;
-            policy.ue_max_csm_resolution = 1024;
-            policy.ue_max_shadow_cascades = 2;
-            policy.disable_volumetric_fog = true;
-            policy.cpu_stapm_cap_mhz = 0;
-            policy.apply_uma_vram_reg_override = true;
-            break;
+        ffi_adapters.push_back(a);
+    };
+
+    bool synthetic_dxcore = false;
+    if (!profile.all_gpus.empty()) {
+        for (const auto& g : profile.all_gpus) {
+            append_gpu(g, false);
         }
-        case ApuTier::Tier3_AdvancedUMA: {
-            policy.tier_label = "Tier 3: Advanced UMA [Do-No-Harm Guard]";
-            policy.guard_mode_name = "Do-No-Harm Guard";
-            policy.os_reserve_floor_mb = 4096;
-            policy.safe_vram_pool_mb = std::clamp(static_cast<uint32_t>((total_ram_mb * 30) / 100), 4096u, 8192u);
-            policy.safe_shared_pool_mb = std::clamp(static_cast<uint32_t>((total_ram_mb * 50) / 100), 8192u, 16384u);
-            policy.runtime_pressure_threshold = 0.85;
-            policy.dxvk_compiler_threads = std::clamp(cores > 2 ? cores - 2 : 4u, 4u, 8u);
-            policy.amd_tessellation_cap = 32;
-            policy.max_anisotropy = 8;
-            policy.recommend_dxvk_gplasync = (arch_gen == GpuArchitectureGen::AMD_GCN5_Vega);
-            policy.disable_dx12_async_compute = false;
-            policy.ue_max_csm_resolution = 2048;
-            policy.ue_max_shadow_cascades = 3;
-            policy.disable_volumetric_fog = false;
-            policy.cpu_stapm_cap_mhz = 0;
-            policy.apply_uma_vram_reg_override = true;
-            break;
-        }
-        case ApuTier::Tier4_DiscreteOrCustom:
-        default: {
-            policy.tier_label = "Tier 4: Discrete GPU / Custom [Pass-Through Guard]";
-            policy.guard_mode_name = "Pass-Through Guard";
-            policy.os_reserve_floor_mb = 4096;
-            policy.safe_vram_pool_mb = 4096;
-            policy.safe_shared_pool_mb = 8192;
-            policy.runtime_pressure_threshold = 0.85;
-            policy.dxvk_compiler_threads = std::clamp(cores > 2 ? cores - 2 : 4u, 4u, 8u);
-            policy.amd_tessellation_cap = 64;
-            policy.max_anisotropy = 16;
-            policy.recommend_dxvk_gplasync = false;
-            policy.disable_dx12_async_compute = false;
-            policy.ue_max_csm_resolution = 2048;
-            policy.ue_max_shadow_cascades = 4;
-            policy.disable_volumetric_fog = false;
-            policy.cpu_stapm_cap_mhz = 0;
-            policy.apply_uma_vram_reg_override = false;
-            break;
+    } else if (profile.gpu_probe_ok) {
+        const bool has_any_primary_signal =
+            (profile.primary_gpu.vendor_id != 0) ||
+            (profile.primary_gpu.vendor != GpuVendor::Unknown) ||
+            (profile.primary_gpu.mem_arch != MemoryArchitecture::Unknown) ||
+            (profile.primary_gpu.connection != GpuConnection::Unknown) ||
+            (profile.primary_gpu.arch_gen != GpuArchitectureGen::Unknown) ||
+            !profile.primary_gpu.description.empty();
+        if (has_any_primary_signal) {
+            synthetic_dxcore = !profile.dxcore_available &&
+                               (profile.primary_gpu.connection != GpuConnection::Unknown ||
+                                profile.primary_gpu.mem_arch != MemoryArchitecture::Unknown);
+            append_gpu(profile.primary_gpu, synthetic_dxcore);
         }
     }
 
-    if (live_dxgi_local_budget_bytes > 0 && tier != ApuTier::Tier4_DiscreteOrCustom) {
+    for (size_t i = 0; i < ffi_adapters.size(); ++i) {
+        ffi_adapters[i].name_ptr = adapter_names[i].empty()
+            ? nullptr
+            : reinterpret_cast<const uint8_t*>(adapter_names[i].data());
+        ffi_adapters[i].name_len = adapter_names[i].size();
+    }
+
+    const uint64_t total_ram_mb = profile.total_physical_ram_bytes / (1024ULL * 1024ULL);
+    VfDeviceProfileInput input{};
+    input.total_ram_mb = total_ram_mb;
+    input.physical_cores = profile.cpu_topology.physical_cores;
+    input.cpu_family = profile.cpu_family;
+    input.cpu_model = profile.cpu_model;
+    input.user_gpu_pref = profile.user_gpu_pref;
+    input.system_arch = SystemArchToFfi(profile.system_arch);
+    input.power_known = profile.power_status.known;
+    input.has_battery = profile.power_status.has_battery;
+    input.ac_online = profile.power_status.ac_online;
+    input.battery_saver = profile.power_status.battery_saver;
+    input.dxcore_available = profile.dxcore_available || synthetic_dxcore;
+    input.ram_probe_ok = profile.ram_probe_ok && (profile.total_physical_ram_bytes > 0);
+    input.experimental_egpu_streaming = profile.experimental_egpu_streaming;
+    input.override_arch_gen = (profile.all_gpus.empty() && profile.primary_gpu.arch_gen != GpuArchitectureGen::Unknown)
+        ? static_cast<uint8_t>(profile.primary_gpu.arch_gen)
+        : 0u;
+
+    VfDeviceProfileDecision dec{};
+    vf_rust_evaluate_device_profile(
+        ffi_adapters.empty() ? nullptr : ffi_adapters.data(),
+        ffi_adapters.size(),
+        &input,
+        &dec);
+
+    ApuOptimizationPolicy policy{};
+    policy.tier = static_cast<ApuTier>(dec.apu_tier);
+    policy.arch_gen = static_cast<GpuArchitectureGen>(dec.gpu_arch_gen);
+    policy.gpu_connection = static_cast<GpuConnection>(dec.gpu_connection);
+    policy.tier_label = TierLabelFor(policy.tier, policy.gpu_connection);
+    policy.guard_mode_name = GuardModeForTierAndConn(policy.tier, policy.gpu_connection);
+
+    policy.apply_visual_cuts = dec.apply_visual_cuts;
+    policy.apply_uma_memory_guard = dec.apply_uma_memory_guard;
+    policy.apply_uma_vram_reg_override = dec.apply_uma_vram_reg_override;
+    policy.allow_ram_purge = dec.allow_ram_purge;
+    policy.force_high_perf_power_plan = dec.force_high_perf_power_plan;
+    policy.block_driver_tweaks = dec.block_driver_tweaks;
+    policy.experimental_egpu_streaming = profile.experimental_egpu_streaming;
+    policy.apply_egpu_streaming_tweaks = dec.apply_egpu_streaming_tweaks;
+
+    policy.safe_vram_pool_mb = dec.safe_vram_pool_mb;
+    policy.amd_tessellation_cap = dec.amd_tessellation_cap;
+    policy.dxvk_compiler_threads = dec.dxvk_compiler_threads;
+    policy.disable_dx12_async_compute = dec.disable_dx12_async_compute;
+    policy.cpu_stapm_cap_mhz = 0;
+    policy.runtime_pressure_threshold = 0.85;
+
+    switch (policy.tier) {
+        case ApuTier::Tier1_EntryUMA:
+            policy.os_reserve_floor_mb = 3072;
+            policy.safe_shared_pool_mb = 4096;
+            policy.max_anisotropy = 2;
+            policy.recommend_dxvk_gplasync = true;
+            policy.ue_max_csm_resolution = 512;
+            policy.ue_max_shadow_cascades = 1;
+            policy.disable_volumetric_fog = true;
+            break;
+        case ApuTier::Tier2_MidVegaUMA:
+            policy.os_reserve_floor_mb = 4096;
+            policy.safe_shared_pool_mb = 8192;
+            policy.max_anisotropy = 4;
+            policy.recommend_dxvk_gplasync = true;
+            policy.ue_max_csm_resolution = 1024;
+            policy.ue_max_shadow_cascades = 2;
+            policy.disable_volumetric_fog = true;
+            break;
+        case ApuTier::Tier3_AdvancedUMA:
+            policy.os_reserve_floor_mb = 4096;
+            policy.safe_shared_pool_mb = std::clamp(static_cast<uint32_t>((total_ram_mb * 50) / 100), 8192u, 16384u);
+            policy.max_anisotropy = 8;
+            policy.recommend_dxvk_gplasync = (policy.arch_gen == GpuArchitectureGen::AMD_GCN5_Vega);
+            policy.ue_max_csm_resolution = 2048;
+            policy.ue_max_shadow_cascades = 3;
+            policy.disable_volumetric_fog = false;
+            break;
+        case ApuTier::Tier4_DiscreteOrCustom:
+        default:
+            policy.os_reserve_floor_mb = 4096;
+            policy.safe_shared_pool_mb = 8192;
+            policy.max_anisotropy = 16;
+            policy.recommend_dxvk_gplasync = false;
+            policy.ue_max_csm_resolution = 2048;
+            policy.ue_max_shadow_cascades = 4;
+            policy.disable_volumetric_fog = false;
+            break;
+    }
+
+    if (live_dxgi_local_budget_bytes > 0 && policy.apply_uma_memory_guard &&
+        policy.tier != ApuTier::Tier4_DiscreteOrCustom) {
         const uint32_t dxgi_80_mb = static_cast<uint32_t>((live_dxgi_local_budget_bytes * 80ULL / 100ULL) / (1024ULL * 1024ULL));
-        if (tier == ApuTier::Tier1_EntryUMA) {
+        if (policy.tier == ApuTier::Tier1_EntryUMA) {
             policy.safe_vram_pool_mb = std::min(policy.safe_vram_pool_mb, std::max(1536u, dxgi_80_mb));
-        } else if (tier == ApuTier::Tier3_AdvancedUMA) {
+        } else if (policy.tier == ApuTier::Tier3_AdvancedUMA) {
             const uint32_t floor_mb = (total_ram_mb >= 15000) ? 4096u : 1536u;
             policy.safe_vram_pool_mb = std::min(policy.safe_vram_pool_mb, std::max(floor_mb, dxgi_80_mb));
         }
@@ -373,21 +322,90 @@ ApuOptimizationPolicy HardwareProfiler::BuildOptimizationPolicy(
     return policy;
 }
 
-SystemHardwareProfile HardwareProfiler::DetectHardware() {
-    SystemHardwareProfile profile{};
+SystemHardwareProfile HardwareProfiler::DetectHardware(bool include_displays) {
+    WindowsDeviceProbe probe;
+    RawDeviceSnapshot snap = probe.ProbeSystem(include_displays);
 
-    MEMORYSTATUSEX mem_status{};
-    mem_status.dwLength = sizeof(mem_status);
-    if (GlobalMemoryStatusEx(&mem_status)) {
-        profile.total_physical_ram_bytes = mem_status.ullTotalPhys;
+    SystemHardwareProfile profile{};
+    profile.total_physical_ram_bytes = snap.total_physical_ram_bytes;
+    profile.ram_probe_ok = snap.ram_probe_ok;
+    profile.gpu_probe_ok = snap.gpu_probe_ok;
+    profile.cpu_probe_ok = snap.cpu_probe_ok;
+    profile.dxcore_available = snap.dxcore_available;
+    profile.all_gpus = std::move(snap.gpus);
+    profile.cpu_topology = std::move(snap.cpu_topology);
+    profile.cpu_family = snap.cpu_family;
+    profile.cpu_model = snap.cpu_model;
+    profile.power_status = snap.power_status;
+    profile.system_arch = snap.system_arch;
+    profile.windows_version = snap.windows_version;
+    profile.displays = std::move(snap.displays);
+    profile.adapter_signature = snap.adapter_signature;
+
+    if (!profile.cpu_topology.all_cpu_sets.empty()) {
+        PartitionCpuSetsFromTopology(profile.cpu_topology);
+    } else {
+        SYSTEM_INFO sys_info{};
+        GetNativeSystemInfo(&sys_info);
+        profile.cpu_topology.logical_processors = sys_info.dwNumberOfProcessors;
+        profile.cpu_topology.physical_cores = sys_info.dwNumberOfProcessors;
     }
 
-    DetectGpu(profile.primary_gpu);
-    DetectCpuTopology(profile.cpu_topology);
+    // Determine primary GPU and resolved policy from Rust device_profile.rs.
+    std::vector<std::string> adapter_names;
+    std::vector<VfGpuAdapterInput> ffi_adapters;
+    adapter_names.reserve(profile.all_gpus.size());
+    ffi_adapters.reserve(profile.all_gpus.size());
+    for (const auto& g : profile.all_gpus) {
+        adapter_names.push_back(WideToUtf8Profiler(g.description));
+        VfGpuAdapterInput a{};
+        a.vendor_id = g.vendor_id;
+        a.device_id = g.device_id;
+        a.dedicated_vram_mb = g.dedicated_vram_bytes / (1024ULL * 1024ULL);
+        a.shared_sys_mb = g.shared_system_bytes / (1024ULL * 1024ULL);
+        a.dxcore_available = g.dxcore_available;
+        a.dxcore_integrated = g.dxcore_integrated;
+        a.dxcore_detachable = g.dxcore_detachable;
+        a.removal_detachable = g.removal_policy_detachable;
+        a.name_ptr = adapter_names.back().empty()
+            ? nullptr
+            : reinterpret_cast<const uint8_t*>(adapter_names.back().data());
+        a.name_len = adapter_names.back().size();
+        ffi_adapters.push_back(a);
+    }
 
-    const ApuOptimizationPolicy policy = BuildOptimizationPolicy(profile);
-    profile.primary_gpu.arch_gen = policy.arch_gen;
-    profile.apu_tier = policy.tier;
+    VfDeviceProfileInput input{};
+    input.total_ram_mb = profile.total_physical_ram_bytes / (1024ULL * 1024ULL);
+    input.physical_cores = profile.cpu_topology.physical_cores;
+    input.cpu_family = profile.cpu_family;
+    input.cpu_model = profile.cpu_model;
+    input.user_gpu_pref = profile.user_gpu_pref;
+    input.system_arch = SystemArchToFfi(profile.system_arch);
+    input.power_known = profile.power_status.known;
+    input.has_battery = profile.power_status.has_battery;
+    input.ac_online = profile.power_status.ac_online;
+    input.battery_saver = profile.power_status.battery_saver;
+    input.dxcore_available = profile.dxcore_available;
+    input.ram_probe_ok = profile.ram_probe_ok;
+    input.experimental_egpu_streaming = profile.experimental_egpu_streaming;
+    input.override_arch_gen = 0;
+
+    VfDeviceProfileDecision dec{};
+    vf_rust_evaluate_device_profile(
+        ffi_adapters.empty() ? nullptr : ffi_adapters.data(),
+        ffi_adapters.size(),
+        &input,
+        &dec);
+
+    if (dec.gpu_probe_ok && dec.selected_gpu_index < profile.all_gpus.size()) {
+        profile.primary_gpu = profile.all_gpus[dec.selected_gpu_index];
+    }
+    profile.primary_gpu.connection = static_cast<GpuConnection>(dec.gpu_connection);
+    profile.primary_gpu.arch_gen = static_cast<GpuArchitectureGen>(dec.gpu_arch_gen);
+    profile.primary_gpu.mem_arch = (profile.primary_gpu.connection == GpuConnection::Integrated)
+        ? MemoryArchitecture::UMA_Integrated
+        : (dec.gpu_connection == VF_GPU_CONN_UNKNOWN ? MemoryArchitecture::Unknown : MemoryArchitecture::Dedicated_VRAM);
+    profile.apu_tier = static_cast<ApuTier>(dec.apu_tier);
 
     return profile;
 }
@@ -423,7 +441,6 @@ void HardwareProfiler::PartitionCpuSetsFromTopology(CpuTopologyProfile& cpu_topo
         }
     }
 
-
     std::set<uint32_t> physical_core_indices;
     std::set<uint32_t> llc_indices;
     std::map<uint32_t, uint32_t> llc_counts;
@@ -434,12 +451,8 @@ void HardwareProfiler::PartitionCpuSetsFromTopology(CpuTopologyProfile& cpu_topo
         physical_core_indices.insert(cs.core_index);
         llc_indices.insert(cs.last_level_cache_index);
         llc_counts[cs.last_level_cache_index]++;
-        if (cs.efficiency_class < min_eff) {
-            min_eff = cs.efficiency_class;
-        }
-        if (cs.efficiency_class > max_eff) {
-            max_eff = cs.efficiency_class;
-        }
+        if (cs.efficiency_class < min_eff) min_eff = cs.efficiency_class;
+        if (cs.efficiency_class > max_eff) max_eff = cs.efficiency_class;
     }
 
     cpu_topology.logical_processors = static_cast<uint32_t>(cpu_topology.all_cpu_sets.size());
@@ -447,25 +460,18 @@ void HardwareProfiler::PartitionCpuSetsFromTopology(CpuTopologyProfile& cpu_topo
     cpu_topology.has_multiple_ccx = (llc_indices.size() > 1);
     cpu_topology.has_hybrid_cores = (min_eff != max_eff);
 
-    // With 4 or more cores the background gets one full physical core (its SMT threads); with fewer, a single thread.
     const size_t threads_per_core = std::max<size_t>(1, cpu_topology.logical_processors / std::max<uint32_t>(1, cpu_topology.physical_cores));
     const size_t bg_limit = (cpu_topology.physical_cores >= 4) ? threads_per_core : 1;
 
     if (cpu_topology.has_hybrid_cores) {
         std::set<uint32_t> high_perf_cores;
         for (const auto& cs : cpu_topology.all_cpu_sets) {
-            if (cs.efficiency_class == max_eff) {
-                high_perf_cores.insert(cs.core_index);
-            }
+            if (cs.efficiency_class == max_eff) high_perf_cores.insert(cs.core_index);
         }
-
         const bool exclude_core_zero = (high_perf_cores.size() >= 4);
-
         for (const auto& cs : cpu_topology.all_cpu_sets) {
             if (cs.efficiency_class == max_eff) {
-                if (!exclude_core_zero || cs.core_index != 0) {
-                    cpu_topology.game_optimal_cpu_set_ids.push_back(cs.cpu_set_id);
-                }
+                if (!exclude_core_zero || cs.core_index != 0) cpu_topology.game_optimal_cpu_set_ids.push_back(cs.cpu_set_id);
             } else {
                 cpu_topology.background_cpu_set_ids.push_back(cs.cpu_set_id);
             }
@@ -480,7 +486,6 @@ void HardwareProfiler::PartitionCpuSetsFromTopology(CpuTopologyProfile& cpu_topo
             if (count < min_count) min_count = count;
             if (count > max_count) max_count = count;
         }
-
         uint32_t secondary_llc = *llc_indices.rbegin();
         if (min_count != max_count) {
             for (auto it = llc_indices.rbegin(); it != llc_indices.rend(); ++it) {
@@ -489,142 +494,52 @@ void HardwareProfiler::PartitionCpuSetsFromTopology(CpuTopologyProfile& cpu_topo
                     break;
                 }
             }
-        } else {
-            secondary_llc = *llc_indices.rbegin();
         }
-
         if (llc_counts[secondary_llc] <= (cpu_topology.logical_processors / 3)) {
-            // Asymmetric compact island (Zen 4c/5c)
             const bool exclude_core_zero = (cpu_topology.physical_cores >= 4);
             std::vector<CpuCoreSetInfo> candidate_game_sets;
             for (const auto& cs : cpu_topology.all_cpu_sets) {
                 if (cs.last_level_cache_index == secondary_llc) {
                     cpu_topology.background_cpu_set_ids.push_back(cs.cpu_set_id);
-                } else {
-                    if (!exclude_core_zero || cs.core_index != 0) {
-                        candidate_game_sets.push_back(cs);
-                    }
-                }
-            }
-            std::sort(
-                candidate_game_sets.begin(),
-                candidate_game_sets.end(),
-                [](const CpuCoreSetInfo& a, const CpuCoreSetInfo& b) {
-                    if (a.last_level_cache_index != b.last_level_cache_index) {
-                        return a.last_level_cache_index < b.last_level_cache_index;
-                    }
-                    if (a.core_index != b.core_index) {
-                        return a.core_index < b.core_index;
-                    }
-                    return a.logical_processor_index < b.logical_processor_index;
-                }
-            );
-            for (const auto& cs : candidate_game_sets) {
-                cpu_topology.game_optimal_cpu_set_ids.push_back(cs.cpu_set_id);
-            }
-            return;
-        }
-
-        // Symmetric L3 islands (e.g. 2 CCX of 3 cores / 6 threads on Ryzen 5 4600H)
-        const uint32_t last_core_index = *physical_core_indices.rbegin();
-        const bool exclude_core_zero = (cpu_topology.physical_cores >= 4);
-
-        std::vector<CpuCoreSetInfo> candidate_game_sets;
-        std::map<uint32_t, size_t> bg_sets_per_llc;
-        size_t bg_taken = 0;
-
-        for (const auto& cs : cpu_topology.all_cpu_sets) {
-            if (cs.core_index == last_core_index && bg_taken < bg_limit) {
-                bg_taken++;
-                cpu_topology.background_cpu_set_ids.push_back(cs.cpu_set_id);
-                bg_sets_per_llc[cs.last_level_cache_index]++;
-            } else {
-                if (!exclude_core_zero || cs.core_index != 0) {
+                } else if (!exclude_core_zero || cs.core_index != 0) {
                     candidate_game_sets.push_back(cs);
                 }
             }
+            std::sort(candidate_game_sets.begin(), candidate_game_sets.end(),
+                      [](const CpuCoreSetInfo& a, const CpuCoreSetInfo& b) {
+                          if (a.last_level_cache_index != b.last_level_cache_index) return a.last_level_cache_index < b.last_level_cache_index;
+                          if (a.core_index != b.core_index) return a.core_index < b.core_index;
+                          return a.logical_processor_index < b.logical_processor_index;
+                      });
+            for (const auto& cs : candidate_game_sets) cpu_topology.game_optimal_cpu_set_ids.push_back(cs.cpu_set_id);
+            return;
         }
-
-        std::map<uint32_t, size_t> available_sets_per_llc;
-        for (const auto& cs : candidate_game_sets) {
-            available_sets_per_llc[cs.last_level_cache_index]++;
-        }
-
-        std::sort(
-            candidate_game_sets.begin(),
-            candidate_game_sets.end(),
-            [&](const CpuCoreSetInfo& a, const CpuCoreSetInfo& b) {
-                size_t bg_a = bg_sets_per_llc[a.last_level_cache_index];
-                size_t bg_b = bg_sets_per_llc[b.last_level_cache_index];
-                if (bg_a != bg_b) {
-                    return bg_a < bg_b;
-                }
-                size_t avail_a = available_sets_per_llc[a.last_level_cache_index];
-                size_t avail_b = available_sets_per_llc[b.last_level_cache_index];
-                if (avail_a != avail_b) {
-                    return avail_a > avail_b;
-                }
-                if (a.last_level_cache_index != b.last_level_cache_index) {
-                    return a.last_level_cache_index < b.last_level_cache_index;
-                }
-                if (a.core_index != b.core_index) {
-                    return a.core_index < b.core_index;
-                }
-                return a.logical_processor_index < b.logical_processor_index;
-            }
-        );
-
-        for (const auto& cs : candidate_game_sets) {
-            cpu_topology.game_optimal_cpu_set_ids.push_back(cs.cpu_set_id);
-        }
-        return;
     }
 
-    // Default / Monolithic / Uniform or fallback
     const uint32_t last_core_index = *physical_core_indices.rbegin();
     const bool exclude_core_zero = (cpu_topology.physical_cores >= 4);
-
     std::vector<CpuCoreSetInfo> candidate_game_sets;
-
     size_t bg_taken = 0;
     for (const auto& cs : cpu_topology.all_cpu_sets) {
         if (cs.core_index == last_core_index && bg_taken < bg_limit) {
             bg_taken++;
             cpu_topology.background_cpu_set_ids.push_back(cs.cpu_set_id);
-        } else {
-            if (!exclude_core_zero || cs.core_index != 0) {
-                candidate_game_sets.push_back(cs);
-            }
+        } else if (!exclude_core_zero || cs.core_index != 0) {
+            candidate_game_sets.push_back(cs);
         }
     }
-
     std::map<uint32_t, size_t> llc_core_counts;
-    for (const auto& cs : candidate_game_sets) {
-        llc_core_counts[cs.last_level_cache_index]++;
-    }
-
-    std::sort(
-        candidate_game_sets.begin(),
-        candidate_game_sets.end(),
-        [&llc_core_counts](const CpuCoreSetInfo& a, const CpuCoreSetInfo& b) {
-            const size_t count_a = llc_core_counts[a.last_level_cache_index];
-            const size_t count_b = llc_core_counts[b.last_level_cache_index];
-            if (count_a != count_b) {
-                return count_a > count_b;
-            }
-            if (a.last_level_cache_index != b.last_level_cache_index) {
-                return a.last_level_cache_index < b.last_level_cache_index;
-            }
-            if (a.core_index != b.core_index) {
-                return a.core_index < b.core_index;
-            }
-            return a.logical_processor_index < b.logical_processor_index;
-        }
-    );
-
-    for (const auto& cs : candidate_game_sets) {
-        cpu_topology.game_optimal_cpu_set_ids.push_back(cs.cpu_set_id);
-    }
+    for (const auto& cs : candidate_game_sets) llc_core_counts[cs.last_level_cache_index]++;
+    std::sort(candidate_game_sets.begin(), candidate_game_sets.end(),
+              [&llc_core_counts](const CpuCoreSetInfo& a, const CpuCoreSetInfo& b) {
+                  const size_t ca = llc_core_counts[a.last_level_cache_index];
+                  const size_t cb = llc_core_counts[b.last_level_cache_index];
+                  if (ca != cb) return ca > cb;
+                  if (a.last_level_cache_index != b.last_level_cache_index) return a.last_level_cache_index < b.last_level_cache_index;
+                  if (a.core_index != b.core_index) return a.core_index < b.core_index;
+                  return a.logical_processor_index < b.logical_processor_index;
+              });
+    for (const auto& cs : candidate_game_sets) cpu_topology.game_optimal_cpu_set_ids.push_back(cs.cpu_set_id);
 }
 
 } // namespace vegaflow

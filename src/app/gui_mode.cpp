@@ -60,7 +60,9 @@ int RunGuiMode(
             }
         }
         GraphicsOptimizer::SetGameDvrAndFseOptimized(true, false);
-        GraphicsOptimizer::SetApuLaptopPowerProfile(true, policy, false);
+        if (policy.force_high_perf_power_plan) {
+            GraphicsOptimizer::SetApuLaptopPowerProfile(true, policy, false);
+        }
     }
     uint32_t last_isolated_count = 0;
     uint64_t last_purge_before_free_mb = 0;
@@ -154,11 +156,10 @@ int RunGuiMode(
 
         auto mem_sample = mem_mgr.SampleTelemetry();
         if (!game_active) {
-            mem_mgr.EvaluateUmaPressureGuard(
-                mem_sample,
-                HardwareProfiler::BuildOptimizationPolicy(hw, mem_sample.vram.local_budget_bytes),
-                {},
-                true /* dry_run */);
+            const ApuOptimizationPolicy idle_policy = HardwareProfiler::BuildOptimizationPolicy(hw, mem_sample.vram.local_budget_bytes);
+            if (idle_policy.apply_uma_memory_guard) {
+                mem_mgr.EvaluateUmaPressureGuard(mem_sample, idle_policy, {}, true /* dry_run */);
+            }
         }
         auto timer_res = GraphicsOptimizer::QueryTimerResolution();
         auto frame_snap = telemetry_monitor.GetSnapshot();
@@ -171,8 +172,10 @@ int RunGuiMode(
 
         GuiDashboardData data;
         data.is_elevated = PrivilegeManager::IsProcessElevated();
-        data.cpu_summary = hw.cpu_topology.brand_string.empty() ? "AMD/Intel x86_64" : hw.cpu_topology.brand_string;
-        data.gpu_summary = WideToUtf8(hw.primary_gpu.description);
+        data.cpu_summary = hw.cpu_topology.brand_string.empty() ? "No se pudo leer" : hw.cpu_topology.brand_string;
+        data.gpu_summary = hw.gpu_probe_ok && !hw.primary_gpu.description.empty()
+            ? WideToUtf8(hw.primary_gpu.description)
+            : "No se pudo leer";
         data.physical_cores = hw.cpu_topology.physical_cores;
         data.logical_processors = hw.cpu_topology.logical_processors;
         data.game_cpu_sets.assign(hw.cpu_topology.game_optimal_cpu_set_ids.begin(), hw.cpu_topology.game_optimal_cpu_set_ids.end());
@@ -270,7 +273,7 @@ int RunGuiMode(
             data.steam_games.push_back(std::move(item));
         }
 
-        data.system_info = SystemInfo::Gather();
+        data.system_info = SystemInfo::FromHardware(hw, true);
         data.sandbox_violations = SandboxGuard::GetViolationCount();
         data.sandbox_guard_active = true;
 
@@ -507,11 +510,11 @@ int RunGuiMode(
     };
 
     callbacks.on_ApplyGameEnginePreset = [&](uint32_t app_id) -> std::string {
-        ApuOptimizationPolicy pol = HardwareProfiler::BuildOptimizationPolicy(hw, mem_mgr.SampleTelemetry().vram.local_budget_bytes);
-        uint32_t pool_mb = pol.safe_vram_pool_mb;
+        const ApuOptimizationPolicy static_pol = HardwareProfiler::BuildOptimizationPolicy(hw);
+        const uint32_t pool_mb = static_pol.safe_vram_pool_mb;
         for (auto& sg : cached_steam_games) {
             if (sg.app_id == app_id) {
-                auto rep = steam.ApplyEngineUmaPreset(sg, policy, pool_mb, false);
+                auto rep = steam.ApplyEngineUmaPreset(sg, static_pol, pool_mb, false);
                 if (rep.success) {
                     sg.engine_preset_applied = true;
                     sg.flip_model_applied = true;
@@ -546,6 +549,7 @@ int RunGuiMode(
     };
 
     callbacks.on_ToggleGameDxvk = [&](uint32_t app_id) -> std::string {
+        const ApuOptimizationPolicy static_pol = HardwareProfiler::BuildOptimizationPolicy(hw);
         for (auto& sg : cached_steam_games) {
             if (sg.app_id == app_id) {
                 std::string msg;
@@ -555,7 +559,7 @@ int RunGuiMode(
                         sg.dxvk_installed = false;
                     }
                 } else {
-                    bool ok = dxvk.DeployDxvk(sg.primary_exe_path, policy, sg.has_anticheat, true, false, &msg);
+                    bool ok = dxvk.DeployDxvk(sg.primary_exe_path, static_pol, sg.has_anticheat, true, false, &msg);
                     if (ok) {
                         sg.dxvk_installed = true;
                     }
@@ -582,7 +586,9 @@ int RunGuiMode(
         if (timer_boosted) {
             GraphicsOptimizer::RestoreDefaultTimer();
         }
-        GraphicsOptimizer::SetApuLaptopPowerProfile(false, policy, false);
+        if (GraphicsOptimizer::IsApuPowerModeApplied()) {
+            GraphicsOptimizer::SetApuLaptopPowerProfile(false, policy, false);
+        }
         GraphicsOptimizer::SetGameDvrAndFseOptimized(false, false);
         GraphicsOptimizer::RestoreAllRegistryBackups();
     }

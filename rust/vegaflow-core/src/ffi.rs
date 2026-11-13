@@ -9,6 +9,12 @@ use crate::policy::apu_tier::{self, VfTierInput, TIER_ENTRY, TIER_MID};
 use crate::policy::config_file::{self, SaveRefused, Settings};
 use crate::policy::config_rules;
 use crate::policy::cpu_governor::{self, VfCpuCoreEntry, VfTopologyPartitionOut, VF_MAX_LOGICAL_PROCESSORS};
+use crate::policy::device_profile::{
+    self, ParsedGpuAdapter, VfDeviceProfileDecision, VfDeviceProfileInput, VfGpuAdapterInput, VF_ARCH_ARM64_EMULATED,
+    VF_ARCH_ARM64_NATIVE, VF_ARCH_UNKNOWN, VF_ARCH_X64, VF_ARCH_X86, VF_DISK_HDD, VF_DISK_NVME, VF_DISK_SSD, VF_DISK_UNKNOWN,
+    VF_GPU_CONN_DISCRETE, VF_GPU_CONN_EXTERNAL, VF_GPU_CONN_INTEGRATED, VF_GPU_CONN_UNKNOWN, VF_GPU_PREF_DEFAULT,
+    VF_GPU_PREF_HIGH_PERF, VF_GPU_PREF_POWER_SAVING,
+};
 use crate::policy::file_access::{self, AllowedRoot};
 use crate::policy::folder_trust::{self, Ace, SidKind};
 use crate::policy::ini_merge::{
@@ -625,6 +631,45 @@ pub extern "C" fn vf_rust_ini_query_section(
     })
 }
 
+/// Evaluates the universal GPU / hardware device profile decision.
+#[no_mangle]
+pub extern "C" fn vf_rust_evaluate_device_profile(
+    adapters: *const VfGpuAdapterInput,
+    adapter_count: usize,
+    input: *const VfDeviceProfileInput,
+    out: *mut VfDeviceProfileDecision,
+) -> bool {
+    ffi_guard(false, || {
+        if input.is_null() || out.is_null() || (adapters.is_null() && adapter_count != 0) {
+            return false;
+        }
+        let raw_slice: &[VfGpuAdapterInput] = if adapter_count == 0 {
+            &[]
+        } else {
+            unsafe { core::slice::from_raw_parts(adapters, adapter_count) }
+        };
+        let mut parsed: Vec<ParsedGpuAdapter<'_>> = Vec::with_capacity(raw_slice.len());
+        for a in raw_slice {
+            let name = match unsafe { bytes_or_empty(a.name_ptr, a.name_len) } {
+                Some(b) => core::str::from_utf8(b).unwrap_or(""),
+                None => "",
+            };
+            parsed.push(ParsedGpuAdapter {
+                vendor_id: a.vendor_id,
+                device_id: a.device_id,
+                dxcore_available: a.dxcore_available,
+                dxcore_integrated: a.dxcore_integrated,
+                dxcore_detachable: a.dxcore_detachable,
+                removal_detachable: a.removal_detachable,
+                name,
+            });
+        }
+        let decision = device_profile::evaluate_profile(&parsed, unsafe { &*input });
+        unsafe { *out = decision };
+        true
+    })
+}
+
 /// Size, alignment and the offset and size of each field of every struct shared with C++, in the order documented in rust_bridge.h.
 /// rust_bridge.h is written by hand; C++ Test 34 compares these numbers with its own sizeof/alignof/offsetof.
 fn bridge_layout() -> Vec<usize> {
@@ -656,6 +701,15 @@ fn bridge_layout() -> Vec<usize> {
     layout!(v, VfConfigLoad, settings, status, rejected_keys);
     layout!(v, VfAceEntry, mask, sid_kind, allows, inherit_only);
     layout!(v, VfIniKv, key, key_len, value, value_len);
+    layout!(v, VfGpuAdapterInput, vendor_id, device_id, dedicated_vram_mb, shared_sys_mb, dxcore_available,
+        dxcore_integrated, dxcore_detachable, removal_detachable, name_ptr, name_len);
+    layout!(v, VfDeviceProfileInput, total_ram_mb, physical_cores, cpu_family, cpu_model, user_gpu_pref,
+        system_arch, power_known, has_battery, ac_online, battery_saver, dxcore_available, ram_probe_ok,
+        experimental_egpu_streaming, override_arch_gen);
+    layout!(v, VfDeviceProfileDecision, selected_gpu_index, gpu_probe_ok, gpu_connection, gpu_arch_gen,
+        apu_tier, apply_visual_cuts, apply_uma_memory_guard, apply_uma_vram_reg_override, allow_ram_purge,
+        force_high_perf_power_plan, block_driver_tweaks, apply_egpu_streaming_tweaks, safe_vram_pool_mb,
+        amd_tessellation_cap, dxvk_compiler_threads, disable_dx12_async_compute);
     v
 }
 
@@ -675,6 +729,10 @@ pub extern "C" fn vf_rust_bridge_constants(out: *mut u32, cap: usize) -> usize {
             VF_SID_ADMINISTRATORS as u32, VF_SID_TRUSTED_INSTALLER as u32,
             VF_INI_OK, VF_INI_ERR_INVALID_INPUT, VF_INI_ERR_ENCODING, VF_INI_ERR_MISSING_END_MARKER,
             VF_INI_ERR_UNMATCHED_END_MARKER,
+            VF_GPU_CONN_UNKNOWN as u32, VF_GPU_CONN_INTEGRATED as u32, VF_GPU_CONN_DISCRETE as u32, VF_GPU_CONN_EXTERNAL as u32,
+            VF_DISK_UNKNOWN as u32, VF_DISK_HDD as u32, VF_DISK_SSD as u32, VF_DISK_NVME as u32,
+            VF_ARCH_UNKNOWN as u32, VF_ARCH_X64 as u32, VF_ARCH_ARM64_EMULATED as u32, VF_ARCH_ARM64_NATIVE as u32, VF_ARCH_X86 as u32,
+            VF_GPU_PREF_DEFAULT as u32, VF_GPU_PREF_POWER_SAVING as u32, VF_GPU_PREF_HIGH_PERF as u32,
         ];
         if !out.is_null() {
             let n = constants.len().min(cap);

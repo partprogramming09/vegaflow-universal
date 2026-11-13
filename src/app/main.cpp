@@ -128,7 +128,7 @@ int main(int argc, char* argv[]) {
 
     using namespace vegaflow;
     PrivilegeStatus priv = PrivilegeManager::EnableRequiredPrivileges(false);
-    SystemHardwareProfile hw = HardwareProfiler::DetectHardware();
+    SystemHardwareProfile hw = HardwareProfiler::DetectHardware(opts.gui_flag);
     ApuOptimizationPolicy boot_policy = HardwareProfiler::BuildOptimizationPolicy(hw);
 
     SteadyClock journal_clock;
@@ -212,7 +212,7 @@ int main(int argc, char* argv[]) {
         session_guard.end_clean = true;
     }
 
-    if (!safe_mode && priv.is_elevated && boot_policy.apply_uma_vram_reg_override) {
+    if (!safe_mode && priv.is_elevated && boot_policy.apply_uma_vram_reg_override && !boot_policy.block_driver_tweaks) {
         GraphicsOptimizer::ApplyAmdVramReportingOverride(boot_policy.safe_vram_pool_mb, opts.dry_run_flag);
     }
 

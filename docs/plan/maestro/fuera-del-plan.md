@@ -22,7 +22,7 @@
 - Un hardlink dentro de una carpeta permitida hacia un archivo protegido no se detecta (la ruta del handle es la del enlace). No se midió si un usuario sin permisos sobre el archivo puede crear ese hardlink.
 - Las carpetas permitidas se reúnen y se resuelven en cada validación; el coste no se midió. Guardarlas en caché reabriría la carrera con junctions.
 - ZZZ: `CanModifyGameDir` dice que sí porque los archivos de anti-cheat están en subcarpetas (solo se mira hacia arriba). Es anterior a la fase 1; el preset sigue bloqueado por `has_anticheat`.
-- La prueba de que `run_cycle` pasa la política estática se movió a la fase 3 ([`07-fase-3.md`](07-fase-3.md)).
+- ~~La prueba de que `run_cycle` pasa la política estática~~ se implementó en la fase 3 (`RunGameSessionCycle` + Prueba 51).
 
 ## Pendiente heredado de la fase 1b
 

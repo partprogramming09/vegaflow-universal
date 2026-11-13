@@ -5,6 +5,7 @@ pub mod apu_tier;
 pub mod config_file;
 pub mod config_rules;
 pub mod cpu_governor;
+pub mod device_profile;
 pub mod file_access;
 pub mod folder_trust;
 pub mod ini_merge;

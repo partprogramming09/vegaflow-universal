@@ -48,7 +48,9 @@ int RunDaemon(
                   << "Arrancando sin aplicar ajustes del sistema. Usa --restore-registry si necesitas revertir.\n";
     } else {
         GraphicsOptimizer::SetGameDvrAndFseOptimized(true, false);
-        GraphicsOptimizer::SetApuLaptopPowerProfile(true, policy, false);
+        if (policy.force_high_perf_power_plan) {
+            GraphicsOptimizer::SetApuLaptopPowerProfile(true, policy, false);
+        }
     }
 
     if (once_mode) {
@@ -65,7 +67,9 @@ int RunDaemon(
                 }
                 telemetry_monitor.StopMonitoring();
             }
-            GraphicsOptimizer::SetApuLaptopPowerProfile(false, policy, false);
+            if (GraphicsOptimizer::IsApuPowerModeApplied()) {
+                GraphicsOptimizer::SetApuLaptopPowerProfile(false, policy, false);
+            }
             GraphicsOptimizer::SetGameDvrAndFseOptimized(false, false);
             GraphicsOptimizer::RestoreAllRegistryBackups();
         }

@@ -252,15 +252,93 @@ uint32_t vf_rust_ini_remove_section_keys(const uint8_t* original, size_t origina
 uint32_t vf_rust_ini_query_section(const uint8_t* original, size_t original_len, const char* section, size_t section_len,
                                    VfKvFn on_kv, void* ctx);
 
+/* Device profile and GPU classification (policy/device_profile.rs). */
+#define VF_GPU_CONN_UNKNOWN      0u
+#define VF_GPU_CONN_INTEGRATED   1u
+#define VF_GPU_CONN_DISCRETE     2u
+#define VF_GPU_CONN_EXTERNAL     3u
+
+#define VF_DISK_UNKNOWN          0u
+#define VF_DISK_HDD              1u
+#define VF_DISK_SSD              2u
+#define VF_DISK_NVME             3u
+
+#define VF_ARCH_UNKNOWN          0u
+#define VF_ARCH_X64              1u
+#define VF_ARCH_ARM64_EMULATED   2u
+#define VF_ARCH_ARM64_NATIVE     3u
+#define VF_ARCH_X86              4u
+
+#define VF_GPU_PREF_DEFAULT      0u
+#define VF_GPU_PREF_POWER_SAVING 1u
+#define VF_GPU_PREF_HIGH_PERF    2u
+
+typedef struct VfGpuAdapterInput {
+    uint32_t vendor_id;
+    uint32_t device_id;
+    uint64_t dedicated_vram_mb;
+    uint64_t shared_sys_mb;
+    bool dxcore_available;
+    bool dxcore_integrated;
+    bool dxcore_detachable;
+    bool removal_detachable;
+    const uint8_t* name_ptr;
+    size_t name_len;
+} VfGpuAdapterInput;
+
+typedef struct VfDeviceProfileInput {
+    uint64_t total_ram_mb;
+    uint32_t physical_cores;
+    uint32_t cpu_family;
+    uint32_t cpu_model;
+    uint8_t user_gpu_pref;
+    uint8_t system_arch;
+    bool power_known;
+    bool has_battery;
+    bool ac_online;
+    bool battery_saver;
+    bool dxcore_available;
+    bool ram_probe_ok;
+    bool experimental_egpu_streaming;
+    uint8_t override_arch_gen;
+} VfDeviceProfileInput;
+
+typedef struct VfDeviceProfileDecision {
+    uint32_t selected_gpu_index;
+    bool gpu_probe_ok;
+    uint8_t gpu_connection;
+    uint8_t gpu_arch_gen;
+    uint8_t apu_tier;
+    bool apply_visual_cuts;
+    bool apply_uma_memory_guard;
+    bool apply_uma_vram_reg_override;
+    bool allow_ram_purge;
+    bool force_high_perf_power_plan;
+    bool block_driver_tweaks;
+    bool apply_egpu_streaming_tweaks;
+    uint32_t safe_vram_pool_mb;
+    uint32_t amd_tessellation_cap;
+    uint32_t dxvk_compiler_threads;
+    bool disable_dx12_async_compute;
+} VfDeviceProfileDecision;
+
+bool vf_rust_evaluate_device_profile(
+    const VfGpuAdapterInput* adapters,
+    size_t adapter_count,
+    const VfDeviceProfileInput* input,
+    VfDeviceProfileDecision* out
+);
+
 /* Layout check for the structs above (this header is written by hand). Writes, for each struct in the order
    VfUmaTelemetryInput, VfUmaGuardDecision, VfNtMemoryListSample, VfCpuCoreEntry, VfTopologyPartitionOut,
-   VfTierInput, VfAllowedRoot, VfConfigSettings, VfConfigLoad, VfAceEntry, VfIniKv: its size, its alignment and the offset and size of each field in declaration order. Writes at most `cap`
+   VfTierInput, VfAllowedRoot, VfConfigSettings, VfConfigLoad, VfAceEntry, VfIniKv, VfGpuAdapterInput,
+   VfDeviceProfileInput, VfDeviceProfileDecision: its size, its alignment and the offset and size of each field in declaration order. Writes at most `cap`
    numbers and returns how many there are in total. Checked by C++ Test 34. */
 size_t vf_rust_bridge_layout(size_t* out, size_t cap);
 
 /* The #defines above that Rust also defines, in this order: VF_CONFIG_CORRUPT .. VF_CONFIG_EMPTY, VF_CONFIG_BLOCKS_SAVE,
    VF_CONFIG_KEY_VERSION .. VF_CONFIG_KEY_MEMORY, VF_CONFIG_SAVE_OK .. VF_CONFIG_SAVE_INVALID, VF_SID_OTHER ..
-   VF_SID_TRUSTED_INSTALLER, VF_INI_OK .. VF_INI_ERR_UNMATCHED_END_MARKER. Writes at most `cap` and returns how many there are. Checked by C++ Test 34. */
+   VF_SID_TRUSTED_INSTALLER, VF_INI_OK .. VF_INI_ERR_UNMATCHED_END_MARKER, VF_GPU_CONN_UNKNOWN .. VF_GPU_PREF_HIGH_PERF. Writes at most `cap` and returns how many there are. Checked by C++ Test 34. */
 size_t vf_rust_bridge_constants(uint32_t* out, size_t cap);
 
 #ifdef __cplusplus

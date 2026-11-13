@@ -204,6 +204,29 @@ void Test34() {
         VF_LAYOUT_BEGIN(VfIniKv)
         VF_FIELD(VfIniKv, key) VF_FIELD(VfIniKv, key_len)
         VF_FIELD(VfIniKv, value) VF_FIELD(VfIniKv, value_len)
+        VF_LAYOUT_BEGIN(VfGpuAdapterInput)
+        VF_FIELD(VfGpuAdapterInput, vendor_id) VF_FIELD(VfGpuAdapterInput, device_id)
+        VF_FIELD(VfGpuAdapterInput, dedicated_vram_mb) VF_FIELD(VfGpuAdapterInput, shared_sys_mb)
+        VF_FIELD(VfGpuAdapterInput, dxcore_available) VF_FIELD(VfGpuAdapterInput, dxcore_integrated)
+        VF_FIELD(VfGpuAdapterInput, dxcore_detachable) VF_FIELD(VfGpuAdapterInput, removal_detachable)
+        VF_FIELD(VfGpuAdapterInput, name_ptr) VF_FIELD(VfGpuAdapterInput, name_len)
+        VF_LAYOUT_BEGIN(VfDeviceProfileInput)
+        VF_FIELD(VfDeviceProfileInput, total_ram_mb) VF_FIELD(VfDeviceProfileInput, physical_cores)
+        VF_FIELD(VfDeviceProfileInput, cpu_family) VF_FIELD(VfDeviceProfileInput, cpu_model)
+        VF_FIELD(VfDeviceProfileInput, user_gpu_pref) VF_FIELD(VfDeviceProfileInput, system_arch)
+        VF_FIELD(VfDeviceProfileInput, power_known) VF_FIELD(VfDeviceProfileInput, has_battery)
+        VF_FIELD(VfDeviceProfileInput, ac_online) VF_FIELD(VfDeviceProfileInput, battery_saver)
+        VF_FIELD(VfDeviceProfileInput, dxcore_available) VF_FIELD(VfDeviceProfileInput, ram_probe_ok)
+        VF_FIELD(VfDeviceProfileInput, experimental_egpu_streaming) VF_FIELD(VfDeviceProfileInput, override_arch_gen)
+        VF_LAYOUT_BEGIN(VfDeviceProfileDecision)
+        VF_FIELD(VfDeviceProfileDecision, selected_gpu_index) VF_FIELD(VfDeviceProfileDecision, gpu_probe_ok)
+        VF_FIELD(VfDeviceProfileDecision, gpu_connection) VF_FIELD(VfDeviceProfileDecision, gpu_arch_gen)
+        VF_FIELD(VfDeviceProfileDecision, apu_tier) VF_FIELD(VfDeviceProfileDecision, apply_visual_cuts)
+        VF_FIELD(VfDeviceProfileDecision, apply_uma_memory_guard) VF_FIELD(VfDeviceProfileDecision, apply_uma_vram_reg_override)
+        VF_FIELD(VfDeviceProfileDecision, allow_ram_purge) VF_FIELD(VfDeviceProfileDecision, force_high_perf_power_plan)
+        VF_FIELD(VfDeviceProfileDecision, block_driver_tweaks) VF_FIELD(VfDeviceProfileDecision, apply_egpu_streaming_tweaks)
+        VF_FIELD(VfDeviceProfileDecision, safe_vram_pool_mb) VF_FIELD(VfDeviceProfileDecision, amd_tessellation_cap)
+        VF_FIELD(VfDeviceProfileDecision, dxvk_compiler_threads) VF_FIELD(VfDeviceProfileDecision, disable_dx12_async_compute)
 #undef VF_FIELD
 #undef VF_LAYOUT_BEGIN
 
@@ -226,7 +249,11 @@ void Test34() {
             VF_CONFIG_SAVE_OK, VF_CONFIG_SAVE_BLOCKED, VF_CONFIG_SAVE_INVALID, VF_SID_OTHER, VF_SID_SYSTEM,
             VF_SID_ADMINISTRATORS, VF_SID_TRUSTED_INSTALLER,
             VF_INI_OK, VF_INI_ERR_INVALID_INPUT, VF_INI_ERR_ENCODING, VF_INI_ERR_MISSING_END_MARKER,
-            VF_INI_ERR_UNMATCHED_END_MARKER};
+            VF_INI_ERR_UNMATCHED_END_MARKER,
+            VF_GPU_CONN_UNKNOWN, VF_GPU_CONN_INTEGRATED, VF_GPU_CONN_DISCRETE, VF_GPU_CONN_EXTERNAL,
+            VF_DISK_UNKNOWN, VF_DISK_HDD, VF_DISK_SSD, VF_DISK_NVME,
+            VF_ARCH_UNKNOWN, VF_ARCH_X64, VF_ARCH_ARM64_EMULATED, VF_ARCH_ARM64_NATIVE, VF_ARCH_X86,
+            VF_GPU_PREF_DEFAULT, VF_GPU_PREF_POWER_SAVING, VF_GPU_PREF_HIGH_PERF};
         std::vector<uint32_t> rust_constants(expected_constants.size() + 8, 0);
         const size_t constant_count = vf_rust_bridge_constants(rust_constants.data(), rust_constants.size());
         rust_constants.resize(std::min(constant_count, rust_constants.size()));

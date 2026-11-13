@@ -120,6 +120,20 @@ bool RestoreFromBackupVerified(
 } // namespace
 
 std::string SteamEngineOptimizer::GenerateUnrealUmaBlock(const ApuOptimizationPolicy& policy, uint32_t vram_pool_mb_override) {
+    std::string umaBlock;
+    umaBlock += "\n\n; [VegaFlowUMA_Start]\n";
+    umaBlock += "[SystemSettings]\n";
+    umaBlock += "r.ShaderPipelineCache.Enabled=1\n";
+
+    if (!policy.apply_visual_cuts) {
+        if (policy.apply_egpu_streaming_tweaks) {
+            umaBlock += "r.Streaming.AmortizeCPUToGPUCopy=1\n";
+            umaBlock += "r.Streaming.MaxNumTexturesToStreamPerFrame=40\n";
+        }
+        umaBlock += "; [VegaFlowUMA_End]\n";
+        return umaBlock;
+    }
+
     uint32_t effective_pool_mb = 0;
     if (policy.tier == ApuTier::Tier1_EntryUMA) {
         effective_pool_mb = (vram_pool_mb_override == 0) ? policy.safe_vram_pool_mb : std::min(vram_pool_mb_override, policy.safe_vram_pool_mb);
@@ -129,9 +143,6 @@ std::string SteamEngineOptimizer::GenerateUnrealUmaBlock(const ApuOptimizationPo
         effective_pool_mb = (vram_pool_mb_override == 0 || vram_pool_mb_override == 4096) ? policy.safe_vram_pool_mb : vram_pool_mb_override;
     }
 
-    std::string umaBlock;
-    umaBlock += "\n\n; [VegaFlowUMA_Start]\n";
-    umaBlock += "[SystemSettings]\n";
     umaBlock += "r.Streaming.PoolSize=" + std::to_string(effective_pool_mb) + "\n";
     umaBlock += "r.Streaming.LimitPoolSizeToVRAM=0\n";
     umaBlock += "r.Streaming.FullyLoadUsedTextures=1\n";
@@ -139,10 +150,7 @@ std::string SteamEngineOptimizer::GenerateUnrealUmaBlock(const ApuOptimizationPo
     umaBlock += "r.Streaming.MaxNumTexturesToStreamPerFrame=120\n";
     umaBlock += "r.Streaming.AmortizeCPUToGPUCopy=0\n";
     umaBlock += "r.Streaming.Boost=1.5\n";
-    umaBlock += "r.ShaderPipelineCache.Enabled=1\n";
-    umaBlock += "r.ShaderPipelineCache.AsyncCompileRate=16\n";
     umaBlock += "r.OneFrameThreadLag=1\n";
-    umaBlock += "r.GTSyncType=1\n";
     umaBlock += "r.SceneColorFringeQuality=0\n";
     umaBlock += "r.Tonemapper.GrainQuantization=0\n";
     umaBlock += "r.MotionBlurQuality=0\n";
@@ -196,7 +204,9 @@ EngineOptimizationReport SteamEngineOptimizer::ApplyEngineUmaPreset(
 
         if (dry_run) {
             report.success = true;
-            report.status_message = "Dry-run: Preset UMA Unreal Engine 4/5 validado";
+            report.status_message = policy.apply_visual_cuts
+                ? "Dry-run: Preset UMA Unreal Engine 4/5 validado"
+                : "Dry-run: Preset Unreal Engine (solo cache PSO, sin recortes visuales) validado";
             return report;
         }
 
@@ -246,9 +256,12 @@ EngineOptimizationReport SteamEngineOptimizer::ApplyEngineUmaPreset(
                 return report;
             }
 
-            const uint64_t j_ini = JournalBeginGameConfig(
-                pIni, pBak, "Preset UMA Unreal Engine (PoolVRAM=" + std::to_string(effective_pool_mb) + "MB)",
-                "Preset UMA Unreal Engine");
+            const std::string desc = policy.apply_visual_cuts
+                ? ("Preset UMA Unreal Engine (PoolVRAM=" + std::to_string(effective_pool_mb) + "MB)")
+                : (policy.apply_egpu_streaming_tweaks
+                    ? std::string("Preset eGPU Unreal Engine (ShaderCache=ON + Streaming amortizado)")
+                    : std::string("Preset Unreal Engine sin recortes (ShaderCache=ON)"));
+            const uint64_t j_ini = JournalBeginGameConfig(pIni, pBak, desc, "Preset Unreal Engine");
             if (WriteStringToFile(fs_, pIni, finalContent, game.has_anticheat)) {
                 JournalEndGameConfig(j_ini, true);
                 any_applied = true;
@@ -264,8 +277,14 @@ EngineOptimizationReport SteamEngineOptimizer::ApplyEngineUmaPreset(
         }
 
         report.success = true;
-        report.status_message = "Preset UMA Unreal Engine aplicado (PoolVRAM=" +
-            std::to_string(effective_pool_mb) + "MB, AsyncShaders=ON, FlipModel=ON, 60FPS-VegaTuned)";
+        if (!policy.apply_visual_cuts) {
+            report.status_message = policy.apply_egpu_streaming_tweaks
+                ? "Preset eGPU Unreal aplicado (ShaderCache=ON, Streaming amortizado, sin recortes visuales)"
+                : "Preset Unreal aplicado sin recortes visuales (ShaderCache=ON, FlipModel=ON)";
+        } else {
+            report.status_message = "Preset UMA Unreal Engine aplicado (PoolVRAM=" +
+                std::to_string(effective_pool_mb) + "MB, AsyncShaders=ON, FlipModel=ON, 60FPS-VegaTuned)";
+        }
         return report;
     }
 

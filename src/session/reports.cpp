@@ -147,10 +147,15 @@ void PrintStatusReport() {
     std::cout << "  EcoQoS Throttled Processes : " << ecoqos_count << " processes in Efficiency Mode (Thermal Headroom for APU)\n\n";
 
     std::cout << "[GPU & GRAPHICS ARCHITECTURE]\n";
-    std::cout << "  Primary Adapter Description: " << (hw.primary_gpu.description.empty() ? "Standard Display Adapter" : WideToUtf8(hw.primary_gpu.description)) << "\n";
+    std::cout << "  Primary Adapter Description: " << (hw.primary_gpu.description.empty() ? "No se pudo leer" : WideToUtf8(hw.primary_gpu.description)) << "\n";
+    std::cout << "  GPU Connection             : " << HardwareProfiler::ConnectionToString(hw.primary_gpu.connection)
+              << " (DXCore: " << (hw.dxcore_available ? "YES" : "NO") << ")\n";
     std::cout << "  Vendor                     : " << HardwareProfiler::VendorToString(hw.primary_gpu.vendor)
               << " (PCI ID: 0x" << std::hex << hw.primary_gpu.vendor_id << ":0x" << hw.primary_gpu.device_id << std::dec << ")\n";
     std::cout << "  Memory Architecture        : " << HardwareProfiler::MemArchToString(hw.primary_gpu.mem_arch) << "\n";
+    std::cout << "  System Arch / Power        : " << HardwareProfiler::SystemArchToString(hw.system_arch) << " / "
+              << (!hw.power_status.known ? "No se pudo leer" : (hw.power_status.ac_online ? "Enchufado" : "Con bateria"))
+              << (hw.power_status.battery_saver ? " [Ahorro de bateria]" : "") << "\n";
     std::cout << "  Dedicated Video Memory     : " << FormatBytes(hw.primary_gpu.dedicated_vram_bytes) << "\n";
     std::cout << "  Shared System Memory       : " << FormatBytes(hw.primary_gpu.shared_system_bytes) << "\n\n";
 
@@ -160,6 +165,8 @@ void PrintStatusReport() {
     std::cout << "[APU CAPABILITY GUARD & DX11/DX12 POLICY]\n";
     std::cout << "  Detected APU Tier & Guard  : " << policy.tier_label << "\n";
     std::cout << "  GPU Architecture Gen       : " << HardwareProfiler::ArchGenToString(policy.arch_gen) << "\n";
+    std::cout << "  Visual Cuts / UMA Guard    : " << (policy.apply_visual_cuts ? "YES (UMA)" : "NO (ShaderCache only)")
+              << " / " << (policy.apply_uma_memory_guard ? "ENABLED" : "DISABLED") << "\n";
     std::cout << "  Safe UMA VRAM / Shared Pool: " << policy.safe_vram_pool_mb << " MB / " << policy.safe_shared_pool_mb << " MB (OS Floor: " << policy.os_reserve_floor_mb << " MB)\n";
     std::cout << "  DX11 Specialization        : DXVK Compiler Threads=" << policy.dxvk_compiler_threads << ", AMD Tessellation Cap=" << policy.amd_tessellation_cap << "x, Max Anisotropy=" << policy.max_anisotropy << "x\n";
     std::cout << "  DX12 Specialization        : AsyncCompute=" << (policy.disable_dx12_async_compute ? "DISABLED (UMA Contention Guard)" : "ENABLED (Do-No-Harm Guard)")

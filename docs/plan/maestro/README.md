@@ -1,6 +1,6 @@
 # Plan maestro: arquitectura nueva, Rust, seguridad y soporte universal
 
-**Lector:** personas. Fecha: 2026-11-08. Estado: **aprobado el 2026-11-09**. Hechas: fase 0, R1 y R2 (2026-11-09), fase 1 y fase 1b (2026-11-10), fase 2 y fase 2b (2026-11-12). Siguiente: fase 3.
+**Lector:** personas. Fecha: 2026-11-08. Estado: **aprobado el 2026-11-09**. Hechas: fase 0, R1 y R2 (2026-11-09), fase 1 y fase 1b (2026-11-10), fase 2, fase 2b y fase 3 (2026-11-12). Siguiente: fase 4.
 
 Este es el único plan del proyecto. Junta tres cosas que antes iban por separado:
 - la **arquitectura nueva** y la modularización (decisión en el [ADR 0001](../../adr/0001-nucleo-que-decide-y-puertos.md));
@@ -24,7 +24,7 @@ Un archivo por fase, en el orden en que se hacen. Lo común va aparte:
 | ~~`04-fase-1b.md`~~ | Fase 1b: **hecha el 2026-11-10** (`da5b0ee`, `574324e`, `45326bf`, `03bf476`: una sola ruta junto al `.exe` que solo se lee si nadie más pudo escribirla, lector JSON propio en Rust, rangos y nombres de juego validados, guardado sin perder claves; el archivo se borró, la historia queda en git). Resultado en [`docs/arquitectura/seguridad.md`](../../arquitectura/seguridad.md), punto 5; pendientes en [`fuera-del-plan.md`](fuera-del-plan.md) |
 | ~~`05-fase-2.md`~~ | Fase 2: **hecha el 2026-11-12** (editor `.ini` y `boot.config` en Rust `policy/ini_merge.rs`, BOM/UTF-16/CRLF preservados, copia `.vegaflow.bak` comprobada byte a byte, Prueba 48 y `tests/vectors/ini/`; el archivo se borró, la historia queda en git). Resultado en [`docs/arquitectura/seguridad.md`](../../arquitectura/seguridad.md), punto 7 |
 | ~~`06-fase-2b.md`~~ | Fase 2b: **hecha el 2026-11-12** (diario atómico `<exe>\config\change_journal.vfj`, modo seguro tras dos cierres anormales, limpieza de `--once`, historial en GUI, punto de restauración opcional, Pruebas 49 y 50; el archivo se borró, la historia queda en git). Resultado en [`docs/arquitectura/seguridad.md`](../../arquitectura/seguridad.md), punto 8; pendientes en [`fuera-del-plan.md`](fuera-del-plan.md) |
-| [`07-fase-3.md`](07-fase-3.md) | Fase 3: perfil del equipo (empieza por la GPU) |
+| ~~`07-fase-3.md`~~ | Fase 3: **hecha el 2026-11-12** (perfil universal del equipo y GPU en Rust `policy/device_profile.rs`, puerto `ports/device_probe.hpp` con DXCore + SetupAPI + almacenamiento `dwDesiredAccess=0` + energía + ARM64, detección de hot-plug y paso estático/vivo en `session/game_session.cpp`, `Engine.ini` sin recortes para dGPU/eGPU, Pruebas 51 y 52 y `tests/vectors/device_profiles.tsv`; el archivo se borró, la historia queda en git) |
 | [`08-fase-4.md`](08-fase-4.md) | Fase 4: decidir cuándo liberar memoria |
 | [`09-fase-5.md`](09-fase-5.md) | Fase 5: elegir qué procesos frenar |
 | [`10-fase-6.md`](10-fase-6.md) | Fase 6: quitar la medición de fotogramas del daemon |
@@ -47,7 +47,7 @@ Las fuentes externas están en [`docs/investigacion/`](../../investigacion/READM
 | 1b | Configuración segura (`config.json`). **Hecha** | Hoy se lee con una ruta relativa a la carpeta de trabajo, se guarda borrando lo que no conoce y no se valida; las fases 5 y G dependen de ella | **Alta** |
 | 2 | Editor de `.ini` de juegos. **Hecha** | Puede perder la configuración original del juego | **Alta** |
 | 2b | Diario de cambios. **Hecha** | Si el daemon se cierra a la fuerza, los cambios se quedan aplicados y nadie lo sabe | **Alta** |
-| 3 | Perfil del equipo: CPU, GPU (con su **tipo de conexión**), RAM, disco, energía, pantalla, Windows y arquitectura | Clasifica mal varias APU modernas y no distingue una eGPU | Media |
+| 3 | Perfil del equipo: CPU, GPU (con su **tipo de conexión**), RAM, disco, energía, pantalla, Windows y arquitectura. **Hecha** | Clasifica mal varias APU modernas y no distingue una eGPU | Media |
 | 4 | Decidir cuándo liberar memoria | Reglas repetidas en dos lenguajes y una purga sin pausa | Media |
 | 5 | Elegir qué procesos frenar | Puede dejar frenado un proceso que no toca | Media |
 | 6 | Quitar la medición de fotogramas del daemon | VegaFlow no es un medidor; la captura usa números de evento que no son los de un fotograma | Media |
