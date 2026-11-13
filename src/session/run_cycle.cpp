@@ -33,8 +33,8 @@ public:
         std::function<void(const std::string&)>* audit_cb)
         : fs_(fs), cpu_(cpu), mem_(mem), telem_(telem), audit_cb_(audit_cb) {}
 
-    std::optional<vegaflow::DetectedGameProcess> DetectActiveGame(const std::vector<std::wstring>& custom_exes) override {
-        return vegaflow::ProcessDetector::DetectActiveGame(custom_exes);
+    std::optional<vegaflow::DetectedGameProcess> DetectActiveGame(const vegaflow::ProcessPolicyConfig& policy) override {
+        return vegaflow::ProcessDetector::DetectActiveGame(policy);
     }
 
     bool IsWindowValid(HWND hwnd) override {
@@ -45,8 +45,10 @@ public:
         return vegaflow::ProcessDetector::IsProcessAlive(pid);
     }
 
-    std::vector<uint32_t> FindBackgroundNoisyProcesses(uint32_t game_pid) override {
-        return vegaflow::ProcessDetector::FindBackgroundNoisyProcesses(game_pid);
+    std::vector<vegaflow::BackgroundProcessTarget> ClassifyBackgroundProcesses(
+        uint32_t game_pid,
+        const vegaflow::ProcessPolicyConfig& policy) override {
+        return vegaflow::ProcessDetector::ClassifyBackgroundProcesses(game_pid, policy);
     }
 
     void QueryLiveMemory(uint64_t& out_local_vram_budget_bytes, uint64_t& out_local_vram_usage_bytes, bool& out_vram_valid) override {
@@ -101,14 +103,15 @@ public:
 
     void ApplyCpuOptimizations(
         uint32_t game_pid,
+        uint64_t game_creation_time,
         uint32_t presenter_thread_id,
         bool is_dx12,
         const std::vector<ULONG>& game_sets,
         const std::vector<ULONG>& bg_sets,
-        const std::vector<uint32_t>& bg_pids,
+        const std::vector<vegaflow::BackgroundProcessTarget>& bg_targets,
         uint32_t& out_throttled) override {
         auto cpu_res = cpu_.ApplyOptimizations(
-            game_pid, presenter_thread_id, is_dx12, game_sets, bg_sets, bg_pids, false);
+            game_pid, game_creation_time, presenter_thread_id, is_dx12, game_sets, bg_sets, bg_targets, false);
         out_throttled = cpu_res.background_processes_throttled;
     }
 

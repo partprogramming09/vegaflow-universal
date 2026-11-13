@@ -12,5 +12,6 @@ pub mod ini_merge;
 pub mod json_text;
 pub mod memory_purge;
 pub mod path_policy;
+pub mod process_class;
 pub mod steam_library;
 pub mod sandbox_core;

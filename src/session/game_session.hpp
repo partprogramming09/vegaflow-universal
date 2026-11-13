@@ -1,9 +1,10 @@
 #pragma once
 
-// Per-game session orchestration and hardware profile conversion / hot-plug refresh (phase 3).
+// Per-game session orchestration and hardware profile conversion / hot-plug refresh (phase 3 & phase 5).
 
 #include "model/hardware.hpp"
 #include "model/game.hpp"
+#include "ports/change_journal.hpp"
 #include "ports/device_probe.hpp"
 #include "ports/file_system.hpp"
 #include "session/config.hpp"
@@ -16,6 +17,7 @@
 
 namespace vegaflow {
 
+class CpuOrchestrator;
 struct SessionMemoryTelemetry;
 struct ApuShadowConfig;
 struct EngineOptimizationReport;
@@ -27,11 +29,13 @@ namespace vegaflow::session {
 struct GameSessionState {
     bool game_active = false;
     uint32_t active_game_pid = 0;
+    uint64_t active_game_creation_time = 0;
     std::wstring active_game_exe;
     std::wstring active_game_path;
     std::string active_game_api;
     HWND active_game_hwnd = nullptr;
     bool timer_boosted = false;
+    bool active_game_anticheat = false;
 };
 
 // Pure conversion: resolves primary GPU, connection, arch_gen, and APU tier via Rust device_profile.rs
@@ -52,10 +56,12 @@ bool RefreshHardwareProfileIfChanged(
 struct GameSessionEnvironment {
     virtual ~GameSessionEnvironment() = default;
 
-    virtual std::optional<DetectedGameProcess> DetectActiveGame(const std::vector<std::wstring>& custom_exes) = 0;
+    virtual std::optional<DetectedGameProcess> DetectActiveGame(const ProcessPolicyConfig& policy) = 0;
     virtual bool IsWindowValid(HWND hwnd) = 0;
     virtual bool IsProcessAlive(uint32_t pid) = 0;
-    virtual std::vector<uint32_t> FindBackgroundNoisyProcesses(uint32_t game_pid) = 0;
+    virtual std::vector<BackgroundProcessTarget> ClassifyBackgroundProcesses(
+        uint32_t game_pid,
+        const ProcessPolicyConfig& policy) = 0;
 
     virtual void QueryLiveMemory(uint64_t& out_local_vram_budget_bytes, uint64_t& out_local_vram_usage_bytes, bool& out_vram_valid) = 0;
 
@@ -71,11 +77,12 @@ struct GameSessionEnvironment {
 
     virtual void ApplyCpuOptimizations(
         uint32_t game_pid,
+        uint64_t game_creation_time,
         uint32_t presenter_thread_id,
         bool is_dx12,
         const std::vector<ULONG>& game_sets,
         const std::vector<ULONG>& bg_sets,
-        const std::vector<uint32_t>& bg_pids,
+        const std::vector<BackgroundProcessTarget>& bg_targets,
         uint32_t& out_throttled) = 0;
     virtual void RestoreCpuAll() = 0;
 
@@ -94,5 +101,17 @@ void RunGameSessionCycle(
     GameSessionState& state,
     uint32_t* out_noisy_bg_count = nullptr,
     const std::function<void(const std::string&)>& audit_cb = {});
+
+// "Me fue mal en este juego": excludes exe_name immediately, persists config.json, logs a journal audit entry,
+// and reverts the active session if that exe is currently active.
+bool ExcludeGameAndRevert(
+    app::ConfigStore& config_store,
+    app::AppConfig& config,
+    const std::wstring& exe_name,
+    GameSessionEnvironment* env = nullptr,
+    CpuOrchestrator* cpu = nullptr,
+    GameSessionState* state = nullptr,
+    ChangeJournal* journal = nullptr,
+    std::string* out_why = nullptr);
 
 } // namespace vegaflow::session

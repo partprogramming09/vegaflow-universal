@@ -94,12 +94,19 @@ public:
     bool uma_guard_evaluated = false;
     vegaflow::ApuOptimizationPolicy uma_guard_policy{};
 
-    std::optional<vegaflow::DetectedGameProcess> DetectActiveGame(const std::vector<std::wstring>&) override {
+    std::optional<vegaflow::DetectedGameProcess> DetectActiveGame(const vegaflow::ProcessPolicyConfig&) override {
         return active_game;
     }
     bool IsWindowValid(HWND) override { return true; }
     bool IsProcessAlive(uint32_t) override { return active_game.has_value(); }
-    std::vector<uint32_t> FindBackgroundNoisyProcesses(uint32_t) override { return {4001}; }
+    std::vector<vegaflow::BackgroundProcessTarget> ClassifyBackgroundProcesses(uint32_t, const vegaflow::ProcessPolicyConfig&) override {
+        vegaflow::BackgroundProcessTarget t{};
+        t.pid = 4001;
+        t.creation_time = 100;
+        t.exe_name = L"chrome.exe";
+        t.action = vegaflow::ProcessAction::Throttle;
+        return {t};
+    }
 
     void QueryLiveMemory(uint64_t& out_budget, uint64_t& out_usage, bool& out_valid) override {
         out_budget = live_vram_budget;
@@ -131,7 +138,7 @@ public:
         unreal_preset_pool_mb = pool_mb;
     }
 
-    void ApplyCpuOptimizations(uint32_t, uint32_t, bool, const std::vector<ULONG>&, const std::vector<ULONG>&, const std::vector<uint32_t>&, uint32_t& out_throttled) override {
+    void ApplyCpuOptimizations(uint32_t, uint64_t, uint32_t, bool, const std::vector<ULONG>&, const std::vector<ULONG>&, const std::vector<vegaflow::BackgroundProcessTarget>&, uint32_t& out_throttled) override {
         out_throttled = 1;
     }
     void RestoreCpuAll() override {}

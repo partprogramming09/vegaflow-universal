@@ -3,6 +3,7 @@
 
 use super::config_rules::{self as rules, NumberRule};
 use super::json_text::{self, Value};
+use super::process_class::{self, VfProcessCategoryActions};
 
 /// The file is not JSON, or its top level is not an object: every setting takes its factory value.
 pub const VF_CONFIG_CORRUPT: u32 = 1 << 0;
@@ -29,8 +30,13 @@ pub const VF_CONFIG_KEY_MAX_GAME_DISK_READ_MB_S: u32 = 1 << 8;
 pub const VF_CONFIG_KEY_CUSTOM_GAME_EXES: u32 = 1 << 9;
 /// `memory` is there but is not an object.
 pub const VF_CONFIG_KEY_MEMORY: u32 = 1 << 10;
+pub const VF_CONFIG_KEY_HEAVY_WORK_AS_GAME: u32 = 1 << 11;
+pub const VF_CONFIG_KEY_PROCESS_CATEGORY_ACTIONS: u32 = 1 << 12;
+pub const VF_CONFIG_KEY_PROCESS_EXCEPTIONS: u32 = 1 << 13;
+pub const VF_CONFIG_KEY_EXCLUDED_GAME_EXES: u32 = 1 << 14;
 
 pub const CURRENT_VERSION: u64 = 1;
+pub const MAX_PROCESS_EXCEPTIONS: usize = 256;
 
 /// Every setting VegaFlow reads from `config.json`.
 #[derive(Debug, Clone, PartialEq)]
@@ -44,6 +50,10 @@ pub struct Settings {
     pub cooldown_seconds: u32,
     pub max_game_disk_read_mb_s: u64,
     pub custom_game_exes: Vec<String>,
+    pub heavy_work_as_game: bool,
+    pub process_category_actions: VfProcessCategoryActions,
+    pub process_exceptions: Vec<(String, u8)>,
+    pub excluded_game_exes: Vec<String>,
 }
 
 impl Default for Settings {
@@ -58,6 +68,10 @@ impl Default for Settings {
             cooldown_seconds: rules::COOLDOWN_SECONDS.default as u32,
             max_game_disk_read_mb_s: rules::MAX_GAME_DISK_READ_MB_S.default,
             custom_game_exes: Vec::new(),
+            heavy_work_as_game: false,
+            process_category_actions: VfProcessCategoryActions::default(),
+            process_exceptions: Vec::new(),
+            excluded_game_exes: Vec::new(),
         }
     }
 }
@@ -154,6 +168,43 @@ const BOOL_KEYS: [BoolKey; 2] = [
 ];
 const GAME_EXES_KEY: &str = "custom_game_exes";
 const MEMORY_KEY: &str = "memory";
+const HEAVY_WORK_KEY: &str = "heavy_work_as_game";
+const PROCESS_CATEGORIES_KEY: &str = "process_category_actions";
+const PROCESS_EXCEPTIONS_KEY: &str = "process_exceptions";
+const EXCLUDED_GAMES_KEY: &str = "excluded_game_exes";
+
+fn parse_action_str(s: &str) -> Option<u8> {
+    match s {
+        "do_not_touch" => Some(process_class::VF_PROC_ACTION_DO_NOT_TOUCH),
+        "eco_only" => Some(process_class::VF_PROC_ACTION_ECO_ONLY),
+        "throttle" => Some(process_class::VF_PROC_ACTION_THROTTLE),
+        _ => None,
+    }
+}
+
+fn action_to_str(action: u8) -> &'static str {
+    match action {
+        process_class::VF_PROC_ACTION_ECO_ONLY => "eco_only",
+        process_class::VF_PROC_ACTION_THROTTLE => "throttle",
+        _ => "do_not_touch",
+    }
+}
+
+struct CategoryField {
+    key: &'static str,
+    get: fn(&VfProcessCategoryActions) -> u8,
+    set: fn(&mut VfProcessCategoryActions, u8),
+}
+
+const CATEGORY_FIELDS: [CategoryField; 7] = [
+    CategoryField { key: "recording_streaming", get: |c| c.recording_streaming, set: |c, v| c.recording_streaming = v },
+    CategoryField { key: "calls_voice", get: |c| c.calls_voice, set: |c, v| c.calls_voice = v },
+    CategoryField { key: "messaging", get: |c| c.messaging, set: |c, v| c.messaging = v },
+    CategoryField { key: "browsers", get: |c| c.browsers, set: |c, v| c.browsers = v },
+    CategoryField { key: "stores_launchers", get: |c| c.stores_launchers, set: |c, v| c.stores_launchers = v },
+    CategoryField { key: "music", get: |c| c.music, set: |c, v| c.music = v },
+    CategoryField { key: "cloud_sync", get: |c| c.cloud_sync, set: |c, v| c.cloud_sync = v },
+];
 
 fn is_blank(bytes: &[u8]) -> bool {
     let rest = bytes.strip_prefix(b"\xEF\xBB\xBF").unwrap_or(bytes);
@@ -228,6 +279,48 @@ pub fn load(bytes: &[u8]) -> Loaded {
         }
     }
 
+    match root.get(HEAVY_WORK_KEY) {
+        None => {}
+        Some(Value::Bool(b)) => out.settings.heavy_work_as_game = *b,
+        Some(_) => rejected |= VF_CONFIG_KEY_HEAVY_WORK_AS_GAME,
+    }
+
+    match root.get(PROCESS_CATEGORIES_KEY) {
+        None => {}
+        Some(obj @ Value::Object(_)) => {
+            for CategoryField { key, set, .. } in CATEGORY_FIELDS {
+                if let Some(v) = obj.get(key) {
+                    match v {
+                        Value::String(s) => match parse_action_str(s) {
+                            Some(act) => set(&mut out.settings.process_category_actions, act),
+                            None => rejected |= VF_CONFIG_KEY_PROCESS_CATEGORY_ACTIONS,
+                        },
+                        _ => rejected |= VF_CONFIG_KEY_PROCESS_CATEGORY_ACTIONS,
+                    }
+                }
+            }
+        }
+        Some(_) => rejected |= VF_CONFIG_KEY_PROCESS_CATEGORY_ACTIONS,
+    }
+
+    match root.get(PROCESS_EXCEPTIONS_KEY) {
+        None => {}
+        Some(Value::Object(entries)) if entries.len() <= MAX_PROCESS_EXCEPTIONS => {
+            for (exe, val) in entries {
+                let valid_exe = rules::is_allowed_game_exe(exe);
+                let parsed_act = match val {
+                    Value::String(s) => parse_action_str(s),
+                    _ => None,
+                };
+                match (valid_exe, parsed_act) {
+                    (true, Some(act)) => out.settings.process_exceptions.push((exe.clone(), act)),
+                    _ => rejected |= VF_CONFIG_KEY_PROCESS_EXCEPTIONS,
+                }
+            }
+        }
+        Some(_) => rejected |= VF_CONFIG_KEY_PROCESS_EXCEPTIONS,
+    }
+
     match root.get(GAME_EXES_KEY) {
         None => {}
         Some(Value::Array(items)) if items.len() <= rules::MAX_GAME_EXES => {
@@ -239,6 +332,19 @@ pub fn load(bytes: &[u8]) -> Loaded {
             }
         }
         Some(_) => rejected |= VF_CONFIG_KEY_CUSTOM_GAME_EXES,
+    }
+
+    match root.get(EXCLUDED_GAMES_KEY) {
+        None => {}
+        Some(Value::Array(items)) if items.len() <= rules::MAX_GAME_EXES => {
+            for item in items {
+                match item {
+                    Value::String(name) if rules::is_allowed_game_exe(name) => out.settings.excluded_game_exes.push(name.clone()),
+                    _ => rejected |= VF_CONFIG_KEY_EXCLUDED_GAME_EXES,
+                }
+            }
+        }
+        Some(_) => rejected |= VF_CONFIG_KEY_EXCLUDED_GAME_EXES,
     }
 
     out.rejected_keys = rejected;
@@ -262,8 +368,21 @@ fn invalid_settings(s: &Settings) -> u32 {
             bits |= bit;
         }
     }
+    if !s.process_category_actions.are_valid() {
+        bits |= VF_CONFIG_KEY_PROCESS_CATEGORY_ACTIONS;
+    }
+    if s.process_exceptions.len() > MAX_PROCESS_EXCEPTIONS
+        || !s.process_exceptions
+            .iter()
+            .all(|(n, act)| rules::is_allowed_game_exe(n) && process_class::is_valid_bg_action(*act))
+    {
+        bits |= VF_CONFIG_KEY_PROCESS_EXCEPTIONS;
+    }
     if s.custom_game_exes.len() > rules::MAX_GAME_EXES || !s.custom_game_exes.iter().all(|n| rules::is_allowed_game_exe(n)) {
         bits |= VF_CONFIG_KEY_CUSTOM_GAME_EXES;
+    }
+    if s.excluded_game_exes.len() > rules::MAX_GAME_EXES || !s.excluded_game_exes.iter().all(|n| rules::is_allowed_game_exe(n)) {
+        bits |= VF_CONFIG_KEY_EXCLUDED_GAME_EXES;
     }
     bits
 }
@@ -315,6 +434,42 @@ pub fn save(original: &[u8], settings: &Settings) -> Result<String, SaveRefused>
 
     let names = settings.custom_game_exes.iter().cloned().map(Value::String).collect();
     set_member(&mut root, GAME_EXES_KEY, Value::Array(names));
+
+    if settings.heavy_work_as_game || root.iter().any(|(k, _)| k == HEAVY_WORK_KEY) {
+        set_member(&mut root, HEAVY_WORK_KEY, Value::Bool(settings.heavy_work_as_game));
+    }
+
+    if settings.process_category_actions != VfProcessCategoryActions::default()
+        || root.iter().any(|(k, _)| k == PROCESS_CATEGORIES_KEY)
+    {
+        let mut cats = match root.iter().find(|(k, _)| k == PROCESS_CATEGORIES_KEY) {
+            Some((_, Value::Object(c))) => c.clone(),
+            _ => Vec::new(),
+        };
+        for CategoryField { key, get, .. } in CATEGORY_FIELDS {
+            set_member(
+                &mut cats,
+                key,
+                Value::String(action_to_str(get(&settings.process_category_actions)).to_string()),
+            );
+        }
+        set_member(&mut root, PROCESS_CATEGORIES_KEY, Value::Object(cats));
+    }
+
+    if !settings.process_exceptions.is_empty() || root.iter().any(|(k, _)| k == PROCESS_EXCEPTIONS_KEY) {
+        let ex_members = settings
+            .process_exceptions
+            .iter()
+            .map(|(k, act)| (k.clone(), Value::String(action_to_str(*act).to_string())))
+            .collect();
+        set_member(&mut root, PROCESS_EXCEPTIONS_KEY, Value::Object(ex_members));
+    }
+
+    if !settings.excluded_game_exes.is_empty() || root.iter().any(|(k, _)| k == EXCLUDED_GAMES_KEY) {
+        let ex_games = settings.excluded_game_exes.iter().cloned().map(Value::String).collect();
+        set_member(&mut root, EXCLUDED_GAMES_KEY, Value::Array(ex_games));
+    }
+
     Ok(json_text::write_pretty(&Value::Object(root)))
 }
 
@@ -349,8 +504,40 @@ mod tests {
                 cooldown_seconds: 30,
                 max_game_disk_read_mb_s: 40,
                 custom_game_exes: vec!["A.exe".into(), "b.EXE".into()],
+                ..Settings::default()
             }
         );
+    }
+
+    #[test]
+    fn phase5_process_policy_keys_roundtrip_and_reject_invalid() {
+        let raw = br#"{
+            "version": 1,
+            "heavy_work_as_game": true,
+            "process_category_actions": {"recording_streaming": "eco_only", "music": "do_not_touch"},
+            "process_exceptions": {"Telegram.exe": "do_not_touch"},
+            "excluded_game_exes": ["SlowGame.exe"]
+        }"#;
+        let l = load(raw);
+        assert_eq!(l.status, 0);
+        assert_eq!(l.rejected_keys, 0);
+        assert!(l.settings.heavy_work_as_game);
+        assert_eq!(l.settings.process_category_actions.recording_streaming, process_class::VF_PROC_ACTION_ECO_ONLY);
+        assert_eq!(l.settings.process_category_actions.music, process_class::VF_PROC_ACTION_DO_NOT_TOUCH);
+        assert_eq!(l.settings.process_category_actions.calls_voice, process_class::VF_PROC_ACTION_DO_NOT_TOUCH);
+        assert_eq!(l.settings.process_exceptions, vec![("Telegram.exe".into(), process_class::VF_PROC_ACTION_DO_NOT_TOUCH)]);
+        assert_eq!(l.settings.excluded_game_exes, vec!["SlowGame.exe".to_string()]);
+
+        let saved = save(b"", &l.settings).unwrap();
+        let again = load(saved.as_bytes());
+        assert_eq!(again.status, 0);
+        assert_eq!(again.settings, l.settings);
+
+        let bad = br#"{"version": 1, "process_exceptions": {"dwm.exe": "throttle", "Good.exe": "eco_only"}, "process_category_actions": {"browsers": "invalid"}}"#;
+        let bl = load(bad);
+        assert_eq!(bl.status, VF_CONFIG_KEY_REJECTED);
+        assert_eq!(bl.rejected_keys, VF_CONFIG_KEY_PROCESS_EXCEPTIONS | VF_CONFIG_KEY_PROCESS_CATEGORY_ACTIONS);
+        assert_eq!(bl.settings.process_exceptions, vec![("Good.exe".into(), process_class::VF_PROC_ACTION_ECO_ONLY)]);
     }
 
     #[test]

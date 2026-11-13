@@ -20,6 +20,13 @@ use crate::policy::ini_merge::{
 };
 use crate::policy::memory_purge::{self, VfMemoryPurgeDecision, VfMemoryPurgeInput, DEFAULT_VRAM_PRESSURE_THRESHOLD};
 use crate::policy::path_policy::{self, VF_PATH_INTERNAL_ERROR};
+use crate::policy::process_class::{
+    self, ProcessPolicyInput, VfProcessCategoryActions, VfProcessDecision, VF_PROC_ACTION_BOOST_AS_GAME,
+    VF_PROC_ACTION_DO_NOT_TOUCH, VF_PROC_ACTION_ECO_ONLY, VF_PROC_ACTION_THROTTLE, VF_PROC_CLASS_BROWSERS,
+    VF_PROC_CLASS_CALLS_VOICE, VF_PROC_CLASS_CLOUD_SYNC, VF_PROC_CLASS_DEVELOPER_IDE, VF_PROC_CLASS_HEAVY_WORK,
+    VF_PROC_CLASS_MESSAGING, VF_PROC_CLASS_MUSIC, VF_PROC_CLASS_POSSIBLE_GAME, VF_PROC_CLASS_RECORDING_STREAMING,
+    VF_PROC_CLASS_STORES_LAUNCHERS, VF_PROC_CLASS_UNKNOWN, VF_PROC_CLASS_WINDOWS_SYSTEM,
+};
 use crate::policy::sandbox_core;
 use crate::policy::steam_library;
 
@@ -332,6 +339,7 @@ pub extern "C" fn vf_rust_config_save(
             cooldown_seconds: s.cooldown_seconds,
             max_game_disk_read_mb_s: s.max_game_disk_read_mb_s,
             custom_game_exes,
+            ..Settings::default()
         };
         match config_file::save(original, &settings) {
             Ok(text) => {
@@ -343,6 +351,235 @@ pub extern "C" fn vf_rust_config_save(
             Err(SaveRefused::Blocked(_)) => VF_CONFIG_SAVE_BLOCKED,
             Err(SaveRefused::InvalidSetting(_)) => VF_CONFIG_SAVE_INVALID,
         }
+    })
+}
+
+/// Phase 5 process policy config settings passed over FFI alongside `VfConfigLoad`.
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct VfProcessPolicyConfig {
+    pub category_actions: VfProcessCategoryActions,
+    pub heavy_work_as_game: bool,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct VfProcessExceptionEntry {
+    pub exe_ptr: *const u8,
+    pub exe_len: usize,
+    pub action: u8,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct VfProcessClassifyInput {
+    pub full_path_ptr: *const u8,
+    pub full_path_len: usize,
+    pub exe_name_ptr: *const u8,
+    pub exe_name_len: usize,
+    pub category_actions: VfProcessCategoryActions,
+    pub exceptions_ptr: *const VfProcessExceptionEntry,
+    pub exceptions_count: usize,
+    pub custom_games_nul_ptr: *const u8,
+    pub custom_games_nul_len: usize,
+    pub excluded_games_nul_ptr: *const u8,
+    pub excluded_games_nul_len: usize,
+    pub heavy_work_as_game: bool,
+    pub is_foreground_3d: bool,
+    pub has_anticheat_signal: bool,
+}
+
+pub type VfProcessExceptionFn = Option<unsafe extern "C" fn(ctx: *mut c_void, exe: *const u8, len: usize, action: u8)>;
+
+#[no_mangle]
+pub extern "C" fn vf_rust_config_load_ex(
+    bytes: *const u8,
+    len: usize,
+    out: *mut VfConfigLoad,
+    out_policy: *mut VfProcessPolicyConfig,
+    on_game_exe: VfUtf8Fn,
+    on_excluded_game_exe: VfUtf8Fn,
+    on_exception: VfProcessExceptionFn,
+    ctx: *mut c_void,
+) -> bool {
+    ffi_guard(false, || {
+        if out.is_null() || out_policy.is_null() || (bytes.is_null() && len != 0) {
+            return false;
+        }
+        let text = if len == 0 { &[][..] } else { unsafe { core::slice::from_raw_parts(bytes, len) } };
+        let loaded = config_file::load(text);
+        unsafe {
+            *out = VfConfigLoad {
+                settings: to_ffi(&loaded.settings),
+                status: loaded.status,
+                rejected_keys: loaded.rejected_keys,
+            };
+            *out_policy = VfProcessPolicyConfig {
+                category_actions: loaded.settings.process_category_actions,
+                heavy_work_as_game: loaded.settings.heavy_work_as_game,
+            };
+        }
+        if let Some(callback) = on_game_exe {
+            for name in &loaded.settings.custom_game_exes {
+                unsafe { callback(ctx, name.as_ptr(), name.len()) };
+            }
+        }
+        if let Some(callback) = on_excluded_game_exe {
+            for name in &loaded.settings.excluded_game_exes {
+                unsafe { callback(ctx, name.as_ptr(), name.len()) };
+            }
+        }
+        if let Some(callback) = on_exception {
+            for (exe, action) in &loaded.settings.process_exceptions {
+                unsafe { callback(ctx, exe.as_ptr(), exe.len(), *action) };
+            }
+        }
+        true
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn vf_rust_config_save_ex(
+    original: *const u8,
+    original_len: usize,
+    settings: *const VfConfigSettings,
+    policy: *const VfProcessPolicyConfig,
+    game_exes: *const u8,
+    game_exes_len: usize,
+    excluded_game_exes: *const u8,
+    excluded_game_exes_len: usize,
+    exceptions: *const VfProcessExceptionEntry,
+    exceptions_count: usize,
+    on_text: VfUtf8Fn,
+    ctx: *mut c_void,
+) -> u32 {
+    ffi_guard(VF_CONFIG_SAVE_INVALID, || {
+        if settings.is_null()
+            || policy.is_null()
+            || (original.is_null() && original_len != 0)
+            || (game_exes.is_null() && game_exes_len != 0)
+            || (excluded_game_exes.is_null() && excluded_game_exes_len != 0)
+            || (exceptions.is_null() && exceptions_count != 0)
+        {
+            return VF_CONFIG_SAVE_INVALID;
+        }
+        let original = if original_len == 0 { &[][..] } else { unsafe { core::slice::from_raw_parts(original, original_len) } };
+        let names = if game_exes_len == 0 { &[][..] } else { unsafe { core::slice::from_raw_parts(game_exes, game_exes_len) } };
+        let excl = if excluded_game_exes_len == 0 {
+            &[][..]
+        } else {
+            unsafe { core::slice::from_raw_parts(excluded_game_exes, excluded_game_exes_len) }
+        };
+        let Some(custom_game_exes) = game_names(names) else {
+            return VF_CONFIG_SAVE_INVALID;
+        };
+        let Some(excluded_game_exes) = game_names(excl) else {
+            return VF_CONFIG_SAVE_INVALID;
+        };
+        let mut process_exceptions: Vec<(String, u8)> = Vec::with_capacity(exceptions_count);
+        if exceptions_count > 0 {
+            let ex_slice = unsafe { core::slice::from_raw_parts(exceptions, exceptions_count) };
+            for e in ex_slice {
+                let Some(bytes) = (unsafe { bytes_or_empty(e.exe_ptr, e.exe_len) }) else {
+                    return VF_CONFIG_SAVE_INVALID;
+                };
+                let Ok(name) = std::str::from_utf8(bytes) else {
+                    return VF_CONFIG_SAVE_INVALID;
+                };
+                process_exceptions.push((name.to_string(), e.action));
+            }
+        }
+        let s = unsafe { &*settings };
+        let p = unsafe { &*policy };
+        let settings = Settings {
+            poll_interval_ms: s.poll_interval_ms,
+            timer_resolution_ns100: s.timer_resolution_ns100,
+            timer_forced_manual: s.timer_forced_manual,
+            restrict_game_cpu_sets: s.restrict_game_cpu_sets,
+            min_free_ram_mb: s.min_free_ram_mb,
+            min_standby_mb: s.min_standby_mb,
+            cooldown_seconds: s.cooldown_seconds,
+            max_game_disk_read_mb_s: s.max_game_disk_read_mb_s,
+            custom_game_exes,
+            heavy_work_as_game: p.heavy_work_as_game,
+            process_category_actions: p.category_actions,
+            process_exceptions,
+            excluded_game_exes,
+        };
+        match config_file::save(original, &settings) {
+            Ok(text) => {
+                if let Some(callback) = on_text {
+                    unsafe { callback(ctx, text.as_ptr(), text.len()) };
+                }
+                VF_CONFIG_SAVE_OK
+            }
+            Err(SaveRefused::Blocked(_)) => VF_CONFIG_SAVE_BLOCKED,
+            Err(SaveRefused::InvalidSetting(_)) => VF_CONFIG_SAVE_INVALID,
+        }
+    })
+}
+
+fn split_nul_utf8(buf: &[u8]) -> Vec<&str> {
+    if buf.is_empty() {
+        return Vec::new();
+    }
+    let body = buf.strip_suffix(&[0]).unwrap_or(buf);
+    body.split(|&b| b == 0)
+        .filter(|s| !s.is_empty())
+        .filter_map(|s| std::str::from_utf8(s).ok())
+        .collect()
+}
+
+#[no_mangle]
+pub extern "C" fn vf_rust_classify_process(input: *const VfProcessClassifyInput, out: *mut VfProcessDecision) -> bool {
+    ffi_guard(false, || {
+        if input.is_null() || out.is_null() {
+            return false;
+        }
+        let inp = unsafe { &*input };
+        let Some(fp_bytes) = (unsafe { bytes_or_empty(inp.full_path_ptr, inp.full_path_len) }) else {
+            return false;
+        };
+        let Some(exe_bytes) = (unsafe { bytes_or_empty(inp.exe_name_ptr, inp.exe_name_len) }) else {
+            return false;
+        };
+        let Some(custom_bytes) = (unsafe { bytes_or_empty(inp.custom_games_nul_ptr, inp.custom_games_nul_len) }) else {
+            return false;
+        };
+        let Some(excl_bytes) = (unsafe { bytes_or_empty(inp.excluded_games_nul_ptr, inp.excluded_games_nul_len) }) else {
+            return false;
+        };
+        if inp.exceptions_ptr.is_null() && inp.exceptions_count != 0 {
+            return false;
+        }
+        let full_path = std::str::from_utf8(fp_bytes).unwrap_or("");
+        let exe_name = std::str::from_utf8(exe_bytes).unwrap_or("");
+        let custom_games = split_nul_utf8(custom_bytes);
+        let excluded_games = split_nul_utf8(excl_bytes);
+        let mut exceptions: Vec<(&str, u8)> = Vec::with_capacity(inp.exceptions_count);
+        if inp.exceptions_count > 0 {
+            let ex_slice = unsafe { core::slice::from_raw_parts(inp.exceptions_ptr, inp.exceptions_count) };
+            for e in ex_slice {
+                if let Some(eb) = unsafe { bytes_or_empty(e.exe_ptr, e.exe_len) } {
+                    if let Ok(es) = std::str::from_utf8(eb) {
+                        exceptions.push((es, e.action));
+                    }
+                }
+            }
+        }
+        let dec = process_class::classify_process(&ProcessPolicyInput {
+            full_path,
+            exe_name,
+            category_actions: inp.category_actions,
+            exceptions: &exceptions,
+            custom_game_exes: &custom_games,
+            excluded_game_exes: &excluded_games,
+            heavy_work_as_game: inp.heavy_work_as_game,
+            is_foreground_3d: inp.is_foreground_3d,
+            has_anticheat_signal: inp.has_anticheat_signal,
+        });
+        unsafe { *out = dec };
+        true
     })
 }
 
@@ -721,6 +958,14 @@ fn bridge_layout() -> Vec<usize> {
         apu_tier, apply_visual_cuts, apply_uma_memory_guard, apply_uma_vram_reg_override, allow_ram_purge,
         force_high_perf_power_plan, block_driver_tweaks, apply_egpu_streaming_tweaks, safe_vram_pool_mb,
         amd_tessellation_cap, dxvk_compiler_threads, disable_dx12_async_compute);
+    layout!(v, VfProcessCategoryActions, recording_streaming, calls_voice, messaging, browsers,
+        stores_launchers, music, cloud_sync);
+    layout!(v, VfProcessDecision, process_class, action, protected_by_anticheat, path_verified);
+    layout!(v, VfProcessPolicyConfig, category_actions, heavy_work_as_game);
+    layout!(v, VfProcessExceptionEntry, exe_ptr, exe_len, action);
+    layout!(v, VfProcessClassifyInput, full_path_ptr, full_path_len, exe_name_ptr, exe_name_len,
+        category_actions, exceptions_ptr, exceptions_count, custom_games_nul_ptr, custom_games_nul_len,
+        excluded_games_nul_ptr, excluded_games_nul_len, heavy_work_as_game, is_foreground_3d, has_anticheat_signal);
     v
 }
 
@@ -736,6 +981,8 @@ pub extern "C" fn vf_rust_bridge_constants(out: *mut u32, cap: usize) -> usize {
             VF_CONFIG_KEY_TIMER_RESOLUTION_NS100, VF_CONFIG_KEY_TIMER_FORCED_MANUAL, VF_CONFIG_KEY_RESTRICT_GAME_CPU_SETS,
             VF_CONFIG_KEY_MIN_FREE_RAM_MB, VF_CONFIG_KEY_MIN_STANDBY_MB, VF_CONFIG_KEY_COOLDOWN_SECONDS,
             VF_CONFIG_KEY_MAX_GAME_DISK_READ_MB_S, VF_CONFIG_KEY_CUSTOM_GAME_EXES, VF_CONFIG_KEY_MEMORY,
+            VF_CONFIG_KEY_HEAVY_WORK_AS_GAME, VF_CONFIG_KEY_PROCESS_CATEGORY_ACTIONS,
+            VF_CONFIG_KEY_PROCESS_EXCEPTIONS, VF_CONFIG_KEY_EXCLUDED_GAME_EXES,
             VF_CONFIG_SAVE_OK, VF_CONFIG_SAVE_BLOCKED, VF_CONFIG_SAVE_INVALID, VF_SID_OTHER as u32, VF_SID_SYSTEM as u32,
             VF_SID_ADMINISTRATORS as u32, VF_SID_TRUSTED_INSTALLER as u32,
             VF_INI_OK, VF_INI_ERR_INVALID_INPUT, VF_INI_ERR_ENCODING, VF_INI_ERR_MISSING_END_MARKER,
@@ -744,6 +991,12 @@ pub extern "C" fn vf_rust_bridge_constants(out: *mut u32, cap: usize) -> usize {
             VF_DISK_UNKNOWN as u32, VF_DISK_HDD as u32, VF_DISK_SSD as u32, VF_DISK_NVME as u32,
             VF_ARCH_UNKNOWN as u32, VF_ARCH_X64 as u32, VF_ARCH_ARM64_EMULATED as u32, VF_ARCH_ARM64_NATIVE as u32, VF_ARCH_X86 as u32,
             VF_GPU_PREF_DEFAULT as u32, VF_GPU_PREF_POWER_SAVING as u32, VF_GPU_PREF_HIGH_PERF as u32,
+            VF_PROC_CLASS_UNKNOWN as u32, VF_PROC_CLASS_WINDOWS_SYSTEM as u32, VF_PROC_CLASS_RECORDING_STREAMING as u32,
+            VF_PROC_CLASS_CALLS_VOICE as u32, VF_PROC_CLASS_MESSAGING as u32, VF_PROC_CLASS_BROWSERS as u32,
+            VF_PROC_CLASS_STORES_LAUNCHERS as u32, VF_PROC_CLASS_MUSIC as u32, VF_PROC_CLASS_CLOUD_SYNC as u32,
+            VF_PROC_CLASS_DEVELOPER_IDE as u32, VF_PROC_CLASS_HEAVY_WORK as u32, VF_PROC_CLASS_POSSIBLE_GAME as u32,
+            VF_PROC_ACTION_DO_NOT_TOUCH as u32, VF_PROC_ACTION_ECO_ONLY as u32,
+            VF_PROC_ACTION_THROTTLE as u32, VF_PROC_ACTION_BOOST_AS_GAME as u32,
         ];
         if !out.is_null() {
             let n = constants.len().min(cap);

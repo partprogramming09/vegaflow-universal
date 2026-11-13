@@ -138,6 +138,7 @@ direct/
 │               ├── json_text.rs    # Lector y escritor JSON estricto, sin dependencias
 │               ├── memory_purge.rs # Regla única de purga y guardián UMA (umbral 85%, pausa de 90s, disco y lista de fábrica No tocar)
 │               ├── path_policy.rs  # Lista negra de rutas de SandboxGuard
+│               ├── process_class.rs # Clasificación y acción de procesos (OBS/Discord No tocar, ruta verificada, excepciones y AC)
 │               ├── steam_library.rs # Lector de libraryfolders.vdf (bibliotecas de Steam)
 │               └── sandbox_core.rs # Firmas de anti-cheat y archivos críticos del sistema
 ├── src/                          # Cada .hpp vive junto a su .cpp, agrupado por función
@@ -150,7 +151,7 @@ direct/
 │   │   └── app_state.*           # Estado compartido y manejador de Ctrl+C
 │   ├── session/                  # Casos de uso: lo que hace el daemon con un juego
 │   │   ├── run_cycle.*           # Un ciclo de evaluación: detectar juego, aplicar o soltar
-│   │   ├── game_session.*        # Sesión inyectable por puertos, detección de hot-plug GPU y paso estático vs vivo
+│   │   ├── game_session.*        # Sesión inyectable por puertos, detección de hot-plug GPU, paso estático/vivo y exclusión al vuelo
 │   │   ├── reports.*             # --status, --dry-run y --purge-now
 │   │   ├── system_info.*         # Informe SystemInfo (hardware, UMA, SMBIOS RAM, OS y JSON)
 │   │   ├── config.*              # ConfigStore: leer y guardar config.json (reglas en Rust) y lista de juegos
@@ -162,13 +163,14 @@ direct/
 │   │   ├── device_probe.hpp      # Sonda de equipo (GPU/DXCore/SetupAPI, disco por juego, energía, pantallas, ARM64)
 │   │   ├── memory_probe.hpp      # Telemetría de memoria (listas NT sin respaldo a caché, presupuesto VRAM DXGI y lectura de disco)
 │   │   ├── memory_control.hpp    # Acción única de purga (trim de working sets y purga de Standby List)
+│   │   ├── process_control.hpp   # Control de procesos comprobando PID + creation_time (EcoOnly vs Throttle y juegos)
 │   │   └── change_journal.hpp    # Diario de cambios atómico y puerto de reversión del sistema
 │   ├── model/                    # Tipos compartidos, sin lógica
 │   │   ├── hardware.hpp          # GPU (conexión, PCI IDs, driver), CPU, disco, energía, Tier y política
-│   │   └── game.hpp              # Juego detectado y su API gráfica
+│   │   └── game.hpp              # Juego detectado, API gráfica y clasificación/política de procesos
 │   ├── detect/                   # Qué hardware y qué juego hay
 │   │   ├── hardware_profiler.*   # Orquestación de sonda universal y política desde Rust (`device_profile.rs`)
-│   │   └── process_detector.*    # Detección no invasiva de juegos y APIs (DX11/12/VK)
+│   │   └── process_detector.*    # Detección de juegos (ruta + DLL 3D + señales AC genéricas) y clasificación vía Rust
 │   ├── optimize/                 # Las optimizaciones
 │   │   ├── graphics/             # Ajustes de Windows y del driver (un tema por archivo)
 │   │   │   ├── graphics_optimizer.hpp   # API pública (clase GraphicsOptimizer)
@@ -192,7 +194,7 @@ direct/
 │   │   │   ├── apu_shadow_config.cpp   # Configuración "sombra" para APU
 │   │   │   └── steam_internal.*        # Ayudantes compartidos
 │   │   ├── memory_manager.*      # Orquestación de memoria vía MemoryProbe/MemoryControl y memory_purge.rs
-│   │   ├── cpu_orchestrator.*    # Asignación de CPU Sets y aislamiento de procesos
+│   │   ├── cpu_orchestrator.*    # Asignación de CPU Sets, restauración al cambiar de juego y aislamiento seguro (PID + FILETIME)
 │   │   └── dxvk_manager.*        # Despliegue seguro de DXVK-GPLAsync y backups
 │   ├── safety/                   # Lo que protege al sistema y al juego
 │   │   └── frame_telemetry.*     # Monitoreo estadístico de frametimes (1% y 0.1% Lows)
@@ -205,6 +207,7 @@ direct/
 │   │   ├── unique_handle.hpp     # Cierre automático de handles, claves de registro y búsquedas (RAII)
 │   │   ├── device_probe.*        # Sonda real Windows (DXCore COM, DXGI, SetupAPI RemovalPolicy, Storage SeekPenalty/BusType, Power, IsWow64Process2)
 │   │   ├── memory.*              # Implementación Windows de MemoryProbe y MemoryControl (ntdll, DXGI, Working Sets)
+│   │   ├── process_control.*     # Implementación Windows de ProcessControl verificando `GetProcessTimes` (creation_time)
 │   │   ├── sandbox_guard.*       # E/S de archivos comprobada: normaliza la ruta, pide la decisión a Rust y vuelve a comprobar el archivo abierto
 │   │   ├── safe_file_system.*    # Puerto de archivos real: pasa todo por SandboxGuard
 │   │   ├── config_location.*     # Ruta de config.json junto al .exe y si solo administradores pueden escribirla

@@ -248,6 +248,27 @@ void Test34() {
         VF_FIELD(VfDeviceProfileDecision, block_driver_tweaks) VF_FIELD(VfDeviceProfileDecision, apply_egpu_streaming_tweaks)
         VF_FIELD(VfDeviceProfileDecision, safe_vram_pool_mb) VF_FIELD(VfDeviceProfileDecision, amd_tessellation_cap)
         VF_FIELD(VfDeviceProfileDecision, dxvk_compiler_threads) VF_FIELD(VfDeviceProfileDecision, disable_dx12_async_compute)
+        VF_LAYOUT_BEGIN(VfProcessCategoryActions)
+        VF_FIELD(VfProcessCategoryActions, recording_streaming) VF_FIELD(VfProcessCategoryActions, calls_voice)
+        VF_FIELD(VfProcessCategoryActions, messaging) VF_FIELD(VfProcessCategoryActions, browsers)
+        VF_FIELD(VfProcessCategoryActions, stores_launchers) VF_FIELD(VfProcessCategoryActions, music)
+        VF_FIELD(VfProcessCategoryActions, cloud_sync)
+        VF_LAYOUT_BEGIN(VfProcessDecision)
+        VF_FIELD(VfProcessDecision, process_class) VF_FIELD(VfProcessDecision, action)
+        VF_FIELD(VfProcessDecision, protected_by_anticheat) VF_FIELD(VfProcessDecision, path_verified)
+        VF_LAYOUT_BEGIN(VfProcessPolicyConfig)
+        VF_FIELD(VfProcessPolicyConfig, category_actions) VF_FIELD(VfProcessPolicyConfig, heavy_work_as_game)
+        VF_LAYOUT_BEGIN(VfProcessExceptionEntry)
+        VF_FIELD(VfProcessExceptionEntry, exe_ptr) VF_FIELD(VfProcessExceptionEntry, exe_len)
+        VF_FIELD(VfProcessExceptionEntry, action)
+        VF_LAYOUT_BEGIN(VfProcessClassifyInput)
+        VF_FIELD(VfProcessClassifyInput, full_path_ptr) VF_FIELD(VfProcessClassifyInput, full_path_len)
+        VF_FIELD(VfProcessClassifyInput, exe_name_ptr) VF_FIELD(VfProcessClassifyInput, exe_name_len)
+        VF_FIELD(VfProcessClassifyInput, category_actions) VF_FIELD(VfProcessClassifyInput, exceptions_ptr)
+        VF_FIELD(VfProcessClassifyInput, exceptions_count) VF_FIELD(VfProcessClassifyInput, custom_games_nul_ptr)
+        VF_FIELD(VfProcessClassifyInput, custom_games_nul_len) VF_FIELD(VfProcessClassifyInput, excluded_games_nul_ptr)
+        VF_FIELD(VfProcessClassifyInput, excluded_games_nul_len) VF_FIELD(VfProcessClassifyInput, heavy_work_as_game)
+        VF_FIELD(VfProcessClassifyInput, is_foreground_3d) VF_FIELD(VfProcessClassifyInput, has_anticheat_signal)
 #undef VF_FIELD
 #undef VF_LAYOUT_BEGIN
 
@@ -267,6 +288,8 @@ void Test34() {
             VF_CONFIG_KEY_TIMER_RESOLUTION_NS100, VF_CONFIG_KEY_TIMER_FORCED_MANUAL, VF_CONFIG_KEY_RESTRICT_GAME_CPU_SETS,
             VF_CONFIG_KEY_MIN_FREE_RAM_MB, VF_CONFIG_KEY_MIN_STANDBY_MB, VF_CONFIG_KEY_COOLDOWN_SECONDS,
             VF_CONFIG_KEY_MAX_GAME_DISK_READ_MB_S, VF_CONFIG_KEY_CUSTOM_GAME_EXES, VF_CONFIG_KEY_MEMORY,
+            VF_CONFIG_KEY_HEAVY_WORK_AS_GAME, VF_CONFIG_KEY_PROCESS_CATEGORY_ACTIONS,
+            VF_CONFIG_KEY_PROCESS_EXCEPTIONS, VF_CONFIG_KEY_EXCLUDED_GAME_EXES,
             VF_CONFIG_SAVE_OK, VF_CONFIG_SAVE_BLOCKED, VF_CONFIG_SAVE_INVALID, VF_SID_OTHER, VF_SID_SYSTEM,
             VF_SID_ADMINISTRATORS, VF_SID_TRUSTED_INSTALLER,
             VF_INI_OK, VF_INI_ERR_INVALID_INPUT, VF_INI_ERR_ENCODING, VF_INI_ERR_MISSING_END_MARKER,
@@ -274,7 +297,13 @@ void Test34() {
             VF_GPU_CONN_UNKNOWN, VF_GPU_CONN_INTEGRATED, VF_GPU_CONN_DISCRETE, VF_GPU_CONN_EXTERNAL,
             VF_DISK_UNKNOWN, VF_DISK_HDD, VF_DISK_SSD, VF_DISK_NVME,
             VF_ARCH_UNKNOWN, VF_ARCH_X64, VF_ARCH_ARM64_EMULATED, VF_ARCH_ARM64_NATIVE, VF_ARCH_X86,
-            VF_GPU_PREF_DEFAULT, VF_GPU_PREF_POWER_SAVING, VF_GPU_PREF_HIGH_PERF};
+            VF_GPU_PREF_DEFAULT, VF_GPU_PREF_POWER_SAVING, VF_GPU_PREF_HIGH_PERF,
+            VF_PROC_CLASS_UNKNOWN, VF_PROC_CLASS_WINDOWS_SYSTEM, VF_PROC_CLASS_RECORDING_STREAMING,
+            VF_PROC_CLASS_CALLS_VOICE, VF_PROC_CLASS_MESSAGING, VF_PROC_CLASS_BROWSERS,
+            VF_PROC_CLASS_STORES_LAUNCHERS, VF_PROC_CLASS_MUSIC, VF_PROC_CLASS_CLOUD_SYNC,
+            VF_PROC_CLASS_DEVELOPER_IDE, VF_PROC_CLASS_HEAVY_WORK, VF_PROC_CLASS_POSSIBLE_GAME,
+            VF_PROC_ACTION_DO_NOT_TOUCH, VF_PROC_ACTION_ECO_ONLY,
+            VF_PROC_ACTION_THROTTLE, VF_PROC_ACTION_BOOST_AS_GAME};
         std::vector<uint32_t> rust_constants(expected_constants.size() + 8, 0);
         const size_t constant_count = vf_rust_bridge_constants(rust_constants.data(), rust_constants.size());
         rust_constants.resize(std::min(constant_count, rust_constants.size()));

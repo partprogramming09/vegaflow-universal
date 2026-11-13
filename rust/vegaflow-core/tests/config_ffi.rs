@@ -112,9 +112,10 @@ fn game_name_rule_through_the_bridge() {
 #[test]
 fn constants_shared_with_cpp_have_fixed_values() {
     // Same order and values as the #defines in rust_bridge.h; C++ Test 34 compares them too.
-    let expected: [u32; 45] = [
+    let expected: [u32; 65] = [
         1, 2, 4, 8, 16, 7, // VF_CONFIG_CORRUPT .. VF_CONFIG_EMPTY, VF_CONFIG_BLOCKS_SAVE
         1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, // VF_CONFIG_KEY_VERSION .. VF_CONFIG_KEY_MEMORY
+        2048, 4096, 8192, 16384, // VF_CONFIG_KEY_HEAVY_WORK_AS_GAME .. VF_CONFIG_KEY_EXCLUDED_GAME_EXES
         0, 1, 2, // VF_CONFIG_SAVE_OK, _BLOCKED, _INVALID
         0, 1, 2, 3, // VF_SID_OTHER, _SYSTEM, _ADMINISTRATORS, _TRUSTED_INSTALLER
         0, 1, 2, 3, 4, // VF_INI_OK .. VF_INI_ERR_UNMATCHED_END_MARKER
@@ -122,8 +123,10 @@ fn constants_shared_with_cpp_have_fixed_values() {
         0, 1, 2, 3, // VF_DISK_UNKNOWN .. _NVME
         0, 1, 2, 3, 4, // VF_ARCH_UNKNOWN .. _X86
         0, 1, 2, // VF_GPU_PREF_DEFAULT .. _HIGH_PERF
+        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, // VF_PROC_CLASS_*
+        0, 1, 2, 3, // VF_PROC_ACTION_*
     ];
-    let mut actual = [0u32; 64];
+    let mut actual = [0u32; 96];
     let n = vegaflow_core::ffi::vf_rust_bridge_constants(actual.as_mut_ptr(), actual.len());
     assert_eq!(n, expected.len());
     assert_eq!(&actual[..n], &expected[..]);

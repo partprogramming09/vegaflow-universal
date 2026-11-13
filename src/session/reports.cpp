@@ -313,7 +313,7 @@ void ExecuteDryRun(const AppConfig& config) {
     CpuOrchestrator cpu_orchestrator;
 
     std::cout << "[1/4] Scanning foreground processes for 3D Game / Graphics API...\n";
-    auto game_opt = ProcessDetector::DetectActiveGame(config.custom_game_exes);
+    auto game_opt = ProcessDetector::DetectActiveGame(config.process_policy);
 
     if (game_opt.has_value()) {
         const auto& game = *game_opt;
@@ -331,17 +331,23 @@ void ExecuteDryRun(const AppConfig& config) {
         std::cout << "\n";
 
         std::cout << "[3/4] [DRY-RUN] CPU Orchestrator Evaluation:\n";
-        auto bg_pids = ProcessDetector::FindBackgroundNoisyProcesses(game.pid);
-        std::cout << "  -> Background Noisy Processes to Isolate: " << bg_pids.size() << " PIDs\n";
+        auto bg_targets = ProcessDetector::ClassifyBackgroundProcesses(game.pid, config.process_policy);
+        std::vector<uint32_t> bg_pids;
+        bg_pids.reserve(bg_targets.size());
+        for (const auto& t : bg_targets) {
+            if (t.action == ProcessAction::Throttle) bg_pids.push_back(t.pid);
+        }
+        std::cout << "  -> Background Processes Classified : " << bg_targets.size() << " PIDs\n";
         bool is_dx12 = (game.api == RenderApi::DirectX12 || game.api == RenderApi::Vulkan);
         const std::vector<ULONG> no_sets;
         auto cpu_res = cpu_orchestrator.ApplyOptimizations(
             game.pid,
+            game.creation_time,
             game.presenter_thread_id,
             is_dx12,
             config.restrict_game_cpu_sets ? hw.cpu_topology.game_optimal_cpu_set_ids : no_sets,
             hw.cpu_topology.background_cpu_set_ids,
-            bg_pids,
+            bg_targets,
             true /* dry_run */);
 
         std::cout << "  -> Game Handle Access Level: " << (cpu_res.game_handle_full_access ? "Full (PROCESS_SET_INFORMATION)" : "Degraded Read-Only (Anti-Cheat safe)") << "\n";
@@ -362,18 +368,24 @@ void ExecuteDryRun(const AppConfig& config) {
         std::cout << "  -> No foreground 3D game currently detected.\n";
         std::cout << "  -> Demonstrating evaluation on background processes under simulated game conditions:\n\n";
 
-        auto bg_pids = ProcessDetector::FindBackgroundNoisyProcesses(0);
+        auto bg_targets = ProcessDetector::ClassifyBackgroundProcesses(0, config.process_policy);
+        std::vector<uint32_t> bg_pids;
+        bg_pids.reserve(bg_targets.size());
+        for (const auto& t : bg_targets) {
+            if (t.action == ProcessAction::Throttle) bg_pids.push_back(t.pid);
+        }
         std::cout << "[2/4] [DRY-RUN] High-Precision Timer: Would set timer resolution to " << config.timer_resolution_ns100 << " (0.5 ms)\n\n";
 
         std::cout << "[3/4] [DRY-RUN] CPU Orchestrator Evaluation:\n";
-        std::cout << "  -> Background Processes Found: " << bg_pids.size() << " PIDs\n";
+        std::cout << "  -> Background Processes Found: " << bg_targets.size() << " PIDs\n";
         auto cpu_res = cpu_orchestrator.ApplyOptimizations(
+            0,
             0,
             0,
             false,
             hw.cpu_topology.game_optimal_cpu_set_ids,
             hw.cpu_topology.background_cpu_set_ids,
-            bg_pids,
+            bg_targets,
             true /* dry_run */);
         std::cout << "  -> Background Sets to confine: " << hw.cpu_topology.background_cpu_set_ids.size() << " core IDs (Isolated in dry-run: " << cpu_res.background_processes_isolated << " targets)\n\n";
 

@@ -221,6 +221,7 @@ fn valid_settings() -> impl Strategy<Value = Settings> {
             cooldown_seconds: cool,
             max_game_disk_read_mb_s: disk,
             custom_game_exes: names.into_iter().map(|n| format!("g{n}.exe")).collect(),
+            ..Settings::default()
         })
 }
 

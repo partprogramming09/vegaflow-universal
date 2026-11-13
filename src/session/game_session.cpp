@@ -2,8 +2,10 @@
 
 #include "bridge/rust_bridge.h"
 #include "detect/hardware_profiler.hpp"
+#include "optimize/cpu_orchestrator.hpp"
 #include "session/text_convert.hpp"
 
+#include <cwctype>
 #include <filesystem>
 #include <string>
 #include <vector>
@@ -30,6 +32,47 @@ uint8_t SystemArchToFfiByte(SystemArch a) {
         case SystemArch::Unknown:
         default:                         return VF_ARCH_UNKNOWN;
     }
+}
+
+bool EqualsIgnoreCase(const std::wstring& a, const std::wstring& b) {
+    return _wcsicmp(a.c_str(), b.c_str()) == 0;
+}
+
+ProcessPolicyConfig EffectivePolicy(const app::AppConfig& config) {
+    ProcessPolicyConfig policy = config.process_policy;
+    if (policy.custom_game_exes.empty() && !config.custom_game_exes.empty()) {
+        policy.custom_game_exes = config.custom_game_exes;
+    }
+    return policy;
+}
+
+bool IsExeInList(const std::vector<std::wstring>& list, const std::wstring& exe) {
+    for (const auto& item : list) {
+        if (EqualsIgnoreCase(item, exe)) return true;
+    }
+    return false;
+}
+
+void RestoreEndOfSession(
+    const app::AppConfig& config,
+    GameSessionEnvironment& env,
+    GameSessionState& state) {
+
+    env.StopAndSaveTelemetry(app::WideToUtf8(state.active_game_exe));
+    env.RestoreCpuAll();
+    env.SetDynamicPrioritySeparation(0x02);
+    if (state.timer_boosted && !config.timer_forced_manual) {
+        env.RestoreDefaultTimer();
+        state.timer_boosted = false;
+    }
+    state.game_active = false;
+    state.active_game_pid = 0;
+    state.active_game_creation_time = 0;
+    state.active_game_exe.clear();
+    state.active_game_api.clear();
+    state.active_game_hwnd = nullptr;
+    state.active_game_path.clear();
+    state.active_game_anticheat = false;
 }
 
 } // namespace
@@ -149,12 +192,24 @@ void RunGameSessionCycle(
     uint32_t* out_noisy_bg_count,
     const std::function<void(const std::string&)>& audit_cb) {
 
+    const ProcessPolicyConfig policy = EffectivePolicy(config);
+
+    // If the currently cached game was just excluded by the user ("Me fue mal en este juego"), restore immediately.
+    if (state.game_active && !state.active_game_exe.empty() &&
+        IsExeInList(policy.excluded_game_exes, state.active_game_exe)) {
+        RestoreEndOfSession(config, env, state);
+        RefreshHardwareProfileIfChanged(device_probe, hw, 0);
+        if (out_noisy_bg_count) *out_noisy_bg_count = 0;
+        return;
+    }
+
     std::optional<DetectedGameProcess> game_opt;
     if (state.game_active && state.active_game_pid != 0 &&
         state.active_game_hwnd != nullptr && env.IsWindowValid(state.active_game_hwnd) &&
         env.IsProcessAlive(state.active_game_pid)) {
         DetectedGameProcess cached{};
         cached.pid = state.active_game_pid;
+        cached.creation_time = state.active_game_creation_time;
         cached.exe_name = state.active_game_exe;
         cached.full_path = state.active_game_path;
         if (state.active_game_api == "DirectX 12") cached.api = RenderApi::DirectX12;
@@ -163,24 +218,34 @@ void RunGameSessionCycle(
         else cached.api = RenderApi::DirectX11;
         cached.main_window = state.active_game_hwnd;
         cached.presenter_thread_id = static_cast<uint32_t>(GetWindowThreadProcessId(state.active_game_hwnd, nullptr));
+        cached.generic_anticheat_detected = state.active_game_anticheat;
         game_opt = cached;
     } else {
-        game_opt = env.DetectActiveGame(config.custom_game_exes);
+        game_opt = env.DetectActiveGame(policy);
     }
 
     if (game_opt.has_value()) {
         const auto& game = *game_opt;
+        const bool is_new_game = (!state.game_active || state.active_game_pid != game.pid ||
+                                  (game.creation_time != 0 && state.active_game_creation_time != 0 &&
+                                   game.creation_time != state.active_game_creation_time));
+
+        if (is_new_game && state.game_active && state.active_game_pid != 0) {
+            // Game switched directly from A to B: restore A before applying B.
+            RestoreEndOfSession(config, env, state);
+        }
+
         state.active_game_hwnd = game.main_window;
         state.active_game_exe = game.exe_name;
         state.active_game_path = game.full_path;
+        state.active_game_creation_time = game.creation_time;
         switch (game.api) {
-            case RenderApi::DirectX12: state.active_game_api = "DirectX 12"; break;
-            case RenderApi::Vulkan:    state.active_game_api = "Vulkan"; break;
+            case RenderApi::DirectX12:   state.active_game_api = "DirectX 12"; break;
+            case RenderApi::Vulkan:      state.active_game_api = "Vulkan"; break;
             case RenderApi::DirectX9_10: state.active_game_api = "DirectX 9/10"; break;
-            default:                   state.active_game_api = "DirectX 11"; break;
+            default:                     state.active_game_api = "DirectX 11"; break;
         }
 
-        const bool is_new_game = (!state.game_active || state.active_game_pid != game.pid);
         const uint8_t app_gpu_pref = device_probe.QueryAppGpuPreference(game.full_path);
         const bool hw_changed = RefreshHardwareProfileIfChanged(device_probe, hw, app_gpu_pref);
 
@@ -205,10 +270,6 @@ void RunGameSessionCycle(
         }
 
         if (is_new_game) {
-            if (state.game_active && state.active_game_pid != 0) {
-                env.StopAndSaveTelemetry(app::WideToUtf8(state.active_game_exe));
-            }
-
             if (audit_cb) {
                 audit_cb("Juego detectado: " + app::WideToUtf8(game.exe_name) +
                          " (PID: " + std::to_string(game.pid) + ") [" + state.active_game_api + "]");
@@ -236,9 +297,12 @@ void RunGameSessionCycle(
                 inspected.primary_exe_path = game.full_path;
             }
 
-            if (inspected.has_anticheat) {
+            const bool anticheat_protected = game.generic_anticheat_detected || inspected.has_anticheat;
+            state.active_game_anticheat = anticheat_protected;
+
+            if (anticheat_protected) {
                 if (audit_cb) {
-                    audit_cb("[SECURITY] Anti-Cheat detectado (HoYoKProtect/EAC/BE). Perfil Pasivo Seguro activado: DXGI Flip Model + Aislamiento CPU (0 archivos modificados).");
+                    audit_cb("[SECURITY] Anti-Cheat detectado (firma o señal genérica). Perfil Pasivo Seguro activado: DXGI Flip Model + Aislamiento CPU (0 archivos modificados).");
                 }
                 env.ApplyDxgiFlipModelUpgrade(game.full_path);
             } else if (inspected.engine == GameEngineType::UnrealEngine4_5) {
@@ -272,57 +336,111 @@ void RunGameSessionCycle(
             state.active_game_pid = game.pid;
         }
 
-        auto bg_pids = env.FindBackgroundNoisyProcesses(game.pid);
+        auto bg_targets = env.ClassifyBackgroundProcesses(game.pid, policy);
         if (out_noisy_bg_count) {
-            *out_noisy_bg_count = static_cast<uint32_t>(bg_pids.size());
+            *out_noisy_bg_count = static_cast<uint32_t>(bg_targets.size());
         }
         const bool is_dx12 = (game.api == RenderApi::DirectX12 || game.api == RenderApi::Vulkan);
         const std::vector<ULONG> no_sets;
         uint32_t throttled = 0;
         env.ApplyCpuOptimizations(
             game.pid,
+            game.creation_time,
             game.presenter_thread_id,
             is_dx12,
             config.restrict_game_cpu_sets ? hw.cpu_topology.game_optimal_cpu_set_ids : no_sets,
             hw.cpu_topology.background_cpu_set_ids,
-            bg_pids,
+            bg_targets,
             throttled);
 
         if (is_new_game && audit_cb) {
             audit_cb("[CPU] EcoQoS activado en procesos secundarios (" +
                      std::to_string(throttled) + " procesos en modo eficiencia térmica para ahorro APU).");
             audit_cb("[I/O NT] Jerarquía I/O activada: IoPriorityHigh en juego (PID " +
-                     std::to_string(game.pid) + ") y IoPriorityVeryLow en procesos de fondo.");
+                     std::to_string(game.pid) + ") y IoPriorityVeryLow en procesos frenados.");
         }
 
+        std::vector<uint32_t> throttle_pids;
+        throttle_pids.reserve(bg_targets.size());
+        for (const auto& t : bg_targets) {
+            if (t.action == ProcessAction::Throttle) {
+                throttle_pids.push_back(t.pid);
+            }
+        }
         if (static_policy.allow_ram_purge) {
-            env.EvaluateMemory(game.pid, bg_pids, true);
+            env.EvaluateMemory(game.pid, throttle_pids, true);
         }
         if (live_policy.apply_uma_memory_guard) {
-            env.EvaluateUmaGuard(live_policy, bg_pids);
+            env.EvaluateUmaGuard(live_policy, throttle_pids);
         }
     } else if (state.game_active) {
         if (state.active_game_pid != 0 && env.IsProcessAlive(state.active_game_pid)) {
             RefreshHardwareProfileIfChanged(device_probe, hw, hw.user_gpu_pref);
             return;
         }
-        env.StopAndSaveTelemetry(app::WideToUtf8(state.active_game_exe));
-        env.RestoreCpuAll();
-        env.SetDynamicPrioritySeparation(0x02);
-        if (state.timer_boosted && !config.timer_forced_manual) {
-            env.RestoreDefaultTimer();
-            state.timer_boosted = false;
-        }
-        state.game_active = false;
-        state.active_game_pid = 0;
-        state.active_game_exe.clear();
-        state.active_game_api.clear();
-        state.active_game_hwnd = nullptr;
-        state.active_game_path.clear();
+        RestoreEndOfSession(config, env, state);
         RefreshHardwareProfileIfChanged(device_probe, hw, 0);
     } else {
         RefreshHardwareProfileIfChanged(device_probe, hw, 0);
     }
+}
+
+bool ExcludeGameAndRevert(
+    app::ConfigStore& config_store,
+    app::AppConfig& config,
+    const std::wstring& exe_name,
+    GameSessionEnvironment* env,
+    CpuOrchestrator* cpu,
+    GameSessionState* state,
+    ChangeJournal* journal,
+    std::string* out_why) {
+
+    std::wstring clean_name = std::filesystem::path(exe_name).filename().wstring();
+    const std::string utf8_name = app::WideToUtf8(clean_name);
+    if (!vf_rust_is_allowed_game_exe(utf8_name.data(), utf8_name.size())) {
+        if (out_why) *out_why = "El nombre del ejecutable no es válido para exclusión.";
+        return false;
+    }
+
+    const bool already_excluded = IsExeInList(config.process_policy.excluded_game_exes, clean_name);
+    if (!already_excluded) {
+        config.process_policy.excluded_game_exes.push_back(clean_name);
+        if (!config_store.Save(config, false, out_why)) {
+            config.process_policy.excluded_game_exes.pop_back();
+            return false;
+        }
+    }
+
+    if (journal) {
+        journal->RecordAuditEvent(
+            "game:" + utf8_name,
+            "Juego excluido por el usuario (Me fue mal en este juego)",
+            "Se excluyó " + utf8_name + " de futuras optimizaciones y se revirtió la sesión.");
+    }
+
+    if (state && state->game_active && EqualsIgnoreCase(state->active_game_exe, clean_name)) {
+        if (env) {
+            RestoreEndOfSession(config, *env, *state);
+        } else {
+            if (cpu) {
+                cpu->RestoreAll(false);
+            }
+            state->game_active = false;
+            state->active_game_pid = 0;
+            state->active_game_creation_time = 0;
+            state->active_game_exe.clear();
+            state->active_game_api.clear();
+            state->active_game_hwnd = nullptr;
+            state->active_game_path.clear();
+            state->active_game_anticheat = false;
+        }
+    } else if (!state && env) {
+        env->RestoreCpuAll();
+    } else if (!state && cpu) {
+        cpu->RestoreAll(false);
+    }
+
+    return true;
 }
 
 } // namespace vegaflow::session

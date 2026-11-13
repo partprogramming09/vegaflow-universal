@@ -173,10 +173,78 @@ size_t vf_rust_steam_library_paths(const char* vdf, size_t len, VfSteamLibraryFn
 #define VF_CONFIG_KEY_MAX_GAME_DISK_READ_MB_S  (1u << 8)
 #define VF_CONFIG_KEY_CUSTOM_GAME_EXES         (1u << 9)
 #define VF_CONFIG_KEY_MEMORY                   (1u << 10)
+#define VF_CONFIG_KEY_HEAVY_WORK_AS_GAME       (1u << 11)
+#define VF_CONFIG_KEY_PROCESS_CATEGORY_ACTIONS (1u << 12)
+#define VF_CONFIG_KEY_PROCESS_EXCEPTIONS       (1u << 13)
+#define VF_CONFIG_KEY_EXCLUDED_GAME_EXES       (1u << 14)
 /* Results of vf_rust_config_save. */
 #define VF_CONFIG_SAVE_OK       0u
 #define VF_CONFIG_SAVE_BLOCKED  1u /* the current file has a VF_CONFIG_BLOCKS_SAVE status */
 #define VF_CONFIG_SAVE_INVALID  2u /* a setting or game name breaks its rule, or malformed arguments */
+
+/* Process classification & actions (policy/process_class.rs). */
+#define VF_PROC_CLASS_UNKNOWN              0u
+#define VF_PROC_CLASS_WINDOWS_SYSTEM       1u
+#define VF_PROC_CLASS_RECORDING_STREAMING  2u
+#define VF_PROC_CLASS_CALLS_VOICE          3u
+#define VF_PROC_CLASS_MESSAGING            4u
+#define VF_PROC_CLASS_BROWSERS             5u
+#define VF_PROC_CLASS_STORES_LAUNCHERS     6u
+#define VF_PROC_CLASS_MUSIC                7u
+#define VF_PROC_CLASS_CLOUD_SYNC           8u
+#define VF_PROC_CLASS_DEVELOPER_IDE        9u
+#define VF_PROC_CLASS_HEAVY_WORK           10u
+#define VF_PROC_CLASS_POSSIBLE_GAME        11u
+
+#define VF_PROC_ACTION_DO_NOT_TOUCH        0u
+#define VF_PROC_ACTION_ECO_ONLY            1u
+#define VF_PROC_ACTION_THROTTLE            2u
+#define VF_PROC_ACTION_BOOST_AS_GAME       3u
+
+typedef struct VfProcessCategoryActions {
+    uint8_t recording_streaming;
+    uint8_t calls_voice;
+    uint8_t messaging;
+    uint8_t browsers;
+    uint8_t stores_launchers;
+    uint8_t music;
+    uint8_t cloud_sync;
+} VfProcessCategoryActions;
+
+typedef struct VfProcessDecision {
+    uint8_t process_class;
+    uint8_t action;
+    bool protected_by_anticheat;
+    bool path_verified;
+} VfProcessDecision;
+
+typedef struct VfProcessPolicyConfig {
+    VfProcessCategoryActions category_actions;
+    bool heavy_work_as_game;
+} VfProcessPolicyConfig;
+
+typedef struct VfProcessExceptionEntry {
+    const uint8_t* exe_ptr;
+    size_t exe_len;
+    uint8_t action;
+} VfProcessExceptionEntry;
+
+typedef struct VfProcessClassifyInput {
+    const uint8_t* full_path_ptr;
+    size_t full_path_len;
+    const uint8_t* exe_name_ptr;
+    size_t exe_name_len;
+    VfProcessCategoryActions category_actions;
+    const VfProcessExceptionEntry* exceptions_ptr;
+    size_t exceptions_count;
+    const uint8_t* custom_games_nul_ptr;
+    size_t custom_games_nul_len;
+    const uint8_t* excluded_games_nul_ptr;
+    size_t excluded_games_nul_len;
+    bool heavy_work_as_game;
+    bool is_foreground_3d;
+    bool has_anticheat_signal;
+} VfProcessClassifyInput;
 
 /* Every setting of config.json; the game names travel apart. */
 typedef struct VfConfigSettings {
@@ -198,16 +266,32 @@ typedef struct VfConfigLoad {
 
 /* Called once per string handed back: UTF-8, not NUL-terminated, valid only during the call. */
 typedef void (*VfUtf8Fn)(void* ctx, const char* utf8, size_t len);
+typedef void (*VfProcessExceptionFn)(void* ctx, const uint8_t* exe, size_t len, uint8_t action);
 
 /* Reads the text of config.json into `out` and calls on_game_exe once per accepted game name (may be null).
    Returns false only for bad pointers. */
 bool vf_rust_config_load(const char* bytes, size_t len, VfConfigLoad* out, VfUtf8Fn on_game_exe, void* ctx);
+
+/* Extended config.json load including Phase 5 process policy, excluded games, and per-exe exceptions. */
+bool vf_rust_config_load_ex(const char* bytes, size_t len, VfConfigLoad* out, VfProcessPolicyConfig* out_policy,
+                            VfUtf8Fn on_game_exe, VfUtf8Fn on_excluded_game_exe, VfProcessExceptionFn on_exception,
+                            void* ctx);
 
 /* The new text of config.json: `original` (the current file) with the settings replaced, unknown keys kept and
    "version" set to the current one. `game_exes` holds each name followed by a NUL. On VF_CONFIG_SAVE_OK calls on_text
    once with the whole new file; otherwise nothing is called. */
 uint32_t vf_rust_config_save(const char* original, size_t original_len, const VfConfigSettings* settings,
                              const char* game_exes, size_t game_exes_len, VfUtf8Fn on_text, void* ctx);
+
+/* Extended config.json save including Phase 5 process policy, excluded games, and per-exe exceptions. */
+uint32_t vf_rust_config_save_ex(const char* original, size_t original_len, const VfConfigSettings* settings,
+                                const VfProcessPolicyConfig* policy, const uint8_t* game_exes, size_t game_exes_len,
+                                const uint8_t* excluded_game_exes, size_t excluded_game_exes_len,
+                                const VfProcessExceptionEntry* exceptions, size_t exceptions_count, VfUtf8Fn on_text,
+                                void* ctx);
+
+/* Pure process classification and action decision (policy/process_class.rs). */
+bool vf_rust_classify_process(const VfProcessClassifyInput* input, VfProcessDecision* out);
 
 /* The rule for a name in custom_game_exes (also applied to names found in the Steam library): a bare .exe file name
    that Windows reads as written, not a device name and not a Windows process. UTF-8; false for invalid UTF-8. */
