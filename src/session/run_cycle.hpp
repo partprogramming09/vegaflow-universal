@@ -10,7 +10,6 @@
 #include "detect/hardware_profiler.hpp"
 #include "optimize/cpu_orchestrator.hpp"
 #include "optimize/memory_manager.hpp"
-#include "safety/frame_telemetry.hpp"
 
 namespace vegaflow::app {
 
@@ -20,7 +19,6 @@ void RunSingleIteration(
     vegaflow::SystemHardwareProfile& hw,
     vegaflow::CpuOrchestrator& cpu_orchestrator,
     vegaflow::MemoryManager& mem_mgr,
-    vegaflow::FrameTelemetryMonitor& telemetry_monitor,
     bool& game_active,
     uint32_t& active_game_pid,
     std::wstring& active_game_exe,

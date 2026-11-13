@@ -26,7 +26,6 @@
 #include "optimize/graphics/graphics_optimizer.hpp"
 #include "optimize/memory_manager.hpp"
 #include "optimize/cpu_orchestrator.hpp"
-#include "safety/frame_telemetry.hpp"
 #include "optimize/steam/steam_engine_optimizer.hpp"
 #include "optimize/dxvk_manager.hpp"
 #include "windows/sandbox_guard.hpp"
@@ -75,7 +74,7 @@ int main() {
         {4, vftest::Test04},
         {5, vftest::Test05},
         {6, vftest::Test06},
-        {7, vftest::Test07},
+        // Test 7 was removed along with ETW frame telemetry (Phase 6).
         {8, vftest::Test08},
         // Test 9 was removed along with the image scaling feature.
         {10, vftest::Test10},

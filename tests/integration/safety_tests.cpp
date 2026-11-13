@@ -26,7 +26,6 @@
 #include "optimize/graphics/graphics_optimizer.hpp"
 #include "optimize/memory_manager.hpp"
 #include "optimize/cpu_orchestrator.hpp"
-#include "safety/frame_telemetry.hpp"
 #include "optimize/steam/steam_engine_optimizer.hpp"
 #include "optimize/dxvk_manager.hpp"
 #include "windows/sandbox_guard.hpp"
@@ -38,51 +37,6 @@
 #include "../test_support.hpp"
 
 namespace vftest {
-
-void Test07() {
-    // -------------------------------------------------------------------------
-    // TEST 7: Frame Telemetry & Mathematical Rigor (1% / 0.1% Lows)
-    // -------------------------------------------------------------------------
-    {
-        // 1. Math computation verification
-        std::vector<double> samples(990, 16.6666666667); // 60 FPS
-        for (int i = 0; i < 9; ++i) samples.push_back(33.3333333333); // 30 FPS
-        samples.push_back(100.0); // 10 FPS
-        auto math_snap = vegaflow::FrameTelemetryMonitor::ComputeMetricsFromSamples(samples, 1234, 1000);
-
-        bool math_valid = math_snap.valid && (math_snap.total_frames_captured == 1000);
-        bool fps_avg_ok = std::abs(math_snap.avg_fps - 59.2) < 1.0;
-        bool low_1_ok = std::abs(math_snap.fps_1_percent_low - 25.0) < 0.5;
-        bool low_0_1_ok = std::abs(math_snap.fps_0_1_percent_low - 10.0) < 0.1;
-
-        // 2. Circular ring buffer wrapping test (3000 items into 2048 window)
-        vegaflow::FrameTelemetryMonitor monitor;
-        for (int i = 0; i < 3000; ++i) {
-            monitor.RecordFrameIntervalMs(16.6666666667);
-        }
-        auto ring_snap = monitor.GetSnapshot();
-        bool ring_ok = ring_snap.valid && (ring_snap.total_frames_captured == 3000);
-        std::string report = monitor.FormatSessionReport("VegaFlow Bench");
-        bool report_ok = (report.find("VEGAFLOW TELEMETRY REPORT") != std::string::npos);
-
-        // 3. Monitor thread start & fast shutdown KPI (< 100 ms)
-        auto t_start = GetTickCount64();
-        monitor.StartMonitoring(GetCurrentProcessId());
-        Sleep(30);
-        monitor.StopMonitoring();
-        auto elapsed_ms = GetTickCount64() - t_start;
-        bool kpi_stop_ok = (elapsed_ms < 150); // fast shutdown
-
-        bool t7_success = math_valid && fps_avg_ok && low_1_ok && low_0_1_ok && ring_ok && report_ok && kpi_stop_ok;
-        std::string details = "Avg FPS: " + std::to_string(static_cast<int>(math_snap.avg_fps)) + ", "
-            + "1% Low: " + std::to_string(static_cast<int>(math_snap.fps_1_percent_low)) + " FPS, "
-            + "0.1% Low: " + std::to_string(static_cast<int>(math_snap.fps_0_1_percent_low)) + " FPS, "
-            + "RingBuffer: " + std::to_string(ring_snap.total_frames_captured) + " frames, "
-            + "Stop Latency: " + std::to_string(elapsed_ms) + " ms (< 100ms KPI)";
-
-        RecordResult(t7_success, "Test 7: FrameTelemetryMonitor mathematical rigor, 1% Low, circular buffer, and shutdown latency", details);
-    }
-}
 
 void Test17() {
     // -------------------------------------------------------------------------

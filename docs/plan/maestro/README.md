@@ -1,6 +1,6 @@
 # Plan maestro: arquitectura nueva, Rust, seguridad y soporte universal
 
-**Lector:** personas. Fecha: 2026-11-08. Estado: **aprobado el 2026-11-09**. Hechas: fase 0, R1 y R2 (2026-11-09), fase 1 y fase 1b (2026-11-10), fase 2, fase 2b, fase 3, fase 4 y fase 5 (2026-11-12). Siguiente: fase 6.
+**Lector:** personas. Fecha: 2026-11-08. Estado: **aprobado el 2026-11-09**. Hechas: fase 0, R1 y R2 (2026-11-09), fase 1 y fase 1b (2026-11-10), fase 2, fase 2b, fase 3, fase 4, fase 5 y fase 6 (2026-11-12). Siguiente: fase 7.
 
 Este es el único plan del proyecto. Junta tres cosas que antes iban por separado:
 - la **arquitectura nueva** y la modularización (decisión en el [ADR 0001](../../adr/0001-nucleo-que-decide-y-puertos.md));
@@ -27,7 +27,7 @@ Un archivo por fase, en el orden en que se hacen. Lo común va aparte:
 | ~~`07-fase-3.md`~~ | Fase 3: **hecha el 2026-11-12** (perfil universal del equipo y GPU en Rust `policy/device_profile.rs`, puerto `ports/device_probe.hpp` con DXCore + SetupAPI + almacenamiento `dwDesiredAccess=0` + energía + ARM64, detección de hot-plug y paso estático/vivo en `session/game_session.cpp`, `Engine.ini` sin recortes para dGPU/eGPU, Pruebas 51 y 52 y `tests/vectors/device_profiles.tsv`; el archivo se borró, la historia queda en git) |
 | ~~`08-fase-4.md`~~ | Fase 4: **hecha el 2026-11-12** (regla única de purga y guardián UMA en Rust `policy/memory_purge.rs`, salida de `ntdll` de Rust a `windows/memory.*`, puertos `ports/memory_probe.hpp` y `ports/memory_control.hpp`, umbral único 0.85, pausa compartida de 90s, lectura de disco por vuelta sin dilución, eliminación del fallback `ullAvailPhys`, exclusiones de fábrica No tocar para OBS/Discord/llamadas, Prueba 53 y `tests/vectors/memory_purge.tsv`; el archivo se borró, la historia queda en git) |
 | ~~`09-fase-5.md`~~ | Fase 5: **hecha el 2026-11-12** (clasificación de procesos y acciones en Rust `policy/process_class.rs`, verificación de ruta completa + DLL 3D + señales genéricas anti-cheat, puerto `ports/process_control.hpp` + `windows/process_control.*` con verificación PID+`creation_time`, devolución del juego anterior al cambiar de juego, exclusión "Me fue mal en este juego" en `ExcludeGameAndRevert`, Pruebas 54 y 55 y `tests/vectors/process_class.tsv`; el archivo se borró, la historia queda en git) |
-| [`10-fase-6.md`](10-fase-6.md) | Fase 6: quitar la medición de fotogramas del daemon |
+| ~~`10-fase-6.md`~~ | Fase 6: **hecha el 2026-11-12** (eliminada la captura ETW de fotogramas `src/safety/frame_telemetry.*`, `-ltdh`, Test 7 y los campos de FPS en `--monitor`, GUI y `session_reports.log`; `--monitor` conserva RAM y VRAM; el archivo se borró, la historia queda en git) |
 | [`11-fase-7.md`](11-fase-7.md) | Fase 7: núcleos de CPU universales |
 | [`12-fase-8.md`](12-fase-8.md) | Fase 8: ajustes de sistema por fabricante |
 | [`13-fase-r3.md`](13-fase-r3.md) | Fase R3: cierre |

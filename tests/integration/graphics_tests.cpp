@@ -26,7 +26,7 @@
 #include "optimize/graphics/graphics_optimizer.hpp"
 #include "optimize/memory_manager.hpp"
 #include "optimize/cpu_orchestrator.hpp"
-#include "safety/frame_telemetry.hpp"
+#include "session/reports.hpp"
 #include "optimize/steam/steam_engine_optimizer.hpp"
 #include "optimize/dxvk_manager.hpp"
 #include "windows/sandbox_guard.hpp"
@@ -101,24 +101,26 @@ void Test10() {
         bool shader_cache_ok = vegaflow::GraphicsOptimizer::SetAmdShaderCacheForced(true, DetectedPolicy(), true /* dry_run */);
         bool mem_compress_ok = vegaflow::GraphicsOptimizer::SetMemoryCompressionEnabled(false, true /* dry_run */);
 
-        vegaflow::FrameTelemetryMonitor telemetry;
-        telemetry.RecordFrameIntervalMs(16.6);
-        telemetry.RecordFrameIntervalMs(16.7);
         const std::string test_log_path = "build/test_session_report.log";
-        bool save_ok = telemetry.SaveSessionReportToFile("TestGame_DX12", test_log_path);
+        std::error_code ec;
+        std::filesystem::remove(test_log_path, ec);
+        bool save_ok = vegaflow::app::SaveSessionReportToFile("TestGame_DX12", "DirectX 12", 1234, test_log_path);
 
         bool file_exists_and_non_empty = false;
-        std::ifstream f(test_log_path, std::ios::ate | std::ios::binary);
+        bool no_fps_fields = false;
+        std::ifstream f(test_log_path, std::ios::binary);
         if (f.is_open()) {
-            file_exists_and_non_empty = (f.tellg() > 0);
+            std::string body((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+            file_exists_and_non_empty = !body.empty();
+            no_fps_fields = (body.find("FPS") == std::string::npos && body.find("Frametime") == std::string::npos);
             f.close();
         }
 
-        bool t10_success = shader_cache_ok && mem_compress_ok && save_ok && file_exists_and_non_empty;
+        bool t10_success = shader_cache_ok && mem_compress_ok && save_ok && file_exists_and_non_empty && no_fps_fields;
         std::string details = "ShaderCache Forced Dry-Run: " + std::string(shader_cache_ok ? "OK" : "FAIL") + ", "
             + "MemCompression Toggle Dry-Run: " + std::string(mem_compress_ok ? "OK" : "FAIL") + ", "
             + "Session Report Saved: " + std::string(save_ok ? "OK" : "FAIL") + ", "
-            + "File Verified: " + std::string(file_exists_and_non_empty ? "EXISTS (>0 bytes)" : "FAIL");
+            + "File Verified (no FPS): " + std::string((file_exists_and_non_empty && no_fps_fields) ? "EXISTS (>0 bytes)" : "FAIL");
 
         RecordResult(t10_success, "Test 10: Phase 4 System Tweaks & Session Report Persistence", details);
     }

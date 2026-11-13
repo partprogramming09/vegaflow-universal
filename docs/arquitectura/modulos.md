@@ -196,8 +196,6 @@ direct/
 │   │   ├── memory_manager.*      # Orquestación de memoria vía MemoryProbe/MemoryControl y memory_purge.rs
 │   │   ├── cpu_orchestrator.*    # Asignación de CPU Sets, restauración al cambiar de juego y aislamiento seguro (PID + FILETIME)
 │   │   └── dxvk_manager.*        # Despliegue seguro de DXVK-GPLAsync y backups
-│   ├── safety/                   # Lo que protege al sistema y al juego
-│   │   └── frame_telemetry.*     # Monitoreo estadístico de frametimes (1% y 0.1% Lows)
 │   ├── ui/                       # Ventana nativa Win32/GDI
 │   │   ├── gui_window.*          # Interfaz Slate/Zinc y System Tray
 │   │   ├── gui_components.*      # Componentes modulares de UI y renderizado gráfico

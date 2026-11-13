@@ -68,29 +68,21 @@ void RenderTabDashboard(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* st
     int kpiGutter = 10;
     int kpiW = (contentW - 3 * kpiGutter) / 4;
 
-    // KPI 1: AVG FPS
+    // KPI 1: VRAM LOCAL
     RECT rcK1 = { contentLeft, kpiY, contentLeft + kpiW, kpiY + kpiH };
     DrawRoundedCard(hdcMem, rcK1, CLR_CARD_BG, CLR_CARD_BORDER, 6);
-    DrawTextAt(hdcMem, rcK1.left + 12, rcK1.top + 8, L"AVG FPS", CLR_TEXT_MUTED, state->hFontSmall);
-    if (state->data.game_active && state->data.avg_fps > 0.0) {
-        wchar_t fpsBuf[32];
-        swprintf_s(fpsBuf, L"%.1f", state->data.avg_fps);
-        DrawTextAt(hdcMem, rcK1.left + 12, rcK1.top + 28, fpsBuf, CLR_ACCENT_GREEN, state->hFontMetric);
-    } else {
-        DrawTextAt(hdcMem, rcK1.left + 12, rcK1.top + 28, L"--.-", CLR_TEXT_DIM, state->hFontMetric);
-    }
+    DrawTextAt(hdcMem, rcK1.left + 12, rcK1.top + 8, L"VRAM LOCAL", CLR_TEXT_MUTED, state->hFontSmall);
+    wchar_t vramBuf[32];
+    swprintf_s(vramBuf, L"%llu MB", static_cast<unsigned long long>(state->data.vram_local_used_mb));
+    DrawTextAt(hdcMem, rcK1.left + 12, rcK1.top + 28, vramBuf, CLR_ACCENT_GREEN, state->hFontMetric);
 
-    // KPI 2: 1% LOW
+    // KPI 2: ECOQOS PROCESOS
     RECT rcK2 = { rcK1.right + kpiGutter, kpiY, rcK1.right + kpiGutter + kpiW, kpiY + kpiH };
     DrawRoundedCard(hdcMem, rcK2, CLR_CARD_BG, CLR_CARD_BORDER, 6);
-    DrawTextAt(hdcMem, rcK2.left + 12, rcK2.top + 8, L"1% LOW", CLR_TEXT_MUTED, state->hFontSmall);
-    if (state->data.game_active && state->data.fps_1_low > 0.0) {
-        wchar_t lowBuf[32];
-        swprintf_s(lowBuf, L"%.1f", state->data.fps_1_low);
-        DrawTextAt(hdcMem, rcK2.left + 12, rcK2.top + 28, lowBuf, CLR_ACCENT_CYAN, state->hFontMetric);
-    } else {
-        DrawTextAt(hdcMem, rcK2.left + 12, rcK2.top + 28, L"--.-", CLR_TEXT_DIM, state->hFontMetric);
-    }
+    DrawTextAt(hdcMem, rcK2.left + 12, rcK2.top + 8, L"PROCESOS ECO", CLR_TEXT_MUTED, state->hFontSmall);
+    wchar_t ecoBuf[32];
+    swprintf_s(ecoBuf, L"%u activos", state->data.ecoqos_processes_count);
+    DrawTextAt(hdcMem, rcK2.left + 12, rcK2.top + 28, ecoBuf, CLR_ACCENT_CYAN, state->hFontMetric);
 
     // KPI 3: TIMER KERNEL
     RECT rcK3 = { rcK2.right + kpiGutter, kpiY, rcK2.right + kpiGutter + kpiW, kpiY + kpiH };

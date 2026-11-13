@@ -75,11 +75,6 @@ struct GuiDashboardData {
     bool io_priority_active = false;
     bool directflip_active = false;
 
-    double avg_fps = 0.0;
-    double fps_1_low = 0.0;
-    double fps_0_1_low = 0.0;
-    double frametime_stddev_ms = 0.0;
-
     uint64_t daemon_private_ws_kb = 0;
     std::string last_action_status;
     std::vector<std::string> audit_log;

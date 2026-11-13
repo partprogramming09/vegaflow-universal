@@ -96,7 +96,7 @@ std::optional<int> ParseCommandLine(int argc, char* argv[], CliOptions& opts) {
             std::cout << "  --create-restore-point   Attempt to create a Windows System Restore Point now.\n";
             std::cout << "  --dxvk-install <path>    Deploy DXVK (DirectX 11 to Vulkan with async GPL) to target game folder.\n";
             std::cout << "  --dxvk-remove <path>     Remove DXVK and restore original DirectX 11 runtime.\n";
-            std::cout << "  --monitor, -m            Real-time console dashboard displaying live RAM, VRAM, and FPS telemetry.\n";
+            std::cout << "  --monitor, -m            Real-time console dashboard displaying live RAM and VRAM telemetry.\n";
             std::cout << "  --gui, -g                Launch native zero-overhead Win32/GDI dashboard with system tray support.\n";
             std::cout << "  --system-info            Output complete hardware, APU UMA, RAM topology, and OS specs in JSON format.\n";
             std::cout << "  --help, -h               Display this help menu.\n";

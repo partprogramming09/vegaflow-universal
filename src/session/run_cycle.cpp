@@ -13,9 +13,9 @@
 #include "optimize/graphics/graphics_optimizer.hpp"
 #include "optimize/memory_manager.hpp"
 #include "optimize/cpu_orchestrator.hpp"
-#include "safety/frame_telemetry.hpp"
 #include "optimize/steam/steam_engine_optimizer.hpp"
 #include "session/game_session.hpp"
+#include "session/reports.hpp"
 #include "session/text_convert.hpp"
 #include "windows/device_probe.hpp"
 
@@ -29,9 +29,8 @@ public:
         vegaflow::FileSystem& fs,
         vegaflow::CpuOrchestrator& cpu,
         vegaflow::MemoryManager& mem,
-        vegaflow::FrameTelemetryMonitor& telem,
         std::function<void(const std::string&)>* audit_cb)
-        : fs_(fs), cpu_(cpu), mem_(mem), telem_(telem), audit_cb_(audit_cb) {}
+        : fs_(fs), cpu_(cpu), mem_(mem), audit_cb_(audit_cb) {}
 
     std::optional<vegaflow::DetectedGameProcess> DetectActiveGame(const vegaflow::ProcessPolicyConfig& policy) override {
         return vegaflow::ProcessDetector::DetectActiveGame(policy);
@@ -140,21 +139,14 @@ public:
         }
     }
 
-    void StartTelemetry(uint32_t pid) override {
-        telem_.StartMonitoring(pid);
-    }
-
-    void StopAndSaveTelemetry(const std::string& exe_utf8) override {
-        std::cout << telem_.FormatSessionReport(exe_utf8) << "\n";
-        telem_.SaveSessionReportToFile(exe_utf8, "logs/session_reports.log");
-        telem_.StopMonitoring();
+    void SaveSessionReport(const std::string& exe_utf8, const std::string& api_name, uint32_t pid) override {
+        SaveSessionReportToFile(exe_utf8, api_name, pid, "logs/session_reports.log");
     }
 
 private:
     vegaflow::FileSystem& fs_;
     vegaflow::CpuOrchestrator& cpu_;
     vegaflow::MemoryManager& mem_;
-    vegaflow::FrameTelemetryMonitor& telem_;
     std::function<void(const std::string&)>* audit_cb_ = nullptr;
     vegaflow::SystemMemoryTelemetry live_mem_{};
 };
@@ -167,7 +159,6 @@ void RunSingleIteration(
     vegaflow::SystemHardwareProfile& hw,
     vegaflow::CpuOrchestrator& cpu_orchestrator,
     vegaflow::MemoryManager& mem_mgr,
-    vegaflow::FrameTelemetryMonitor& telemetry_monitor,
     bool& game_active,
     uint32_t& active_game_pid,
     std::wstring& active_game_exe,
@@ -179,7 +170,7 @@ void RunSingleIteration(
     std::function<void(const std::string&)>* audit_cb) {
 
     vegaflow::WindowsDeviceProbe device_probe;
-    WindowsGameSessionEnv env(file_system, cpu_orchestrator, mem_mgr, telemetry_monitor, audit_cb);
+    WindowsGameSessionEnv env(file_system, cpu_orchestrator, mem_mgr, audit_cb);
 
     vegaflow::session::GameSessionState state{};
     state.game_active = game_active;

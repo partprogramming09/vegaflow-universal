@@ -89,8 +89,7 @@ struct GameSessionEnvironment {
     virtual void EvaluateMemory(uint32_t game_pid, const std::vector<uint32_t>& bg_pids, bool allow_ram_purge) = 0;
     virtual void EvaluateUmaGuard(const ApuOptimizationPolicy& live_policy, const std::vector<uint32_t>& bg_pids) = 0;
 
-    virtual void StartTelemetry(uint32_t pid) = 0;
-    virtual void StopAndSaveTelemetry(const std::string& exe_utf8) = 0;
+    virtual void SaveSessionReport(const std::string& exe_utf8, const std::string& api_name, uint32_t pid) = 0;
 };
 
 void RunGameSessionCycle(

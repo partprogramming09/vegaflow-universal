@@ -3,7 +3,10 @@
 #include <windows.h>
 
 #include <cstdint>
+#include <cstdio>
 #include <cstdlib>
+#include <filesystem>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
@@ -92,6 +95,43 @@ uint32_t CountDirectFlipConfiguredGames() {
         RegCloseKey(hPref);
     }
     return count;
+}
+
+bool SaveSessionReportToFile(
+    const std::string& game_name,
+    const std::string& api_name,
+    uint32_t pid,
+    const std::string& file_path) {
+    try {
+        std::filesystem::path p(file_path);
+        std::ofstream out(p, std::ios::app);
+        if (!out.is_open() && p.has_parent_path()) {
+            CreateDirectoryW(p.parent_path().wstring().c_str(), nullptr);
+            out.clear();
+            out.open(p, std::ios::app);
+        }
+        if (!out.is_open()) {
+            return false;
+        }
+
+        SYSTEMTIME st{};
+        GetLocalTime(&st);
+        char time_buf[64] = {0};
+        std::snprintf(time_buf, sizeof(time_buf), "[%04u-%02u-%02u %02u:%02u:%02u] ",
+                      st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond);
+
+        out << time_buf << "Session Report: " << game_name << "\n"
+            << "========================================================\n"
+            << " VEGAFLOW SESSION REPORT: " << game_name << "\n"
+            << "========================================================\n"
+            << " Target PID            : " << pid << "\n"
+            << " Render API            : " << (api_name.empty() ? "N/A" : api_name) << "\n"
+            << "========================================================\n\n";
+        out.flush();
+        return !out.fail();
+    } catch (...) {
+        return false;
+    }
 }
 
 void PrintStatusReport() {

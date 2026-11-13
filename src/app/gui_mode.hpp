@@ -7,7 +7,6 @@
 #include "detect/hardware_profiler.hpp"
 #include "optimize/cpu_orchestrator.hpp"
 #include "optimize/memory_manager.hpp"
-#include "safety/frame_telemetry.hpp"
 
 namespace vegaflow::app {
 
@@ -17,7 +16,6 @@ int RunGuiMode(
     vegaflow::SystemHardwareProfile& hw,
     vegaflow::CpuOrchestrator& cpu_orchestrator,
     vegaflow::MemoryManager& mem_mgr,
-    vegaflow::FrameTelemetryMonitor& telemetry_monitor,
     bool safe_mode = false,
     const std::string& journal_warning = {});
 

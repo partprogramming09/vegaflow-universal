@@ -15,7 +15,6 @@
 #include "optimize/graphics/graphics_optimizer.hpp"
 #include "optimize/memory_manager.hpp"
 #include "optimize/cpu_orchestrator.hpp"
-#include "safety/frame_telemetry.hpp"
 #include "app/app_state.hpp"
 #include "app/cli.hpp"
 #include "session/config.hpp"
@@ -220,10 +219,9 @@ int main(int argc, char* argv[]) {
     mem_cfg.is_uma_architecture = (hw.primary_gpu.mem_arch == MemoryArchitecture::UMA_Integrated);
     MemoryManager mem_mgr(mem_cfg);
     CpuOrchestrator cpu_orchestrator;
-    FrameTelemetryMonitor telemetry_monitor;
 
     if (opts.monitor_flag) {
-        RunMonitorDashboard(config, hw, cpu_orchestrator, mem_mgr, telemetry_monitor, opts.once_flag);
+        RunMonitorDashboard(config, hw, cpu_orchestrator, mem_mgr, opts.once_flag);
         if (g_single_instance_mutex) {
             CloseHandle(g_single_instance_mutex);
             g_single_instance_mutex = nullptr;
@@ -232,8 +230,8 @@ int main(int argc, char* argv[]) {
     }
 
     if (opts.gui_flag) {
-        return RunGuiMode(config, config_store, hw, cpu_orchestrator, mem_mgr, telemetry_monitor, safe_mode, journal_warning);
+        return RunGuiMode(config, config_store, hw, cpu_orchestrator, mem_mgr, safe_mode, journal_warning);
     }
 
-    return RunDaemon(config, hw, cpu_orchestrator, mem_mgr, telemetry_monitor, priv, opts.once_flag, safe_mode);
+    return RunDaemon(config, hw, cpu_orchestrator, mem_mgr, priv, opts.once_flag, safe_mode);
 }

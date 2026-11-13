@@ -12,7 +12,6 @@
 #include "optimize/graphics/graphics_optimizer.hpp"
 #include "optimize/memory_manager.hpp"
 #include "optimize/cpu_orchestrator.hpp"
-#include "safety/frame_telemetry.hpp"
 #include "ui/gui_window.hpp"
 #include "optimize/steam/steam_engine_optimizer.hpp"
 #include "optimize/dxvk_manager.hpp"
@@ -37,7 +36,6 @@ int RunGuiMode(
     vegaflow::SystemHardwareProfile& hw,
     vegaflow::CpuOrchestrator& cpu_orchestrator,
     vegaflow::MemoryManager& mem_mgr,
-    vegaflow::FrameTelemetryMonitor& telemetry_monitor,
     bool safe_mode,
     const std::string& journal_warning) {
     using namespace vegaflow;
@@ -121,7 +119,7 @@ int RunGuiMode(
         std::function<void(const std::string&)> audit_fn = AddAuditLog;
         if (!safe_mode) {
             RunSingleIteration(
-                config, file_system, hw, cpu_orchestrator, mem_mgr, telemetry_monitor,
+                config, file_system, hw, cpu_orchestrator, mem_mgr,
                 game_active, active_game_pid, active_game_exe, active_game_api, active_game_hwnd, timer_boosted,
                 &active_game_full_path, &cached_noisy_count, &audit_fn);
         }
@@ -163,7 +161,6 @@ int RunGuiMode(
             }
         }
         auto timer_res = GraphicsOptimizer::QueryTimerResolution();
-        auto frame_snap = telemetry_monitor.GetSnapshot();
         uint64_t daemon_ws = MemoryManager::GetCurrentProcessPrivateWorkingSetBytes();
 
         if (--tweaks_query_countdown <= 0) {
@@ -235,13 +232,6 @@ int RunGuiMode(
         data.directflip_active = game_active
             ? (GraphicsOptimizer::HasDirectFlipUpgrade(active_game_full_path) || GraphicsOptimizer::HasDirectFlipUpgrade(active_game_exe))
             : (CountDirectFlipConfiguredGames() > 0);
-
-        if (frame_snap.valid) {
-            data.avg_fps = frame_snap.avg_fps;
-            data.fps_1_low = frame_snap.fps_1_percent_low;
-            data.fps_0_1_low = frame_snap.fps_0_1_percent_low;
-            data.frametime_stddev_ms = frame_snap.frametime_stddev_ms;
-        }
 
         data.daemon_private_ws_kb = daemon_ws / 1024;
         data.last_action_status = last_gui_status;
@@ -580,8 +570,7 @@ int RunGuiMode(
     int exit_code = GuiWindow::RunGuiLoop(callbacks);
     if (!safe_mode) {
         if (game_active) {
-            telemetry_monitor.SaveSessionReportToFile(WideToUtf8(active_game_exe), "logs/session_reports.log");
-            telemetry_monitor.StopMonitoring();
+            SaveSessionReportToFile(WideToUtf8(active_game_exe), active_game_api, active_game_pid, "logs/session_reports.log");
         }
         cpu_orchestrator.RestoreAll(false);
         GraphicsOptimizer::SetDynamicPrioritySeparation(0x02, false);

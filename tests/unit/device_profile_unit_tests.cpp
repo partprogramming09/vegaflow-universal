@@ -150,8 +150,7 @@ public:
         uma_guard_evaluated = true;
         uma_guard_policy = live_policy;
     }
-    void StartTelemetry(uint32_t) override {}
-    void StopAndSaveTelemetry(const std::string&) override {}
+    void SaveSessionReport(const std::string&, const std::string&, uint32_t) override {}
 };
 
 } // namespace

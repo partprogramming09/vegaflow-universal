@@ -58,7 +58,7 @@ void RestoreEndOfSession(
     GameSessionEnvironment& env,
     GameSessionState& state) {
 
-    env.StopAndSaveTelemetry(app::WideToUtf8(state.active_game_exe));
+    env.SaveSessionReport(app::WideToUtf8(state.active_game_exe), state.active_game_api, state.active_game_pid);
     env.RestoreCpuAll();
     env.SetDynamicPrioritySeparation(0x02);
     if (state.timer_boosted && !config.timer_forced_manual) {
@@ -331,7 +331,6 @@ void RunGameSessionCycle(
                 }
             }
 
-            env.StartTelemetry(game.pid);
             state.game_active = true;
             state.active_game_pid = game.pid;
         }

@@ -11,7 +11,6 @@
 #include "optimize/graphics/graphics_optimizer.hpp"
 #include "optimize/memory_manager.hpp"
 #include "optimize/cpu_orchestrator.hpp"
-#include "safety/frame_telemetry.hpp"
 #include "optimize/steam/steam_engine_optimizer.hpp"
 #include "app/app_state.hpp"
 #include "session/config.hpp"
@@ -27,7 +26,6 @@ int RunDaemon(
     vegaflow::SystemHardwareProfile& hw,
     vegaflow::CpuOrchestrator& cpu_orchestrator,
     vegaflow::MemoryManager& mem_mgr,
-    vegaflow::FrameTelemetryMonitor& telemetry_monitor,
     const vegaflow::PrivilegeStatus& priv,
     bool once_mode,
     bool safe_mode) {
@@ -56,16 +54,15 @@ int RunDaemon(
     if (once_mode) {
         if (!safe_mode) {
             RunSingleIteration(
-                config, file_system, hw, cpu_orchestrator, mem_mgr, telemetry_monitor,
+                config, file_system, hw, cpu_orchestrator, mem_mgr,
                 game_active, active_game_pid, active_game_exe, active_game_api, active_game_hwnd, timer_boosted);
             if (game_active) {
-                telemetry_monitor.SaveSessionReportToFile(WideToUtf8(active_game_exe), "logs/session_reports.log");
+                SaveSessionReportToFile(WideToUtf8(active_game_exe), active_game_api, active_game_pid, "logs/session_reports.log");
                 cpu_orchestrator.RestoreAll(false);
                 GraphicsOptimizer::SetDynamicPrioritySeparation(0x02, false);
                 if (timer_boosted) {
                     GraphicsOptimizer::RestoreDefaultTimer();
                 }
-                telemetry_monitor.StopMonitoring();
             }
             if (GraphicsOptimizer::IsApuPowerModeApplied()) {
                 GraphicsOptimizer::SetApuLaptopPowerProfile(false, policy, false);
@@ -133,7 +130,7 @@ int RunDaemon(
         } else if (wait_res == WAIT_OBJECT_0 + 1) {
             if (!safe_mode) {
                 RunSingleIteration(
-                    config, file_system, hw, cpu_orchestrator, mem_mgr, telemetry_monitor,
+                    config, file_system, hw, cpu_orchestrator, mem_mgr,
                     game_active, active_game_pid, active_game_exe, active_game_api, active_game_hwnd, timer_boosted);
             }
         } else {
@@ -144,13 +141,12 @@ int RunDaemon(
     std::cout << "\n[INFO] Shutdown signal received. Cleaning up resources...\n";
     if (!safe_mode) {
         if (game_active) {
-            telemetry_monitor.SaveSessionReportToFile(WideToUtf8(active_game_exe), "logs/session_reports.log");
+            SaveSessionReportToFile(WideToUtf8(active_game_exe), active_game_api, active_game_pid, "logs/session_reports.log");
             cpu_orchestrator.RestoreAll(false);
             GraphicsOptimizer::SetDynamicPrioritySeparation(0x02, false);
             if (timer_boosted) {
                 GraphicsOptimizer::RestoreDefaultTimer();
             }
-            telemetry_monitor.StopMonitoring();
         }
         GraphicsOptimizer::SetApuLaptopPowerProfile(false, policy, false);
         GraphicsOptimizer::SetGameDvrAndFseOptimized(false, false);
