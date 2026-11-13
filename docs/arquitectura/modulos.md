@@ -126,7 +126,6 @@ direct/
 │       └── src/
 │           ├── lib.rs            # Declara los módulos y las pruebas de la frontera FFI
 │           ├── ffi.rs            # Todas las funciones vf_rust_* exportadas a C++ (punteros y ffi_guard)
-│           ├── nt_memory.rs      # Llamadas a ntdll: leer las listas de memoria y descartar la Standby List
 │           └── policy/           # Las reglas, una por archivo, sin punteros ni llamadas al sistema
 │               ├── apu_tier.rs     # Tier de la APU (1 a 4)
 │               ├── config_file.rs  # Leer y guardar config.json sin perder claves desconocidas
@@ -137,10 +136,10 @@ direct/
 │               ├── folder_trust.rs # ¿Solo administradores pueden escribir esta carpeta? (dueño y DACL)
 │               ├── ini_merge.rs    # Editor atómico .ini (Unreal) y boot.config (Unity) preservando BOM/UTF-16/CRLF
 │               ├── json_text.rs    # Lector y escritor JSON estricto, sin dependencias
+│               ├── memory_purge.rs # Regla única de purga y guardián UMA (umbral 85%, pausa de 90s, disco y lista de fábrica No tocar)
 │               ├── path_policy.rs  # Lista negra de rutas de SandboxGuard
 │               ├── steam_library.rs # Lector de libraryfolders.vdf (bibliotecas de Steam)
-│               ├── sandbox_core.rs # Firmas de anti-cheat y archivos críticos del sistema
-│               └── uma_memory.rs   # Presión de memoria UMA
+│               └── sandbox_core.rs # Firmas de anti-cheat y archivos críticos del sistema
 ├── src/                          # Cada .hpp vive junto a su .cpp, agrupado por función
 │   ├── app/                      # Entradas del programa (main.cpp solo orquesta)
 │   │   ├── main.cpp              # Punto de entrada: lee la línea de comandos y elige el modo
@@ -161,6 +160,8 @@ direct/
 │   │   ├── file_system.hpp       # Leer, escribir, reemplazar entero, copiar y borrar archivos
 │   │   ├── clock.hpp             # La hora actual y fecha legible (`WallNow`); las pruebas lo adelantan a mano
 │   │   ├── device_probe.hpp      # Sonda de equipo (GPU/DXCore/SetupAPI, disco por juego, energía, pantallas, ARM64)
+│   │   ├── memory_probe.hpp      # Telemetría de memoria (listas NT sin respaldo a caché, presupuesto VRAM DXGI y lectura de disco)
+│   │   ├── memory_control.hpp    # Acción única de purga (trim de working sets y purga de Standby List)
 │   │   └── change_journal.hpp    # Diario de cambios atómico y puerto de reversión del sistema
 │   ├── model/                    # Tipos compartidos, sin lógica
 │   │   ├── hardware.hpp          # GPU (conexión, PCI IDs, driver), CPU, disco, energía, Tier y política
@@ -190,7 +191,7 @@ direct/
 │   │   │   ├── engine_presets.cpp      # Aplicar y restaurar presets de UE/Unity
 │   │   │   ├── apu_shadow_config.cpp   # Configuración "sombra" para APU
 │   │   │   └── steam_internal.*        # Ayudantes compartidos
-│   │   ├── memory_manager.*      # Telemetría de RAM/VRAM y purga de Standby List
+│   │   ├── memory_manager.*      # Orquestación de memoria vía MemoryProbe/MemoryControl y memory_purge.rs
 │   │   ├── cpu_orchestrator.*    # Asignación de CPU Sets y aislamiento de procesos
 │   │   └── dxvk_manager.*        # Despliegue seguro de DXVK-GPLAsync y backups
 │   ├── safety/                   # Lo que protege al sistema y al juego
@@ -203,6 +204,7 @@ direct/
 │   │   ├── nt_defs.hpp           # Typedefs y llamadas nativas indocumentadas de NTDLL
 │   │   ├── unique_handle.hpp     # Cierre automático de handles, claves de registro y búsquedas (RAII)
 │   │   ├── device_probe.*        # Sonda real Windows (DXCore COM, DXGI, SetupAPI RemovalPolicy, Storage SeekPenalty/BusType, Power, IsWow64Process2)
+│   │   ├── memory.*              # Implementación Windows de MemoryProbe y MemoryControl (ntdll, DXGI, Working Sets)
 │   │   ├── sandbox_guard.*       # E/S de archivos comprobada: normaliza la ruta, pide la decisión a Rust y vuelve a comprobar el archivo abierto
 │   │   ├── safe_file_system.*    # Puerto de archivos real: pasa todo por SandboxGuard
 │   │   ├── config_location.*     # Ruta de config.json junto al .exe y si solo administradores pueden escribirla

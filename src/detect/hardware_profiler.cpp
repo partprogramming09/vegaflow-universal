@@ -266,7 +266,7 @@ ApuOptimizationPolicy HardwareProfiler::BuildOptimizationPolicy(
     policy.dxvk_compiler_threads = dec.dxvk_compiler_threads;
     policy.disable_dx12_async_compute = dec.disable_dx12_async_compute;
     policy.cpu_stapm_cap_mhz = 0;
-    policy.runtime_pressure_threshold = 0.85;
+    policy.runtime_pressure_threshold = vf_rust_vram_pressure_threshold();
 
     switch (policy.tier) {
         case ApuTier::Tier1_EntryUMA:

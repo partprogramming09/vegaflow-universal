@@ -115,7 +115,7 @@ struct ApuOptimizationPolicy {
     uint32_t os_reserve_floor_mb = 4096;
     uint32_t safe_vram_pool_mb = 4096;
     uint32_t safe_shared_pool_mb = 8192;
-    double runtime_pressure_threshold = 0.85;
+    double runtime_pressure_threshold = 0.0; // Resolved via vf_rust_vram_pressure_threshold()
 
     // DirectX 11 Specialization
     uint32_t dxvk_compiler_threads = 6;

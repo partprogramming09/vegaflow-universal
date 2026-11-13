@@ -172,7 +172,8 @@ void PrintStatusReport() {
     std::cout << "  DX12 Specialization        : AsyncCompute=" << (policy.disable_dx12_async_compute ? "DISABLED (UMA Contention Guard)" : "ENABLED (Do-No-Harm Guard)")
               << ", UE CSM=" << policy.ue_max_csm_resolution << "px (" << policy.ue_max_shadow_cascades << " cascades)\n";
     std::cout << "  CPU STAPM Thermal Ceiling  : " << (policy.cpu_stapm_cap_mhz == 0 ? "UNCAPPED 100% CPU+GPU (Smart Efficient-Aggressive + EPP 25)" : (std::to_string(policy.cpu_stapm_cap_mhz) + " MHz (Sustained GPU Priority)")) << "\n";
-    std::cout << "  Live DXGI Budget Pressure  : " << static_cast<int>(uma_guard.dxgi_budget_utilization * 100.0) << "% (Threshold: 85% -> " << (uma_guard.guard_triggered ? "PRESSURE GUARD ACTIVE" : "HEALTHY") << ")\n\n";
+    const int uma_thresh_pct = static_cast<int>(policy.runtime_pressure_threshold * 100.0 + 0.5);
+    std::cout << "  Live DXGI Budget Pressure  : " << static_cast<int>(uma_guard.dxgi_budget_utilization * 100.0) << "% (Threshold: " << uma_thresh_pct << "% -> " << (uma_guard.guard_triggered ? "PRESSURE GUARD ACTIVE" : "HEALTHY") << ")\n\n";
 
     std::cout << "[SYSTEM GRAPHICS TWEAKS]\n";
     std::cout << "  Multi-Plane Overlay (MPO)  : " << (tweaks.mpo_disabled ? "DISABLED (OverlayTestMode=5, Stutter-Free)" : "ENABLED (Windows Default)") << "\n";

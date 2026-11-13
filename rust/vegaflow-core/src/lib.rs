@@ -6,7 +6,6 @@
 compile_error!("vegaflow-core must be built with panic = \"unwind\" so ffi_guard can catch panics at the C boundary");
 
 pub mod ffi;
-pub mod nt_memory;
 pub mod policy;
 
 pub use ffi::*;
@@ -15,7 +14,7 @@ pub use ffi::*;
 mod tests {
     use super::*;
     use crate::ffi::ffi_guard;
-    use crate::policy::{cpu_governor::*, uma_memory::*};
+    use crate::policy::{cpu_governor::*, memory_purge::VfMemoryPurgeInput};
     use std::ffi::CString;
 
     #[test]
@@ -29,130 +28,47 @@ mod tests {
     }
 
     #[test]
-    fn test_uma_healthy_telemetry() {
-        let input = VfUmaTelemetryInput {
-            total_physical_bytes: 16 * 1024 * 1024 * 1024,
-            free_and_zero_bytes: 4096 * 1024 * 1024,
-            standby_bytes: 2048 * 1024 * 1024,
-            local_budget_bytes: 2048 * 1024 * 1024,
-            local_usage_bytes: 983 * 1024 * 1024, // ~48%
-            runtime_pressure_threshold: 0.85,
+    fn test_memory_purge_ffi_and_threshold() {
+        assert!((vf_rust_vram_pressure_threshold() - 0.85).abs() < 1e-9);
+
+        let mb = 1024u64 * 1024u64;
+        let input = VfMemoryPurgeInput {
+            total_physical_bytes: 16384 * mb,
+            free_and_zero_bytes: 3000 * mb,
+            standby_bytes: 2048 * mb,
+            local_budget_bytes: 4096 * mb,
+            local_usage_bytes: 3686 * mb, // ~90%
             vram_valid: true,
-            is_discrete_tier: false,
+            memory_lists_valid: true,
+            is_uma_gpu: true,
+            allow_ram_purge: true,
+            min_free_ram_mb: 1200,
+            min_standby_mb: 1500,
+            cooldown_seconds: 90,
+            elapsed_since_last_purge_ms: -1,
+            game_disk_read_bytes_per_sec: 0,
+            max_game_disk_read_bytes_per_sec: 15 * mb,
+            pressure_threshold_override: 0.0,
+            prev_interventions: 2,
+            dry_run: false,
         };
+        let dec = vf_rust_evaluate_memory_purge(&input);
+        assert!(dec.should_purge_standby);
+        assert!(dec.should_trim_background);
+        assert!(dec.guard_triggered);
+        assert!(dec.dxgi_over_ceiling);
+        assert_eq!(dec.total_interventions, 3);
 
-        let decision = vf_rust_evaluate_uma_pressure(&input, 10);
-        assert!(!decision.guard_triggered);
-        assert!(!decision.dxgi_over_ceiling);
-        assert!(!decision.free_ram_critical);
-        assert_eq!(decision.available_os_headroom_mb, 6144);
-        assert_eq!(decision.total_interventions, 10);
-        assert!((decision.dxgi_budget_utilization - 0.48).abs() < 0.01);
-    }
+        let null_dec = vf_rust_evaluate_memory_purge(std::ptr::null());
+        assert!(!null_dec.should_purge_standby);
+        assert!(!null_dec.should_trim_background);
+        assert!(!null_dec.guard_triggered);
 
-    #[test]
-    fn test_uma_high_dxgi_pressure() {
-        let input = VfUmaTelemetryInput {
-            total_physical_bytes: 16 * 1024 * 1024 * 1024,
-            free_and_zero_bytes: 3000 * 1024 * 1024,
-            standby_bytes: 1024 * 1024 * 1024,
-            local_budget_bytes: 2048 * 1024 * 1024,
-            local_usage_bytes: 1843 * 1024 * 1024, // 90%
-            runtime_pressure_threshold: 0.85,
-            vram_valid: true,
-            is_discrete_tier: false,
-        };
-
-        let decision = vf_rust_evaluate_uma_pressure(&input, 4);
-        assert!(decision.guard_triggered);
-        assert!(decision.dxgi_over_ceiling);
-        assert!(!decision.free_ram_critical);
-        assert_eq!(decision.total_interventions, 5);
-        assert!((decision.dxgi_budget_utilization - 0.90).abs() < 0.01);
-    }
-
-    #[test]
-    fn test_uma_custom_pressure_threshold() {
-        let input = VfUmaTelemetryInput {
-            total_physical_bytes: 16 * 1024 * 1024 * 1024,
-            free_and_zero_bytes: 4096 * 1024 * 1024,
-            standby_bytes: 1024 * 1024 * 1024,
-            local_budget_bytes: 1000 * 1024 * 1024,
-            local_usage_bytes: 750 * 1024 * 1024, // 75%
-            runtime_pressure_threshold: 0.70, // custom lower threshold
-            vram_valid: true,
-            is_discrete_tier: false,
-        };
-
-        let decision = vf_rust_evaluate_uma_pressure(&input, 0);
-        assert!(decision.guard_triggered);
-        assert!(decision.dxgi_over_ceiling);
-        assert_eq!(decision.total_interventions, 1);
-    }
-
-    #[test]
-    fn test_uma_critical_low_free_ram() {
-        let input = VfUmaTelemetryInput {
-            total_physical_bytes: 16 * 1024 * 1024 * 1024,
-            free_and_zero_bytes: 1024 * 1024 * 1024, // 1024 MB < 1536 MB threshold
-            standby_bytes: 512 * 1024 * 1024,
-            local_budget_bytes: 2048 * 1024 * 1024,
-            local_usage_bytes: 800 * 1024 * 1024, // ~39% (low DXGI)
-            runtime_pressure_threshold: 0.85,
-            vram_valid: true,
-            is_discrete_tier: false,
-        };
-
-        let decision = vf_rust_evaluate_uma_pressure(&input, 2);
-        assert!(decision.guard_triggered);
-        assert!(!decision.dxgi_over_ceiling);
-        assert!(decision.free_ram_critical);
-        assert_eq!(decision.total_interventions, 3);
-    }
-
-    #[test]
-    fn test_uma_discrete_gpu_passthrough() {
-        let input = VfUmaTelemetryInput {
-            total_physical_bytes: 16 * 1024 * 1024 * 1024,
-            free_and_zero_bytes: 512 * 1024 * 1024, // Low RAM
-            standby_bytes: 512 * 1024 * 1024,
-            local_budget_bytes: 8192 * 1024 * 1024,
-            local_usage_bytes: 7500 * 1024 * 1024, // >90% VRAM
-            runtime_pressure_threshold: 0.85,
-            vram_valid: true,
-            is_discrete_tier: true, // Discrete GPU should not trigger UMA guard
-        };
-
-        let decision = vf_rust_evaluate_uma_pressure(&input, 7);
-        assert!(!decision.guard_triggered);
-        assert_eq!(decision.total_interventions, 7);
-    }
-
-    #[test]
-    fn test_uma_null_input() {
-        let decision = vf_rust_evaluate_uma_pressure(std::ptr::null(), 12);
-        assert!(!decision.guard_triggered);
-        assert_eq!(decision.total_interventions, 12);
-        assert_eq!(decision.available_os_headroom_mb, 0);
-    }
-
-    #[test]
-    fn test_nt_memory_lists_query_and_purge() {
-        let sample = vf_rust_query_nt_memory_lists();
-        if sample.valid {
-            assert!(sample.free_and_zero_bytes > 0);
-        }
-
-        let purge_dry = vf_rust_purge_nt_standby_list(true);
-        assert!(purge_dry, "Dry run purge must always succeed");
-    }
-
-    #[cfg(not(windows))]
-    #[test]
-    fn test_nt_memory_calls_report_failure_without_ntdll() {
-        // There is no ntdll outside Windows: the query must say "invalid" and a real purge must fail.
-        assert!(!vf_rust_query_nt_memory_lists().valid);
-        assert!(!vf_rust_purge_nt_standby_list(false));
+        let obs = CString::new("C:\\Program Files\\obs64.exe").unwrap();
+        assert!(vf_rust_is_factory_memory_protected_exe(obs.as_ptr(), obs.as_bytes().len()));
+        let chrome = CString::new("chrome.exe").unwrap();
+        assert!(!vf_rust_is_factory_memory_protected_exe(chrome.as_ptr(), chrome.as_bytes().len()));
+        assert!(vf_rust_is_factory_memory_protected_exe(std::ptr::null(), 5));
     }
 
     #[test]

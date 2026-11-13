@@ -1,10 +1,8 @@
 //! Every function exported to C++ (`vf_rust_*`), in one place. Each one checks its pointers, catches panics with
-//! `ffi_guard` and calls the rule in `policy/` (or the ntdll call in `nt_memory`). The C declarations are in
-//! `src/bridge/rust_bridge.h`.
+//! `ffi_guard` and calls the rule in `policy/`. The C declarations are in `src/bridge/rust_bridge.h`.
 
 use std::os::raw::{c_char, c_void};
 
-use crate::nt_memory;
 use crate::policy::apu_tier::{self, VfTierInput, TIER_ENTRY, TIER_MID};
 use crate::policy::config_file::{self, SaveRefused, Settings};
 use crate::policy::config_rules;
@@ -20,10 +18,10 @@ use crate::policy::folder_trust::{self, Ace, SidKind};
 use crate::policy::ini_merge::{
     self, VF_INI_ERR_ENCODING, VF_INI_ERR_INVALID_INPUT, VF_INI_ERR_MISSING_END_MARKER, VF_INI_ERR_UNMATCHED_END_MARKER, VF_INI_OK,
 };
+use crate::policy::memory_purge::{self, VfMemoryPurgeDecision, VfMemoryPurgeInput, DEFAULT_VRAM_PRESSURE_THRESHOLD};
 use crate::policy::path_policy::{self, VF_PATH_INTERNAL_ERROR};
 use crate::policy::sandbox_core;
 use crate::policy::steam_library;
-use crate::policy::uma_memory::{self, VfNtMemoryListSample, VfUmaGuardDecision, VfUmaTelemetryInput};
 
 /// Runs `f` for an `extern "C"` function and returns `fallback` if it panics. A panic must never cross into C++ (that is
 /// undefined behaviour) and must not take the daemon down; every fallback is the cautious answer for its function
@@ -156,33 +154,44 @@ pub extern "C" fn vf_rust_is_critical_system_filename(utf8_name: *const c_char, 
 }
 
 #[no_mangle]
-pub extern "C" fn vf_rust_evaluate_uma_pressure(
-    input: *const VfUmaTelemetryInput,
-    prev_interventions: u32,
-) -> VfUmaGuardDecision {
+pub extern "C" fn vf_rust_vram_pressure_threshold() -> f64 {
+    ffi_guard(DEFAULT_VRAM_PRESSURE_THRESHOLD, || DEFAULT_VRAM_PRESSURE_THRESHOLD)
+}
+
+#[no_mangle]
+pub extern "C" fn vf_rust_evaluate_memory_purge(input: *const VfMemoryPurgeInput) -> VfMemoryPurgeDecision {
     ffi_guard(unsafe { core::mem::zeroed() }, || {
         if input.is_null() {
-            return VfUmaGuardDecision {
-                available_os_headroom_mb: 0,
-                dxgi_budget_utilization: 0.0,
+            return VfMemoryPurgeDecision {
+                should_purge_standby: false,
+                should_trim_background: false,
+                skipped_due_to_cooldown: false,
+                skipped_due_to_disk_io: false,
+                cooldown_remaining_seconds: 0,
                 guard_triggered: false,
                 dxgi_over_ceiling: false,
                 free_ram_critical: false,
-                total_interventions: prev_interventions,
+                dxgi_budget_utilization: 0.0,
+                available_os_headroom_mb: 0,
+                total_interventions: 0,
             };
         }
-        uma_memory::evaluate_pressure(unsafe { &*input }, prev_interventions)
+        memory_purge::evaluate_memory_purge(unsafe { &*input })
     })
 }
 
 #[no_mangle]
-pub extern "C" fn vf_rust_query_nt_memory_lists() -> VfNtMemoryListSample {
-    ffi_guard(unsafe { core::mem::zeroed() }, nt_memory::query_memory_lists)
-}
-
-#[no_mangle]
-pub extern "C" fn vf_rust_purge_nt_standby_list(dry_run: bool) -> bool {
-    ffi_guard(false, || nt_memory::purge_standby_list(dry_run))
+pub extern "C" fn vf_rust_is_factory_memory_protected_exe(utf8_name: *const c_char, len: usize) -> bool {
+    ffi_guard(true, || {
+        if utf8_name.is_null() || len == 0 {
+            return true;
+        }
+        let bytes = unsafe { core::slice::from_raw_parts(utf8_name as *const u8, len) };
+        match std::str::from_utf8(bytes) {
+            Ok(s) => memory_purge::is_factory_memory_protected_exe(s),
+            Err(_) => true,
+        }
+    })
 }
 
 #[no_mangle]
@@ -686,11 +695,13 @@ fn bridge_layout() -> Vec<usize> {
         };
     }
     let mut v = Vec::new();
-    layout!(v, VfUmaTelemetryInput, total_physical_bytes, free_and_zero_bytes, standby_bytes, local_budget_bytes,
-        local_usage_bytes, runtime_pressure_threshold, vram_valid, is_discrete_tier);
-    layout!(v, VfUmaGuardDecision, available_os_headroom_mb, dxgi_budget_utilization, guard_triggered, dxgi_over_ceiling,
-        free_ram_critical, total_interventions);
-    layout!(v, VfNtMemoryListSample, free_and_zero_bytes, standby_bytes, modified_bytes, valid);
+    layout!(v, VfMemoryPurgeInput, total_physical_bytes, free_and_zero_bytes, standby_bytes, local_budget_bytes,
+        local_usage_bytes, vram_valid, memory_lists_valid, is_uma_gpu, allow_ram_purge, min_free_ram_mb, min_standby_mb,
+        cooldown_seconds, elapsed_since_last_purge_ms, game_disk_read_bytes_per_sec, max_game_disk_read_bytes_per_sec,
+        pressure_threshold_override, prev_interventions, dry_run);
+    layout!(v, VfMemoryPurgeDecision, should_purge_standby, should_trim_background, skipped_due_to_cooldown,
+        skipped_due_to_disk_io, cooldown_remaining_seconds, guard_triggered, dxgi_over_ceiling, free_ram_critical,
+        dxgi_budget_utilization, available_os_headroom_mb, total_interventions);
     layout!(v, VfCpuCoreEntry, cpu_set_id, core_index, logical_processor_index, last_level_cache_index, efficiency_class);
     layout!(v, VfTopologyPartitionOut, game_cpu_set_ids, game_count, background_cpu_set_ids, background_count,
         physical_cores, logical_processors, has_multiple_ccx, has_hybrid_cores);

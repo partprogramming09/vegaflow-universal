@@ -203,6 +203,7 @@ void Test25() {
         healthy_telem.total_physical_bytes = 16ULL * 1024 * 1024 * 1024;
         healthy_telem.free_and_zero_bytes = 4096ULL * 1024 * 1024;
         healthy_telem.standby_bytes = 2048ULL * 1024 * 1024;
+        healthy_telem.memory_lists_valid = true;
         healthy_telem.vram.valid = true;
         healthy_telem.vram.local_budget_bytes = 4096ULL * 1024 * 1024;
         healthy_telem.vram.local_usage_bytes = 2000ULL * 1024 * 1024;
@@ -215,13 +216,15 @@ void Test25() {
         pressured_telem.total_physical_bytes = 16ULL * 1024 * 1024 * 1024;
         pressured_telem.free_and_zero_bytes = 3000ULL * 1024 * 1024;
         pressured_telem.standby_bytes = 1024ULL * 1024 * 1024;
+        pressured_telem.memory_lists_valid = true;
         pressured_telem.vram.valid = true;
         pressured_telem.vram.local_budget_bytes = 4096ULL * 1024 * 1024;
         pressured_telem.vram.local_usage_bytes = 3686ULL * 1024 * 1024;
 
         auto pressured_status = mem_mgr.EvaluateUmaPressureGuard(pressured_telem, mid_policy, {}, true /* dry_run */);
+        const double threshold = vf_rust_vram_pressure_threshold();
         bool pressured_ok = (pressured_status.guard_triggered == true) &&
-                            (pressured_status.dxgi_budget_utilization >= 0.85) &&
+                            (pressured_status.dxgi_budget_utilization >= threshold) &&
                             (pressured_status.total_interventions == 1);
 
         bool case_d_ok = healthy_ok && pressured_ok;
@@ -359,13 +362,15 @@ void Test26() {
         high_press_telem.total_physical_bytes = 16ULL * 1024 * 1024 * 1024;
         high_press_telem.free_and_zero_bytes = 4000ULL * 1024 * 1024;
         high_press_telem.standby_bytes = 2000ULL * 1024 * 1024;
+        high_press_telem.memory_lists_valid = true;
         high_press_telem.vram.valid = true;
         high_press_telem.vram.local_budget_bytes = 4096ULL * 1024 * 1024;
         high_press_telem.vram.local_usage_bytes = 3686ULL * 1024 * 1024;
 
         test_mem_mgr.EvaluateUmaPressureGuard(high_press_telem, test_policy, {}, true /* dry_run */);
 
-        bool high_ratio_ok = (test_mem_mgr.GetLastDxgiPressureRatio() >= 0.85);
+        const double uma_thresh = vf_rust_vram_pressure_threshold();
+        bool high_ratio_ok = (test_mem_mgr.GetLastDxgiPressureRatio() >= uma_thresh);
         bool high_trig_ok = (test_mem_mgr.IsUmaGuardCurrentlyTriggered() == true);
         uint32_t interventions_after_high = test_mem_mgr.GetUmaGuardInterventionsCount();
         bool high_interv_ok = (interventions_after_high >= 1);
@@ -375,13 +380,14 @@ void Test26() {
         healthy_telem2.total_physical_bytes = 16ULL * 1024 * 1024 * 1024;
         healthy_telem2.free_and_zero_bytes = 4000ULL * 1024 * 1024;
         healthy_telem2.standby_bytes = 2000ULL * 1024 * 1024;
+        healthy_telem2.memory_lists_valid = true;
         healthy_telem2.vram.valid = true;
         healthy_telem2.vram.local_budget_bytes = 4096ULL * 1024 * 1024;
         healthy_telem2.vram.local_usage_bytes = 1843ULL * 1024 * 1024;
 
         test_mem_mgr.EvaluateUmaPressureGuard(healthy_telem2, test_policy, {}, true /* dry_run */);
 
-        bool healthy_ratio_ok = (test_mem_mgr.GetLastDxgiPressureRatio() < 0.85);
+        bool healthy_ratio_ok = (test_mem_mgr.GetLastDxgiPressureRatio() < uma_thresh);
         bool healthy_trig_ok = (test_mem_mgr.IsUmaGuardCurrentlyTriggered() == false);
         bool healthy_interv_preserved = (test_mem_mgr.GetUmaGuardInterventionsCount() == interventions_after_high);
 

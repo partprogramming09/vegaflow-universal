@@ -19,6 +19,7 @@
 #include "windows/safe_file_system.hpp"
 #include "windows/sandbox_guard.hpp"
 #include "windows/change_journal.hpp"
+#include "bridge/rust_bridge.h"
 #include "session/system_info.hpp"
 #include "session/restore.hpp"
 #include <filesystem>
@@ -278,6 +279,7 @@ int RunGuiMode(
         data.sandbox_guard_active = true;
 
         data.dxgi_pressure_ratio = mem_mgr.GetLastDxgiPressureRatio();
+        data.dxgi_pressure_threshold = vf_rust_vram_pressure_threshold();
         data.uma_guard_interventions = mem_mgr.GetUmaGuardInterventionsCount();
         data.uma_guard_triggered_live = mem_mgr.IsUmaGuardCurrentlyTriggered();
 

@@ -11,32 +11,40 @@ extern "C" {
 
 #define VF_MAX_LOGICAL_PROCESSORS 64
 
-typedef struct VfUmaTelemetryInput {
+typedef struct VfMemoryPurgeInput {
     uint64_t total_physical_bytes;
     uint64_t free_and_zero_bytes;
     uint64_t standby_bytes;
     uint64_t local_budget_bytes;
     uint64_t local_usage_bytes;
-    double runtime_pressure_threshold;
     bool vram_valid;
-    bool is_discrete_tier;
-} VfUmaTelemetryInput;
+    bool memory_lists_valid;
+    bool is_uma_gpu;
+    bool allow_ram_purge;
+    uint64_t min_free_ram_mb;
+    uint64_t min_standby_mb;
+    uint32_t cooldown_seconds;
+    int64_t elapsed_since_last_purge_ms;
+    uint64_t game_disk_read_bytes_per_sec;
+    uint64_t max_game_disk_read_bytes_per_sec;
+    double pressure_threshold_override;
+    uint32_t prev_interventions;
+    bool dry_run;
+} VfMemoryPurgeInput;
 
-typedef struct VfUmaGuardDecision {
-    uint64_t available_os_headroom_mb;
-    double dxgi_budget_utilization;
+typedef struct VfMemoryPurgeDecision {
+    bool should_purge_standby;
+    bool should_trim_background;
+    bool skipped_due_to_cooldown;
+    bool skipped_due_to_disk_io;
+    uint32_t cooldown_remaining_seconds;
     bool guard_triggered;
     bool dxgi_over_ceiling;
     bool free_ram_critical;
+    double dxgi_budget_utilization;
+    uint64_t available_os_headroom_mb;
     uint32_t total_interventions;
-} VfUmaGuardDecision;
-
-typedef struct VfNtMemoryListSample {
-    uint64_t free_and_zero_bytes;
-    uint64_t standby_bytes;
-    uint64_t modified_bytes;
-    bool valid;
-} VfNtMemoryListSample;
+} VfMemoryPurgeDecision;
 
 typedef struct VfCpuCoreEntry {
     uint32_t cpu_set_id;
@@ -57,14 +65,16 @@ typedef struct VfTopologyPartitionOut {
     bool has_hybrid_cores;
 } VfTopologyPartitionOut;
 
-VfUmaGuardDecision vf_rust_evaluate_uma_pressure(
-    const VfUmaTelemetryInput* input,
-    uint32_t prev_interventions
+double vf_rust_vram_pressure_threshold(void);
+
+VfMemoryPurgeDecision vf_rust_evaluate_memory_purge(
+    const VfMemoryPurgeInput* input
 );
 
-VfNtMemoryListSample vf_rust_query_nt_memory_lists(void);
-
-bool vf_rust_purge_nt_standby_list(bool dry_run);
+bool vf_rust_is_factory_memory_protected_exe(
+    const char* utf8_name,
+    size_t len
+);
 
 bool vf_rust_partition_cpu_topology(
     const VfCpuCoreEntry* entries,

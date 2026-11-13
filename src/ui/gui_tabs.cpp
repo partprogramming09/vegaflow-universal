@@ -431,9 +431,11 @@ void RenderTabMemory(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* state
 
     RECT rcDxgiBadge = { rcTopMem.right - 195, rcTopMem.top + 10, rcTopMem.right - 16, rcTopMem.top + 32 };
     wchar_t dxgiBadgeText[64];
-    bool highPressure = (state->data.dxgi_pressure_ratio >= 0.85 || state->data.uma_guard_triggered_live);
+    const double thresh = state->data.dxgi_pressure_threshold;
+    const int threshPct = static_cast<int>(thresh * 100.0 + 0.5);
+    bool highPressure = (thresh > 0.0 && state->data.dxgi_pressure_ratio >= thresh) || state->data.uma_guard_triggered_live;
     if (highPressure) {
-        swprintf_s(dxgiBadgeText, L"ALERTA UMA: %.0f%% (>85%%)", state->data.dxgi_pressure_ratio * 100.0);
+        swprintf_s(dxgiBadgeText, L"ALERTA UMA: %.0f%% (>%d%%)", state->data.dxgi_pressure_ratio * 100.0, threshPct);
         DrawBadge(hdcMem, rcDxgiBadge, dxgiBadgeText, CLR_ACCENT_AMBER, RGB(36, 26, 20), CLR_ACCENT_AMBER, state->hFontSmallBold);
     } else {
         swprintf_s(dxgiBadgeText, L"PRESIÓN DXGI: %.0f%% [OK]", state->data.dxgi_pressure_ratio * 100.0);
@@ -481,16 +483,18 @@ void RenderTabMemory(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* state
     int botRowY = rcTopMem.top + 88;
     if (state->data.last_purge_after_free_mb > 0) {
         wchar_t repBuf[256];
-        swprintf_s(repBuf, L"Última purga: %llu MB libres  |  Mitigaciones UMA Guard: %u  |  Presión DXGI: %.1f%% (Umbral 85%%)",
+        swprintf_s(repBuf, L"Última purga: %llu MB libres  |  Mitigaciones UMA Guard: %u  |  Presión DXGI: %.1f%% (Umbral %d%%)",
                    static_cast<unsigned long long>(state->data.last_purge_after_free_mb),
                    state->data.uma_guard_interventions,
-                   state->data.dxgi_pressure_ratio * 100.0);
+                   state->data.dxgi_pressure_ratio * 100.0,
+                   threshPct);
         DrawTextAt(hdcMem, rcTopMem.left + 16, botRowY + 10, repBuf, CLR_ACCENT_GREEN, state->hFontSmallBold);
     } else {
         wchar_t repBuf[256];
-        swprintf_s(repBuf, L"Mitigaciones UMA Guard: %u  |  Presión DXGI: %.1f%% (Umbral 85%%)",
+        swprintf_s(repBuf, L"Mitigaciones UMA Guard: %u  |  Presión DXGI: %.1f%% (Umbral %d%%)",
                    state->data.uma_guard_interventions,
-                   state->data.dxgi_pressure_ratio * 100.0);
+                   state->data.dxgi_pressure_ratio * 100.0,
+                   threshPct);
         DrawTextAt(hdcMem, rcTopMem.left + 16, botRowY + 10, repBuf,
                    highPressure ? CLR_ACCENT_AMBER : CLR_TEXT_MUTED,
                    state->hFontSmall);

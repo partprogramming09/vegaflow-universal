@@ -110,6 +110,7 @@ struct GuiDashboardData {
 
     // Real-time ApuCapabilityGuard telemetry
     double dxgi_pressure_ratio = 0.0;
+    double dxgi_pressure_threshold = 0.0;
     uint32_t uma_guard_interventions = 0;
     bool uma_guard_triggered_live = false;
 };
