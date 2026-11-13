@@ -25,10 +25,16 @@ bool GraphicsOptimizer::SetMmcssGamingProfileOptimized(bool optimize, bool dry_r
 
     bool profile_ok = false;
     if (stProfile == ERROR_SUCCESS) {
-        if (optimize) RegBackupValue(kHiveLocalMachine, kMmcssProfilePath, hProfile, L"SystemResponsiveness");
+        uint64_t j_resp = 0;
+        if (optimize) {
+            RegBackupValue(kHiveLocalMachine, kMmcssProfilePath, hProfile, L"SystemResponsiveness");
+            j_resp = JournalBeginRegChange(kHiveLocalMachine, kMmcssProfilePath, hProfile, L"SystemResponsiveness",
+                                           "10", "MMCSS SystemResponsiveness gaming");
+        }
         DWORD sys_resp = optimize ? 10 : 20;
         LSTATUS s1 = RegSetValueExW(hProfile, L"SystemResponsiveness", 0, REG_DWORD, reinterpret_cast<const BYTE*>(&sys_resp), sizeof(sys_resp));
         profile_ok = (s1 == ERROR_SUCCESS);
+        JournalEndRegChange(j_resp, profile_ok);
         RegCloseKey(hProfile);
     }
 
@@ -47,8 +53,13 @@ bool GraphicsOptimizer::SetMmcssGamingProfileOptimized(bool optimize, bool dry_r
 
     bool games_ok = false;
     if (stGames == ERROR_SUCCESS) {
+        uint64_t j_gpu = 0, j_prio = 0, j_cat = 0, j_sfio = 0;
         if (optimize) {
             for (const wchar_t* n : kMmcssGamesValues) RegBackupValue(kHiveLocalMachine, kMmcssGamesPath, hGames, n);
+            j_gpu = JournalBeginRegChange(kHiveLocalMachine, kMmcssGamesPath, hGames, L"GPU Priority", "8", "MMCSS Tasks\\Games gaming");
+            j_prio = JournalBeginRegChange(kHiveLocalMachine, kMmcssGamesPath, hGames, L"Priority", "6", "MMCSS Tasks\\Games gaming");
+            j_cat = JournalBeginRegChange(kHiveLocalMachine, kMmcssGamesPath, hGames, L"Scheduling Category", "High", "MMCSS Tasks\\Games gaming");
+            j_sfio = JournalBeginRegChange(kHiveLocalMachine, kMmcssGamesPath, hGames, L"SFIO Priority", "High", "MMCSS Tasks\\Games gaming");
         }
         DWORD gpu_prio = optimize ? 8 : 2;
         DWORD prio = optimize ? 6 : 2;
@@ -62,6 +73,10 @@ bool GraphicsOptimizer::SetMmcssGamingProfileOptimized(bool optimize, bool dry_r
         LSTATUS s4 = RegSetValueExW(hGames, L"SFIO Priority", 0, REG_SZ,
             reinterpret_cast<const BYTE*>(sfio_prio), static_cast<DWORD>((wcslen(sfio_prio) + 1) * sizeof(wchar_t)));
 
+        JournalEndRegChange(j_gpu, s1 == ERROR_SUCCESS);
+        JournalEndRegChange(j_prio, s2 == ERROR_SUCCESS);
+        JournalEndRegChange(j_cat, s3 == ERROR_SUCCESS);
+        JournalEndRegChange(j_sfio, s4 == ERROR_SUCCESS);
         games_ok = (s1 == ERROR_SUCCESS && s2 == ERROR_SUCCESS && s3 == ERROR_SUCCESS && s4 == ERROR_SUCCESS);
         RegCloseKey(hGames);
     }
@@ -69,6 +84,8 @@ bool GraphicsOptimizer::SetMmcssGamingProfileOptimized(bool optimize, bool dry_r
     if (!optimize) {
         RegRestoreValue(kHiveLocalMachine, kMmcssProfilePath, L"SystemResponsiveness");
         for (const wchar_t* n : kMmcssGamesValues) RegRestoreValue(kHiveLocalMachine, kMmcssGamesPath, n);
+        JournalMarkRegRestored(kHiveLocalMachine, kMmcssProfilePath, L"SystemResponsiveness");
+        for (const wchar_t* n : kMmcssGamesValues) JournalMarkRegRestored(kHiveLocalMachine, kMmcssGamesPath, n);
     }
     return profile_ok && games_ok;
 }
@@ -105,6 +122,8 @@ bool GraphicsOptimizer::ApplyMmcssTaskTweaks(bool dryRun) {
         return false;
     }
     RegBackupValue(kHiveLocalMachine, kMmcssProfilePath, hProfile, L"SystemResponsiveness");
+    uint64_t j_resp = JournalBeginRegChange(kHiveLocalMachine, kMmcssProfilePath, hProfile, L"SystemResponsiveness",
+                                            "10", "MMCSS Task tweaks");
     const DWORD sys_resp = 10;
     stProfile = RegSetValueExW(
         hProfile,
@@ -113,6 +132,7 @@ bool GraphicsOptimizer::ApplyMmcssTaskTweaks(bool dryRun) {
         reinterpret_cast<const BYTE*>(&sys_resp),
         sizeof(sys_resp)
     );
+    JournalEndRegChange(j_resp, stProfile == ERROR_SUCCESS);
     RegCloseKey(hProfile);
     if (stProfile != ERROR_SUCCESS) {
         return false;
@@ -130,6 +150,13 @@ bool GraphicsOptimizer::ApplyMmcssTaskTweaks(bool dryRun) {
     }
 
     for (const wchar_t* n : kMmcssGamesValues) RegBackupValue(kHiveLocalMachine, kMmcssGamesPath, hGames, n);
+    uint64_t j1 = JournalBeginRegChange(kHiveLocalMachine, kMmcssGamesPath, hGames, L"Scheduling Category", "High", "MMCSS Task tweaks");
+    uint64_t j2 = JournalBeginRegChange(kHiveLocalMachine, kMmcssGamesPath, hGames, L"SFIO Priority", "High", "MMCSS Task tweaks");
+    uint64_t j3 = JournalBeginRegChange(kHiveLocalMachine, kMmcssGamesPath, hGames, L"Background Only", "False", "MMCSS Task tweaks");
+    uint64_t j4 = JournalBeginRegChange(kHiveLocalMachine, kMmcssGamesPath, hGames, L"Clock Rate", "10000", "MMCSS Task tweaks");
+    uint64_t j5 = JournalBeginRegChange(kHiveLocalMachine, kMmcssGamesPath, hGames, L"GPU Priority", "8", "MMCSS Task tweaks");
+    uint64_t j6 = JournalBeginRegChange(kHiveLocalMachine, kMmcssGamesPath, hGames, L"Priority", "6", "MMCSS Task tweaks");
+
     const wchar_t* sched_cat = L"High";
     const wchar_t* sfio_prio = L"High";
     const wchar_t* bg_only = L"False";
@@ -149,6 +176,13 @@ bool GraphicsOptimizer::ApplyMmcssTaskTweaks(bool dryRun) {
         reinterpret_cast<const BYTE*>(&gpu_prio), sizeof(gpu_prio));
     LSTATUS s6 = RegSetValueExW(hGames, L"Priority", 0, REG_DWORD,
         reinterpret_cast<const BYTE*>(&prio), sizeof(prio));
+
+    JournalEndRegChange(j1, s1 == ERROR_SUCCESS);
+    JournalEndRegChange(j2, s2 == ERROR_SUCCESS);
+    JournalEndRegChange(j3, s3 == ERROR_SUCCESS);
+    JournalEndRegChange(j4, s4 == ERROR_SUCCESS);
+    JournalEndRegChange(j5, s5 == ERROR_SUCCESS);
+    JournalEndRegChange(j6, s6 == ERROR_SUCCESS);
 
     RegCloseKey(hGames);
 
@@ -217,6 +251,8 @@ bool GraphicsOptimizer::RestoreMmcssTaskTweaks(bool dryRun) {
 
     RegRestoreValue(kHiveLocalMachine, kMmcssProfilePath, L"SystemResponsiveness");
     for (const wchar_t* n : kMmcssGamesValues) RegRestoreValue(kHiveLocalMachine, kMmcssGamesPath, n);
+    JournalMarkRegRestored(kHiveLocalMachine, kMmcssProfilePath, L"SystemResponsiveness");
+    for (const wchar_t* n : kMmcssGamesValues) JournalMarkRegRestored(kHiveLocalMachine, kMmcssGamesPath, n);
 
     return (s1 == ERROR_SUCCESS && s2 == ERROR_SUCCESS && s3 == ERROR_SUCCESS &&
             s4 == ERROR_SUCCESS && s5 == ERROR_SUCCESS);

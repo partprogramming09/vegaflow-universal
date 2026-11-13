@@ -29,7 +29,8 @@ int RunDaemon(
     vegaflow::MemoryManager& mem_mgr,
     vegaflow::FrameTelemetryMonitor& telemetry_monitor,
     const vegaflow::PrivilegeStatus& priv,
-    bool once_mode) {
+    bool once_mode,
+    bool safe_mode) {
     using namespace vegaflow;
     // Built once from the boot profile, the same way each optimizer used to rebuild it on every call.
     const ApuOptimizationPolicy policy = HardwareProfiler::BuildOptimizationPolicy(hw);
@@ -42,20 +43,31 @@ int RunDaemon(
     HWND active_game_hwnd = nullptr;
     bool timer_boosted = false;
 
-    GraphicsOptimizer::SetGameDvrAndFseOptimized(true, false);
-    GraphicsOptimizer::SetApuLaptopPowerProfile(true, policy, false);
+    if (safe_mode) {
+        std::cout << "[WARN] MODO SEGURO ACTIVO: VegaFlow detect\u00f3 2 o m\u00e1s cierres anormales seguidos. "
+                  << "Arrancando sin aplicar ajustes del sistema. Usa --restore-registry si necesitas revertir.\n";
+    } else {
+        GraphicsOptimizer::SetGameDvrAndFseOptimized(true, false);
+        GraphicsOptimizer::SetApuLaptopPowerProfile(true, policy, false);
+    }
 
     if (once_mode) {
-        RunSingleIteration(
-            config, file_system, hw, cpu_orchestrator, mem_mgr, telemetry_monitor,
-            game_active, active_game_pid, active_game_exe, active_game_api, active_game_hwnd, timer_boosted);
-        if (game_active) {
-            telemetry_monitor.SaveSessionReportToFile(WideToUtf8(active_game_exe), "logs/session_reports.log");
-            cpu_orchestrator.RestoreAll(false);
-            if (timer_boosted) {
-                GraphicsOptimizer::RestoreDefaultTimer();
+        if (!safe_mode) {
+            RunSingleIteration(
+                config, file_system, hw, cpu_orchestrator, mem_mgr, telemetry_monitor,
+                game_active, active_game_pid, active_game_exe, active_game_api, active_game_hwnd, timer_boosted);
+            if (game_active) {
+                telemetry_monitor.SaveSessionReportToFile(WideToUtf8(active_game_exe), "logs/session_reports.log");
+                cpu_orchestrator.RestoreAll(false);
+                GraphicsOptimizer::SetDynamicPrioritySeparation(0x02, false);
+                if (timer_boosted) {
+                    GraphicsOptimizer::RestoreDefaultTimer();
+                }
+                telemetry_monitor.StopMonitoring();
             }
-            telemetry_monitor.StopMonitoring();
+            GraphicsOptimizer::SetApuLaptopPowerProfile(false, policy, false);
+            GraphicsOptimizer::SetGameDvrAndFseOptimized(false, false);
+            GraphicsOptimizer::RestoreAllRegistryBackups();
         }
         return 0;
     }
@@ -115,28 +127,33 @@ int RunDaemon(
         if (wait_res == WAIT_OBJECT_0) {
             break;
         } else if (wait_res == WAIT_OBJECT_0 + 1) {
-            RunSingleIteration(
-                config, file_system, hw, cpu_orchestrator, mem_mgr, telemetry_monitor,
-                game_active, active_game_pid, active_game_exe, active_game_api, active_game_hwnd, timer_boosted);
+            if (!safe_mode) {
+                RunSingleIteration(
+                    config, file_system, hw, cpu_orchestrator, mem_mgr, telemetry_monitor,
+                    game_active, active_game_pid, active_game_exe, active_game_api, active_game_hwnd, timer_boosted);
+            }
         } else {
             break;
         }
     }
 
     std::cout << "\n[INFO] Shutdown signal received. Cleaning up resources...\n";
-    if (game_active) {
-        telemetry_monitor.SaveSessionReportToFile(WideToUtf8(active_game_exe), "logs/session_reports.log");
-        cpu_orchestrator.RestoreAll(false);
-        GraphicsOptimizer::SetDynamicPrioritySeparation(0x02, false);
-        if (timer_boosted) {
-            GraphicsOptimizer::RestoreDefaultTimer();
+    if (!safe_mode) {
+        if (game_active) {
+            telemetry_monitor.SaveSessionReportToFile(WideToUtf8(active_game_exe), "logs/session_reports.log");
+            cpu_orchestrator.RestoreAll(false);
+            GraphicsOptimizer::SetDynamicPrioritySeparation(0x02, false);
+            if (timer_boosted) {
+                GraphicsOptimizer::RestoreDefaultTimer();
+            }
+            telemetry_monitor.StopMonitoring();
         }
-        telemetry_monitor.StopMonitoring();
+        GraphicsOptimizer::SetApuLaptopPowerProfile(false, policy, false);
+        GraphicsOptimizer::SetGameDvrAndFseOptimized(false, false);
+        // Restores the registry (GameDVR, AMD driver, MPO, MMCSS, priority, paging) to its state before VegaFlow.
+        const bool registry_restored = GraphicsOptimizer::RestoreAllRegistryBackups();
+        std::cout << "[INFO] Registry values restored to their original state: " << (registry_restored ? "yes" : "partially or not (see --restore-registry)") << "\n";
     }
-    GraphicsOptimizer::SetApuLaptopPowerProfile(false, policy, false);
-    // Restores the registry (GameDVR, AMD driver, MPO, MMCSS, priority, paging) to its state before VegaFlow.
-    const bool registry_restored = GraphicsOptimizer::RestoreAllRegistryBackups();
-    std::cout << "[INFO] Registry values restored to their original state: " << (registry_restored ? "yes" : "partially or not (see --restore-registry)") << "\n";
 
     CancelWaitableTimer(waitable_timer);
     CloseHandle(waitable_timer);

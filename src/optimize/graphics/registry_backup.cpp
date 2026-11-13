@@ -1,4 +1,7 @@
 #include "optimize/graphics/graphics_internal.hpp"
+#include "windows/change_journal.hpp"
+
+#include <cstdio>
 
 namespace vegaflow::graphics_internal {
 
@@ -11,6 +14,70 @@ namespace {
 constexpr wchar_t kRegBackupRoot[] = L"SOFTWARE\\VegaFlow\\RegBackup";
 
 HKEY HiveFromId(int id) { return id == kHiveLocalMachine ? HKEY_LOCAL_MACHINE : HKEY_CURRENT_USER; }
+
+std::string WideToUtf8Reg(const std::wstring& w) {
+    if (w.empty()) return {};
+    int needed = WideCharToMultiByte(CP_UTF8, 0, w.data(), static_cast<int>(w.size()), nullptr, 0, nullptr, nullptr);
+    if (needed <= 0) return {};
+    std::string out(static_cast<size_t>(needed), '\0');
+    WideCharToMultiByte(CP_UTF8, 0, w.data(), static_cast<int>(w.size()), out.data(), needed, nullptr, nullptr);
+    return out;
+}
+
+std::string EncodeHex(const std::vector<BYTE>& bytes) {
+    static const char kHex[] = "0123456789abcdef";
+    std::string out;
+    out.reserve(bytes.size() * 2);
+    for (BYTE b : bytes) {
+        out.push_back(kHex[(b >> 4) & 0x0F]);
+        out.push_back(kHex[b & 0x0F]);
+    }
+    return out;
+}
+
+std::string RegTargetName(int hive, const std::wstring& subkey, const wchar_t* name) {
+    return std::string(hive == kHiveLocalMachine ? "HKLM\\" : "HKCU\\") +
+           WideToUtf8Reg(subkey) + "\\" + WideToUtf8Reg(name ? name : L"");
+}
+
+std::string FormatRegPreview(bool present, DWORD type, const std::vector<BYTE>& data) {
+    if (!present) return "(ausente)";
+    if (type == REG_DWORD && data.size() >= sizeof(DWORD)) {
+        DWORD v = 0;
+        std::memcpy(&v, data.data(), sizeof(DWORD));
+        return std::to_string(v);
+    }
+    if (type == REG_QWORD && data.size() >= sizeof(uint64_t)) {
+        uint64_t v = 0;
+        std::memcpy(&v, data.data(), sizeof(uint64_t));
+        return std::to_string(v);
+    }
+    if (type == REG_SZ && data.size() >= sizeof(wchar_t)) {
+        std::wstring ws(reinterpret_cast<const wchar_t*>(data.data()), data.size() / sizeof(wchar_t));
+        while (!ws.empty() && ws.back() == L'\0') ws.pop_back();
+        return WideToUtf8Reg(ws);
+    }
+    return "0x" + EncodeHex(data);
+}
+
+std::string BuildManualRegHint(int hive, const std::wstring& subkey, const wchar_t* name,
+                               bool present, DWORD type, const std::vector<BYTE>& data) {
+    const std::string key_arg = std::string(hive == kHiveLocalMachine ? "HKLM\\" : "HKCU\\") + WideToUtf8Reg(subkey);
+    const std::string val_arg = WideToUtf8Reg(name ? name : L"");
+    if (!present) {
+        return "reg delete \"" + key_arg + "\" /v \"" + val_arg + "\" /f";
+    }
+    if (type == REG_DWORD && data.size() >= sizeof(DWORD)) {
+        DWORD v = 0;
+        std::memcpy(&v, data.data(), sizeof(DWORD));
+        return "reg add \"" + key_arg + "\" /v \"" + val_arg + "\" /t REG_DWORD /d " + std::to_string(v) + " /f";
+    }
+    if (type == REG_SZ && data.size() >= sizeof(wchar_t)) {
+        return "reg add \"" + key_arg + "\" /v \"" + val_arg + "\" /t REG_SZ /d \"" +
+               FormatRegPreview(present, type, data) + "\" /f";
+    }
+    return "reg add \"" + key_arg + "\" /v \"" + val_arg + "\" /t REG_BINARY /d " + EncodeHex(data) + " /f";
+}
 
 /// Stable name of a value's backup record.
 std::wstring RegBackupRecordName(int hive, const std::wstring& subkey, const wchar_t* name) {
@@ -52,6 +119,59 @@ std::wstring ToLower(std::wstring_view str) {
         result.push_back(static_cast<wchar_t>(std::towlower(ch)));
     }
     return result;
+}
+
+uint64_t JournalBeginRegChange(int hive, const std::wstring& subkey, HKEY hKey, const wchar_t* name,
+                               const std::string& after_value, const std::string& reason) {
+    ChangeJournal* journal = GetActiveChangeJournal();
+    if (!journal || !hKey || !name) return 0;
+
+    DWORD type = 0, size = 0;
+    std::vector<BYTE> data;
+    bool present = false;
+    const LSTATUS probe = RegQueryValueExW(hKey, name, nullptr, &type, nullptr, &size);
+    if (probe == ERROR_SUCCESS) {
+        data.resize(size);
+        if (RegQueryValueExW(hKey, name, nullptr, &type, data.data(), &size) != ERROR_SUCCESS) {
+            return 0;
+        }
+        data.resize(size);
+        present = true;
+    } else if (probe != ERROR_FILE_NOT_FOUND) {
+        return 0;
+    }
+
+    JournalEntry e;
+    e.kind = JournalTargetKind::RegistryValue;
+    e.target = RegTargetName(hive, subkey, name);
+    e.reason = reason;
+    e.before_value = FormatRegPreview(present, type, data);
+    e.after_value = after_value;
+    e.manual_fix_hint = BuildManualRegHint(hive, subkey, name, present, type, data);
+    e.hive = hive;
+    e.subkey = subkey;
+    e.value_name = name;
+    e.orig_present = present;
+    e.orig_type = type;
+    e.orig_data_hex = EncodeHex(data);
+    return journal->RecordPending(std::move(e));
+}
+
+void JournalEndRegChange(uint64_t entry_id, bool succeeded) {
+    if (entry_id == 0) return;
+    ChangeJournal* journal = GetActiveChangeJournal();
+    if (!journal) return;
+    if (succeeded) {
+        journal->MarkCommitted(entry_id);
+    } else {
+        journal->MarkFailed(entry_id, "Error al escribir en el registro");
+    }
+}
+
+void JournalMarkRegRestored(int hive, const std::wstring& subkey, const wchar_t* name) {
+    ChangeJournal* journal = GetActiveChangeJournal();
+    if (!journal || !name) return;
+    journal->MarkMatchingReverted(JournalTargetKind::RegistryValue, RegTargetName(hive, subkey, name));
 }
 
 /// Saves value `name` of `hKey` (opened at `subkey` of the given hive) if there is no backup yet.
@@ -141,7 +261,10 @@ bool RegRestoreRecord(int hive_of_backup, const std::wstring& record) {
     } else if (!present) {
         restored = true; // the key no longer exists, so the absent value is already as it was
     }
-    if (restored) RegDeleteKeyW(HiveFromId(hive_of_backup), path.c_str());
+    if (restored) {
+        RegDeleteKeyW(HiveFromId(hive_of_backup), path.c_str());
+        JournalMarkRegRestored(static_cast<int>(hive), subkey, name.c_str());
+    }
     return restored;
 }
 
@@ -149,7 +272,9 @@ bool RegRestoreRecord(int hive_of_backup, const std::wstring& record) {
 
 /// Restores one specific value from its backup; false if there was no backup or it could not be restored.
 bool RegRestoreValue(int hive, const std::wstring& subkey, const wchar_t* name) {
-    return RegRestoreRecord(hive, RegBackupRecordName(hive, subkey, name));
+    const bool ok = RegRestoreRecord(hive, RegBackupRecordName(hive, subkey, name));
+    if (ok) JournalMarkRegRestored(hive, subkey, name);
+    return ok;
 }
 
 } // namespace vegaflow::graphics_internal
@@ -158,8 +283,10 @@ namespace vegaflow {
 
 using namespace graphics_internal;
 
-bool GraphicsOptimizer::RestoreAllRegistryBackups() {
+bool GraphicsOptimizer::RestoreAllRegistryBackups(size_t* out_reverted, size_t* out_total) {
     bool all_ok = true;
+    size_t reverted = 0;
+    size_t total = 0;
     for (int hive : { kHiveLocalMachine, kHiveCurrentUser }) {
         HKEY root = nullptr;
         if (RegOpenKeyExW(HiveFromId(hive), kRegBackupRoot, 0, KEY_READ, &root) != ERROR_SUCCESS) continue;
@@ -171,10 +298,17 @@ bool GraphicsOptimizer::RestoreAllRegistryBackups() {
             records.emplace_back(buf, len);
         }
         RegCloseKey(root);
+        total += records.size();
         for (const auto& r : records) {
-            if (!RegRestoreRecord(hive, r)) all_ok = false;
+            if (RegRestoreRecord(hive, r)) {
+                reverted++;
+            } else {
+                all_ok = false;
+            }
         }
     }
+    if (out_reverted) *out_reverted = reverted;
+    if (out_total) *out_total = total;
     return all_ok;
 }
 

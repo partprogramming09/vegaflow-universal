@@ -1,4 +1,7 @@
 #include "optimize/graphics/graphics_internal.hpp"
+#include "windows/change_journal.hpp"
+
+#include <objbase.h>
 
 namespace vegaflow {
 
@@ -31,6 +34,16 @@ struct ApuPowerState {
     DWORD prev_dc[kApuPowerSettingCount] = {};
 };
 ApuPowerState g_apu_power;
+
+std::string GuidToUtf8(const GUID& g) {
+    wchar_t buf[64]{};
+    if (StringFromGUID2(g, buf, 64) <= 0) return {};
+    int needed = WideCharToMultiByte(CP_UTF8, 0, buf, -1, nullptr, 0, nullptr, nullptr);
+    if (needed <= 1) return {};
+    std::string out(static_cast<size_t>(needed - 1), '\0');
+    WideCharToMultiByte(CP_UTF8, 0, buf, -1, out.data(), needed, nullptr, nullptr);
+    return out;
+}
 
 } // namespace
 
@@ -97,33 +110,67 @@ bool GraphicsOptimizer::SetApuPowerMode(ApuPowerMode mode, const ApuOptimization
     std::copy(std::begin(target), std::end(target), std::begin(ac_values));
     std::copy(std::begin(target), std::end(target), std::begin(dc_values));
 
-    std::lock_guard<std::mutex> state_lock(g_apu_power.mutex);
-    if (mode == ApuPowerMode::GpuPrioritySustained) {
-        if (!g_apu_power.saved && pfnReadACValueIndex && pfnReadDCValueIndex) {
-            DWORD ac[kApuPowerSettingCount];
-            DWORD dc[kApuPowerSettingCount];
-            bool read_ok = true;
-            bool already_applied = true;
-            for (size_t i = 0; i < kApuPowerSettingCount && read_ok; ++i) {
-                const ApuPowerSetting& s = kApuPowerSettings[i];
-                if (pfnReadACValueIndex(nullptr, activePolicy, s.subgroup, s.setting, &ac[i]) != ERROR_SUCCESS ||
-                    pfnReadDCValueIndex(nullptr, activePolicy, s.subgroup, s.setting, &dc[i]) != ERROR_SUCCESS) {
-                    read_ok = false;
-                } else if (ac[i] != target[i] || dc[i] != target[i]) {
-                    already_applied = false;
+    ChangeJournal* journal = GetActiveChangeJournal();
+    uint64_t jid = 0;
+    const std::string scheme_str = GuidToUtf8(*activePolicy);
+
+    {
+        std::lock_guard<std::mutex> state_lock(g_apu_power.mutex);
+        if (mode == ApuPowerMode::GpuPrioritySustained) {
+            if (!g_apu_power.saved && pfnReadACValueIndex && pfnReadDCValueIndex) {
+                DWORD ac[kApuPowerSettingCount];
+                DWORD dc[kApuPowerSettingCount];
+                bool read_ok = true;
+                bool already_applied = true;
+                for (size_t i = 0; i < kApuPowerSettingCount && read_ok; ++i) {
+                    const ApuPowerSetting& s = kApuPowerSettings[i];
+                    if (pfnReadACValueIndex(nullptr, activePolicy, s.subgroup, s.setting, &ac[i]) != ERROR_SUCCESS ||
+                        pfnReadDCValueIndex(nullptr, activePolicy, s.subgroup, s.setting, &dc[i]) != ERROR_SUCCESS) {
+                        read_ok = false;
+                    } else if (ac[i] != target[i] || dc[i] != target[i]) {
+                        already_applied = false;
+                    }
+                }
+                // If the profile was already applied (previous shutdown without restoring) those values are not a valid previous state.
+                if (read_ok && !already_applied) {
+                    std::copy(std::begin(ac), std::end(ac), std::begin(g_apu_power.prev_ac));
+                    std::copy(std::begin(dc), std::end(dc), std::begin(g_apu_power.prev_dc));
+                    g_apu_power.saved = true;
+
+                    if (journal && !scheme_str.empty()) {
+                        JournalEntry e;
+                        e.kind = JournalTargetKind::PowerPlan;
+                        e.target = "Plan de energía APU";
+                        e.reason = "Perfil GPU-Priority (ASPM=0, Boost=4, EPP=25)";
+                        e.before_value = "ASPM=" + std::to_string(ac[0]) + ",Boost=" + std::to_string(ac[1]) + ",EPP=" + std::to_string(ac[6]);
+                        e.after_value = "ASPM=0,Boost=4,EPP=25";
+                        e.manual_fix_hint = "vegaflow_daemon.exe --apu-balanced (o restablecer plan en Opciones de energía de Windows)";
+                        e.scheme_guid = scheme_str;
+                        e.ac_values.assign(std::begin(ac), std::end(ac));
+                        e.dc_values.assign(std::begin(dc), std::end(dc));
+                        jid = journal->RecordPending(std::move(e));
+                    }
                 }
             }
-            // If the profile was already applied (previous shutdown without restoring) those values are not a valid previous state.
-            if (read_ok && !already_applied) {
-                std::copy(std::begin(ac), std::end(ac), std::begin(g_apu_power.prev_ac));
-                std::copy(std::begin(dc), std::end(dc), std::begin(g_apu_power.prev_dc));
-                g_apu_power.saved = true;
+        } else if (g_apu_power.saved) {
+            std::copy(std::begin(g_apu_power.prev_ac), std::end(g_apu_power.prev_ac), std::begin(ac_values));
+            std::copy(std::begin(g_apu_power.prev_dc), std::end(g_apu_power.prev_dc), std::begin(dc_values));
+            g_apu_power.saved = false;
+        } else if (journal) {
+            // Post-crash restore: recover previous AC/DC values from the active journal entry if available.
+            for (const auto& entry : journal->Entries()) {
+                if (entry.kind == JournalTargetKind::PowerPlan &&
+                    (entry.status == JournalEntryStatus::Pending || entry.status == JournalEntryStatus::Committed) &&
+                    entry.ac_values.size() == kApuPowerSettingCount &&
+                    entry.dc_values.size() == kApuPowerSettingCount) {
+                    for (size_t i = 0; i < kApuPowerSettingCount; ++i) {
+                        ac_values[i] = entry.ac_values[i];
+                        dc_values[i] = entry.dc_values[i];
+                    }
+                    break;
+                }
             }
         }
-    } else if (g_apu_power.saved) {
-        std::copy(std::begin(g_apu_power.prev_ac), std::end(g_apu_power.prev_ac), std::begin(ac_values));
-        std::copy(std::begin(g_apu_power.prev_dc), std::end(g_apu_power.prev_dc), std::begin(dc_values));
-        g_apu_power.saved = false;
     }
 
     for (size_t i = 0; i < kApuPowerSettingCount; ++i) {
@@ -138,8 +185,19 @@ bool GraphicsOptimizer::SetApuPowerMode(ApuPowerMode mode, const ApuOptimization
     LocalFree(activePolicy);
 
     const bool ok = (set_res == ERROR_SUCCESS);
-    if (ok) {
-        g_apu_power.applied = (mode == ApuPowerMode::GpuPrioritySustained);
+    {
+        std::lock_guard<std::mutex> state_lock(g_apu_power.mutex);
+        if (ok) {
+            g_apu_power.applied = (mode == ApuPowerMode::GpuPrioritySustained);
+        }
+    }
+    if (journal) {
+        if (mode == ApuPowerMode::GpuPrioritySustained && jid != 0) {
+            if (ok) journal->MarkCommitted(jid);
+            else journal->MarkFailed(jid, "PowerSetActiveScheme falló");
+        } else if (mode == ApuPowerMode::Balanced && ok) {
+            journal->MarkMatchingReverted(JournalTargetKind::PowerPlan, "Plan de energía APU");
+        }
     }
     return ok;
 }

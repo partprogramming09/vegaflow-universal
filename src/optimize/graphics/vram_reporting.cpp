@@ -43,8 +43,16 @@ bool GraphicsOptimizer::ApplyAmdVramReportingOverride(uint32_t target_mb, bool d
             }
 
             if (is_amd) {
+                RegBackupValue(kHiveLocalMachine, adapter_path, hAdapter, L"HardwareInformation.MemorySize");
+                RegBackupValue(kHiveLocalMachine, adapter_path, hAdapter, L"HardwareInformation.qwMemorySize");
+                const uint64_t j1 = JournalBeginRegChange(kHiveLocalMachine, adapter_path, hAdapter, L"HardwareInformation.MemorySize",
+                                                          std::to_string(dword_bytes), "AMD VRAM reporting override (" + std::to_string(target_mb) + " MB)");
+                const uint64_t j2 = JournalBeginRegChange(kHiveLocalMachine, adapter_path, hAdapter, L"HardwareInformation.qwMemorySize",
+                                                          std::to_string(target_bytes), "AMD VRAM reporting override (" + std::to_string(target_mb) + " MB)");
                 LSTATUS s1 = RegSetValueExW(hAdapter, L"HardwareInformation.MemorySize", 0, REG_DWORD, reinterpret_cast<const BYTE*>(&dword_bytes), sizeof(dword_bytes));
                 LSTATUS s2 = RegSetValueExW(hAdapter, L"HardwareInformation.qwMemorySize", 0, REG_QWORD, reinterpret_cast<const BYTE*>(&target_bytes), sizeof(target_bytes));
+                JournalEndRegChange(j1, s1 == ERROR_SUCCESS);
+                JournalEndRegChange(j2, s2 == ERROR_SUCCESS);
                 if (s1 == ERROR_SUCCESS || s2 == ERROR_SUCCESS) {
                     updated_driver = true;
                 }
@@ -85,7 +93,12 @@ bool GraphicsOptimizer::ApplyAmdVramReportingOverride(uint32_t target_mb, bool d
                 }
 
                 if (is_amd) {
+                    const std::wstring dx_subkey = std::wstring(L"SOFTWARE\\Microsoft\\DirectX\\") + subName;
+                    RegBackupValue(kHiveLocalMachine, dx_subkey, hSub, L"DedicatedVideoMemory");
+                    const uint64_t j_dx = JournalBeginRegChange(kHiveLocalMachine, dx_subkey, hSub, L"DedicatedVideoMemory",
+                                                                std::to_string(target_bytes), "DirectX VRAM reporting override (" + std::to_string(target_mb) + " MB)");
                     LSTATUS st = RegSetValueExW(hSub, L"DedicatedVideoMemory", 0, REG_QWORD, reinterpret_cast<const BYTE*>(&target_bytes), sizeof(target_bytes));
+                    JournalEndRegChange(j_dx, st == ERROR_SUCCESS);
                     if (st == ERROR_SUCCESS) {
                         updated_dxgi = true;
                     }
@@ -138,11 +151,17 @@ bool GraphicsOptimizer::RestoreAmdVramReporting(bool dry_run) {
             }
 
             if (is_amd) {
-                LSTATUS s1 = RegSetValueExW(hAdapter, L"HardwareInformation.MemorySize", 0, REG_DWORD, reinterpret_cast<const BYTE*>(&default_mem_size), sizeof(default_mem_size));
-                LSTATUS s2 = RegSetValueExW(hAdapter, L"HardwareInformation.qwMemorySize", 0, REG_QWORD, reinterpret_cast<const BYTE*>(&default_qw_size), sizeof(default_qw_size));
-                if (s1 == ERROR_SUCCESS || s2 == ERROR_SUCCESS) {
-                    updated_driver = true;
+                const bool r1 = RegRestoreValue(kHiveLocalMachine, adapter_path, L"HardwareInformation.MemorySize");
+                const bool r2 = RegRestoreValue(kHiveLocalMachine, adapter_path, L"HardwareInformation.qwMemorySize");
+                if (!r1) {
+                    RegSetValueExW(hAdapter, L"HardwareInformation.MemorySize", 0, REG_DWORD, reinterpret_cast<const BYTE*>(&default_mem_size), sizeof(default_mem_size));
                 }
+                if (!r2) {
+                    RegSetValueExW(hAdapter, L"HardwareInformation.qwMemorySize", 0, REG_QWORD, reinterpret_cast<const BYTE*>(&default_qw_size), sizeof(default_qw_size));
+                }
+                JournalMarkRegRestored(kHiveLocalMachine, adapter_path, L"HardwareInformation.MemorySize");
+                JournalMarkRegRestored(kHiveLocalMachine, adapter_path, L"HardwareInformation.qwMemorySize");
+                updated_driver = true;
             }
             RegCloseKey(hAdapter);
         }
@@ -182,10 +201,13 @@ bool GraphicsOptimizer::RestoreAmdVramReporting(bool dry_run) {
                 }
 
                 if (is_amd) {
-                    LSTATUS st = RegSetValueExW(hSub, L"DedicatedVideoMemory", 0, REG_QWORD, reinterpret_cast<const BYTE*>(&default_dxgi), sizeof(default_dxgi));
-                    if (st == ERROR_SUCCESS) {
-                        updated_dxgi = true;
+                    const std::wstring dx_subkey = std::wstring(L"SOFTWARE\\Microsoft\\DirectX\\") + subName;
+                    const bool r = RegRestoreValue(kHiveLocalMachine, dx_subkey, L"DedicatedVideoMemory");
+                    if (!r) {
+                        RegSetValueExW(hSub, L"DedicatedVideoMemory", 0, REG_QWORD, reinterpret_cast<const BYTE*>(&default_dxgi), sizeof(default_dxgi));
                     }
+                    JournalMarkRegRestored(kHiveLocalMachine, dx_subkey, L"DedicatedVideoMemory");
+                    updated_dxgi = true;
                 }
                 RegCloseKey(hSub);
             }

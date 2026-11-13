@@ -17,6 +17,7 @@ int RunDaemon(
     vegaflow::MemoryManager& mem_mgr,
     vegaflow::FrameTelemetryMonitor& telemetry_monitor,
     const vegaflow::PrivilegeStatus& priv,
-    bool once_mode);
+    bool once_mode,
+    bool safe_mode = false);
 
 } // namespace vegaflow::app

@@ -1,6 +1,8 @@
 #pragma once
 // --gui: native Win32/GDI dashboard with system tray. Returns the process exit code.
 
+#include <string>
+
 #include "session/config.hpp"
 #include "detect/hardware_profiler.hpp"
 #include "optimize/cpu_orchestrator.hpp"
@@ -15,6 +17,8 @@ int RunGuiMode(
     vegaflow::SystemHardwareProfile& hw,
     vegaflow::CpuOrchestrator& cpu_orchestrator,
     vegaflow::MemoryManager& mem_mgr,
-    vegaflow::FrameTelemetryMonitor& telemetry_monitor);
+    vegaflow::FrameTelemetryMonitor& telemetry_monitor,
+    bool safe_mode = false,
+    const std::string& journal_warning = {});
 
 } // namespace vegaflow::app

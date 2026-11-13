@@ -87,8 +87,17 @@ bool GraphicsOptimizer::SetAmdDx11UmaDriverBoost(bool enable, const ApuOptimizat
                 if (umd || RegCreateKeyExW(hAdapter, L"UMD", 0, nullptr, REG_OPTION_NON_VOLATILE, KEY_READ | KEY_WRITE, nullptr, umd.put(), nullptr) == ERROR_SUCCESS) {
                     const HKEY hUmd = umd.get();
                     const std::wstring umd_path = adapter_path + L"\\UMD";
+                    std::vector<uint64_t> j_ids;
                     if (enable) {
                         for (const wchar_t* n : kUmdBoostValues) RegBackupValue(kHiveLocalMachine, umd_path, hUmd, n);
+                        j_ids.push_back(JournalBeginRegChange(kHiveLocalMachine, umd_path, hUmd, L"SurfaceFormatReplacements", "1", "AMD DX11 UMA boost"));
+                        j_ids.push_back(JournalBeginRegChange(kHiveLocalMachine, umd_path, hUmd, L"FlipQueueSize", "1", "AMD DX11 UMA boost"));
+                        j_ids.push_back(JournalBeginRegChange(kHiveLocalMachine, umd_path, hUmd, L"TFQ", "2", "AMD DX11 UMA boost"));
+                        j_ids.push_back(JournalBeginRegChange(kHiveLocalMachine, umd_path, hUmd, L"Tessellation_OPTION", "1", "AMD DX11 UMA boost"));
+                        j_ids.push_back(JournalBeginRegChange(kHiveLocalMachine, umd_path, hUmd, L"Tessellation", tess_str, "AMD DX11 UMA boost"));
+                        j_ids.push_back(JournalBeginRegChange(kHiveLocalMachine, umd_path, hUmd, L"Main3D_DEF", "1", "AMD DX11 UMA boost"));
+                        j_ids.push_back(JournalBeginRegChange(kHiveLocalMachine, umd_path, hUmd, L"TurboSync", "0", "AMD DX11 UMA boost"));
+                        j_ids.push_back(JournalBeginRegChange(kHiveLocalMachine, umd_path, hUmd, L"DisableFlipQueueOptimization", "0", "AMD DX11 UMA boost"));
                     }
                     LSTATUS st1 = SetUmdValue(hUmd, L"SurfaceFormatReplacements", sfr_val);
                     LSTATUS st2 = SetUmdValue(hUmd, L"FlipQueueSize", fqs_val);
@@ -106,8 +115,15 @@ bool GraphicsOptimizer::SetAmdDx11UmaDriverBoost(bool enable, const ApuOptimizat
                     LSTATUS st6 = SetUmdValue(hUmd, L"Main3D_DEF", main3d_val);
                     LSTATUS st7 = SetUmdValue(hUmd, L"TurboSync", turbosync_val);
                     LSTATUS st8 = SetUmdValue(hUmd, L"DisableFlipQueueOptimization", dfqo_val);
+                    if (enable && j_ids.size() == 8) {
+                        const LSTATUS sts[8] = { st1, st2, st3, st4, st5, st6, st7, st8 };
+                        for (size_t i = 0; i < 8; ++i) JournalEndRegChange(j_ids[i], sts[i] == ERROR_SUCCESS);
+                    }
                     if (!enable) {
-                        for (const wchar_t* n : kUmdBoostValues) RegRestoreValue(kHiveLocalMachine, umd_path, n);
+                        for (const wchar_t* n : kUmdBoostValues) {
+                            RegRestoreValue(kHiveLocalMachine, umd_path, n);
+                            JournalMarkRegRestored(kHiveLocalMachine, umd_path, n);
+                        }
                     }
                     if (st1 == ERROR_SUCCESS || st2 == ERROR_SUCCESS || st3 == ERROR_SUCCESS ||
                         st4 == ERROR_SUCCESS || st5 == ERROR_SUCCESS || st6 == ERROR_SUCCESS ||
@@ -188,9 +204,12 @@ bool GraphicsOptimizer::SetAmdTessellationCap(uint32_t max_tess, bool dry_run) {
             if (is_amd) {
                 if (hUmd || RegCreateKeyExW(hAdapter, L"UMD", 0, nullptr, REG_OPTION_NON_VOLATILE, KEY_READ | KEY_WRITE, nullptr, &hUmd, nullptr) == ERROR_SUCCESS) {
                     const std::wstring umd_path = adapter_path + L"\\UMD";
+                    uint64_t j_opt = 0, j_tess = 0;
                     if (enable_override) {
                         RegBackupValue(kHiveLocalMachine, umd_path, hUmd, L"Tessellation_OPTION");
                         RegBackupValue(kHiveLocalMachine, umd_path, hUmd, L"Tessellation");
+                        j_opt = JournalBeginRegChange(kHiveLocalMachine, umd_path, hUmd, L"Tessellation_OPTION", "1", "AMD tessellation cap");
+                        j_tess = JournalBeginRegChange(kHiveLocalMachine, umd_path, hUmd, L"Tessellation", tess_str, "AMD tessellation cap");
                     }
                     LSTATUS stOpt = SetUmdValue(hUmd, L"Tessellation_OPTION", tess_opt_val);
 
@@ -201,10 +220,14 @@ bool GraphicsOptimizer::SetAmdTessellationCap(uint32_t max_tess, bool dry_run) {
                     } else {
                         stTess = RegSetValueExW(hUmd, L"Tessellation", 0, REG_BINARY, tess_bytes.data(), static_cast<DWORD>(tess_bytes.size()));
                     }
+                    JournalEndRegChange(j_opt, stOpt == ERROR_SUCCESS);
+                    JournalEndRegChange(j_tess, stTess == ERROR_SUCCESS);
 
                     if (!enable_override) {
                         RegRestoreValue(kHiveLocalMachine, umd_path, L"Tessellation_OPTION");
                         RegRestoreValue(kHiveLocalMachine, umd_path, L"Tessellation");
+                        JournalMarkRegRestored(kHiveLocalMachine, umd_path, L"Tessellation_OPTION");
+                        JournalMarkRegRestored(kHiveLocalMachine, umd_path, L"Tessellation");
                     }
                     if (stOpt == ERROR_SUCCESS || stTess == ERROR_SUCCESS) {
                         updated_any = true;

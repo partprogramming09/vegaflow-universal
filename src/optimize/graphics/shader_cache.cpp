@@ -63,6 +63,10 @@ bool GraphicsOptimizer::SetAmdShaderCacheForced(bool force_on, const ApuOptimiza
             }
 
             if (is_amd) {
+                if (force_on) RegBackupValue(kHiveLocalMachine, adapter_path, hAdapter, L"ShaderCache");
+                const uint64_t j1 = force_on
+                    ? JournalBeginRegChange(kHiveLocalMachine, adapter_path, hAdapter, L"ShaderCache", "0x3200", "AMD ShaderCache forced")
+                    : 0;
                 LSTATUS st1 = RegSetValueExW(
                     hAdapter,
                     L"ShaderCache",
@@ -71,11 +75,21 @@ bool GraphicsOptimizer::SetAmdShaderCacheForced(bool force_on, const ApuOptimiza
                     binary_val,
                     sizeof(binary_val)
                 );
+                JournalEndRegChange(j1, st1 == ERROR_SUCCESS);
+                if (!force_on) {
+                    RegRestoreValue(kHiveLocalMachine, adapter_path, L"ShaderCache");
+                    JournalMarkRegRestored(kHiveLocalMachine, adapter_path, L"ShaderCache");
+                }
                 if (st1 == ERROR_SUCCESS) {
                     updated_any = true;
                 }
 
                 if (hUmd) {
+                    const std::wstring umd_path = adapter_path + L"\\UMD";
+                    if (force_on) RegBackupValue(kHiveLocalMachine, umd_path, hUmd, L"ShaderCache");
+                    const uint64_t j2 = force_on
+                        ? JournalBeginRegChange(kHiveLocalMachine, umd_path, hUmd, L"ShaderCache", "0x3200", "AMD UMD ShaderCache forced")
+                        : 0;
                     LSTATUS st2 = RegSetValueExW(
                         hUmd,
                         L"ShaderCache",
@@ -84,6 +98,11 @@ bool GraphicsOptimizer::SetAmdShaderCacheForced(bool force_on, const ApuOptimiza
                         binary_val,
                         sizeof(binary_val)
                     );
+                    JournalEndRegChange(j2, st2 == ERROR_SUCCESS);
+                    if (!force_on) {
+                        RegRestoreValue(kHiveLocalMachine, umd_path, L"ShaderCache");
+                        JournalMarkRegRestored(kHiveLocalMachine, umd_path, L"ShaderCache");
+                    }
                     if (st2 == ERROR_SUCCESS) {
                         updated_any = true;
                     }

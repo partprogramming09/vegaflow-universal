@@ -1,8 +1,68 @@
 #include "optimize/graphics/graphics_internal.hpp"
+#include "windows/change_journal.hpp"
 
 namespace vegaflow {
 
 using namespace graphics_internal;
+
+namespace {
+
+std::string WideToUtf8Dxgi(const std::wstring& w) {
+    if (w.empty()) return {};
+    int needed = WideCharToMultiByte(CP_UTF8, 0, w.data(), static_cast<int>(w.size()), nullptr, 0, nullptr, nullptr);
+    if (needed <= 0) return {};
+    std::string out(static_cast<size_t>(needed), '\0');
+    WideCharToMultiByte(CP_UTF8, 0, w.data(), static_cast<int>(w.size()), out.data(), needed, nullptr, nullptr);
+    return out;
+}
+
+void QueryPerExeRegString(const wchar_t* subkey, const std::wstring& value_name, bool& out_present, std::wstring& out_val) {
+    out_present = false;
+    out_val.clear();
+    HKEY h = nullptr;
+    if (RegOpenKeyExW(HKEY_CURRENT_USER, subkey, 0, KEY_READ, &h) != ERROR_SUCCESS) return;
+    DWORD type = 0, bytes = 0;
+    if (RegQueryValueExW(h, value_name.c_str(), nullptr, &type, nullptr, &bytes) == ERROR_SUCCESS && type == REG_SZ) {
+        std::wstring buf(bytes / sizeof(wchar_t) + 1, L'\0');
+        bytes = static_cast<DWORD>(buf.size() * sizeof(wchar_t));
+        if (RegQueryValueExW(h, value_name.c_str(), nullptr, &type, reinterpret_cast<LPBYTE>(buf.data()), &bytes) == ERROR_SUCCESS) {
+            out_val.assign(buf.c_str());
+            out_present = true;
+        }
+    }
+    RegCloseKey(h);
+}
+
+uint64_t JournalBeginDxgiChange(const std::wstring& exe_path, const std::wstring& after_pref, const std::string& reason) {
+    ChangeJournal* journal = GetActiveChangeJournal();
+    if (!journal || exe_path.empty()) return 0;
+    JournalEntry e;
+    e.kind = JournalTargetKind::DxgiGamePreference;
+    e.target = "DXGI:" + WideToUtf8Dxgi(exe_path);
+    e.reason = reason;
+    e.exe_path = exe_path;
+    QueryPerExeRegString(L"Software\\Microsoft\\DirectX\\UserGpuPreferences", exe_path, e.ugp_orig_present, e.ugp_orig_value);
+    QueryPerExeRegString(L"Software\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Layers", exe_path,
+                         e.layers_orig_present, e.layers_orig_value);
+    e.before_value = e.ugp_orig_present ? WideToUtf8Dxgi(e.ugp_orig_value) : "(sin preferencia)";
+    e.after_value = WideToUtf8Dxgi(after_pref);
+    const std::string exe_utf8 = WideToUtf8Dxgi(exe_path);
+    e.manual_fix_hint = e.ugp_orig_present
+        ? ("reg add \"HKCU\\Software\\Microsoft\\DirectX\\UserGpuPreferences\" /v \"" + exe_utf8 + "\" /t REG_SZ /d \"" +
+           WideToUtf8Dxgi(e.ugp_orig_value) + "\" /f")
+        : ("reg delete \"HKCU\\Software\\Microsoft\\DirectX\\UserGpuPreferences\" /v \"" + exe_utf8 + "\" /f");
+    return journal->RecordPending(std::move(e));
+}
+
+void JournalEndDxgiChange(uint64_t id, bool ok) {
+    if (id == 0) return;
+    ChangeJournal* journal = GetActiveChangeJournal();
+    if (!journal) return;
+    if (ok) journal->MarkCommitted(id);
+    else journal->MarkFailed(id, "Error al escribir preferencia DXGI");
+}
+
+} // namespace
 
 bool GraphicsOptimizer::ApplyDxgiFlipModelUpgrade(const std::wstring& exe_full_path, bool dry_run) {
     return ApplyDxgiFlipModelUpgrade(exe_full_path, dry_run, nullptr);
@@ -92,6 +152,8 @@ bool GraphicsOptimizer::ApplyDxgiFlipModelUpgrade(
         return true;
     }
 
+    const uint64_t j_id = JournalBeginDxgiChange(exe_full_path, final_value, "DXGI Flip Model upgrade");
+
     DWORD disposition = 0;
     status = RegCreateKeyExW(
         HKEY_CURRENT_USER,
@@ -106,6 +168,7 @@ bool GraphicsOptimizer::ApplyDxgiFlipModelUpgrade(
     );
 
     if (status != ERROR_SUCCESS) {
+        JournalEndDxgiChange(j_id, false);
         return false;
     }
 
@@ -146,6 +209,7 @@ bool GraphicsOptimizer::ApplyDxgiFlipModelUpgrade(
         RegCloseKey(hLayers);
     }
 
+    JournalEndDxgiChange(j_id, status == ERROR_SUCCESS);
     return (status == ERROR_SUCCESS);
 }
 
@@ -217,6 +281,8 @@ bool GraphicsOptimizer::ApplyDxgiDirectFlipUpgrade(
         return true;
     }
 
+    const uint64_t j_id = JournalBeginDxgiChange(exe_full_path, final_value, "DXGI DirectFlip upgrade");
+
     DWORD disposition = 0;
     status = RegCreateKeyExW(
         HKEY_CURRENT_USER,
@@ -231,6 +297,7 @@ bool GraphicsOptimizer::ApplyDxgiDirectFlipUpgrade(
     );
 
     if (status != ERROR_SUCCESS) {
+        JournalEndDxgiChange(j_id, false);
         return false;
     }
 
@@ -271,6 +338,7 @@ bool GraphicsOptimizer::ApplyDxgiDirectFlipUpgrade(
         RegCloseKey(hLayers);
     }
 
+    JournalEndDxgiChange(j_id, status == ERROR_SUCCESS);
     return (status == ERROR_SUCCESS);
 }
 
@@ -331,6 +399,9 @@ bool GraphicsOptimizer::RemoveDxgiFlipModelUpgrade(const std::wstring& exe_full_
     if (RegOpenKeyExW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Layers", 0, KEY_SET_VALUE, &hLayers) == ERROR_SUCCESS) {
         RegDeleteValueW(hLayers, exe_full_path.c_str());
         RegCloseKey(hLayers);
+    }
+    if (ChangeJournal* journal = GetActiveChangeJournal()) {
+        journal->MarkMatchingReverted(JournalTargetKind::DxgiGamePreference, "DXGI:" + WideToUtf8Dxgi(exe_full_path));
     }
     return true;
 }

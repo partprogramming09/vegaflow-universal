@@ -78,3 +78,11 @@ Implementado en [`src/windows/sandbox_guard.hpp`](../../src/windows/sandbox_guar
    - Al restaurar se copia el respaldo y se comprueba igualdad **byte a byte** antes de borrar `.vegaflow.bak`.
    - Conserva UTF-8, UTF-8 con BOM, UTF-16 LE/BE con BOM y finales de línea originales (CRLF, LF o mezclados), solo modifica su bloque (`; [VegaFlowUMA_Start]`..`; [VegaFlowUMA_End]`) o las claves indicadas, colapsa claves repetidas en `boot.config` de Unity y falla sin borrar texto si falta un marcador de cierre. Casos compartidos en [`tests/vectors/ini/`](../../tests/vectors/ini/) y Prueba 48.
 
+8. **Diario de cambios y recuperación ante cierres anormales** (fase 2b, 2026-11-12):
+   - Definido en los puertos [`ChangeJournal` y `SystemUndoPort`](../../src/ports/change_journal.hpp), implementado en [`windows/change_journal.*`](../../src/windows/change_journal.cpp) y orquestado en [`session/restore.*`](../../src/session/restore.cpp).
+   - Se guarda en `<carpeta del .exe>\config\change_journal.vfj` mediante reemplazo atómico (`FileSystem::Replace`, formato TSV con escapado estricto y respaldo completo de los últimos 200 eventos).
+   - **Antes** de modificar un valor (registro, plan de energía, compresión de memoria, DXGI por juego, archivo de configuración de juego o prioridad/afinidad de un proceso comprobando su hora de creación `GetProcessTimes` para evitar reutilización de PID), se escribe una entrada `PENDING` con su estado original; **después** pasa a `COMMITTED`.
+   - Si al arrancar el cierre anterior no fue limpio o quedan cambios pendientes, ofrece devolverlos e informa exactamente cuántos se devolvieron (`"Se devolvieron X de Y"`) y los pasos manuales de los que fallen.
+   - **Modo seguro:** tras dos cierres anormales seguidos (`consecutive_unclean_exits >= 2`), VegaFlow arranca sin aplicar ajustes nuevos y avisa. `--once` también restaura sus ajustes temporales al salir.
+   - Un diario corrupto avisa sin bloquear el arranque y permite usar `--restore-registry` sobre los respaldos directos. Antes del primer cambio de registro ofrece una sola vez crear un punto de restauración de Windows (`SRSetRestorePointW` en `srclient.dll`). Pruebas: 49 (puerto falso) y 50 (disco y registro real en `HKCU` + `Engine.ini`).
+

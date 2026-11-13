@@ -90,7 +90,7 @@ public:
     // Changes to the GameDVR and AMD driver registry first save the original value; disabling the
     // optimization returns it (or deletes the value if it did not exist). This function restores all pending backups
     // and returns true if all of them could be restored.
-    static bool RestoreAllRegistryBackups();
+    static bool RestoreAllRegistryBackups(size_t* out_reverted = nullptr, size_t* out_total = nullptr);
 
     // APU thermal and power control (GPU-Priority Sustained vs Balanced mode):
     // GpuPrioritySustained saves the power plan values before applying and Balanced returns them;

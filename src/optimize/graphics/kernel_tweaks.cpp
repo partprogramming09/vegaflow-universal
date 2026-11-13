@@ -1,4 +1,5 @@
 #include "optimize/graphics/graphics_internal.hpp"
+#include "windows/change_journal.hpp"
 
 namespace vegaflow {
 
@@ -7,6 +8,23 @@ using namespace graphics_internal;
 bool GraphicsOptimizer::SetMemoryCompressionEnabled(bool enable, bool dry_run) {
     if (dry_run) {
         return true;
+    }
+
+    ChangeJournal* journal = GetActiveChangeJournal();
+    uint64_t jid = 0;
+    if (journal) {
+        const bool was_enabled = QuerySystemGraphicsTweaks().memory_compression_enabled;
+        if (!enable) {
+            JournalEntry e;
+            e.kind = JournalTargetKind::MemoryCompression;
+            e.target = "MMAgent\\MemoryCompression";
+            e.reason = "Desactivar compresión de memoria";
+            e.before_value = was_enabled ? "Activada" : "Desactivada";
+            e.after_value = "Desactivada";
+            e.manual_fix_hint = "powershell -Command \"Enable-MMAgent -MemoryCompression\"";
+            e.orig_mem_compression_enabled = was_enabled;
+            jid = journal->RecordPending(std::move(e));
+        }
     }
 
     std::wstring cmd = L"powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden -Command \"";
@@ -40,6 +58,7 @@ bool GraphicsOptimizer::SetMemoryCompressionEnabled(bool enable, bool dry_run) {
     );
 
     if (!created) {
+        if (journal && jid != 0) journal->MarkFailed(jid, "No se pudo lanzar PowerShell");
         return false;
     }
 
@@ -83,7 +102,16 @@ bool GraphicsOptimizer::SetMemoryCompressionEnabled(bool enable, bool dry_run) {
     CloseHandle(pi.hThread);
     CloseHandle(pi.hProcess);
 
-    return (wait_res == WAIT_OBJECT_0 && exit_code == 0);
+    const bool ok = (wait_res == WAIT_OBJECT_0 && exit_code == 0);
+    if (journal) {
+        if (enable && ok) {
+            journal->MarkMatchingReverted(JournalTargetKind::MemoryCompression, "MMAgent\\MemoryCompression");
+        } else if (jid != 0) {
+            if (ok) journal->MarkCommitted(jid);
+            else journal->MarkFailed(jid, "MMAgent devolvió error");
+        }
+    }
+    return ok;
 }
 
 bool GraphicsOptimizer::SetDynamicPrioritySeparation(uint32_t value, bool dry_run) {
@@ -106,7 +134,14 @@ bool GraphicsOptimizer::SetDynamicPrioritySeparation(uint32_t value, bool dry_ru
 
     const std::wstring prio_path = L"SYSTEM\\CurrentControlSet\\Control\\PriorityControl";
     const bool is_default = (value == 0x02);
-    if (!is_default) RegBackupValue(kHiveLocalMachine, prio_path, hKey, L"Win32PrioritySeparation");
+    uint64_t jid = 0;
+    if (!is_default) {
+        RegBackupValue(kHiveLocalMachine, prio_path, hKey, L"Win32PrioritySeparation");
+        char hexbuf[16];
+        std::snprintf(hexbuf, sizeof(hexbuf), "0x%x", value);
+        jid = JournalBeginRegChange(kHiveLocalMachine, prio_path, hKey, L"Win32PrioritySeparation",
+                                    hexbuf, "Prioridad de quantum CPU en juego");
+    }
     DWORD dwVal = static_cast<DWORD>(value);
     LSTATUS set_status = RegSetValueExW(
         hKey,
@@ -116,9 +151,14 @@ bool GraphicsOptimizer::SetDynamicPrioritySeparation(uint32_t value, bool dry_ru
         reinterpret_cast<const BYTE*>(&dwVal),
         sizeof(dwVal)
     );
+    if (!is_default) JournalEndRegChange(jid, set_status == ERROR_SUCCESS);
 
     RegCloseKey(hKey);
-    if (is_default) RegRestoreValue(kHiveLocalMachine, prio_path, L"Win32PrioritySeparation");
+    if (is_default) {
+        if (!RegRestoreValue(kHiveLocalMachine, prio_path, L"Win32PrioritySeparation") && set_status == ERROR_SUCCESS) {
+            JournalMarkRegRestored(kHiveLocalMachine, prio_path, L"Win32PrioritySeparation");
+        }
+    }
     return (set_status == ERROR_SUCCESS);
 }
 
@@ -141,9 +181,12 @@ bool GraphicsOptimizer::SetKernelMemoryPagingShield(bool enable, bool dry_run) {
     }
 
     const std::wstring mm_path = L"SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Memory Management";
+    uint64_t jid1 = 0, jid2 = 0;
     if (enable) {
         RegBackupValue(kHiveLocalMachine, mm_path, hKey, L"DisablePagingExecutive");
         RegBackupValue(kHiveLocalMachine, mm_path, hKey, L"LargeSystemCache");
+        jid1 = JournalBeginRegChange(kHiveLocalMachine, mm_path, hKey, L"DisablePagingExecutive", "1", "Blindaje de memoria del kernel");
+        jid2 = JournalBeginRegChange(kHiveLocalMachine, mm_path, hKey, L"LargeSystemCache", "0", "Evitar desplazamiento por caché");
     }
     DWORD disable_paging = enable ? 1 : 0;
     DWORD large_cache = 0; // Prevents the system file cache from displacing game memory
@@ -165,11 +208,19 @@ bool GraphicsOptimizer::SetKernelMemoryPagingShield(bool enable, bool dry_run) {
         reinterpret_cast<const BYTE*>(&large_cache),
         sizeof(large_cache)
     );
+    if (enable) {
+        JournalEndRegChange(jid1, st1 == ERROR_SUCCESS);
+        JournalEndRegChange(jid2, st2 == ERROR_SUCCESS);
+    }
 
     RegCloseKey(hKey);
     if (!enable) {
-        RegRestoreValue(kHiveLocalMachine, mm_path, L"DisablePagingExecutive");
-        RegRestoreValue(kHiveLocalMachine, mm_path, L"LargeSystemCache");
+        if (!RegRestoreValue(kHiveLocalMachine, mm_path, L"DisablePagingExecutive") && st1 == ERROR_SUCCESS) {
+            JournalMarkRegRestored(kHiveLocalMachine, mm_path, L"DisablePagingExecutive");
+        }
+        if (!RegRestoreValue(kHiveLocalMachine, mm_path, L"LargeSystemCache") && st2 == ERROR_SUCCESS) {
+            JournalMarkRegRestored(kHiveLocalMachine, mm_path, L"LargeSystemCache");
+        }
     }
     return (st1 == ERROR_SUCCESS && st2 == ERROR_SUCCESS);
 }

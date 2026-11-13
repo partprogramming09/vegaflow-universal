@@ -85,4 +85,14 @@ void RegBackupValue(int hive, const std::wstring& subkey, HKEY hKey, const wchar
 /// Restores one specific value from its backup; false if there was no backup or it could not be restored.
 bool RegRestoreValue(int hive, const std::wstring& subkey, const wchar_t* name);
 
+/// Records a Pending registry value change in the active ChangeJournal before mutating the registry.
+uint64_t JournalBeginRegChange(int hive, const std::wstring& subkey, HKEY hKey, const wchar_t* name,
+                               const std::string& after_value, const std::string& reason);
+
+/// Updates a previously recorded registry value entry after RegSetValueExW finishes.
+void JournalEndRegChange(uint64_t entry_id, bool succeeded);
+
+/// Marks active journal entries for this registry value as Reverted when restored.
+void JournalMarkRegRestored(int hive, const std::wstring& subkey, const wchar_t* name);
+
 } // namespace vegaflow::graphics_internal

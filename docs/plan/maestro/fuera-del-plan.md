@@ -40,6 +40,11 @@
 
 - Prueba interactiva con un juego Unreal real en el laptop (Octopath Traveler II usa `Engine.ini` en UTF-8/CRLF; el editor nuevo se validó en el laptop con Prueba 48 y los vectores de `tests/vectors/ini/`, quedando pendiente la verificación en vivo con el juego abierto en sesión 1).
 
+## Pendiente heredado de la fase 2b
+
+- Punto de restauración de Windows (`SRSetRestorePointW` vía `srclient.dll`): sin verificar en el escritorio interactivo qué ocurre cuando la Protección del sistema está desactivada o dentro de la ventana de frecuencia de Windows (24 h); el diario de cambios, `--once`, el modo seguro tras dos cierres anormales y la tolerancia a diario corrupto sí se validaron en el laptop y en las Pruebas 49 y 50.
+- Diálogos de `--gui` (`MessageBoxW` de recuperación y punto de restauración opcional) y pestaña Historial alimentada por `FormatJournalHistory`: sin prueba visual en sesión de escritorio (la lógica de decisión está cubierta en la Prueba 49).
+
 ## 9. Ideas sin fase todavía
 
 Salieron de la ronda de ideas del 2026-11-09. Ninguna se empieza sin decidirla antes; las marcadas "sin verificar" necesitan investigación.

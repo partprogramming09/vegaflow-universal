@@ -8,11 +8,13 @@
 #include <string>
 
 #include "windows/privileges.hpp"
+#include "windows/change_journal.hpp"
 #include "detect/hardware_profiler.hpp"
 #include "optimize/graphics/graphics_optimizer.hpp"
 #include "optimize/dxvk_manager.hpp"
 #include "windows/safe_file_system.hpp"
 #include "session/system_info.hpp"
+#include "session/restore.hpp"
 #include "app/app_state.hpp"
 #include "session/config.hpp"
 #include "session/reports.hpp"
@@ -56,6 +58,10 @@ std::optional<int> ParseCommandLine(int argc, char* argv[], CliOptions& opts) {
             opts.vram_restore_flag = true;
         } else if (arg == "--restore-registry") {
             opts.restore_registry_flag = true;
+        } else if (arg == "--recover") {
+            opts.recover_flag = true;
+        } else if (arg == "--create-restore-point") {
+            opts.create_restore_point_flag = true;
         } else if (arg == "--dxvk-install" && i + 1 < argc) {
             opts.dxvk_install_path = argv[++i];
         } else if (arg == "--dxvk-remove" && i + 1 < argc) {
@@ -85,7 +91,9 @@ std::optional<int> ParseCommandLine(int argc, char* argv[], CliOptions& opts) {
             std::cout << "  --apu-balanced           Restore standard Windows balanced APU power profile.\n";
             std::cout << "  --vram-override          Override AMD VRAM reporting to 4096 MB in DXGI and AMD driver.\n";
             std::cout << "  --vram-restore           Restore AMD VRAM reporting to driver default (512 MB).\n";
-            std::cout << "  --restore-registry       Restore the GameDVR and AMD driver registry values saved before VegaFlow changed them.\n";
+            std::cout << "  --restore-registry       Restore all pending journal entries and VegaFlow registry backups.\n";
+            std::cout << "  --recover                Alias for --restore-registry (recovers pending changes after crash).\n";
+            std::cout << "  --create-restore-point   Attempt to create a Windows System Restore Point now.\n";
             std::cout << "  --dxvk-install <path>    Deploy DXVK (DirectX 11 to Vulkan with async GPL) to target game folder.\n";
             std::cout << "  --dxvk-remove <path>     Remove DXVK and restore original DirectX 11 runtime.\n";
             std::cout << "  --monitor, -m            Real-time console dashboard displaying live RAM, VRAM, and FPS telemetry.\n";
@@ -157,11 +165,24 @@ std::optional<int> RunOneShotCommand(const CliOptions& opts, int argc, char* arg
             std::cout << "[INFO] Process is already running with Administrator privileges.\n";
             if (!opts.gui_flag && !opts.status_flag && !opts.purge_now_flag && !opts.monitor_flag && !opts.mpo_disable_flag && !opts.mpo_restore_flag
                 && !opts.shader_cache_force_flag && !opts.shader_cache_default_flag && !opts.mem_compression_off_flag && !opts.mem_compression_on_flag
-                && !opts.apu_gpu_priority_flag && !opts.apu_balanced_flag && !opts.vram_override_flag && !opts.vram_restore_flag && !opts.restore_registry_flag && !opts.once_flag
+                && !opts.apu_gpu_priority_flag && !opts.apu_balanced_flag && !opts.vram_override_flag && !opts.vram_restore_flag && !opts.restore_registry_flag
+                && !opts.recover_flag && !opts.create_restore_point_flag && !opts.once_flag
                 && opts.dxvk_install_path.empty() && opts.dxvk_remove_path.empty()) {
                 return 0;
             }
         }
+    }
+
+    if (opts.create_restore_point_flag) {
+        if (opts.dry_run_flag) {
+            std::cout << "[RestorePoint] [DRY-RUN] Simulaci\u00f3n de creaci\u00f3n de punto de restauraci\u00f3n de Windows.\n";
+            return 0;
+        }
+        vegaflow::WindowsSystemUndo undo(file_system);
+        std::string msg;
+        const bool ok = undo.CreateRestorePoint("VegaFlow Universal - Manual", &msg);
+        std::cout << "[RestorePoint] " << msg << "\n";
+        return ok ? 0 : 1;
     }
 
     if (opts.apu_gpu_priority_flag) {
@@ -225,11 +246,36 @@ std::optional<int> RunOneShotCommand(const CliOptions& opts, int argc, char* arg
         return ok ? 0 : 1;
     }
 
-    if (opts.restore_registry_flag) {
-        bool ok = vegaflow::GraphicsOptimizer::RestoreAllRegistryBackups();
-        std::cout << "[Registry] RestoreAllRegistryBackups() "
-                  << (ok ? "SUCCEEDED. GameDVR and AMD driver values are back to what they were before VegaFlow." : "FAILED for at least one value (administrator privileges may be required).") << "\n";
-        return ok ? 0 : 1;
+    if (opts.restore_registry_flag || opts.recover_flag) {
+        vegaflow::SteadyClock clock;
+        vegaflow::FileChangeJournal journal(file_system, clock, vegaflow::JournalFilePath());
+        vegaflow::WindowsSystemUndo undo(file_system);
+        const bool loaded = journal.Load();
+
+        vegaflow::RestoreReport rep{};
+        if (loaded && !journal.Header().corrupt) {
+            rep = vegaflow::session::RestoreAllRecordedChanges(journal, undo, opts.dry_run_flag);
+        } else if (journal.Header().corrupt) {
+            std::cerr << "[WARN] Diario de cambios corrupto (" << journal.Header().corrupt_reason
+                      << "); restaurando copias de respaldo del registro directamente.\n";
+            if (!opts.dry_run_flag) {
+                journal.ResetRecoveryState();
+            }
+        }
+
+        size_t reg_rev = 0;
+        size_t reg_tot = 0;
+        bool reg_ok = true;
+        if (!opts.dry_run_flag) {
+            reg_ok = vegaflow::GraphicsOptimizer::RestoreAllRegistryBackups(&reg_rev, &reg_tot);
+        }
+
+        if (loaded && !journal.Header().corrupt && (rep.total_count > 0 || reg_tot == 0)) {
+            std::cout << "[Restore] " << rep.summary_message << "\n";
+        } else {
+            std::cout << "[Restore] Se devolvieron " << reg_rev << " de " << reg_tot << ".\n";
+        }
+        return (rep.all_succeeded && reg_ok) ? 0 : 1;
     }
 
     if (!opts.dxvk_install_path.empty()) {

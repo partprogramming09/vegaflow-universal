@@ -2,6 +2,7 @@
 #include "optimize/steam/steam_internal.hpp"
 #include "optimize/graphics/graphics_optimizer.hpp"
 #include "bridge/rust_bridge.h"
+#include "windows/change_journal.hpp"
 
 namespace vegaflow {
 
@@ -10,6 +11,45 @@ using namespace steam_internal;
 namespace {
 
 constexpr const char* kEmptyBackupSentinel = "; VegaFlow Empty Backup\n";
+
+std::string WideToUtf8Preset(const std::wstring& w) {
+    if (w.empty()) return {};
+    int needed = WideCharToMultiByte(CP_UTF8, 0, w.data(), static_cast<int>(w.size()), nullptr, 0, nullptr, nullptr);
+    if (needed <= 0) return {};
+    std::string out(static_cast<size_t>(needed), '\0');
+    WideCharToMultiByte(CP_UTF8, 0, w.data(), static_cast<int>(w.size()), out.data(), needed, nullptr, nullptr);
+    return out;
+}
+
+uint64_t JournalBeginGameConfig(const std::wstring& file_path, const std::wstring& bak_path,
+                                const std::string& after_desc, const std::string& reason) {
+    ChangeJournal* journal = GetActiveChangeJournal();
+    if (!journal || file_path.empty() || bak_path.empty()) return 0;
+    JournalEntry e;
+    e.kind = JournalTargetKind::GameConfigFile;
+    e.target = "GameFile:" + WideToUtf8Preset(file_path);
+    e.reason = reason;
+    e.before_value = "Backup en " + WideToUtf8Preset(bak_path);
+    e.after_value = after_desc;
+    e.manual_fix_hint = "Restaura " + WideToUtf8Preset(file_path) + " desde " + WideToUtf8Preset(bak_path);
+    e.file_path = file_path;
+    e.backup_path = bak_path;
+    return journal->RecordPending(std::move(e));
+}
+
+void JournalEndGameConfig(uint64_t id, bool ok) {
+    if (id == 0) return;
+    if (ChangeJournal* journal = GetActiveChangeJournal()) {
+        if (ok) journal->MarkCommitted(id);
+        else journal->MarkFailed(id, "Error al escribir archivo de configuracion del juego");
+    }
+}
+
+void JournalMarkGameConfigRestored(const std::wstring& file_path) {
+    if (ChangeJournal* journal = GetActiveChangeJournal()) {
+        journal->MarkMatchingReverted(JournalTargetKind::GameConfigFile, "GameFile:" + WideToUtf8Preset(file_path));
+    }
+}
 
 bool WriteStringToFile(FileSystem& fs, const std::filesystem::path& path, const std::string& content, bool is_anticheat_protected = false) {
     return fs.Write(path.wstring(), content, is_anticheat_protected);
@@ -206,8 +246,14 @@ EngineOptimizationReport SteamEngineOptimizer::ApplyEngineUmaPreset(
                 return report;
             }
 
+            const uint64_t j_ini = JournalBeginGameConfig(
+                pIni, pBak, "Preset UMA Unreal Engine (PoolVRAM=" + std::to_string(effective_pool_mb) + "MB)",
+                "Preset UMA Unreal Engine");
             if (WriteStringToFile(fs_, pIni, finalContent, game.has_anticheat)) {
+                JournalEndGameConfig(j_ini, true);
                 any_applied = true;
+            } else {
+                JournalEndGameConfig(j_ini, false);
             }
         }
 
@@ -283,11 +329,14 @@ EngineOptimizationReport SteamEngineOptimizer::ApplyEngineUmaPreset(
             return report;
         }
 
+        const uint64_t j_boot = JournalBeginGameConfig(pBoot, pBak, "Preset UMA Unity", "Preset UMA Unity");
         if (!WriteStringToFile(fs_, pBoot, merged, game.has_anticheat)) {
+            JournalEndGameConfig(j_boot, false);
             report.success = false;
             report.status_message = "No se pudo abrir boot.config para escritura";
             return report;
         }
+        JournalEndGameConfig(j_boot, true);
 
         report.success = true;
         report.status_message = "Preset UMA Unity aplicado (NativeGfxJobs=1, GfxJobs=1, GC-Slice=3ms, FlipModel=ON)";
@@ -329,6 +378,7 @@ EngineOptimizationReport SteamEngineOptimizer::RestoreEngineOriginalConfig(
                     report.status_message = "Fallo al restaurar o verificar Engine.ini; se conserva .vegaflow.bak";
                     return report;
                 }
+                JournalMarkGameConfigRestored(pIni);
                 any_restored = true;
                 continue;
             }
@@ -365,6 +415,7 @@ EngineOptimizationReport SteamEngineOptimizer::RestoreEngineOriginalConfig(
                         report.status_message = "No se pudo escribir Engine.ini al restaurar";
                         return report;
                     }
+                    JournalMarkGameConfigRestored(pIni);
                     any_restored = true;
                 }
             }
@@ -403,6 +454,7 @@ EngineOptimizationReport SteamEngineOptimizer::RestoreEngineOriginalConfig(
                 report.status_message = "Fallo al restaurar o verificar boot.config; se conserva .vegaflow.bak";
                 return report;
             }
+            JournalMarkGameConfigRestored(pBoot);
 
             report.success = true;
             report.status_message = "Configuracion original de Unity restaurada desde .vegaflow.bak";

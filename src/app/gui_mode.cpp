@@ -18,7 +18,9 @@
 #include "optimize/dxvk_manager.hpp"
 #include "windows/safe_file_system.hpp"
 #include "windows/sandbox_guard.hpp"
+#include "windows/change_journal.hpp"
 #include "session/system_info.hpp"
+#include "session/restore.hpp"
 #include <filesystem>
 #include "app/app_state.hpp"
 #include "session/config.hpp"
@@ -34,7 +36,9 @@ int RunGuiMode(
     vegaflow::SystemHardwareProfile& hw,
     vegaflow::CpuOrchestrator& cpu_orchestrator,
     vegaflow::MemoryManager& mem_mgr,
-    vegaflow::FrameTelemetryMonitor& telemetry_monitor) {
+    vegaflow::FrameTelemetryMonitor& telemetry_monitor,
+    bool safe_mode,
+    const std::string& journal_warning) {
     using namespace vegaflow;
     // Built once from the boot profile, the same way each optimizer used to rebuild it on every call.
     const ApuOptimizationPolicy policy = HardwareProfiler::BuildOptimizationPolicy(hw);
@@ -49,18 +53,22 @@ int RunGuiMode(
     HWND active_game_hwnd = nullptr;
     bool timer_boosted = false;
     bool timer_forced_manual = config.timer_forced_manual;
-    if (timer_forced_manual) {
-        if (GraphicsOptimizer::EnableHighPrecisionTimer(config.timer_resolution_ns100)) {
-            timer_boosted = true;
+    if (!safe_mode) {
+        if (timer_forced_manual) {
+            if (GraphicsOptimizer::EnableHighPrecisionTimer(config.timer_resolution_ns100)) {
+                timer_boosted = true;
+            }
         }
+        GraphicsOptimizer::SetGameDvrAndFseOptimized(true, false);
+        GraphicsOptimizer::SetApuLaptopPowerProfile(true, policy, false);
     }
-    GraphicsOptimizer::SetGameDvrAndFseOptimized(true, false);
-    GraphicsOptimizer::SetApuLaptopPowerProfile(true, policy, false);
     uint32_t last_isolated_count = 0;
     uint64_t last_purge_before_free_mb = 0;
     uint64_t last_purge_after_free_mb = 0;
     uint32_t last_trimmed_processes = 0;
-    std::string last_gui_status = "VegaFlow UXTU GUI Inicializada";
+    std::string last_gui_status = safe_mode
+        ? "MODO SEGURO: 2+ cierres anormales seguidos. Sin cambios automáticos."
+        : "VegaFlow GUI Inicializada";
 
     std::vector<std::string> audit_log;
     auto AddAuditLog = [&](const std::string& msg) {
@@ -72,7 +80,14 @@ int RunGuiMode(
         if (audit_log.size() > 200) {
             audit_log.erase(audit_log.begin());
         }
+        if (ChangeJournal* j = GetActiveChangeJournal()) {
+            j->RecordAuditEvent("GUI", msg, "");
+        }
     };
+    if (!journal_warning.empty()) {
+        last_gui_status = journal_warning;
+        audit_log.push_back(journal_warning);
+    }
     if (const std::string warning = config_store.Report().Warning(); !warning.empty()) {
         last_gui_status = warning;
         AddAuditLog(warning);
@@ -101,10 +116,12 @@ int RunGuiMode(
     GuiCallbacks callbacks;
     callbacks.on_PollTelemetry = [&]() -> GuiDashboardData {
         std::function<void(const std::string&)> audit_fn = AddAuditLog;
-        RunSingleIteration(
-            config, file_system, hw, cpu_orchestrator, mem_mgr, telemetry_monitor,
-            game_active, active_game_pid, active_game_exe, active_game_api, active_game_hwnd, timer_boosted,
-            &active_game_full_path, &cached_noisy_count, &audit_fn);
+        if (!safe_mode) {
+            RunSingleIteration(
+                config, file_system, hw, cpu_orchestrator, mem_mgr, telemetry_monitor,
+                game_active, active_game_pid, active_game_exe, active_game_api, active_game_hwnd, timer_boosted,
+                &active_game_full_path, &cached_noisy_count, &audit_fn);
+        }
 
         if (!game_active) {
             if (--noisy_query_countdown <= 0) {
@@ -224,7 +241,14 @@ int RunGuiMode(
 
         data.daemon_private_ws_kb = daemon_ws / 1024;
         data.last_action_status = last_gui_status;
-        data.audit_log = audit_log;
+        if (ChangeJournal* j = GetActiveChangeJournal()) {
+            data.audit_log = vegaflow::session::FormatJournalHistory(*j, 150);
+            if (data.audit_log.empty()) {
+                data.audit_log = audit_log;
+            }
+        } else {
+            data.audit_log = audit_log;
+        }
 
         data.running_steam_app_id = running_steam_appid;
         data.active_game_engine = active_game_engine;
@@ -432,6 +456,11 @@ int RunGuiMode(
     };
 
     callbacks.on_RestoreAllDefaults = [&]() -> std::string {
+        RestoreReport rep{};
+        if (ChangeJournal* j = GetActiveChangeJournal()) {
+            WindowsSystemUndo undo(file_system);
+            rep = vegaflow::session::RestoreAllRecordedChanges(*j, undo, false);
+        }
         GraphicsOptimizer::RestoreDefaultTimer();
         timer_boosted = false;
         timer_forced_manual = false;
@@ -446,11 +475,21 @@ int RunGuiMode(
         GraphicsOptimizer::SetKernelMemoryPagingShield(false, false);
         GraphicsOptimizer::SetAmdTessellationCap(64, false);
         GraphicsOptimizer::RestoreAmdVramReporting(false);
-        GraphicsOptimizer::RestoreAllRegistryBackups();
+        size_t reg_rev = 0, reg_tot = 0;
+        GraphicsOptimizer::RestoreAllRegistryBackups(&reg_rev, &reg_tot);
         tweaks_query_countdown = 0;
         cpu_orchestrator.RestoreAll(false);
         last_isolated_count = 0;
-        std::string msg = "Todos los ajustes dinámicos han sido revertidos a los valores por defecto de Windows";
+        safe_mode = false;
+
+        std::string msg;
+        if (rep.total_count > 0) {
+            msg = rep.summary_message;
+        } else if (reg_tot > 0) {
+            msg = "Se devolvieron " + std::to_string(reg_rev) + " de " + std::to_string(reg_tot) + ".";
+        } else {
+            msg = "Se devolvieron 0 de 0 (ajustes en valores originales de Windows).";
+        }
         SaveSettings(msg);
         last_gui_status = msg;
         AddAuditLog(msg);
@@ -533,14 +572,19 @@ int RunGuiMode(
     };
 
     int exit_code = GuiWindow::RunGuiLoop(callbacks);
-    if (game_active) {
-        telemetry_monitor.SaveSessionReportToFile(WideToUtf8(active_game_exe), "logs/session_reports.log");
-        telemetry_monitor.StopMonitoring();
-    }
-    cpu_orchestrator.RestoreAll(false);
-    GraphicsOptimizer::SetDynamicPrioritySeparation(0x02, false);
-    if (timer_boosted) {
-        GraphicsOptimizer::RestoreDefaultTimer();
+    if (!safe_mode) {
+        if (game_active) {
+            telemetry_monitor.SaveSessionReportToFile(WideToUtf8(active_game_exe), "logs/session_reports.log");
+            telemetry_monitor.StopMonitoring();
+        }
+        cpu_orchestrator.RestoreAll(false);
+        GraphicsOptimizer::SetDynamicPrioritySeparation(0x02, false);
+        if (timer_boosted) {
+            GraphicsOptimizer::RestoreDefaultTimer();
+        }
+        GraphicsOptimizer::SetApuLaptopPowerProfile(false, policy, false);
+        GraphicsOptimizer::SetGameDvrAndFseOptimized(false, false);
+        GraphicsOptimizer::RestoreAllRegistryBackups();
     }
     if (g_single_instance_mutex) {
         CloseHandle(g_single_instance_mutex);

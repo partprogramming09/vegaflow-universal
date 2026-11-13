@@ -31,6 +31,7 @@ bool GraphicsOptimizer::SetMpoDisabled(bool disable, bool dry_run) {
     bool success = false;
     if (disable) {
         RegBackupValue(kHiveLocalMachine, dwm_path, hKey, L"OverlayTestMode");
+        const uint64_t jid = JournalBeginRegChange(kHiveLocalMachine, dwm_path, hKey, L"OverlayTestMode", "5", "Desactivar MPO (DWM)");
         DWORD value = 5;
         LSTATUS set_status = RegSetValueExW(
             hKey,
@@ -41,6 +42,7 @@ bool GraphicsOptimizer::SetMpoDisabled(bool disable, bool dry_run) {
             sizeof(value)
         );
         success = (set_status == ERROR_SUCCESS);
+        JournalEndRegChange(jid, success);
     } else {
         LSTATUS del_status = RegDeleteValueW(hKey, L"OverlayTestMode");
         if (del_status == ERROR_SUCCESS || del_status == ERROR_FILE_NOT_FOUND) {
@@ -53,7 +55,9 @@ bool GraphicsOptimizer::SetMpoDisabled(bool disable, bool dry_run) {
 
     RegCloseKey(hKey);
     if (!disable) {
-        RegRestoreValue(kHiveLocalMachine, dwm_path, L"OverlayTestMode");
+        if (!RegRestoreValue(kHiveLocalMachine, dwm_path, L"OverlayTestMode") && success) {
+            JournalMarkRegRestored(kHiveLocalMachine, dwm_path, L"OverlayTestMode");
+        }
     }
     return success;
 }
@@ -81,23 +85,32 @@ bool GraphicsOptimizer::SetGameDvrAndFseOptimized(bool optimize, bool dry_run) {
     const std::wstring store_path = L"System\\GameConfigStore";
     const std::wstring dvr_path = L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\GameDVR";
     if (stStore == ERROR_SUCCESS) {
-        if (optimize) {
-            for (const wchar_t* n : kStoreValues) RegBackupValue(kHiveCurrentUser, store_path, hStore, n);
-        }
         DWORD dvr_enabled = optimize ? 0 : 1;
         DWORD fse_mode = optimize ? 2 : 0;
         DWORD honor_user = optimize ? 1 : 0;
         DWORD honor_dxgi = optimize ? 1 : 0;
         DWORD efse_flags = 0;
-
-        RegSetValueExW(hStore, L"GameDVR_Enabled", 0, REG_DWORD, reinterpret_cast<const BYTE*>(&dvr_enabled), sizeof(dvr_enabled));
-        RegSetValueExW(hStore, L"GameDVR_FSEBehaviorMode", 0, REG_DWORD, reinterpret_cast<const BYTE*>(&fse_mode), sizeof(fse_mode));
-        RegSetValueExW(hStore, L"GameDVR_HonorUserFSEBehaviorMode", 0, REG_DWORD, reinterpret_cast<const BYTE*>(&honor_user), sizeof(honor_user));
-        RegSetValueExW(hStore, L"GameDVR_DXGIHonorFSEWindowsCompatible", 0, REG_DWORD, reinterpret_cast<const BYTE*>(&honor_dxgi), sizeof(honor_dxgi));
-        RegSetValueExW(hStore, L"GameDVR_EFSEFeatureFlags", 0, REG_DWORD, reinterpret_cast<const BYTE*>(&efse_flags), sizeof(efse_flags));
+        const DWORD vals[5] = {dvr_enabled, fse_mode, honor_user, honor_dxgi, efse_flags};
+        uint64_t jids[5] = {};
+        if (optimize) {
+            for (size_t i = 0; i < 5; ++i) {
+                RegBackupValue(kHiveCurrentUser, store_path, hStore, kStoreValues[i]);
+                jids[i] = JournalBeginRegChange(kHiveCurrentUser, store_path, hStore, kStoreValues[i],
+                                                std::to_string(vals[i]), "Desactivar GameDVR / FSE");
+            }
+        }
+        for (size_t i = 0; i < 5; ++i) {
+            const LSTATUS st = RegSetValueExW(hStore, kStoreValues[i], 0, REG_DWORD,
+                                              reinterpret_cast<const BYTE*>(&vals[i]), sizeof(DWORD));
+            if (optimize) JournalEndRegChange(jids[i], st == ERROR_SUCCESS);
+        }
         RegCloseKey(hStore);
         if (!optimize) {
-            for (const wchar_t* n : kStoreValues) RegRestoreValue(kHiveCurrentUser, store_path, n);
+            for (const wchar_t* n : kStoreValues) {
+                if (!RegRestoreValue(kHiveCurrentUser, store_path, n)) {
+                    JournalMarkRegRestored(kHiveCurrentUser, store_path, n);
+                }
+            }
         }
     } else {
         success = false;
@@ -113,11 +126,22 @@ bool GraphicsOptimizer::SetGameDvrAndFseOptimized(bool optimize, bool dry_run) {
         nullptr, &hDvr, nullptr
     );
     if (stDvr == ERROR_SUCCESS) {
-        if (optimize) RegBackupValue(kHiveCurrentUser, dvr_path, hDvr, L"AppCaptureEnabled");
+        uint64_t jid = 0;
         DWORD app_capture = optimize ? 0 : 1;
-        RegSetValueExW(hDvr, L"AppCaptureEnabled", 0, REG_DWORD, reinterpret_cast<const BYTE*>(&app_capture), sizeof(app_capture));
+        if (optimize) {
+            RegBackupValue(kHiveCurrentUser, dvr_path, hDvr, L"AppCaptureEnabled");
+            jid = JournalBeginRegChange(kHiveCurrentUser, dvr_path, hDvr, L"AppCaptureEnabled",
+                                        std::to_string(app_capture), "Desactivar GameDVR (AppCapture)");
+        }
+        const LSTATUS st = RegSetValueExW(hDvr, L"AppCaptureEnabled", 0, REG_DWORD,
+                                          reinterpret_cast<const BYTE*>(&app_capture), sizeof(app_capture));
+        if (optimize) JournalEndRegChange(jid, st == ERROR_SUCCESS);
         RegCloseKey(hDvr);
-        if (!optimize) RegRestoreValue(kHiveCurrentUser, dvr_path, L"AppCaptureEnabled");
+        if (!optimize) {
+            if (!RegRestoreValue(kHiveCurrentUser, dvr_path, L"AppCaptureEnabled")) {
+                JournalMarkRegRestored(kHiveCurrentUser, dvr_path, L"AppCaptureEnabled");
+            }
+        }
     } else {
         success = false;
     }

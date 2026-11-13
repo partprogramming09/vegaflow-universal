@@ -1,5 +1,6 @@
 #include "optimize/cpu_orchestrator.hpp"
 #include "bridge/rust_bridge.h"
+#include "windows/change_journal.hpp"
 
 #include <algorithm>
 
@@ -150,6 +151,22 @@ CpuOptimizationResult CpuOrchestrator::ApplyOptimizations(
                             result.game_cpu_sets_applied = true;
                         }
                     } else {
+                        uint64_t j_game = 0;
+                        if (ChangeJournal* journal = GetActiveChangeJournal()) {
+                            JournalEntry je;
+                            je.kind = JournalTargetKind::ProcessState;
+                            je.target = "PID:" + std::to_string(game_pid);
+                            je.reason = "Game process optimization";
+                            je.before_value = "Normal priority / default CPU sets";
+                            je.after_value = is_dx12_or_vulkan ? "ABOVE_NORMAL + CPU sets" : "HIGH + CPU sets";
+                            je.manual_fix_hint = "Cierra o reinicia el juego si qued\u00f3 con afinidad/prioridad fijada (PID " + std::to_string(game_pid) + ")";
+                            je.pid = game_pid;
+                            je.process_creation_time = QueryProcessCreationTime(game_pid);
+                            je.process_role = "game";
+                            je.orig_priority_class = GetPriorityClass(hGame);
+                            j_game = journal->RecordPending(std::move(je));
+                        }
+
                         // Priority class: ABOVE_NORMAL for DX12/Vulkan (avoids worker-thread starvation of OS/audio),
                         // HIGH for DX11 (render-thread centric).
                         DWORD priorityClass = is_dx12_or_vulkan ? ABOVE_NORMAL_PRIORITY_CLASS : HIGH_PRIORITY_CLASS;
@@ -195,6 +212,12 @@ CpuOptimizationResult CpuOrchestrator::ApplyOptimizations(
                                     game_cpu_sets.data(),
                                     static_cast<ULONG>(game_cpu_sets.size()))) {
                                 result.game_cpu_sets_applied = true;
+                            }
+                        }
+
+                        if (j_game != 0) {
+                            if (ChangeJournal* journal = GetActiveChangeJournal()) {
+                                journal->MarkCommitted(j_game);
                             }
                         }
                     }
@@ -296,6 +319,21 @@ CpuOptimizationResult CpuOrchestrator::ApplyOptimizations(
             }
 
             if (hBg) {
+                uint64_t j_bg = 0;
+                if (ChangeJournal* journal = GetActiveChangeJournal()) {
+                    JournalEntry je;
+                    je.kind = JournalTargetKind::ProcessState;
+                    je.target = "PID:" + std::to_string(bg_pid);
+                    je.reason = "Background process confinement (EcoQoS/IO/Mem/CPUSet)";
+                    je.before_value = "Normal priority / default CPU sets";
+                    je.after_value = "EcoQoS + LowMem + VeryLowIO";
+                    je.manual_fix_hint = "Reinicia el proceso PID " + std::to_string(bg_pid) + " si qued\u00f3 en EcoQoS";
+                    je.pid = bg_pid;
+                    je.process_creation_time = QueryProcessCreationTime(bg_pid);
+                    je.process_role = "bg";
+                    j_bg = journal->RecordPending(std::move(je));
+                }
+
                 bool modified = false;
 
                 // 3.1. Enable EcoQoS (Power Throttling: Execution Speed cap for efficiency cores)
@@ -344,6 +382,12 @@ CpuOptimizationResult CpuOrchestrator::ApplyOptimizations(
                 if (modified) {
                     modified_background_pids_.push_back(bg_pid);
                 }
+                if (j_bg != 0) {
+                    if (ChangeJournal* journal = GetActiveChangeJournal()) {
+                        if (modified) journal->MarkCommitted(j_bg);
+                        else journal->MarkReverted(j_bg);
+                    }
+                }
 
                 CloseHandle(hBg);
             }
@@ -386,6 +430,10 @@ void CpuOrchestrator::RestoreAll(bool dry_run) {
                 }
 
                 CloseHandle(hGame);
+            }
+            if (ChangeJournal* journal = GetActiveChangeJournal()) {
+                journal->MarkMatchingReverted(JournalTargetKind::ProcessState,
+                                              "PID:" + std::to_string(last_optimized_game_pid_));
             }
         }
         last_optimized_game_pid_ = 0;
@@ -435,6 +483,9 @@ void CpuOrchestrator::RestoreAll(bool dry_run) {
                 }
 
                 CloseHandle(hBg);
+            }
+            if (ChangeJournal* journal = GetActiveChangeJournal()) {
+                journal->MarkMatchingReverted(JournalTargetKind::ProcessState, "PID:" + std::to_string(bg_pid));
             }
         }
         modified_background_pids_.clear();

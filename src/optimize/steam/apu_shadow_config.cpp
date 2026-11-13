@@ -1,6 +1,7 @@
 #include "optimize/steam/steam_engine_optimizer.hpp"
 #include "optimize/steam/steam_internal.hpp"
 #include "bridge/rust_bridge.h"
+#include "windows/change_journal.hpp"
 
 namespace vegaflow {
 
@@ -8,6 +9,15 @@ namespace {
 
 constexpr const char* kSystemSettings = "SystemSettings";
 constexpr const char* kEmptyBackupSentinel = "; VegaFlow Empty Backup\n";
+
+std::string WideToUtf8Shadow(const std::wstring& w) {
+    if (w.empty()) return {};
+    int needed = WideCharToMultiByte(CP_UTF8, 0, w.data(), static_cast<int>(w.size()), nullptr, 0, nullptr, nullptr);
+    if (needed <= 0) return {};
+    std::string out(static_cast<size_t>(needed), '\0');
+    WideCharToMultiByte(CP_UTF8, 0, w.data(), static_cast<int>(w.size()), out.data(), needed, nullptr, nullptr);
+    return out;
+}
 
 bool EqualsInsensitive(std::string_view a, std::string_view b) {
     if (a.size() != b.size()) return false;
@@ -134,7 +144,28 @@ bool SteamEngineOptimizer::ApplyApuShadowConfig(
         return false;
     }
 
-    return fs_.Write(iniW, outBytes, false);
+    uint64_t j_id = 0;
+    if (ChangeJournal* journal = GetActiveChangeJournal()) {
+        JournalEntry je;
+        je.kind = JournalTargetKind::GameConfigFile;
+        je.target = "GameFile:" + WideToUtf8Shadow(iniW);
+        je.reason = "APU shadow config";
+        je.before_value = "Backup en " + WideToUtf8Shadow(bakW);
+        je.after_value = "MaxCascades=" + std::to_string(config.max_cascades);
+        je.manual_fix_hint = "Restaura " + WideToUtf8Shadow(iniW) + " desde " + WideToUtf8Shadow(bakW);
+        je.file_path = iniW;
+        je.backup_path = bakW;
+        j_id = journal->RecordPending(std::move(je));
+    }
+
+    const bool wrote = fs_.Write(iniW, outBytes, false);
+    if (j_id != 0) {
+        if (ChangeJournal* journal = GetActiveChangeJournal()) {
+            if (wrote) journal->MarkCommitted(j_id);
+            else journal->MarkFailed(j_id, "Error al escribir Engine.ini de sombras");
+        }
+    }
+    return wrote;
 }
 
 bool SteamEngineOptimizer::RestoreApuShadowConfig(
@@ -190,7 +221,13 @@ bool SteamEngineOptimizer::RestoreApuShadowConfig(
             if (fs_.Exists(iniW)) {
                 return false;
             }
-            return fs_.Remove(activeBakW, false);
+            const bool removed = fs_.Remove(activeBakW, false);
+            if (removed) {
+                if (ChangeJournal* journal = GetActiveChangeJournal()) {
+                    journal->MarkMatchingReverted(JournalTargetKind::GameConfigFile, "GameFile:" + WideToUtf8Shadow(iniW));
+                }
+            }
+            return removed;
         }
 
         if (!fs_.Copy(activeBakW, iniW, true, false)) {
@@ -200,7 +237,13 @@ bool SteamEngineOptimizer::RestoreApuShadowConfig(
         if (!fs_.Read(iniW, restoredContent) || restoredContent != bakContent) {
             return false;
         }
-        return fs_.Remove(activeBakW, false);
+        const bool removed = fs_.Remove(activeBakW, false);
+        if (removed) {
+            if (ChangeJournal* journal = GetActiveChangeJournal()) {
+                journal->MarkMatchingReverted(JournalTargetKind::GameConfigFile, "GameFile:" + WideToUtf8Shadow(iniW));
+            }
+        }
+        return removed;
     }
 
     std::string content;
@@ -236,9 +279,18 @@ bool SteamEngineOptimizer::RestoreApuShadowConfig(
         return false;
     }
     if (!changed) {
+        if (ChangeJournal* journal = GetActiveChangeJournal()) {
+            journal->MarkMatchingReverted(JournalTargetKind::GameConfigFile, "GameFile:" + WideToUtf8Shadow(iniW));
+        }
         return true;
     }
-    return fs_.Write(iniW, outBytes, false);
+    const bool wrote = fs_.Write(iniW, outBytes, false);
+    if (wrote) {
+        if (ChangeJournal* journal = GetActiveChangeJournal()) {
+            journal->MarkMatchingReverted(JournalTargetKind::GameConfigFile, "GameFile:" + WideToUtf8Shadow(iniW));
+        }
+    }
+    return wrote;
 }
 
 bool SteamEngineOptimizer::QueryApuShadowConfig(

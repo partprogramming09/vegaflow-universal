@@ -152,10 +152,12 @@ direct/
 │   │   ├── reports.*             # --status, --dry-run y --purge-now
 │   │   ├── system_info.*         # Informe SystemInfo (hardware, UMA, SMBIOS RAM, OS y JSON)
 │   │   ├── config.*              # ConfigStore: leer y guardar config.json (reglas en Rust) y lista de juegos
+│   │   ├── restore.*             # Evaluación al arranque, recuperación del diario, formato de historial y punto de restauración
 │   │   └── text_convert.*        # UTF-8 <-> UTF-16
 │   ├── ports/                    # Interfaces que los casos de uso piden y las pruebas falsifican
 │   │   ├── file_system.hpp       # Leer, escribir, reemplazar entero, copiar y borrar archivos
-│   │   └── clock.hpp             # La hora actual (y el reloj real); las pruebas lo adelantan a mano
+│   │   ├── clock.hpp             # La hora actual y fecha legible (`WallNow`); las pruebas lo adelantan a mano
+│   │   └── change_journal.hpp    # Diario de cambios atómico y puerto de reversión del sistema
 │   ├── model/                    # Tipos compartidos, sin lógica
 │   │   ├── hardware.hpp          # GPU, CPU, Tier de la APU y su política
 │   │   └── game.hpp              # Juego detectado y su API gráfica
@@ -199,6 +201,7 @@ direct/
 │   │   ├── sandbox_guard.*       # E/S de archivos comprobada: normaliza la ruta, pide la decisión a Rust y vuelve a comprobar el archivo abierto
 │   │   ├── safe_file_system.*    # Puerto de archivos real: pasa todo por SandboxGuard
 │   │   ├── config_location.*     # Ruta de config.json junto al .exe y si solo administradores pueden escribirla
+│   │   ├── change_journal.*      # Diario atómico en `<exe>\config\change_journal.vfj` y reversión Windows (`WindowsSystemUndo`)
 │   │   ├── steam_paths.*         # Carpeta de instalación de Steam y sus bibliotecas (lee libraryfolders.vdf con Rust)
 │   │   ├── registry.*            # Lectura de un valor de texto del registro
 │   │   └── privileges.*          # Gestión de privilegios NT y elevación UAC

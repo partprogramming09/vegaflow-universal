@@ -10,11 +10,13 @@ class Clock {
 public:
     virtual ~Clock() = default;
     virtual std::chrono::steady_clock::time_point Now() const = 0;
+    virtual std::chrono::system_clock::time_point WallNow() const { return std::chrono::system_clock::now(); }
 };
 
 class SteadyClock final : public Clock {
 public:
     std::chrono::steady_clock::time_point Now() const override { return std::chrono::steady_clock::now(); }
+    std::chrono::system_clock::time_point WallNow() const override { return std::chrono::system_clock::now(); }
 
     // The one real clock, for callers that do not inject another.
     static SteadyClock& Instance() {
