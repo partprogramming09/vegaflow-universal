@@ -18,6 +18,8 @@
 #include "session/reports.hpp"
 #include "session/text_convert.hpp"
 #include "windows/device_probe.hpp"
+#include "windows/power.hpp"
+#include "windows/registry.hpp"
 
 namespace vegaflow::app {
 
@@ -29,8 +31,10 @@ public:
         vegaflow::FileSystem& fs,
         vegaflow::CpuOrchestrator& cpu,
         vegaflow::MemoryManager& mem,
+        vegaflow::RegistryPort& reg,
+        vegaflow::PowerPort& power,
         std::function<void(const std::string&)>* audit_cb)
-        : fs_(fs), cpu_(cpu), mem_(mem), audit_cb_(audit_cb) {}
+        : fs_(fs), cpu_(cpu), mem_(mem), reg_(reg), power_(power), audit_cb_(audit_cb) {}
 
     std::optional<vegaflow::DetectedGameProcess> DetectActiveGame(const vegaflow::ProcessPolicyConfig& policy) override {
         return vegaflow::ProcessDetector::DetectActiveGame(policy);
@@ -57,47 +61,31 @@ public:
         out_vram_valid = live_mem_.vram.valid;
     }
 
-    bool EnableHighPrecisionTimer(uint32_t ns100) override {
-        if (vegaflow::GraphicsOptimizer::EnableHighPrecisionTimer(ns100)) {
-            std::cout << "[OPT] High-precision timer enabled (" << (ns100 / 10000.0) << " ms)\n";
-            return true;
-        }
-        return false;
-    }
-
-    bool RestoreDefaultTimer() override {
-        bool ok = vegaflow::GraphicsOptimizer::RestoreDefaultTimer();
-        if (ok) {
-            std::cout << "[OPT] Default timer resolution restored.\n";
-        }
-        return ok;
-    }
-
     void SetDynamicPrioritySeparation(uint32_t val) override {
-        vegaflow::GraphicsOptimizer::SetDynamicPrioritySeparation(val, false);
+        vegaflow::KernelSchedulerTweaks(reg_).SetDynamicPrioritySeparation(val, false);
     }
 
     void SetGameDvrAndFseOptimized(bool optimize) override {
-        vegaflow::GraphicsOptimizer::SetGameDvrAndFseOptimized(optimize, false);
+        vegaflow::DisplayTweaks(reg_).SetGameDvrAndFseOptimized(optimize, false);
     }
 
     void SetApuLaptopPowerProfile(bool optimize, const vegaflow::ApuOptimizationPolicy& static_policy) override {
-        vegaflow::GraphicsOptimizer::SetApuLaptopPowerProfile(optimize, static_policy, false);
+        vegaflow::PowerModeTweaks(power_).SetApuLaptopPowerProfile(optimize, static_policy, false);
     }
 
     void ApplyDxgiFlipModelUpgrade(const std::wstring& exe_path) override {
-        vegaflow::GraphicsOptimizer::ApplyDxgiFlipModelUpgrade(exe_path, false);
+        vegaflow::DxgiFlipTweaks(reg_).ApplyFlipModelUpgrade(exe_path, false);
     }
 
     vegaflow::SteamGameEntry InspectGameDirectory(const std::wstring& dir, uint32_t app_id, const std::string& name) override {
-        return vegaflow::SteamEngineOptimizer::InspectGameDirectory(dir, app_id, name);
+        return vegaflow::SteamEngineOptimizer::InspectGameDirectory(dir, app_id, name, &reg_);
     }
 
     void ApplyEngineUmaPreset(
         const vegaflow::SteamGameEntry& game,
         const vegaflow::ApuOptimizationPolicy& static_policy,
         uint32_t pool_mb) override {
-        vegaflow::SteamEngineOptimizer(fs_).ApplyEngineUmaPreset(game, static_policy, pool_mb, false);
+        vegaflow::SteamEngineOptimizer(fs_, &reg_).ApplyEngineUmaPreset(game, static_policy, pool_mb, false);
     }
 
     void ApplyCpuOptimizations(
@@ -147,6 +135,8 @@ private:
     vegaflow::FileSystem& fs_;
     vegaflow::CpuOrchestrator& cpu_;
     vegaflow::MemoryManager& mem_;
+    vegaflow::RegistryPort& reg_;
+    vegaflow::PowerPort& power_;
     std::function<void(const std::string&)>* audit_cb_ = nullptr;
     vegaflow::SystemMemoryTelemetry live_mem_{};
 };
@@ -164,13 +154,14 @@ void RunSingleIteration(
     std::wstring& active_game_exe,
     std::string& active_game_api,
     HWND& active_game_hwnd,
-    bool& timer_boosted,
     std::wstring* active_game_path,
     uint32_t* out_noisy_bg_count,
     std::function<void(const std::string&)>* audit_cb) {
 
     vegaflow::WindowsDeviceProbe device_probe;
-    WindowsGameSessionEnv env(file_system, cpu_orchestrator, mem_mgr, audit_cb);
+    vegaflow::WindowsRegistryPort reg;
+    vegaflow::WindowsPowerPort power;
+    WindowsGameSessionEnv env(file_system, cpu_orchestrator, mem_mgr, reg, power, audit_cb);
 
     vegaflow::session::GameSessionState state{};
     state.game_active = game_active;
@@ -179,7 +170,6 @@ void RunSingleIteration(
     state.active_game_path = active_game_path ? *active_game_path : L"";
     state.active_game_api = active_game_api;
     state.active_game_hwnd = active_game_hwnd;
-    state.timer_boosted = timer_boosted;
 
     auto emit_audit = [&](const std::string& msg) {
         std::cout << msg << "\n";
@@ -195,7 +185,6 @@ void RunSingleIteration(
     active_game_exe = state.active_game_exe;
     active_game_api = state.active_game_api;
     active_game_hwnd = state.active_game_hwnd;
-    timer_boosted = state.timer_boosted;
     if (active_game_path) {
         *active_game_path = state.active_game_path;
     }

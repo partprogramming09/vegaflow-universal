@@ -4,301 +4,165 @@ namespace vegaflow {
 
 using namespace graphics_internal;
 
-bool GraphicsOptimizer::SetMmcssGamingProfileOptimized(bool optimize, bool dry_run) {
+bool MmcssTweaks::SetGamingProfileOptimized(bool optimize, bool dry_run) {
     if (dry_run) {
         return true;
     }
 
-    HKEY hProfile = nullptr;
-    DWORD disposition = 0;
-    LSTATUS stProfile = RegCreateKeyExW(
-        HKEY_LOCAL_MACHINE,
-        L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile",
-        0,
-        nullptr,
-        REG_OPTION_NON_VOLATILE,
-        KEY_READ | KEY_SET_VALUE,
-        nullptr,
-        &hProfile,
-        &disposition
-    );
+    const uint32_t sys_resp = optimize ? 10u : 20u;
+    const bool profile_ok = reg_.WriteValue(
+        RegHive::LocalMachine,
+        kMmcssProfilePath,
+        L"SystemResponsiveness",
+        RegValue::MakeDword(sys_resp),
+        optimize,
+        "MMCSS SystemResponsiveness gaming",
+        "10");
 
-    bool profile_ok = false;
-    if (stProfile == ERROR_SUCCESS) {
-        uint64_t j_resp = 0;
-        if (optimize) {
-            RegBackupValue(kHiveLocalMachine, kMmcssProfilePath, hProfile, L"SystemResponsiveness");
-            j_resp = JournalBeginRegChange(kHiveLocalMachine, kMmcssProfilePath, hProfile, L"SystemResponsiveness",
-                                           "10", "MMCSS SystemResponsiveness gaming");
-        }
-        DWORD sys_resp = optimize ? 10 : 20;
-        LSTATUS s1 = RegSetValueExW(hProfile, L"SystemResponsiveness", 0, REG_DWORD, reinterpret_cast<const BYTE*>(&sys_resp), sizeof(sys_resp));
-        profile_ok = (s1 == ERROR_SUCCESS);
-        JournalEndRegChange(j_resp, profile_ok);
-        RegCloseKey(hProfile);
-    }
+    const uint32_t prio = optimize ? 6u : 2u;
+    const std::wstring sched_cat = optimize ? L"High" : L"Medium";
+    const std::wstring sfio_prio = optimize ? L"High" : L"Normal";
 
-    HKEY hGames = nullptr;
-    LSTATUS stGames = RegCreateKeyExW(
-        HKEY_LOCAL_MACHINE,
-        L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile\\Tasks\\Games",
-        0,
-        nullptr,
-        REG_OPTION_NON_VOLATILE,
-        KEY_READ | KEY_SET_VALUE,
-        nullptr,
-        &hGames,
-        &disposition
-    );
-
-    bool games_ok = false;
-    if (stGames == ERROR_SUCCESS) {
-        uint64_t j_gpu = 0, j_prio = 0, j_cat = 0, j_sfio = 0;
-        if (optimize) {
-            for (const wchar_t* n : kMmcssGamesValues) RegBackupValue(kHiveLocalMachine, kMmcssGamesPath, hGames, n);
-            j_gpu = JournalBeginRegChange(kHiveLocalMachine, kMmcssGamesPath, hGames, L"GPU Priority", "8", "MMCSS Tasks\\Games gaming");
-            j_prio = JournalBeginRegChange(kHiveLocalMachine, kMmcssGamesPath, hGames, L"Priority", "6", "MMCSS Tasks\\Games gaming");
-            j_cat = JournalBeginRegChange(kHiveLocalMachine, kMmcssGamesPath, hGames, L"Scheduling Category", "High", "MMCSS Tasks\\Games gaming");
-            j_sfio = JournalBeginRegChange(kHiveLocalMachine, kMmcssGamesPath, hGames, L"SFIO Priority", "High", "MMCSS Tasks\\Games gaming");
-        }
-        DWORD gpu_prio = optimize ? 8 : 2;
-        DWORD prio = optimize ? 6 : 2;
-        const wchar_t* sched_cat = optimize ? L"High" : L"Medium";
-        const wchar_t* sfio_prio = optimize ? L"High" : L"Normal";
-
-        LSTATUS s1 = RegSetValueExW(hGames, L"GPU Priority", 0, REG_DWORD, reinterpret_cast<const BYTE*>(&gpu_prio), sizeof(gpu_prio));
-        LSTATUS s2 = RegSetValueExW(hGames, L"Priority", 0, REG_DWORD, reinterpret_cast<const BYTE*>(&prio), sizeof(prio));
-        LSTATUS s3 = RegSetValueExW(hGames, L"Scheduling Category", 0, REG_SZ,
-            reinterpret_cast<const BYTE*>(sched_cat), static_cast<DWORD>((wcslen(sched_cat) + 1) * sizeof(wchar_t)));
-        LSTATUS s4 = RegSetValueExW(hGames, L"SFIO Priority", 0, REG_SZ,
-            reinterpret_cast<const BYTE*>(sfio_prio), static_cast<DWORD>((wcslen(sfio_prio) + 1) * sizeof(wchar_t)));
-
-        JournalEndRegChange(j_gpu, s1 == ERROR_SUCCESS);
-        JournalEndRegChange(j_prio, s2 == ERROR_SUCCESS);
-        JournalEndRegChange(j_cat, s3 == ERROR_SUCCESS);
-        JournalEndRegChange(j_sfio, s4 == ERROR_SUCCESS);
-        games_ok = (s1 == ERROR_SUCCESS && s2 == ERROR_SUCCESS && s3 == ERROR_SUCCESS && s4 == ERROR_SUCCESS);
-        RegCloseKey(hGames);
-    }
+    const bool s2 = reg_.WriteValue(
+        RegHive::LocalMachine, kMmcssGamesPath, L"Priority",
+        RegValue::MakeDword(prio), optimize, "MMCSS Tasks\\Games gaming", "6");
+    const bool s3 = reg_.WriteValue(
+        RegHive::LocalMachine, kMmcssGamesPath, L"Scheduling Category",
+        RegValue::MakeString(sched_cat), optimize, "MMCSS Tasks\\Games gaming", "High");
+    const bool s4 = reg_.WriteValue(
+        RegHive::LocalMachine, kMmcssGamesPath, L"SFIO Priority",
+        RegValue::MakeString(sfio_prio), optimize, "MMCSS Tasks\\Games gaming", "High");
 
     if (!optimize) {
-        RegRestoreValue(kHiveLocalMachine, kMmcssProfilePath, L"SystemResponsiveness");
-        for (const wchar_t* n : kMmcssGamesValues) RegRestoreValue(kHiveLocalMachine, kMmcssGamesPath, n);
-        JournalMarkRegRestored(kHiveLocalMachine, kMmcssProfilePath, L"SystemResponsiveness");
-        for (const wchar_t* n : kMmcssGamesValues) JournalMarkRegRestored(kHiveLocalMachine, kMmcssGamesPath, n);
+        reg_.RestoreBackedUpValue(RegHive::LocalMachine, kMmcssProfilePath, L"SystemResponsiveness");
+        for (const wchar_t* n : kMmcssGamesCleanupValues) {
+            reg_.RestoreBackedUpValue(RegHive::LocalMachine, kMmcssGamesPath, n);
+        }
     }
-    return profile_ok && games_ok;
+    return profile_ok && s2 && s3 && s4;
 }
 
-bool GraphicsOptimizer::ApplyMmcssTaskTweaks(bool dryRun) {
-    if (dryRun) {
-        // Simulate access validation of Multimedia\SystemProfile and Tasks\Games without modifying the registry
-        HKEY hProfile = nullptr;
-        if (RegOpenKeyExW(
-            HKEY_LOCAL_MACHINE,
-            L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile",
-            0, KEY_READ, &hProfile) == ERROR_SUCCESS) {
-            RegCloseKey(hProfile);
-        }
-        HKEY hGames = nullptr;
-        if (RegOpenKeyExW(
-            HKEY_LOCAL_MACHINE,
-            L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile\\Tasks\\Games",
-            0, KEY_READ, &hGames) == ERROR_SUCCESS) {
-            RegCloseKey(hGames);
-        }
-        OutputDebugStringW(L"[VegaFlow] Dry-Run: ApplyMmcssTaskTweaks simulated successfully.\n");
+bool MmcssTweaks::ApplyTaskTweaks(bool dry_run) {
+    if (dry_run) {
+        (void)reg_.KeyExists(RegHive::LocalMachine, kMmcssProfilePath);
+        (void)reg_.KeyExists(RegHive::LocalMachine, kMmcssGamesPath);
         return true;
     }
 
-    // 1. Multimedia\SystemProfile -> SystemResponsiveness = 10 (DWORD)
-    HKEY hProfile = nullptr;
-    LSTATUS stProfile = RegOpenKeyExW(
-        HKEY_LOCAL_MACHINE,
-        L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile",
-        0, KEY_READ | KEY_SET_VALUE, &hProfile
-    );
-    if (stProfile != ERROR_SUCCESS) {
-        return false;
-    }
-    RegBackupValue(kHiveLocalMachine, kMmcssProfilePath, hProfile, L"SystemResponsiveness");
-    uint64_t j_resp = JournalBeginRegChange(kHiveLocalMachine, kMmcssProfilePath, hProfile, L"SystemResponsiveness",
-                                            "10", "MMCSS Task tweaks");
-    const DWORD sys_resp = 10;
-    stProfile = RegSetValueExW(
-        hProfile,
-        L"SystemResponsiveness",
-        0, REG_DWORD,
-        reinterpret_cast<const BYTE*>(&sys_resp),
-        sizeof(sys_resp)
-    );
-    JournalEndRegChange(j_resp, stProfile == ERROR_SUCCESS);
-    RegCloseKey(hProfile);
-    if (stProfile != ERROR_SUCCESS) {
+    if (!reg_.WriteValue(
+            RegHive::LocalMachine,
+            kMmcssProfilePath,
+            L"SystemResponsiveness",
+            RegValue::MakeDword(10u),
+            true,
+            "MMCSS Task tweaks",
+            "10")) {
         return false;
     }
 
-    // 2. Tasks\Games -> Scheduling Category, SFIO Priority, Background Only, Clock Rate, GPU Priority, Priority
-    HKEY hGames = nullptr;
-    LSTATUS stGames = RegOpenKeyExW(
-        HKEY_LOCAL_MACHINE,
-        L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile\\Tasks\\Games",
-        0, KEY_READ | KEY_SET_VALUE, &hGames
-    );
-    if (stGames != ERROR_SUCCESS) {
-        return false;
-    }
+    const bool s1 = reg_.WriteValue(
+        RegHive::LocalMachine, kMmcssGamesPath, L"Scheduling Category",
+        RegValue::MakeString(L"High"), true, "MMCSS Task tweaks", "High");
+    const bool s2 = reg_.WriteValue(
+        RegHive::LocalMachine, kMmcssGamesPath, L"SFIO Priority",
+        RegValue::MakeString(L"High"), true, "MMCSS Task tweaks", "High");
+    const bool s3 = reg_.WriteValue(
+        RegHive::LocalMachine, kMmcssGamesPath, L"Background Only",
+        RegValue::MakeString(L"False"), true, "MMCSS Task tweaks", "False");
+    const bool s4 = reg_.WriteValue(
+        RegHive::LocalMachine, kMmcssGamesPath, L"Clock Rate",
+        RegValue::MakeDword(10000u), true, "MMCSS Task tweaks", "10000");
+    const bool s5 = reg_.WriteValue(
+        RegHive::LocalMachine, kMmcssGamesPath, L"Priority",
+        RegValue::MakeDword(6u), true, "MMCSS Task tweaks", "6");
 
-    for (const wchar_t* n : kMmcssGamesValues) RegBackupValue(kHiveLocalMachine, kMmcssGamesPath, hGames, n);
-    uint64_t j1 = JournalBeginRegChange(kHiveLocalMachine, kMmcssGamesPath, hGames, L"Scheduling Category", "High", "MMCSS Task tweaks");
-    uint64_t j2 = JournalBeginRegChange(kHiveLocalMachine, kMmcssGamesPath, hGames, L"SFIO Priority", "High", "MMCSS Task tweaks");
-    uint64_t j3 = JournalBeginRegChange(kHiveLocalMachine, kMmcssGamesPath, hGames, L"Background Only", "False", "MMCSS Task tweaks");
-    uint64_t j4 = JournalBeginRegChange(kHiveLocalMachine, kMmcssGamesPath, hGames, L"Clock Rate", "10000", "MMCSS Task tweaks");
-    uint64_t j5 = JournalBeginRegChange(kHiveLocalMachine, kMmcssGamesPath, hGames, L"GPU Priority", "8", "MMCSS Task tweaks");
-    uint64_t j6 = JournalBeginRegChange(kHiveLocalMachine, kMmcssGamesPath, hGames, L"Priority", "6", "MMCSS Task tweaks");
-
-    const wchar_t* sched_cat = L"High";
-    const wchar_t* sfio_prio = L"High";
-    const wchar_t* bg_only = L"False";
-    const DWORD clock_rate = 10000;
-    const DWORD gpu_prio = 8;
-    const DWORD prio = 6;
-
-    LSTATUS s1 = RegSetValueExW(hGames, L"Scheduling Category", 0, REG_SZ,
-        reinterpret_cast<const BYTE*>(sched_cat), static_cast<DWORD>((wcslen(sched_cat) + 1) * sizeof(wchar_t)));
-    LSTATUS s2 = RegSetValueExW(hGames, L"SFIO Priority", 0, REG_SZ,
-        reinterpret_cast<const BYTE*>(sfio_prio), static_cast<DWORD>((wcslen(sfio_prio) + 1) * sizeof(wchar_t)));
-    LSTATUS s3 = RegSetValueExW(hGames, L"Background Only", 0, REG_SZ,
-        reinterpret_cast<const BYTE*>(bg_only), static_cast<DWORD>((wcslen(bg_only) + 1) * sizeof(wchar_t)));
-    LSTATUS s4 = RegSetValueExW(hGames, L"Clock Rate", 0, REG_DWORD,
-        reinterpret_cast<const BYTE*>(&clock_rate), sizeof(clock_rate));
-    LSTATUS s5 = RegSetValueExW(hGames, L"GPU Priority", 0, REG_DWORD,
-        reinterpret_cast<const BYTE*>(&gpu_prio), sizeof(gpu_prio));
-    LSTATUS s6 = RegSetValueExW(hGames, L"Priority", 0, REG_DWORD,
-        reinterpret_cast<const BYTE*>(&prio), sizeof(prio));
-
-    JournalEndRegChange(j1, s1 == ERROR_SUCCESS);
-    JournalEndRegChange(j2, s2 == ERROR_SUCCESS);
-    JournalEndRegChange(j3, s3 == ERROR_SUCCESS);
-    JournalEndRegChange(j4, s4 == ERROR_SUCCESS);
-    JournalEndRegChange(j5, s5 == ERROR_SUCCESS);
-    JournalEndRegChange(j6, s6 == ERROR_SUCCESS);
-
-    RegCloseKey(hGames);
-
-    return (s1 == ERROR_SUCCESS && s2 == ERROR_SUCCESS && s3 == ERROR_SUCCESS &&
-            s4 == ERROR_SUCCESS && s5 == ERROR_SUCCESS && s6 == ERROR_SUCCESS);
+    return s1 && s2 && s3 && s4 && s5;
 }
 
-bool GraphicsOptimizer::RestoreMmcssTaskTweaks(bool dryRun) {
-    if (dryRun) {
-        OutputDebugStringW(L"[VegaFlow] Dry-Run: RestoreMmcssTaskTweaks simulated successfully.\n");
+bool MmcssTweaks::RestoreTaskTweaks(bool dry_run) {
+    if (dry_run) {
         return true;
     }
 
-    // 1. Multimedia\SystemProfile -> SystemResponsiveness = 20 (standard Windows NT default)
-    HKEY hProfile = nullptr;
-    LSTATUS stProfile = RegOpenKeyExW(
-        HKEY_LOCAL_MACHINE,
-        L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile",
-        0, KEY_SET_VALUE, &hProfile
-    );
-    if (stProfile != ERROR_SUCCESS) {
-        return false;
-    }
-    const DWORD default_resp = 20;
-    stProfile = RegSetValueExW(
-        hProfile,
+    const bool profile_ok = reg_.WriteValue(
+        RegHive::LocalMachine,
+        kMmcssProfilePath,
         L"SystemResponsiveness",
-        0, REG_DWORD,
-        reinterpret_cast<const BYTE*>(&default_resp),
-        sizeof(default_resp)
-    );
-    RegCloseKey(hProfile);
-    if (stProfile != ERROR_SUCCESS) {
+        RegValue::MakeDword(20u),
+        false);
+    if (!profile_ok) {
         return false;
     }
 
-    // 2. Tasks\Games -> Scheduling Category = Medium, SFIO Priority = Normal, Background Only = True, Clock Rate = 10000, Priority = 2
-    HKEY hGames = nullptr;
-    LSTATUS stGames = RegOpenKeyExW(
-        HKEY_LOCAL_MACHINE,
-        L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile\\Tasks\\Games",
-        0, KEY_SET_VALUE, &hGames
-    );
-    if (stGames != ERROR_SUCCESS) {
-        return false;
+    const bool s1 = reg_.WriteValue(
+        RegHive::LocalMachine, kMmcssGamesPath, L"Scheduling Category",
+        RegValue::MakeString(L"Medium"), false);
+    const bool s2 = reg_.WriteValue(
+        RegHive::LocalMachine, kMmcssGamesPath, L"SFIO Priority",
+        RegValue::MakeString(L"Normal"), false);
+    const bool s3 = reg_.WriteValue(
+        RegHive::LocalMachine, kMmcssGamesPath, L"Background Only",
+        RegValue::MakeString(L"True"), false);
+    const bool s4 = reg_.WriteValue(
+        RegHive::LocalMachine, kMmcssGamesPath, L"Clock Rate",
+        RegValue::MakeDword(10000u), false);
+    const bool s5 = reg_.WriteValue(
+        RegHive::LocalMachine, kMmcssGamesPath, L"Priority",
+        RegValue::MakeDword(2u), false);
+
+    reg_.RestoreBackedUpValue(RegHive::LocalMachine, kMmcssProfilePath, L"SystemResponsiveness");
+    for (const wchar_t* n : kMmcssGamesCleanupValues) {
+        reg_.RestoreBackedUpValue(RegHive::LocalMachine, kMmcssGamesPath, n);
     }
 
-    const wchar_t* sched_cat = L"Medium";
-    const wchar_t* sfio_prio = L"Normal";
-    const wchar_t* bg_only = L"True";
-    const DWORD clock_rate = 10000;
-    const DWORD prio = 2;
-
-    LSTATUS s1 = RegSetValueExW(hGames, L"Scheduling Category", 0, REG_SZ,
-        reinterpret_cast<const BYTE*>(sched_cat), static_cast<DWORD>((wcslen(sched_cat) + 1) * sizeof(wchar_t)));
-    LSTATUS s2 = RegSetValueExW(hGames, L"SFIO Priority", 0, REG_SZ,
-        reinterpret_cast<const BYTE*>(sfio_prio), static_cast<DWORD>((wcslen(sfio_prio) + 1) * sizeof(wchar_t)));
-    LSTATUS s3 = RegSetValueExW(hGames, L"Background Only", 0, REG_SZ,
-        reinterpret_cast<const BYTE*>(bg_only), static_cast<DWORD>((wcslen(bg_only) + 1) * sizeof(wchar_t)));
-    LSTATUS s4 = RegSetValueExW(hGames, L"Clock Rate", 0, REG_DWORD,
-        reinterpret_cast<const BYTE*>(&clock_rate), sizeof(clock_rate));
-    LSTATUS s5 = RegSetValueExW(hGames, L"Priority", 0, REG_DWORD,
-        reinterpret_cast<const BYTE*>(&prio), sizeof(prio));
-
-    RegCloseKey(hGames);
-
-    RegRestoreValue(kHiveLocalMachine, kMmcssProfilePath, L"SystemResponsiveness");
-    for (const wchar_t* n : kMmcssGamesValues) RegRestoreValue(kHiveLocalMachine, kMmcssGamesPath, n);
-    JournalMarkRegRestored(kHiveLocalMachine, kMmcssProfilePath, L"SystemResponsiveness");
-    for (const wchar_t* n : kMmcssGamesValues) JournalMarkRegRestored(kHiveLocalMachine, kMmcssGamesPath, n);
-
-    return (s1 == ERROR_SUCCESS && s2 == ERROR_SUCCESS && s3 == ERROR_SUCCESS &&
-            s4 == ERROR_SUCCESS && s5 == ERROR_SUCCESS);
+    return s1 && s2 && s3 && s4 && s5;
 }
 
-bool GraphicsOptimizer::QueryMmcssTaskTweaks(std::string& schedulingCategory, std::string& sfioPriority, uint32_t& clockRate) {
-    schedulingCategory = "Medium";
-    sfioPriority = "Normal";
-    clockRate = 10000;
+bool MmcssTweaks::QueryTaskTweaks(std::string& scheduling_category, std::string& sfio_priority, uint32_t& clock_rate) {
+    scheduling_category = "Medium";
+    sfio_priority = "Normal";
+    clock_rate = 10000u;
 
-    HKEY hGames = nullptr;
-    if (RegOpenKeyExW(
-        HKEY_LOCAL_MACHINE,
-        L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile\\Tasks\\Games",
-        0, KEY_READ, &hGames) != ERROR_SUCCESS) {
+    if (!reg_.KeyExists(RegHive::LocalMachine, kMmcssGamesPath)) {
         return false;
     }
 
-    auto ReadRegSz = [](HKEY hKey, const wchar_t* valName, std::string& outVal) {
-        wchar_t buf[256] = {0};
-        DWORD type = 0;
-        DWORD size = sizeof(buf);
-        if (RegQueryValueExW(hKey, valName, nullptr, &type, reinterpret_cast<LPBYTE>(buf), &size) == ERROR_SUCCESS && type == REG_SZ) {
-            buf[(sizeof(buf) / sizeof(wchar_t)) - 1] = L'\0';
-            int required = WideCharToMultiByte(CP_UTF8, 0, buf, -1, nullptr, 0, nullptr, nullptr);
-            if (required > 1) {
-                std::vector<char> utf8(required);
-                WideCharToMultiByte(CP_UTF8, 0, buf, -1, utf8.data(), required, nullptr, nullptr);
-                outVal = utf8.data();
-            } else if (required == 1) {
-                outVal.clear();
-            }
-        }
-    };
-
-    ReadRegSz(hGames, L"Scheduling Category", schedulingCategory);
-    ReadRegSz(hGames, L"SFIO Priority", sfioPriority);
-
-    DWORD cr_val = 0;
-    DWORD type = 0;
-    DWORD size = sizeof(cr_val);
-    if (RegQueryValueExW(hGames, L"Clock Rate", nullptr, &type, reinterpret_cast<LPBYTE>(&cr_val), &size) == ERROR_SUCCESS && type == REG_DWORD) {
-        clockRate = cr_val;
+    RegValue val;
+    if (reg_.ReadValue(RegHive::LocalMachine, kMmcssGamesPath, L"Scheduling Category", val) &&
+        val.type == RegValueType::String) {
+        scheduling_category = WideToUtf8(val.str);
+    }
+    if (reg_.ReadValue(RegHive::LocalMachine, kMmcssGamesPath, L"SFIO Priority", val) &&
+        val.type == RegValueType::String) {
+        sfio_priority = WideToUtf8(val.str);
+    }
+    if (reg_.ReadValue(RegHive::LocalMachine, kMmcssGamesPath, L"Clock Rate", val) &&
+        val.type == RegValueType::Dword) {
+        clock_rate = val.dword;
     }
 
-    RegCloseKey(hGames);
+    return true;
+}
+
+bool MmcssTweaks::QueryGamingProfileOptimized() {
+    RegValue resp;
+    if (!reg_.ReadValue(RegHive::LocalMachine, kMmcssProfilePath, L"SystemResponsiveness", resp) ||
+        resp.type != RegValueType::Dword || resp.dword > 10u) {
+        return false;
+    }
+
+    RegValue prio;
+    if (!reg_.ReadValue(RegHive::LocalMachine, kMmcssGamesPath, L"Priority", prio) ||
+        prio.type != RegValueType::Dword || prio.dword != 6u) {
+        return false;
+    }
+
+    RegValue sched;
+    if (!reg_.ReadValue(RegHive::LocalMachine, kMmcssGamesPath, L"Scheduling Category", sched) ||
+        sched.type != RegValueType::String || ToLower(sched.str) != L"high") {
+        return false;
+    }
+
     return true;
 }
 

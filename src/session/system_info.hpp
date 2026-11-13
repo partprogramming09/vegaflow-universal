@@ -82,11 +82,7 @@ struct OsKernelInfo {
     uint32_t ubr = 0;               // Update Build Revision
     std::string full_version_string; // "Windows 11 Build 22631"
     std::string system_arch;        // "x64" / "ARM64 (x64 emulado)" / "ARM64" / "No se pudo leer"
-    double timer_resolution_ms = 0.50; // Current timer resolution in ms
-    uint32_t timer_resolution_ns100 = 5000;
-    bool is_high_resolution_timer = false;
     bool mmcss_gaming_optimized = false;
-    uint32_t mmcss_gpu_priority = 8;
     bool memory_compression_enabled = false;
 };
 

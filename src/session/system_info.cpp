@@ -2,6 +2,8 @@
 #include "detect/hardware_profiler.hpp"
 #include "optimize/memory_manager.hpp"
 #include "optimize/graphics/graphics_optimizer.hpp"
+#include "windows/power.hpp"
+#include "windows/registry.hpp"
 
 #include <intrin.h>
 #include <iomanip>
@@ -340,14 +342,12 @@ OsKernelInfo SystemInfo::GatherOsKernel(const SystemHardwareProfile& hw, bool in
     }
 
     if (include_live_telemetry) {
-        TimerResolutionState timer = GraphicsOptimizer::QueryTimerResolution();
-        os.timer_resolution_ns100 = timer.current_ns100;
-        os.timer_resolution_ms = static_cast<double>(timer.current_ns100) / 10000.0;
-        os.is_high_resolution_timer = timer.active_high_res;
-
-        SystemGraphicsTweaksState tweaks = GraphicsOptimizer::QuerySystemGraphicsTweaks();
+        WindowsRegistryPort reg;
+        WindowsPowerPort power;
+        const ApuOptimizationPolicy policy = HardwareProfiler::BuildOptimizationPolicy(hw);
+        GraphicsOptimizer opt(hw, policy, reg, &power);
+        SystemGraphicsTweaksState tweaks = opt.QuerySystemGraphicsTweaks();
         os.mmcss_gaming_optimized = tweaks.mmcss_gaming_optimized;
-        os.mmcss_gpu_priority = 8;
         os.memory_compression_enabled = tweaks.memory_compression_enabled;
     }
 
@@ -450,14 +450,8 @@ std::string SystemInfo::ToJson(const SystemInfoSnapshot& snapshot) {
     ss << "    \"ubr\": " << snapshot.os_kernel.ubr << ",\n";
     ss << "    \"full_version_string\": \"" << EscapeJson(snapshot.os_kernel.full_version_string) << "\",\n";
     ss << "    \"system_arch\": \"" << EscapeJson(snapshot.os_kernel.system_arch) << "\",\n";
-    ss << "    \"timer_resolution\": {\n";
-    ss << "      \"current_ms\": " << snapshot.os_kernel.timer_resolution_ms << ",\n";
-    ss << "      \"current_ns100\": " << snapshot.os_kernel.timer_resolution_ns100 << ",\n";
-    ss << "      \"is_high_precision\": " << (snapshot.os_kernel.is_high_resolution_timer ? "true" : "false") << "\n";
-    ss << "    },\n";
     ss << "    \"mmcss_gaming_profile\": {\n";
-    ss << "      \"is_optimized\": " << (snapshot.os_kernel.mmcss_gaming_optimized ? "true" : "false") << ",\n";
-    ss << "      \"gpu_priority\": " << snapshot.os_kernel.mmcss_gpu_priority << "\n";
+    ss << "      \"is_optimized\": " << (snapshot.os_kernel.mmcss_gaming_optimized ? "true" : "false") << "\n";
     ss << "    },\n";
     ss << "    \"memory_compression\": {\n";
     ss << "      \"enabled\": " << (snapshot.os_kernel.memory_compression_enabled ? "true" : "false") << "\n";

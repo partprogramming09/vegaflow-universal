@@ -1,214 +1,130 @@
 #include "optimize/graphics/graphics_internal.hpp"
 #include "windows/change_journal.hpp"
 
-#include <objbase.h>
-
 namespace vegaflow {
-
-using namespace graphics_internal;
 
 namespace {
 
-// The seven power plan settings written by SetApuPowerMode, in this order.
-struct ApuPowerSetting {
-    const GUID* subgroup;
-    const GUID* setting;
-};
 constexpr size_t kApuPowerSettingCount = 7;
-const ApuPowerSetting kApuPowerSettings[kApuPowerSettingCount] = {
-    {&GUID_PCIEXPRESS_SETTINGS_SUBGROUP, &GUID_PCIEXPRESS_ASPM},
-    {&GUID_PROCESSOR_SETTINGS_SUBGROUP, &GUID_PROCESSOR_PERF_BOOST_MODE},
-    {&GUID_PROCESSOR_SETTINGS_SUBGROUP, &GUID_PROCESSOR_CORE_PARKING_MIN_CORES},
-    {&GUID_PROCESSOR_SETTINGS_SUBGROUP, &GUID_PROCESSOR_FREQUENCY_MAX},
-    {&GUID_PROCESSOR_SETTINGS_SUBGROUP, &GUID_PROCESSOR_FREQUENCY_MAX_ALT},
-    {&GUID_PROCESSOR_SETTINGS_SUBGROUP, &GUID_PROCESSOR_THROTTLE_MAXIMUM},
-    {&GUID_PROCESSOR_SETTINGS_SUBGROUP, &GUID_PROCESSOR_ENERGY_PERF_PREFERENCE},
-};
-
-// APU mode state in this process: whether it is applied and the previous values to restore them.
-struct ApuPowerState {
-    std::mutex mutex;
-    bool applied = false;
-    bool saved = false;
-    DWORD prev_ac[kApuPowerSettingCount] = {};
-    DWORD prev_dc[kApuPowerSettingCount] = {};
-};
-ApuPowerState g_apu_power;
-
-std::string GuidToUtf8(const GUID& g) {
-    wchar_t buf[64]{};
-    if (StringFromGUID2(g, buf, 64) <= 0) return {};
-    int needed = WideCharToMultiByte(CP_UTF8, 0, buf, -1, nullptr, 0, nullptr, nullptr);
-    if (needed <= 1) return {};
-    std::string out(static_cast<size_t>(needed - 1), '\0');
-    WideCharToMultiByte(CP_UTF8, 0, buf, -1, out.data(), needed, nullptr, nullptr);
-    return out;
-}
 
 } // namespace
 
-bool GraphicsOptimizer::SetApuPowerMode(ApuPowerMode mode, const ApuOptimizationPolicy& policy, bool dry_run) {
+bool PowerModeTweaks::SetApuPowerMode(ApuPowerMode mode, const ApuOptimizationPolicy& policy, bool dry_run) {
     if (dry_run) {
         return true;
     }
 
-    static HMODULE s_hPowrProf = LoadLibraryW(L"powrprof.dll");
-    if (!s_hPowrProf) {
-        return false;
-    }
-
-#if defined(__GNUC__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wcast-function-type"
-#endif
-    static auto pfnGetActiveScheme = reinterpret_cast<pfnPowerGetActiveScheme>(GetProcAddress(s_hPowrProf, "PowerGetActiveScheme"));
-    static auto pfnSetActiveScheme = reinterpret_cast<pfnPowerSetActiveScheme>(GetProcAddress(s_hPowrProf, "PowerSetActiveScheme"));
-    static auto pfnWriteACValueIndex = reinterpret_cast<pfnPowerWriteACValueIndex>(GetProcAddress(s_hPowrProf, "PowerWriteACValueIndex"));
-    static auto pfnWriteDCValueIndex = reinterpret_cast<pfnPowerWriteDCValueIndex>(GetProcAddress(s_hPowrProf, "PowerWriteDCValueIndex"));
-    static auto pfnReadACValueIndex = reinterpret_cast<pfnPowerReadACValueIndex>(GetProcAddress(s_hPowrProf, "PowerReadACValueIndex"));
-    static auto pfnReadDCValueIndex = reinterpret_cast<pfnPowerReadDCValueIndex>(GetProcAddress(s_hPowrProf, "PowerReadDCValueIndex"));
-#if defined(__GNUC__)
-#pragma GCC diagnostic pop
-#endif
-
-    if (!pfnGetActiveScheme || !pfnSetActiveScheme || !pfnWriteACValueIndex) {
-        return false;
-    }
-
-    GUID* activePolicy = nullptr;
-    if (pfnGetActiveScheme(nullptr, &activePolicy) != ERROR_SUCCESS || !activePolicy) {
-        return false;
-    }
-
-    DWORD boost_val = 2;
-    DWORD cpu_max_freq = 0;
-    DWORD aspm_val = 1;
-    DWORD core_parking_val = 50;
-    DWORD cpu_throttle_max = 100;
-    DWORD epp_val = 50;
+    uint32_t boost_val = 2;
+    uint32_t cpu_max_freq = 0;
+    uint32_t aspm_val = 1;
+    uint32_t core_parking_val = 50;
+    uint32_t cpu_throttle_max = 100;
+    uint32_t epp_val = 50;
 
     if (mode == ApuPowerMode::GpuPrioritySustained) {
-        boost_val = 4;        // Efficient Aggressive (lowers CPU voltage and avoids unnecessary heat spikes)
-        cpu_max_freq = policy.cpu_stapm_cap_mhz;  // 0 = 100% unlocked (Smart Uncapped Boost)
-        epp_val = 25;         // Efficient high performance SMU, prioritizing immediate response in game threads and GPU at 100%
+        boost_val = 4;        // Efficient Aggressive
+        cpu_max_freq = policy.cpu_stapm_cap_mhz;
+        epp_val = 25;         // Efficient high performance SMU
         aspm_val = 0;         // PCIe ASPM disabled
-        core_parking_val = 50; // Factory default: 100 lowers D3D11 drawstress FPS by 21% (126.2 to 99.4, docs/mediciones/2026-11-ab-daemon.md)
+        core_parking_val = 50;
         cpu_throttle_max = 100;
-    } else { // ApuPowerMode::Balanced
-        boost_val = 2;        // Default: standard aggressive Boost (4.0 GHz)
-        cpu_max_freq = 0;     // Unlocked
-        epp_val = 50;         // standard Windows balanced EPP
+    } else {
+        boost_val = 2;        // Standard aggressive Boost
+        cpu_max_freq = 0;
+        epp_val = 50;         // Windows balanced EPP
         aspm_val = 1;         // PCIe ASPM enabled
         core_parking_val = 50;
         cpu_throttle_max = 100;
     }
 
-    // Values to write, in the order of kApuPowerSettings.
-    const DWORD target[kApuPowerSettingCount] = {aspm_val, boost_val, core_parking_val, cpu_max_freq, cpu_max_freq, cpu_throttle_max, epp_val};
-    DWORD ac_values[kApuPowerSettingCount];
-    DWORD dc_values[kApuPowerSettingCount];
-    std::copy(std::begin(target), std::end(target), std::begin(ac_values));
-    std::copy(std::begin(target), std::end(target), std::begin(dc_values));
+    ApuPowerPlanValues target;
+    target.ac = { aspm_val, boost_val, core_parking_val, cpu_max_freq, cpu_max_freq, cpu_throttle_max, epp_val };
+    target.dc = target.ac;
 
+    ApuPowerPlanValues to_apply = target;
     ChangeJournal* journal = GetActiveChangeJournal();
     uint64_t jid = 0;
-    const std::string scheme_str = GuidToUtf8(*activePolicy);
 
     {
-        std::lock_guard<std::mutex> state_lock(g_apu_power.mutex);
+        std::lock_guard<std::mutex> state_lock(mutex_);
         if (mode == ApuPowerMode::GpuPrioritySustained) {
-            if (!g_apu_power.saved && pfnReadACValueIndex && pfnReadDCValueIndex) {
-                DWORD ac[kApuPowerSettingCount];
-                DWORD dc[kApuPowerSettingCount];
-                bool read_ok = true;
-                bool already_applied = true;
-                for (size_t i = 0; i < kApuPowerSettingCount && read_ok; ++i) {
-                    const ApuPowerSetting& s = kApuPowerSettings[i];
-                    if (pfnReadACValueIndex(nullptr, activePolicy, s.subgroup, s.setting, &ac[i]) != ERROR_SUCCESS ||
-                        pfnReadDCValueIndex(nullptr, activePolicy, s.subgroup, s.setting, &dc[i]) != ERROR_SUCCESS) {
-                        read_ok = false;
-                    } else if (ac[i] != target[i] || dc[i] != target[i]) {
-                        already_applied = false;
-                    }
-                }
-                // If the profile was already applied (previous shutdown without restoring) those values are not a valid previous state.
-                if (read_ok && !already_applied) {
-                    std::copy(std::begin(ac), std::end(ac), std::begin(g_apu_power.prev_ac));
-                    std::copy(std::begin(dc), std::end(dc), std::begin(g_apu_power.prev_dc));
-                    g_apu_power.saved = true;
+            std::string scheme_str;
+            ApuPowerPlanValues current;
+            if (!saved_ && power_.ReadActiveApuPlan(scheme_str, current) &&
+                current.ac.size() == kApuPowerSettingCount &&
+                current.dc.size() == kApuPowerSettingCount) {
+                const bool already_applied = (current.ac == target.ac && current.dc == target.dc);
+                if (!already_applied) {
+                    prev_values_ = current;
+                    saved_ = true;
 
                     if (journal && !scheme_str.empty()) {
                         JournalEntry e;
                         e.kind = JournalTargetKind::PowerPlan;
-                        e.target = "Plan de energía APU";
+                        e.target = "Plan de energ\u00eda APU";
                         e.reason = "Perfil GPU-Priority (ASPM=0, Boost=4, EPP=25)";
-                        e.before_value = "ASPM=" + std::to_string(ac[0]) + ",Boost=" + std::to_string(ac[1]) + ",EPP=" + std::to_string(ac[6]);
+                        e.before_value = "ASPM=" + std::to_string(current.ac[0]) +
+                                         ",Boost=" + std::to_string(current.ac[1]) +
+                                         ",EPP=" + std::to_string(current.ac[6]);
                         e.after_value = "ASPM=0,Boost=4,EPP=25";
-                        e.manual_fix_hint = "vegaflow_daemon.exe --apu-balanced (o restablecer plan en Opciones de energía de Windows)";
+                        e.manual_fix_hint =
+                            "vegaflow_daemon.exe --apu-balanced (o restablecer plan en Opciones de energ\u00eda de Windows)";
                         e.scheme_guid = scheme_str;
-                        e.ac_values.assign(std::begin(ac), std::end(ac));
-                        e.dc_values.assign(std::begin(dc), std::end(dc));
+                        e.ac_values = current.ac;
+                        e.dc_values = current.dc;
                         jid = journal->RecordPending(std::move(e));
                     }
                 }
             }
-        } else if (g_apu_power.saved) {
-            std::copy(std::begin(g_apu_power.prev_ac), std::end(g_apu_power.prev_ac), std::begin(ac_values));
-            std::copy(std::begin(g_apu_power.prev_dc), std::end(g_apu_power.prev_dc), std::begin(dc_values));
-            g_apu_power.saved = false;
+        } else if (saved_) {
+            to_apply = prev_values_;
+            saved_ = false;
         } else if (journal) {
-            // Post-crash restore: recover previous AC/DC values from the active journal entry if available.
             for (const auto& entry : journal->Entries()) {
                 if (entry.kind == JournalTargetKind::PowerPlan &&
                     (entry.status == JournalEntryStatus::Pending || entry.status == JournalEntryStatus::Committed) &&
                     entry.ac_values.size() == kApuPowerSettingCount &&
                     entry.dc_values.size() == kApuPowerSettingCount) {
-                    for (size_t i = 0; i < kApuPowerSettingCount; ++i) {
-                        ac_values[i] = entry.ac_values[i];
-                        dc_values[i] = entry.dc_values[i];
-                    }
+                    to_apply.ac = entry.ac_values;
+                    to_apply.dc = entry.dc_values;
                     break;
                 }
             }
         }
     }
 
-    for (size_t i = 0; i < kApuPowerSettingCount; ++i) {
-        const ApuPowerSetting& s = kApuPowerSettings[i];
-        pfnWriteACValueIndex(nullptr, activePolicy, s.subgroup, s.setting, ac_values[i]);
-        if (pfnWriteDCValueIndex) {
-            pfnWriteDCValueIndex(nullptr, activePolicy, s.subgroup, s.setting, dc_values[i]);
-        }
-    }
-
-    DWORD set_res = pfnSetActiveScheme(nullptr, activePolicy);
-    LocalFree(activePolicy);
-
-    const bool ok = (set_res == ERROR_SUCCESS);
+    const bool ok = power_.ApplyActiveApuPlan(to_apply);
     {
-        std::lock_guard<std::mutex> state_lock(g_apu_power.mutex);
+        std::lock_guard<std::mutex> state_lock(mutex_);
         if (ok) {
-            g_apu_power.applied = (mode == ApuPowerMode::GpuPrioritySustained);
+            applied_ = (mode == ApuPowerMode::GpuPrioritySustained);
         }
     }
     if (journal) {
         if (mode == ApuPowerMode::GpuPrioritySustained && jid != 0) {
-            if (ok) journal->MarkCommitted(jid);
-            else journal->MarkFailed(jid, "PowerSetActiveScheme falló");
+            if (ok) {
+                journal->MarkCommitted(jid);
+            } else {
+                journal->MarkFailed(jid, "PowerSetActiveScheme fall\u00f3");
+            }
         } else if (mode == ApuPowerMode::Balanced && ok) {
-            journal->MarkMatchingReverted(JournalTargetKind::PowerPlan, "Plan de energía APU");
+            journal->MarkMatchingReverted(JournalTargetKind::PowerPlan, "Plan de energ\u00eda APU");
         }
     }
     return ok;
 }
 
-bool GraphicsOptimizer::IsApuPowerModeApplied() {
-    std::lock_guard<std::mutex> lock(g_apu_power.mutex);
-    return g_apu_power.applied;
+bool PowerModeTweaks::IsApuPowerModeApplied() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return applied_;
 }
 
-bool GraphicsOptimizer::SetApuLaptopPowerProfile(bool optimize, const ApuOptimizationPolicy& policy, bool dry_run) {
+bool PowerModeTweaks::SetApuLaptopPowerProfile(bool optimize, const ApuOptimizationPolicy& policy, bool dry_run) {
     return SetApuPowerMode(optimize ? ApuPowerMode::GpuPrioritySustained : ApuPowerMode::Balanced, policy, dry_run);
+}
+
+bool PowerModeTweaks::QueryApuPowerOptimized() {
+    return power_.QueryApuPowerOptimized();
 }
 
 } // namespace vegaflow

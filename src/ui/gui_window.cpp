@@ -201,13 +201,7 @@ void HandleActionClick(HWND hwnd, GuiWindowState* state, int id) {
         }
 
         case ID_ACT_APPLY_PRESET: {
-            if (state->callbacks.on_ToggleTimerForce && !state->data.timer_forced_manual) {
-                state->callbacks.on_ToggleTimerForce();
-            }
-            if (state->callbacks.on_ToggleMpo && !state->data.mpo_disabled) {
-                state->callbacks.on_ToggleMpo();
-            }
-            if (state->callbacks.on_ToggleShaderCache && !state->data.amd_shader_cache_forced) {
+            if (state->data.has_amd_driver && state->callbacks.on_ToggleShaderCache && !state->data.amd_shader_cache_forced) {
                 state->callbacks.on_ToggleShaderCache();
             }
             if (state->callbacks.on_ToggleMmcssGaming && !state->data.mmcss_gaming_optimized) {
@@ -219,7 +213,7 @@ void HandleActionClick(HWND hwnd, GuiWindowState* state, int id) {
             if (state->callbacks.on_IsolateBackgroundNow) {
                 state->callbacks.on_IsolateBackgroundNow();
             }
-            if (res.empty()) res = "Preset óptimo aplicado exitosamente (Timer, MPO, ShaderCache, MMCSS, Purga, CPU Sets)";
+            if (res.empty()) res = "Preset óptimo aplicado exitosamente (MMCSS, Purga, CPU Sets)";
             state->data.last_action_status = res;
             break;
         }
@@ -235,14 +229,6 @@ void HandleActionClick(HWND hwnd, GuiWindowState* state, int id) {
         case ID_ACT_APPLY_ALL_2B: {
             if (state->callbacks.on_ApplyAllGamingTweaks) {
                 res = state->callbacks.on_ApplyAllGamingTweaks();
-                state->data.last_action_status = res;
-            }
-            break;
-        }
-
-        case ID_ACT_TOGGLE_TIMER: {
-            if (state->callbacks.on_ToggleTimerForce) {
-                res = state->callbacks.on_ToggleTimerForce();
                 state->data.last_action_status = res;
             }
             break;

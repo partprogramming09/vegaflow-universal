@@ -245,9 +245,7 @@ pub type VfUtf8Fn = Option<unsafe extern "C" fn(ctx: *mut c_void, utf8: *const u
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct VfConfigSettings {
     pub poll_interval_ms: u32,
-    pub timer_resolution_ns100: u32,
     pub cooldown_seconds: u32,
-    pub timer_forced_manual: bool,
     pub restrict_game_cpu_sets: bool,
     pub min_free_ram_mb: u64,
     pub min_standby_mb: u64,
@@ -273,9 +271,7 @@ pub const VF_CONFIG_SAVE_INVALID: u32 = 2;
 fn to_ffi(s: &Settings) -> VfConfigSettings {
     VfConfigSettings {
         poll_interval_ms: s.poll_interval_ms,
-        timer_resolution_ns100: s.timer_resolution_ns100,
         cooldown_seconds: s.cooldown_seconds,
-        timer_forced_manual: s.timer_forced_manual,
         restrict_game_cpu_sets: s.restrict_game_cpu_sets,
         min_free_ram_mb: s.min_free_ram_mb,
         min_standby_mb: s.min_standby_mb,
@@ -347,8 +343,6 @@ pub extern "C" fn vf_rust_config_save(
         let s = unsafe { &*settings };
         let settings = Settings {
             poll_interval_ms: s.poll_interval_ms,
-            timer_resolution_ns100: s.timer_resolution_ns100,
-            timer_forced_manual: s.timer_forced_manual,
             restrict_game_cpu_sets: s.restrict_game_cpu_sets,
             min_free_ram_mb: s.min_free_ram_mb,
             min_standby_mb: s.min_standby_mb,
@@ -509,8 +503,6 @@ pub extern "C" fn vf_rust_config_save_ex(
         let p = unsafe { &*policy };
         let settings = Settings {
             poll_interval_ms: s.poll_interval_ms,
-            timer_resolution_ns100: s.timer_resolution_ns100,
-            timer_forced_manual: s.timer_forced_manual,
             restrict_game_cpu_sets: s.restrict_game_cpu_sets,
             min_free_ram_mb: s.min_free_ram_mb,
             min_standby_mb: s.min_standby_mb,
@@ -960,7 +952,7 @@ fn bridge_layout() -> Vec<usize> {
         physical_cores, logical_processors, has_multiple_ccx, has_hybrid_cores);
     layout!(v, VfTierInput, total_ram_mb, physical_cores, arch_gen, dedicated_vram, is_nvidia);
     layout!(v, VfAllowedRoot, path, len, writable);
-    layout!(v, VfConfigSettings, poll_interval_ms, timer_resolution_ns100, cooldown_seconds, timer_forced_manual,
+    layout!(v, VfConfigSettings, poll_interval_ms, cooldown_seconds,
         restrict_game_cpu_sets, min_free_ram_mb, min_standby_mb, max_game_disk_read_mb_s);
     layout!(v, VfConfigLoad, settings, status, rejected_keys);
     layout!(v, VfAceEntry, mask, sid_kind, allows, inherit_only);
@@ -994,7 +986,7 @@ pub extern "C" fn vf_rust_bridge_constants(out: *mut u32, cap: usize) -> usize {
         let constants = [
             VF_CONFIG_CORRUPT, VF_CONFIG_KEY_REJECTED, VF_CONFIG_NEWER_VERSION, VF_CONFIG_OLD_VERSION, VF_CONFIG_EMPTY,
             VF_CONFIG_BLOCKS_SAVE, VF_CONFIG_KEY_VERSION, VF_CONFIG_KEY_POLL_INTERVAL_MS,
-            VF_CONFIG_KEY_TIMER_RESOLUTION_NS100, VF_CONFIG_KEY_TIMER_FORCED_MANUAL, VF_CONFIG_KEY_RESTRICT_GAME_CPU_SETS,
+            VF_CONFIG_KEY_RESTRICT_GAME_CPU_SETS,
             VF_CONFIG_KEY_MIN_FREE_RAM_MB, VF_CONFIG_KEY_MIN_STANDBY_MB, VF_CONFIG_KEY_COOLDOWN_SECONDS,
             VF_CONFIG_KEY_MAX_GAME_DISK_READ_MB_S, VF_CONFIG_KEY_CUSTOM_GAME_EXES, VF_CONFIG_KEY_MEMORY,
             VF_CONFIG_KEY_HEAVY_WORK_AS_GAME, VF_CONFIG_KEY_PROCESS_CATEGORY_ACTIONS,

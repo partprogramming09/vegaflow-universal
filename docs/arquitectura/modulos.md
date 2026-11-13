@@ -21,8 +21,7 @@ Implementado en [`src/session/system_info.hpp`](../../src/session/system_info.hp
   - Desglose instantáneo de páginas físicas: memoria en uso, memoria libre real (Free + Zeroed), Standby List en caché y páginas modificadas.
 - **Kernel NT & Sistema Operativo**:
   - Lectura de versión de Windows (e.g. *Windows 11 Build 26300* con Update Build Revision UBR).
-  - Telemetría de resolución del temporizador NT en milisegundos (0.50 ms / 5000 unidades de 100ns).
-  - Estado del servicio MMCSS para juegos (GPU Priority = 8) y compresión de memoria (MMAgent).
+  - Estado del perfil MMCSS para juegos (`SystemResponsiveness`, `Priority`, `Scheduling Category`, `SFIO Priority`; sin `GPU Priority`, retirado en la fase 8) y compresión de memoria (MMAgent).
 - **Serialización Estándar a JSON**:
   - Función `SystemInfo::ToJson()` que exporta toda la telemetría en un esquema estructurado para interoperabilidad con scripts, frontends web o herramientas CLI externas (`--system-info`).
 
@@ -42,19 +41,21 @@ Implementado en [`src/ui/gui_window.hpp`](../../src/ui/gui_window.hpp) y [`src/u
   - Separación entre tarjetas con gutters simétricos de 12px.
   - Divisores horizontales internos de 1px (`CLR_CARD_BORDER`).
 - **Subtítulos Técnicos Educativos**:
-  - Cada tarjeta y control dispone de descripciones breves que instruyen al usuario sobre el impacto físico de la optimización (aislamiento de CCX para evitar contención de caché L3, supresión del límite de 512 MB de UMA para evitar texturas borrosas en UE4/UE5, temporización a 0.5 ms para neutralizar jitter en llamadas `Sleep()`).
+  - Cada tarjeta y control dispone de descripciones breves que instruyen al usuario sobre el impacto físico de la optimización (aislamiento de CCX para evitar contención de caché L3, supresión del límite de 512 MB de UMA en AMD para evitar texturas borrosas en UE4/UE5, y nota explícita en `OverlayTestMode`/MPO indicando que no está documentado por Microsoft y permanece apagado por defecto).
 - **Tab 0: Dashboard Central Interactivo**:
   - Proporciona una vista consolidada en tiempo real:
-    1. *Procesador & Topología*: Estado de núcleos Zen 2, L3, boost APU STAPM 3.4 GHz y asignación de CPU Sets.
+    1. *Procesador & Topología*: Estado de núcleos Zen 2, L3, boost APU STAPM y asignación de CPU Sets.
     2. *Gráficos & Memoria UMA*: VRAM BIOS vs UMA compartida y barra de presupuesto DXGI.
     3. *Memoria RAM Dual-Channel*: Barra multi-segmento con desglose en uso / standby / modificada / libre y ancho de banda de 128 bits.
-    4. *Kernel NT & SO*: Build de Windows, resolución de temporizador, MMCSS y compresión de memoria.
+    4. *Kernel NT & SO*: Build de Windows, MMCSS y compresión de memoria.
     5. *Seguridad SandboxGuard*: Indicador de blindaje activo, contador de violaciones y cuarentena anti-cheat.
-    6. *Monitor de Juego Activo*: Indicador de primer plano, badge `DIRECTFLIP 0ms ACTIVO` y cajas KPI para AVG FPS, 1% Low, 0.1% Low y desviación estándar.
+    6. *Monitor de Juego Activo*: Indicador de primer plano, badge `DIRECTFLIP 0ms ACTIVO` y estado del perfil.
     7. *Tarjetas de Estado de la Suite 3D*: Sub-panel inferior con 3 tarjetas especializadas:
        - **EcoQoS en 2º Plano**: Procesos de fondo confinados en Efficiency Mode para recuperar 3W-5W de STAPM.
        - **Prioridad I/O**: Estado de `IoPriorityHigh` en el juego e `IoPriorityVeryLow` (0) en procesos de fondo para eliminar stuttering de texturas.
        - **DirectFlip / AutoFlip**: Indicador de derivación directa de swap chain (0ms de latencia, bypass de cola DWM).
+- **Tab 1: Ajustes de Kernel & Sistema por Fabricante**:
+  - Muestra dinámicamente solo las familias disponibles para el equipo detectado (`AmdDriverTweaks` solo en GPUs AMD sin bloqueo de driver; `PowerModeTweaks` solo cuando aplica la política de energía).
 
 ### 3.4. Suite Moderna para Juegos 3D (EcoQoS, Jerarquía I/O NT y DirectFlip)
 Implementada de forma coordinada en [`src/optimize/cpu_orchestrator.cpp`](../../src/optimize/cpu_orchestrator.cpp), [`src/optimize/graphics/`](../../src/optimize/graphics/), [`src/app/main.cpp`](../../src/app/main.cpp) y [`src/ui/gui_window.cpp`](../../src/ui/gui_window.cpp):
@@ -164,6 +165,8 @@ direct/
 │   │   ├── memory_probe.hpp      # Telemetría de memoria (listas NT sin respaldo a caché, presupuesto VRAM DXGI y lectura de disco)
 │   │   ├── memory_control.hpp    # Acción única de purga (trim de working sets y purga de Standby List)
 │   │   ├── process_control.hpp   # Control de procesos comprobando PID + creation_time (EcoOnly vs Throttle y juegos)
+│   │   ├── registry.hpp          # Lectura, escritura, borrado y copia de seguridad en el registro de Windows
+│   │   ├── power.hpp             # Lectura/escritura del perfil de energía activo y restauración AC/DC
 │   │   └── change_journal.hpp    # Diario de cambios atómico y puerto de reversión del sistema
 │   ├── model/                    # Tipos compartidos, sin lógica
 │   │   ├── hardware.hpp          # GPU (conexión, PCI IDs, driver), CPU, disco, energía, Tier y política
@@ -172,20 +175,18 @@ direct/
 │   │   ├── hardware_profiler.*   # Orquestación de sonda universal y política desde Rust (`device_profile.rs`)
 │   │   └── process_detector.*    # Detección de juegos (ruta + DLL 3D + señales AC genéricas) y clasificación vía Rust
 │   ├── optimize/                 # Las optimizaciones
-│   │   ├── graphics/             # Ajustes de Windows y del driver (un tema por archivo)
-│   │   │   ├── graphics_optimizer.hpp   # API pública (clase GraphicsOptimizer)
-│   │   │   ├── timer.cpp                # Resolución del temporizador NT (0.5 ms)
-│   │   │   ├── dxgi_flip.cpp            # Flip Model y DirectFlip por juego
-│   │   │   ├── tweaks_query.cpp         # Lectura del estado de todos los ajustes
-│   │   │   ├── kernel_tweaks.cpp        # Compresión de memoria, prioridad y paging shield
-│   │   │   ├── display_tweaks.cpp       # MPO, GameDVR y pantalla completa
-│   │   │   ├── mmcss.cpp                # Perfil MMCSS de juegos
-│   │   │   ├── amd_driver_tweaks.cpp    # Teselación y boost del driver AMD
-│   │   │   ├── power_mode.cpp           # Perfil de energía de la APU
-│   │   │   ├── vram_reporting.cpp       # Reporte de VRAM de la UMA
-│   │   │   ├── shader_cache.cpp         # Caché de shaders
-│   │   │   ├── registry_backup.cpp      # Copia y restauración de valores del registro
-│   │   │   └── graphics_internal.hpp    # Ayudantes compartidos (no es API pública)
+│   │   ├── graphics/             # 6 familias inyectables detrás de `RegistryPort`/`PowerPort` (sin métodos estáticos)
+│   │   │   ├── graphics_optimizer.hpp   # API pública (clase `GraphicsOptimizer` + 6 familias)
+│   │   │   ├── dxgi_flip.cpp            # `DxgiFlipTweaks`: Flip Model y DirectFlip por juego
+│   │   │   ├── tweaks_query.cpp         # Lectura del estado de los ajustes vía `RegistryPort`/`PowerPort`
+│   │   │   ├── kernel_tweaks.cpp        # `KernelSchedulerTweaks`: prioridad, MMCSS base y paging shield
+│   │   │   ├── display_tweaks.cpp       # `DisplayTweaks`: MPO (apagado por defecto), GameDVR y FSO
+│   │   │   ├── mmcss.cpp                # `MmcssTweaks`: perfil MMCSS de juegos (sin `GPU Priority`)
+│   │   │   ├── amd_driver_tweaks.cpp    # `AmdDriverTweaks`: teselación y boost del driver AMD (`ven_1002`)
+│   │   │   ├── power_mode.cpp           # `PowerModeTweaks`: perfil de energía con restauración AC/DC
+│   │   │   ├── vram_reporting.cpp       # Subsistema de `AmdDriverTweaks`: reporte de VRAM de la UMA
+│   │   │   ├── shader_cache.cpp         # Subsistema de `AmdDriverTweaks`: caché de shaders
+│   │   │   └── graphics_internal.hpp    # Respaldo y ayudantes compartidos sobre `RegistryPort` (no es API pública)
 │   │   ├── steam/                # Biblioteca de Steam y presets por motor
 │   │   │   ├── steam_engine_optimizer.hpp  # API pública
 │   │   │   ├── steam_library.cpp       # Instalación de Steam y escaneo de juegos
@@ -211,7 +212,8 @@ direct/
 │   │   ├── config_location.*     # Ruta de config.json junto al .exe y si solo administradores pueden escribirla
 │   │   ├── change_journal.*      # Diario atómico en `<exe>\config\change_journal.vfj` y reversión Windows (`WindowsSystemUndo`)
 │   │   ├── steam_paths.*         # Carpeta de instalación de Steam y sus bibliotecas (lee libraryfolders.vdf con Rust)
-│   │   ├── registry.*            # Lectura de un valor de texto del registro
+│   │   ├── registry.*            # Implementación Windows de `RegistryPort` (HKLM/HKCU, lectura/escritura/borrado)
+│   │   ├── power.*               # Implementación Windows de `PowerPort` (PowrProf: esquemas y AC/DC)
 │   │   └── privileges.*          # Gestión de privilegios NT y elevación UAC
 │   └── bridge/
 │       └── rust_bridge.h         # Definición de tipos y firmas FFI C/Rust (Zero-Allocation)

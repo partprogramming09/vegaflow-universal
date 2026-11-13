@@ -46,9 +46,7 @@ void CollectException(void* ctx, const uint8_t* exe, size_t len, uint8_t action)
 VfConfigSettings ToBridge(const AppConfig& cfg) {
     VfConfigSettings s{};
     s.poll_interval_ms = cfg.poll_interval_ms;
-    s.timer_resolution_ns100 = cfg.timer_resolution_ns100;
     s.cooldown_seconds = cfg.memory.cooldown_seconds;
-    s.timer_forced_manual = cfg.timer_forced_manual;
     s.restrict_game_cpu_sets = cfg.restrict_game_cpu_sets;
     s.min_free_ram_mb = cfg.memory.min_free_ram_mb;
     s.min_standby_mb = cfg.memory.min_standby_mb;
@@ -72,8 +70,6 @@ VfProcessPolicyConfig PolicyToBridge(const vegaflow::ProcessPolicyConfig& policy
 AppConfig FromBridge(const VfConfigSettings& s, const VfProcessPolicyConfig& p, const LoadExCollector& col) {
     AppConfig cfg{};
     cfg.poll_interval_ms = s.poll_interval_ms;
-    cfg.timer_resolution_ns100 = s.timer_resolution_ns100;
-    cfg.timer_forced_manual = s.timer_forced_manual;
     cfg.restrict_game_cpu_sets = s.restrict_game_cpu_sets;
     cfg.memory.min_free_ram_mb = s.min_free_ram_mb;
     cfg.memory.min_standby_mb = s.min_standby_mb;
@@ -115,8 +111,7 @@ std::string KnownSettings(const std::string& text) {
         return "";
     }
     const VfConfigSettings& s = out.settings;
-    std::string key = std::to_string(s.poll_interval_ms) + "," + std::to_string(s.timer_resolution_ns100) + "," +
-                      std::to_string(s.cooldown_seconds) + "," + std::to_string(s.timer_forced_manual) + "," +
+    std::string key = std::to_string(s.poll_interval_ms) + "," + std::to_string(s.cooldown_seconds) + "," +
                       std::to_string(s.restrict_game_cpu_sets) + "," + std::to_string(s.min_free_ram_mb) + "," +
                       std::to_string(s.min_standby_mb) + "," + std::to_string(s.max_game_disk_read_mb_s) + "," +
                       std::to_string(policy.heavy_work_as_game ? 1 : 0) + "," +
@@ -148,8 +143,6 @@ std::string RejectedKeyNames(uint32_t bits) {
     static const std::pair<uint32_t, const char*> kNames[] = {
         {VF_CONFIG_KEY_VERSION, "version"},
         {VF_CONFIG_KEY_POLL_INTERVAL_MS, "poll_interval_ms"},
-        {VF_CONFIG_KEY_TIMER_RESOLUTION_NS100, "timer_resolution_ns100"},
-        {VF_CONFIG_KEY_TIMER_FORCED_MANUAL, "timer_forced_manual"},
         {VF_CONFIG_KEY_RESTRICT_GAME_CPU_SETS, "restrict_game_cpu_sets"},
         {VF_CONFIG_KEY_MIN_FREE_RAM_MB, "memory.min_free_ram_mb"},
         {VF_CONFIG_KEY_MIN_STANDBY_MB, "memory.min_standby_mb"},

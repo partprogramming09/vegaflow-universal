@@ -24,7 +24,6 @@ void RunSingleIteration(
     std::wstring& active_game_exe,
     std::string& active_game_api,
     HWND& active_game_hwnd,
-    bool& timer_boosted,
     std::wstring* active_game_path = nullptr,
     uint32_t* out_noisy_bg_count = nullptr,
     std::function<void(const std::string&)>* audit_cb = nullptr);

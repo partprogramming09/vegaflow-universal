@@ -20,20 +20,18 @@ pub const VF_CONFIG_BLOCKS_SAVE: u32 = VF_CONFIG_CORRUPT | VF_CONFIG_KEY_REJECTE
 
 pub const VF_CONFIG_KEY_VERSION: u32 = 1 << 0;
 pub const VF_CONFIG_KEY_POLL_INTERVAL_MS: u32 = 1 << 1;
-pub const VF_CONFIG_KEY_TIMER_RESOLUTION_NS100: u32 = 1 << 2;
-pub const VF_CONFIG_KEY_TIMER_FORCED_MANUAL: u32 = 1 << 3;
-pub const VF_CONFIG_KEY_RESTRICT_GAME_CPU_SETS: u32 = 1 << 4;
-pub const VF_CONFIG_KEY_MIN_FREE_RAM_MB: u32 = 1 << 5;
-pub const VF_CONFIG_KEY_MIN_STANDBY_MB: u32 = 1 << 6;
-pub const VF_CONFIG_KEY_COOLDOWN_SECONDS: u32 = 1 << 7;
-pub const VF_CONFIG_KEY_MAX_GAME_DISK_READ_MB_S: u32 = 1 << 8;
-pub const VF_CONFIG_KEY_CUSTOM_GAME_EXES: u32 = 1 << 9;
+pub const VF_CONFIG_KEY_RESTRICT_GAME_CPU_SETS: u32 = 1 << 2;
+pub const VF_CONFIG_KEY_MIN_FREE_RAM_MB: u32 = 1 << 3;
+pub const VF_CONFIG_KEY_MIN_STANDBY_MB: u32 = 1 << 4;
+pub const VF_CONFIG_KEY_COOLDOWN_SECONDS: u32 = 1 << 5;
+pub const VF_CONFIG_KEY_MAX_GAME_DISK_READ_MB_S: u32 = 1 << 6;
+pub const VF_CONFIG_KEY_CUSTOM_GAME_EXES: u32 = 1 << 7;
 /// `memory` is there but is not an object.
-pub const VF_CONFIG_KEY_MEMORY: u32 = 1 << 10;
-pub const VF_CONFIG_KEY_HEAVY_WORK_AS_GAME: u32 = 1 << 11;
-pub const VF_CONFIG_KEY_PROCESS_CATEGORY_ACTIONS: u32 = 1 << 12;
-pub const VF_CONFIG_KEY_PROCESS_EXCEPTIONS: u32 = 1 << 13;
-pub const VF_CONFIG_KEY_EXCLUDED_GAME_EXES: u32 = 1 << 14;
+pub const VF_CONFIG_KEY_MEMORY: u32 = 1 << 8;
+pub const VF_CONFIG_KEY_HEAVY_WORK_AS_GAME: u32 = 1 << 9;
+pub const VF_CONFIG_KEY_PROCESS_CATEGORY_ACTIONS: u32 = 1 << 10;
+pub const VF_CONFIG_KEY_PROCESS_EXCEPTIONS: u32 = 1 << 11;
+pub const VF_CONFIG_KEY_EXCLUDED_GAME_EXES: u32 = 1 << 12;
 
 pub const CURRENT_VERSION: u64 = 1;
 pub const MAX_PROCESS_EXCEPTIONS: usize = 256;
@@ -42,8 +40,6 @@ pub const MAX_PROCESS_EXCEPTIONS: usize = 256;
 #[derive(Debug, Clone, PartialEq)]
 pub struct Settings {
     pub poll_interval_ms: u32,
-    pub timer_resolution_ns100: u32,
-    pub timer_forced_manual: bool,
     pub restrict_game_cpu_sets: bool,
     pub min_free_ram_mb: u64,
     pub min_standby_mb: u64,
@@ -60,8 +56,6 @@ impl Default for Settings {
     fn default() -> Self {
         Settings {
             poll_interval_ms: rules::POLL_INTERVAL_MS.default as u32,
-            timer_resolution_ns100: rules::TIMER_RESOLUTION_NS100.default as u32,
-            timer_forced_manual: false,
             restrict_game_cpu_sets: false,
             min_free_ram_mb: rules::MIN_FREE_RAM_MB.default,
             min_standby_mb: rules::MIN_STANDBY_MB.default,
@@ -105,18 +99,12 @@ struct NumberKey {
     set: fn(&mut Settings, u64),
 }
 
-const NUMBER_KEYS: [NumberKey; 6] = [
+const NUMBER_KEYS: [NumberKey; 5] = [
     NumberKey {
         rule: &rules::POLL_INTERVAL_MS,
         bit: VF_CONFIG_KEY_POLL_INTERVAL_MS,
         get: |s| s.poll_interval_ms as u64,
         set: |s, n| s.poll_interval_ms = n as u32,
-    },
-    NumberKey {
-        rule: &rules::TIMER_RESOLUTION_NS100,
-        bit: VF_CONFIG_KEY_TIMER_RESOLUTION_NS100,
-        get: |s| s.timer_resolution_ns100 as u64,
-        set: |s, n| s.timer_resolution_ns100 = n as u32,
     },
     NumberKey {
         rule: &rules::MIN_FREE_RAM_MB,
@@ -152,13 +140,7 @@ struct BoolKey {
     set: fn(&mut Settings, bool),
 }
 
-const BOOL_KEYS: [BoolKey; 2] = [
-    BoolKey {
-        key: "timer_forced_manual",
-        bit: VF_CONFIG_KEY_TIMER_FORCED_MANUAL,
-        get: |s| s.timer_forced_manual,
-        set: |s, b| s.timer_forced_manual = b,
-    },
+const BOOL_KEYS: [BoolKey; 1] = [
     BoolKey {
         key: "restrict_game_cpu_sets",
         bit: VF_CONFIG_KEY_RESTRICT_GAME_CPU_SETS,
@@ -484,7 +466,7 @@ mod tests {
     #[test]
     fn a_current_file_is_read_whole() {
         let l = load(
-            br#"{"version": 1, "poll_interval_ms": 2000, "timer_resolution_ns100": 10000, "timer_forced_manual": true,
+            br#"{"version": 1, "poll_interval_ms": 2000,
                  "restrict_game_cpu_sets": true,
                  "memory": {"min_free_ram_mb": 800, "min_standby_mb": 900, "cooldown_seconds": 30,
                             "max_game_disk_read_mb_s": 40},
@@ -496,8 +478,6 @@ mod tests {
             l.settings,
             Settings {
                 poll_interval_ms: 2000,
-                timer_resolution_ns100: 10000,
-                timer_forced_manual: true,
                 restrict_game_cpu_sets: true,
                 min_free_ram_mb: 800,
                 min_standby_mb: 900,
@@ -701,7 +681,7 @@ mod tests {
             assert_eq!(accepted, expected == "accepted", "{id}: {key} = {value}");
             checked += 1;
         }
-        assert!(checked >= 69, "expected at least 69 vectors, found {checked}");
+        assert!(checked >= 60, "expected at least 60 vectors, found {checked}");
     }
 
     fn vector_file(key: &str, value: &str) -> String {
@@ -726,12 +706,12 @@ mod tests {
 
             #[test]
             fn what_load_reads_from_a_saved_file_is_what_was_saved(
-                poll in 250u32..=60_000, cooldown in 10u32..=3600, forced in any::<bool>(),
+                poll in 250u32..=60_000, cooldown in 10u32..=3600, restrict in any::<bool>(),
                 disk in 1u64..=100_000, names in prop::collection::vec("[A-Za-z0-9 _-]{1,20}", 0..5),
                 note in any::<String>(),
             ) {
                 let names: Vec<String> = names.into_iter().map(|n| format!("x{}.exe", n.trim())).collect();
-                let s = Settings { poll_interval_ms: poll, cooldown_seconds: cooldown, timer_forced_manual: forced,
+                let s = Settings { poll_interval_ms: poll, cooldown_seconds: cooldown, restrict_game_cpu_sets: restrict,
                     max_game_disk_read_mb_s: disk, custom_game_exes: names, ..Settings::default() };
                 let original = json_text::write_pretty(&Value::Object(vec![("note".into(), Value::String(note.clone()))]));
                 let text = save(original.as_bytes(), &s).unwrap();

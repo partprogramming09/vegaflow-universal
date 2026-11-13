@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "windows/privileges.hpp"
+#include "windows/registry.hpp"
 #include "detect/hardware_profiler.hpp"
 #include "detect/process_detector.hpp"
 #include "optimize/graphics/graphics_optimizer.hpp"
@@ -44,13 +45,11 @@ using vftest::g_pass_count;
 
 namespace {
 
-/** On exit, restores the power plan to its previous state if any test really applied the APU profile. */
+/** On exit, restores any pending registry backups if any test left changes behind. */
 struct PowerPlanGuard {
     ~PowerPlanGuard() {
-        if (vegaflow::GraphicsOptimizer::IsApuPowerModeApplied()) {
-            vegaflow::GraphicsOptimizer::SetApuPowerMode(vegaflow::ApuPowerMode::Balanced, vftest::DetectedPolicy());
-        }
-        vegaflow::GraphicsOptimizer::RestoreAllRegistryBackups();
+        vegaflow::WindowsRegistryPort reg;
+        reg.RestoreAllBackups();
     }
 };
 
@@ -124,6 +123,7 @@ int main() {
         {54, vftest::Test54},
         {55, vftest::Test55},
         {56, vftest::Test56},
+        {57, vftest::Test57},
     };
     for (const auto& [number, run] : tests) {
         try {

@@ -114,8 +114,6 @@ public:
         out_valid = live_vram_valid;
     }
 
-    bool EnableHighPrecisionTimer(uint32_t) override { return true; }
-    bool RestoreDefaultTimer() override { return true; }
     void SetDynamicPrioritySeparation(uint32_t) override {}
     void SetGameDvrAndFseOptimized(bool) override {}
 

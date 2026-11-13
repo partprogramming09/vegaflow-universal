@@ -54,17 +54,12 @@ bool IsExeInList(const std::vector<std::wstring>& list, const std::wstring& exe)
 }
 
 void RestoreEndOfSession(
-    const app::AppConfig& config,
     GameSessionEnvironment& env,
     GameSessionState& state) {
 
     env.SaveSessionReport(app::WideToUtf8(state.active_game_exe), state.active_game_api, state.active_game_pid);
     env.RestoreCpuAll();
     env.SetDynamicPrioritySeparation(0x02);
-    if (state.timer_boosted && !config.timer_forced_manual) {
-        env.RestoreDefaultTimer();
-        state.timer_boosted = false;
-    }
     state.game_active = false;
     state.active_game_pid = 0;
     state.active_game_creation_time = 0;
@@ -197,7 +192,7 @@ void RunGameSessionCycle(
     // If the currently cached game was just excluded by the user ("Me fue mal en este juego"), restore immediately.
     if (state.game_active && !state.active_game_exe.empty() &&
         IsExeInList(policy.excluded_game_exes, state.active_game_exe)) {
-        RestoreEndOfSession(config, env, state);
+        RestoreEndOfSession(env, state);
         RefreshHardwareProfileIfChanged(device_probe, hw, 0);
         if (out_noisy_bg_count) *out_noisy_bg_count = 0;
         return;
@@ -232,7 +227,7 @@ void RunGameSessionCycle(
 
         if (is_new_game && state.game_active && state.active_game_pid != 0) {
             // Game switched directly from A to B: restore A before applying B.
-            RestoreEndOfSession(config, env, state);
+            RestoreEndOfSession(env, state);
         }
 
         state.active_game_hwnd = game.main_window;
@@ -273,12 +268,6 @@ void RunGameSessionCycle(
             if (audit_cb) {
                 audit_cb("Juego detectado: " + app::WideToUtf8(game.exe_name) +
                          " (PID: " + std::to_string(game.pid) + ") [" + state.active_game_api + "]");
-            }
-
-            if (!state.timer_boosted) {
-                if (env.EnableHighPrecisionTimer(config.timer_resolution_ns100)) {
-                    state.timer_boosted = true;
-                }
             }
 
             const bool is_dx12 = (game.api == RenderApi::DirectX12 || game.api == RenderApi::Vulkan);
@@ -377,7 +366,7 @@ void RunGameSessionCycle(
             RefreshHardwareProfileIfChanged(device_probe, hw, hw.user_gpu_pref);
             return;
         }
-        RestoreEndOfSession(config, env, state);
+        RestoreEndOfSession(env, state);
         RefreshHardwareProfileIfChanged(device_probe, hw, 0);
     } else {
         RefreshHardwareProfileIfChanged(device_probe, hw, 0);
@@ -419,7 +408,7 @@ bool ExcludeGameAndRevert(
 
     if (state && state->game_active && EqualsIgnoreCase(state->active_game_exe, clean_name)) {
         if (env) {
-            RestoreEndOfSession(config, *env, *state);
+            RestoreEndOfSession(*env, *state);
         } else {
             if (cpu) {
                 cpu->RestoreAll(false);

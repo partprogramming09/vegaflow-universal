@@ -202,8 +202,6 @@ fn is_rfc_number(s: &str) -> bool {
 fn valid_settings() -> impl Strategy<Value = Settings> {
     (
         250u32..=60_000,
-        5000u32..=156_250,
-        any::<bool>(),
         any::<bool>(),
         128u64..=1_048_576,
         128u64..=1_048_576,
@@ -211,10 +209,8 @@ fn valid_settings() -> impl Strategy<Value = Settings> {
         1u64..=100_000,
         prop::collection::vec("[A-Za-z0-9_ñé-]{1,12}", 0..4),
     )
-        .prop_map(|(poll, timer, forced, restrict, free, standby, cool, disk, names)| Settings {
+        .prop_map(|(poll, restrict, free, standby, cool, disk, names)| Settings {
             poll_interval_ms: poll,
-            timer_resolution_ns100: timer,
-            timer_forced_manual: forced,
             restrict_game_cpu_sets: restrict,
             min_free_ram_mb: free,
             min_standby_mb: standby,
@@ -492,15 +488,13 @@ fn game_name_more_bad_spellings_are_refused() {
 
 #[test]
 fn every_rule_key_alone_rejects_only_its_own_bit_and_blocks_saving() {
-    let base = r#"{"version": 1, "poll_interval_ms": 2000, "timer_resolution_ns100": 10000, "timer_forced_manual": true,
+    let base = r#"{"version": 1, "poll_interval_ms": 2000,
         "restrict_game_cpu_sets": true, "memory": {"min_free_ram_mb": 800, "min_standby_mb": 900,
         "cooldown_seconds": 30, "max_game_disk_read_mb_s": 40}, "custom_game_exes": ["A.exe"]}"#;
     let good = load(base.as_bytes());
     assert_eq!(good.status, 0);
     let cases: &[(&str, &str, u32)] = &[
         ("\"poll_interval_ms\": 2000", "\"poll_interval_ms\": {}", VF_CONFIG_KEY_POLL_INTERVAL_MS),
-        ("\"timer_resolution_ns100\": 10000", "\"timer_resolution_ns100\": [10000]", VF_CONFIG_KEY_TIMER_RESOLUTION_NS100),
-        ("\"timer_forced_manual\": true", "\"timer_forced_manual\": null", VF_CONFIG_KEY_TIMER_FORCED_MANUAL),
         ("\"restrict_game_cpu_sets\": true", "\"restrict_game_cpu_sets\": \"no\"", VF_CONFIG_KEY_RESTRICT_GAME_CPU_SETS),
         ("\"min_free_ram_mb\": 800", "\"min_free_ram_mb\": 8e2", VF_CONFIG_KEY_MIN_FREE_RAM_MB),
         ("\"min_standby_mb\": 900", "\"min_standby_mb\": -0", VF_CONFIG_KEY_MIN_STANDBY_MB),
@@ -521,8 +515,6 @@ fn every_rule_key_alone_rejects_only_its_own_bit_and_blocks_saving() {
         let d = Settings::default();
         match *bit {
             VF_CONFIG_KEY_POLL_INTERVAL_MS => expected.poll_interval_ms = d.poll_interval_ms,
-            VF_CONFIG_KEY_TIMER_RESOLUTION_NS100 => expected.timer_resolution_ns100 = d.timer_resolution_ns100,
-            VF_CONFIG_KEY_TIMER_FORCED_MANUAL => expected.timer_forced_manual = d.timer_forced_manual,
             VF_CONFIG_KEY_RESTRICT_GAME_CPU_SETS => expected.restrict_game_cpu_sets = d.restrict_game_cpu_sets,
             VF_CONFIG_KEY_MIN_FREE_RAM_MB => expected.min_free_ram_mb = d.min_free_ram_mb,
             VF_CONFIG_KEY_MIN_STANDBY_MB => expected.min_standby_mb = d.min_standby_mb,
@@ -579,8 +571,6 @@ fn every_out_of_range_setting_is_refused_with_its_own_bit() {
     let cases: &[(Set, u32)] = &[
         (|s| s.poll_interval_ms = 249, VF_CONFIG_KEY_POLL_INTERVAL_MS),
         (|s| s.poll_interval_ms = u32::MAX, VF_CONFIG_KEY_POLL_INTERVAL_MS),
-        (|s| s.timer_resolution_ns100 = 0, VF_CONFIG_KEY_TIMER_RESOLUTION_NS100),
-        (|s| s.timer_resolution_ns100 = 156_251, VF_CONFIG_KEY_TIMER_RESOLUTION_NS100),
         (|s| s.min_free_ram_mb = u64::MAX, VF_CONFIG_KEY_MIN_FREE_RAM_MB),
         (|s| s.min_standby_mb = 127, VF_CONFIG_KEY_MIN_STANDBY_MB),
         (|s| s.cooldown_seconds = 3601, VF_CONFIG_KEY_COOLDOWN_SECONDS),
@@ -644,7 +634,7 @@ proptest! {
     fn save_keeps_every_unknown_key_and_round_trips(
         current in valid_settings(),
         wanted in valid_settings(),
-        top_unknown in unknown_entries(&["version", "poll_interval_ms", "timer_resolution_ns100", "timer_forced_manual",
+        top_unknown in unknown_entries(&["version", "poll_interval_ms",
             "restrict_game_cpu_sets", "memory", "custom_game_exes", "min_free_ram_mb", "min_standby_mb",
             "cooldown_seconds", "max_game_disk_read_mb_s"]),
         mem_unknown in unknown_entries(MEMORY_KNOWN),
@@ -668,8 +658,6 @@ proptest! {
         }
         let mut top: Vec<(String, Value)> = vec![
             ("poll_interval_ms".into(), n(current.poll_interval_ms as u64)),
-            ("timer_resolution_ns100".into(), n(current.timer_resolution_ns100 as u64)),
-            ("timer_forced_manual".into(), Value::Bool(current.timer_forced_manual)),
             ("restrict_game_cpu_sets".into(), Value::Bool(current.restrict_game_cpu_sets)),
             ("custom_game_exes".into(), Value::Array(current.custom_game_exes.iter().cloned().map(Value::String).collect())),
         ];

@@ -3,6 +3,9 @@
 #include "optimize/graphics/graphics_optimizer.hpp"
 #include "bridge/rust_bridge.h"
 #include "windows/change_journal.hpp"
+#include "windows/registry.hpp"
+
+#include <optional>
 
 namespace vegaflow {
 
@@ -185,7 +188,13 @@ EngineOptimizationReport SteamEngineOptimizer::ApplyEngineUmaPreset(
     EngineOptimizationReport report{};
 
     if (!game.primary_exe_path.empty()) {
-        GraphicsOptimizer::ApplyDxgiFlipModelUpgrade(game.primary_exe_path, dry_run);
+        std::optional<WindowsRegistryPort> local_reg;
+        RegistryPort* eff_reg = reg_;
+        if (!eff_reg) {
+            local_reg.emplace();
+            eff_reg = &*local_reg;
+        }
+        DxgiFlipTweaks(*eff_reg).ApplyFlipModelUpgrade(game.primary_exe_path, dry_run);
     }
 
     if (game.has_anticheat) {

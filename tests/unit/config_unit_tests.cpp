@@ -39,13 +39,13 @@ void Test44() {
     fs.files[kPath] = "{\n  \"my_note\": \"keep me\",\n  \"poll_interval_ms\": 2000\n}\n";
     ConfigStore store(fs, kPath, true);
     AppConfig cfg = store.Load();
-    cfg.timer_forced_manual = true;
+    cfg.restrict_game_cpu_sets = true;
     const bool saved = store.Save(cfg);
     const std::string& text = fs.files[kPath];
     const bool unknown_kept = saved && fs.replaces.size() == 1 && fs.writes.empty() &&
                               text.find("\"my_note\": \"keep me\"") != std::string::npos &&
                               text.find("\"version\": 1") != std::string::npos &&
-                              text.find("\"timer_forced_manual\": true") != std::string::npos &&
+                              text.find("\"restrict_game_cpu_sets\": true") != std::string::npos &&
                               ConfigStore(fs, kPath, true).Load().poll_interval_ms == 2000;
 
     // A value that is not a number does not borrow the digits of the next key; 0 is refused for the poll and the pause.
@@ -133,7 +133,7 @@ void Test44() {
     AppConfig edited_cfg = edited_store.Load();
     edited.files[kPath] = "{\"version\": 1, \"poll_interval_ms\": 3000}";
     std::string edited_why;
-    edited_cfg.timer_forced_manual = true;
+    edited_cfg.restrict_game_cpu_sets = true;
     const bool hand_edit_kept = !edited_store.Save(edited_cfg, false, &edited_why) && !edited_why.empty() &&
                                 edited.Changes() == 0;
     // After VegaFlow's own save, the next save is allowed (its own write is not a change by hand).
@@ -141,7 +141,7 @@ void Test44() {
     ConfigStore twice_store(twice, kPath, true);
     AppConfig twice_cfg = twice_store.Load();
     const bool first = twice_store.Save(twice_cfg);
-    twice_cfg.timer_forced_manual = true;
+    twice_cfg.restrict_game_cpu_sets = true;
     const bool saves_twice = first && twice_store.Save(twice_cfg) && twice.replaces.size() == 2;
 
     // A failed write gives a reason.

@@ -26,6 +26,8 @@
 #include "session/text_convert.hpp"
 #include "windows/change_journal.hpp"
 #include "windows/config_location.hpp"
+#include "windows/power.hpp"
+#include "windows/registry.hpp"
 #include "windows/safe_file_system.hpp"
 
 using namespace vegaflow::app;
@@ -34,7 +36,6 @@ namespace {
 
 LONG WINAPI VegaFlowCrashHandler(EXCEPTION_POINTERS* /*ep*/) {
     vegaflow::SetActiveChangeJournal(nullptr);
-    vegaflow::GraphicsOptimizer::RestoreDefaultTimer();
     return EXCEPTION_EXECUTE_HANDLER;
 }
 
@@ -154,7 +155,7 @@ int main(int argc, char* argv[]) {
             int btn = MessageBoxW(nullptr, body.c_str(), L"VegaFlow Universal — Recuperación", MB_YESNO | MB_ICONWARNING);
             if (btn == IDYES) {
                 auto rep = vegaflow::session::RestoreAllRecordedChanges(journal, system_undo, opts.dry_run_flag);
-                GraphicsOptimizer::RestoreAllRegistryBackups();
+                WindowsRegistryPort().RestoreAllBackups();
                 journal_warning = rep.summary_message;
                 journal_eval = vegaflow::session::EvaluateStartupJournal(journal);
             } else if (journal_eval.safe_mode) {
@@ -167,7 +168,7 @@ int main(int argc, char* argv[]) {
             if (TryReadPromptAnswer("¿Devolver los cambios pendientes a como estaban? [S/n]: ", ans) &&
                 IsAffirmative(ans, true)) {
                 auto rep = vegaflow::session::RestoreAllRecordedChanges(journal, system_undo, opts.dry_run_flag);
-                GraphicsOptimizer::RestoreAllRegistryBackups();
+                WindowsRegistryPort().RestoreAllBackups();
                 std::cout << "[Restore] " << rep.summary_message << "\n";
                 journal_eval = vegaflow::session::EvaluateStartupJournal(journal);
             } else {
@@ -211,8 +212,11 @@ int main(int argc, char* argv[]) {
         session_guard.end_clean = true;
     }
 
-    if (!safe_mode && priv.is_elevated && boot_policy.apply_uma_vram_reg_override && !boot_policy.block_driver_tweaks) {
-        GraphicsOptimizer::ApplyAmdVramReportingOverride(boot_policy.safe_vram_pool_mb, opts.dry_run_flag);
+    WindowsRegistryPort boot_reg;
+    WindowsPowerPort boot_power;
+    GraphicsOptimizer boot_opt(hw, boot_policy, boot_reg, &boot_power);
+    if (!safe_mode && priv.is_elevated && boot_policy.apply_uma_vram_reg_override && boot_opt.AmdDriver()) {
+        boot_opt.AmdDriver()->ApplyVramReportingOverride(boot_policy.safe_vram_pool_mb, opts.dry_run_flag);
     }
 
     MemoryPurgeConfig mem_cfg = config.memory;

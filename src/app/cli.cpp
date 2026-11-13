@@ -12,6 +12,8 @@
 #include "detect/hardware_profiler.hpp"
 #include "optimize/graphics/graphics_optimizer.hpp"
 #include "optimize/dxvk_manager.hpp"
+#include "windows/power.hpp"
+#include "windows/registry.hpp"
 #include "windows/safe_file_system.hpp"
 #include "session/system_info.hpp"
 #include "session/restore.hpp"
@@ -76,7 +78,7 @@ std::optional<int> ParseCommandLine(int argc, char* argv[], CliOptions& opts) {
             std::cout << "VegaFlow Daemon - Dynamic Hardware & OS Performance Orchestrator\n";
             std::cout << "Usage: vegaflow_daemon [OPTIONS]\n\n";
             std::cout << "Options:\n";
-            std::cout << "  --status, -s             Display detailed hardware, RAM, timer, MPO, and system telemetry report.\n";
+            std::cout << "  --status, -s             Display detailed hardware, RAM, MPO, and system telemetry report.\n";
             std::cout << "  --dry-run, -d            Simulate evaluation cycles without modifying processes or registry.\n";
             std::cout << "  --once, -1               Execute one optimization evaluation cycle and exit cleanly.\n";
             std::cout << "  --elevate, -e            Relaunch current executable with Administrator privileges (UAC).\n";
@@ -113,6 +115,8 @@ std::optional<int> RunOneShotCommand(const CliOptions& opts, int argc, char* arg
         return vegaflow::HardwareProfiler::BuildOptimizationPolicy(vegaflow::HardwareProfiler::DetectHardware());
     };
     vegaflow::SafeFileSystem file_system;
+    vegaflow::WindowsRegistryPort reg;
+    vegaflow::WindowsPowerPort power;
     if (opts.system_info_flag) {
         vegaflow::SystemInfo sys_info;
         std::cout << sys_info.ToJson() << "\n";
@@ -187,7 +191,7 @@ std::optional<int> RunOneShotCommand(const CliOptions& opts, int argc, char* arg
 
     if (opts.apu_gpu_priority_flag) {
         vegaflow::ApuOptimizationPolicy pol = detected_policy();
-        bool ok = vegaflow::GraphicsOptimizer::SetApuPowerMode(vegaflow::ApuPowerMode::GpuPrioritySustained, pol, opts.dry_run_flag);
+        bool ok = vegaflow::PowerModeTweaks(power).SetApuPowerMode(vegaflow::ApuPowerMode::GpuPrioritySustained, pol, opts.dry_run_flag);
         std::string mode_str = (pol.cpu_stapm_cap_mhz == 0)
             ? "Control Térmico APU: Smart Uncapped Boost Activado (100% CPU 4.0 GHz + 100% GPU con Efficient-Aggressive + EPP 25)"
             : ("GPU-Priority sustained mode active (" + std::to_string(pol.cpu_stapm_cap_mhz) + " MHz CPU ceiling / 15W continuous)");
@@ -197,52 +201,63 @@ std::optional<int> RunOneShotCommand(const CliOptions& opts, int argc, char* arg
     }
 
     if (opts.apu_balanced_flag) {
-        bool ok = vegaflow::GraphicsOptimizer::SetApuPowerMode(vegaflow::ApuPowerMode::Balanced, detected_policy(), opts.dry_run_flag);
+        bool ok = vegaflow::PowerModeTweaks(power).SetApuPowerMode(vegaflow::ApuPowerMode::Balanced, detected_policy(), opts.dry_run_flag);
         std::cout << "[APU Power] SetApuPowerMode(Balanced) " << (opts.dry_run_flag ? "[DRY-RUN] " : "")
                   << (ok ? "SUCCEEDED. Windows standard balanced power profile restored." : "FAILED. Check power configuration permissions.") << "\n";
         return ok ? 0 : 1;
     }
 
     if (opts.shader_cache_force_flag) {
-        bool ok = vegaflow::GraphicsOptimizer::SetAmdShaderCacheForced(true, detected_policy(), opts.dry_run_flag);
+        const auto hw = vegaflow::HardwareProfiler::DetectHardware();
+        const auto pol = vegaflow::HardwareProfiler::BuildOptimizationPolicy(hw);
+        vegaflow::GraphicsOptimizer gfx(hw, pol, reg, &power);
+        bool ok = gfx.AmdDriver() && gfx.AmdDriver()->SetShaderCacheForced(true, pol, opts.dry_run_flag);
         std::cout << "[AMD ShaderCache] SetAmdShaderCacheForced(true) " << (opts.dry_run_flag ? "[DRY-RUN] " : "")
-                  << (ok ? "SUCCEEDED. ShaderCache set to 0x3200 (Always Enabled on disk)." : "FAILED. Admin privileges required.") << "\n";
+                  << (ok ? "SUCCEEDED. ShaderCache set to 0x3200 (Always Enabled on disk)." : (gfx.AmdDriver() ? "FAILED. Admin privileges required." : "SKIPPED. GPU is not AMD or driver tweaks blocked.")) << "\n";
         return ok ? 0 : 1;
     }
 
     if (opts.shader_cache_default_flag) {
-        bool ok = vegaflow::GraphicsOptimizer::SetAmdShaderCacheForced(false, detected_policy(), opts.dry_run_flag);
+        const auto hw = vegaflow::HardwareProfiler::DetectHardware();
+        const auto pol = vegaflow::HardwareProfiler::BuildOptimizationPolicy(hw);
+        vegaflow::GraphicsOptimizer gfx(hw, pol, reg, &power);
+        bool ok = gfx.AmdDriver() && gfx.AmdDriver()->SetShaderCacheForced(false, pol, opts.dry_run_flag);
         std::cout << "[AMD ShaderCache] SetAmdShaderCacheForced(false) " << (opts.dry_run_flag ? "[DRY-RUN] " : "")
-                  << (ok ? "SUCCEEDED. ShaderCache restored to driver default." : "FAILED. Admin privileges required.") << "\n";
+                  << (ok ? "SUCCEEDED. ShaderCache restored to driver default." : (gfx.AmdDriver() ? "FAILED. Admin privileges required." : "SKIPPED. GPU is not AMD or driver tweaks blocked.")) << "\n";
         return ok ? 0 : 1;
     }
 
     if (opts.mem_compression_off_flag) {
-        bool ok = vegaflow::GraphicsOptimizer::SetMemoryCompressionEnabled(false, opts.dry_run_flag);
+        bool ok = vegaflow::KernelSchedulerTweaks(reg).SetMemoryCompressionEnabled(false, opts.dry_run_flag);
         std::cout << "[MemCompression] SetMemoryCompressionEnabled(false) " << (opts.dry_run_flag ? "[DRY-RUN] " : "")
                   << (ok ? "SUCCEEDED. Windows Memory Compression DISABLED (stutter-free latency mode)." : "FAILED. Administrator privileges required.") << "\n";
         return ok ? 0 : 1;
     }
 
     if (opts.mem_compression_on_flag) {
-        bool ok = vegaflow::GraphicsOptimizer::SetMemoryCompressionEnabled(true, opts.dry_run_flag);
+        bool ok = vegaflow::KernelSchedulerTweaks(reg).SetMemoryCompressionEnabled(true, opts.dry_run_flag);
         std::cout << "[MemCompression] SetMemoryCompressionEnabled(true) " << (opts.dry_run_flag ? "[DRY-RUN] " : "")
                   << (ok ? "SUCCEEDED. Windows Memory Compression restored." : "FAILED. Administrator privileges required.") << "\n";
         return ok ? 0 : 1;
     }
 
     if (opts.vram_override_flag) {
-        vegaflow::ApuOptimizationPolicy pol = detected_policy();
-        bool ok = vegaflow::GraphicsOptimizer::ApplyAmdVramReportingOverride(pol.safe_vram_pool_mb, opts.dry_run_flag);
+        const auto hw = vegaflow::HardwareProfiler::DetectHardware();
+        const auto pol = vegaflow::HardwareProfiler::BuildOptimizationPolicy(hw);
+        vegaflow::GraphicsOptimizer gfx(hw, pol, reg, &power);
+        bool ok = gfx.AmdDriver() && gfx.AmdDriver()->ApplyVramReportingOverride(pol.safe_vram_pool_mb, opts.dry_run_flag);
         std::cout << "[AMD VRAM] ApplyAmdVramReportingOverride(" << pol.safe_vram_pool_mb << ") " << (opts.dry_run_flag ? "[DRY-RUN] " : "")
-                  << (ok ? ("SUCCEEDED. VRAM reporting set to " + std::to_string(pol.safe_vram_pool_mb) + " MB in DXGI & AMD driver.") : "FAILED. Administrator privileges required.") << "\n";
+                  << (ok ? ("SUCCEEDED. VRAM reporting set to " + std::to_string(pol.safe_vram_pool_mb) + " MB in DXGI & AMD driver.") : (gfx.AmdDriver() ? "FAILED. Administrator privileges required." : "SKIPPED. GPU is not AMD or driver tweaks blocked.")) << "\n";
         return ok ? 0 : 1;
     }
 
     if (opts.vram_restore_flag) {
-        bool ok = vegaflow::GraphicsOptimizer::RestoreAmdVramReporting(opts.dry_run_flag);
+        const auto hw = vegaflow::HardwareProfiler::DetectHardware();
+        const auto pol = vegaflow::HardwareProfiler::BuildOptimizationPolicy(hw);
+        vegaflow::GraphicsOptimizer gfx(hw, pol, reg, &power);
+        bool ok = gfx.AmdDriver() && gfx.AmdDriver()->RestoreVramReporting(opts.dry_run_flag);
         std::cout << "[AMD VRAM] RestoreAmdVramReporting() " << (opts.dry_run_flag ? "[DRY-RUN] " : "")
-                  << (ok ? "SUCCEEDED. VRAM reporting restored to driver default (512 MB)." : "FAILED. Administrator privileges required.") << "\n";
+                  << (ok ? "SUCCEEDED. VRAM reporting restored to driver default (512 MB)." : (gfx.AmdDriver() ? "FAILED. Administrator privileges required." : "SKIPPED. GPU is not AMD or driver tweaks blocked.")) << "\n";
         return ok ? 0 : 1;
     }
 
@@ -267,7 +282,7 @@ std::optional<int> RunOneShotCommand(const CliOptions& opts, int argc, char* arg
         size_t reg_tot = 0;
         bool reg_ok = true;
         if (!opts.dry_run_flag) {
-            reg_ok = vegaflow::GraphicsOptimizer::RestoreAllRegistryBackups(&reg_rev, &reg_tot);
+            reg_ok = reg.RestoreAllBackups(&reg_rev, &reg_tot);
         }
 
         if (loaded && !journal.Header().corrupt && (rep.total_count > 0 || reg_tot == 0)) {
@@ -305,14 +320,14 @@ std::optional<int> RunOneShotCommand(const CliOptions& opts, int argc, char* arg
     }
 
     if (opts.mpo_disable_flag) {
-        bool ok = vegaflow::GraphicsOptimizer::SetMpoDisabled(true, opts.dry_run_flag);
+        bool ok = vegaflow::DisplayTweaks(reg).SetMpoDisabled(true, opts.dry_run_flag);
         std::cout << "[MPO] SetMpoDisabled(true) " << (opts.dry_run_flag ? "[DRY-RUN] " : "")
                   << (ok ? "SUCCEEDED. Multi-Plane Overlay is now DISABLED (stutter-free mode)." : "FAILED. Administrator privileges required.") << "\n";
         return ok ? 0 : 1;
     }
 
     if (opts.mpo_restore_flag) {
-        bool ok = vegaflow::GraphicsOptimizer::SetMpoDisabled(false, opts.dry_run_flag);
+        bool ok = vegaflow::DisplayTweaks(reg).SetMpoDisabled(false, opts.dry_run_flag);
         std::cout << "[MPO] SetMpoDisabled(false) " << (opts.dry_run_flag ? "[DRY-RUN] " : "")
                   << (ok ? "SUCCEEDED. Multi-Plane Overlay restored to Windows default." : "FAILED. Administrator privileges required.") << "\n";
         return ok ? 0 : 1;

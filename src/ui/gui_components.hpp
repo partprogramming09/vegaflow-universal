@@ -49,7 +49,6 @@ constexpr int ID_TAB_4 = 104;
 // Interactive control identifiers (GDI hit-test)
 constexpr int ID_ACT_APPLY_PRESET       = 201;
 constexpr int ID_ACT_PURGE_RAM          = 202;
-constexpr int ID_ACT_TOGGLE_TIMER       = 203;
 constexpr int ID_ACT_TOGGLE_MPO         = 204;
 constexpr int ID_ACT_TOGGLE_SHADERCACHE = 205;
 constexpr int ID_ACT_TOGGLE_MEMCOMP     = 206;

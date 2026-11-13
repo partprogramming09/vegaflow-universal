@@ -87,8 +87,7 @@ void Test18() {
         // 4. OS & Kernel Validation
         bool os_name_ok = (snap.os_kernel.os_name.find("Windows") != std::string::npos);
         bool os_build_ok = (snap.os_kernel.build_number > 0);
-        bool os_timer_ok = (snap.os_kernel.timer_resolution_ms > 0.0 && snap.os_kernel.timer_resolution_ns100 > 0);
-        bool os_all_ok = os_name_ok && os_build_ok && os_timer_ok;
+        bool os_all_ok = os_name_ok && os_build_ok;
 
         // 5. JSON Serialization Validation
         std::string json_str = sys_info.ToJson();
@@ -110,14 +109,13 @@ void Test18() {
                              json_str.find("\"dynamic_shared_vram_bytes\":") != std::string::npos);
         bool has_dxgi_key = (json_str.find("\"dxgi_budget\":") != std::string::npos);
         bool has_ram_topo_key = (json_str.find("\"channel_topology\":") != std::string::npos);
-        bool has_timer_key = (json_str.find("\"timer_resolution\":") != std::string::npos);
         bool has_mmcss_key = (json_str.find("\"mmcss_gaming_profile\":") != std::string::npos);
         bool has_comp_key = (json_str.find("\"memory_compression\":") != std::string::npos);
 
         bool json_keys_ok = has_cpu_key && has_gpu_key && has_ram_key && has_os_key &&
                             has_uarch_key && has_l3_key && has_boost_key && has_stapm_key &&
                             has_uma_key && has_vram_key && has_dxgi_key && has_ram_topo_key &&
-                            has_timer_key && has_mmcss_key && has_comp_key;
+                            has_mmcss_key && has_comp_key;
 
         bool t18_success = cpu_all_ok && gpu_all_ok && ram_all_ok && os_all_ok &&
                            json_structure_ok && json_keys_ok;
@@ -127,7 +125,7 @@ void Test18() {
             std::to_string(snap.cpu.physical_cores) + "C/" + std::to_string(snap.cpu.logical_processors) + "T), "
             + "GPU: " + snap.gpu.adapter_name + " [" + snap.gpu.architecture + "], "
             + "RAM: " + std::to_string(static_cast<int>(snap.ram.total_physical_gb)) + " GB " + snap.ram.channel_topology + ", "
-            + "OS: " + snap.os_kernel.full_version_string + " (Timer: " + std::to_string(snap.os_kernel.timer_resolution_ms) + " ms), "
+            + "OS: " + snap.os_kernel.full_version_string + ", "
             + "JSON: " + (json_keys_ok ? "VALID" : "INVALID");
 
         RecordResult(t18_success, "Test 18: SystemInfo Telemetry, Hardware Specs Gathering & JSON Serialization", details);

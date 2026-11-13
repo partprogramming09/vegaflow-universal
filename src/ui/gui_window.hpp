@@ -57,10 +57,10 @@ struct GuiDashboardData {
     uint32_t noisy_bg_processes_count = 0;
     uint32_t isolated_bg_processes_count = 0;
 
-    double timer_resolution_ms = 15.625;
-    bool timer_forced_manual = false;
     bool mpo_disabled = false;
     bool mem_compression_enabled = false;
+    bool has_amd_driver = false;
+    bool has_power_mode = false;
     bool amd_shader_cache_forced = false;
 
     bool game_active = false;
@@ -93,7 +93,7 @@ struct GuiDashboardData {
     uint32_t amd_tessellation_max = 16;
 
     // Round 2 and Group 2B optimizations
-    bool mmcss_task_active = false;          // Tasks\Games GPU Priority == 8 && Clock Rate == 10000
+    bool mmcss_task_active = false;          // Tasks\Games Scheduling Category == High && Clock Rate == 10000
     bool apu_shadows_active = false;         // APU shadow profile loaded
     bool amd_vram_override_active = false;   // UMA VRAM override (4 GB DXGI/AMD)
     uint32_t amd_vram_reported_mb = 0;       // Reported budget in MB (e.g. 4096)
@@ -116,8 +116,6 @@ struct GuiCallbacks {
     std::function<std::string()> on_ToggleMpo;
     std::function<bool()> on_RequestElevate;
     std::function<std::string()> on_ToggleMemCompression;
-    // New UXTU-style callbacks:
-    std::function<std::string()> on_ToggleTimerForce;
     std::function<std::string()> on_ToggleShaderCache;
     std::function<std::string()> on_IsolateBackgroundNow;
     std::function<std::string()> on_RestoreCpuAffinity;

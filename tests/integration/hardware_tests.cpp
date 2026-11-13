@@ -24,6 +24,7 @@
 #include "detect/hardware_profiler.hpp"
 #include "detect/process_detector.hpp"
 #include "optimize/graphics/graphics_optimizer.hpp"
+#include "windows/power.hpp"
 #include "optimize/memory_manager.hpp"
 #include "optimize/cpu_orchestrator.hpp"
 #include "optimize/steam/steam_engine_optimizer.hpp"
@@ -396,8 +397,13 @@ void Test26() {
         // ---------------------------------------------------------------------
         // Caso D — Smart Uncapped Boost Power Mode Execution
         // ---------------------------------------------------------------------
-        bool set_power_ok = vegaflow::GraphicsOptimizer::SetApuPowerMode(vegaflow::ApuPowerMode::GpuPrioritySustained, DetectedPolicy(), false);
+        vegaflow::WindowsPowerPort power;
+        vegaflow::PowerModeTweaks power_mode(power);
+        bool set_power_ok = power_mode.SetApuPowerMode(vegaflow::ApuPowerMode::GpuPrioritySustained, DetectedPolicy(), false);
         bool case_d_ok = (test_policy.cpu_stapm_cap_mhz == 0) && set_power_ok;
+        if (set_power_ok) {
+            power_mode.SetApuPowerMode(vegaflow::ApuPowerMode::Balanced, DetectedPolicy(), false);
+        }
 
         bool t26_success = case_a_ok && case_b_ok && case_c_ok && case_d_ok;
 

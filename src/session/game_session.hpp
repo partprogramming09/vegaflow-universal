@@ -34,7 +34,6 @@ struct GameSessionState {
     std::wstring active_game_path;
     std::string active_game_api;
     HWND active_game_hwnd = nullptr;
-    bool timer_boosted = false;
     bool active_game_anticheat = false;
 };
 
@@ -65,8 +64,6 @@ struct GameSessionEnvironment {
 
     virtual void QueryLiveMemory(uint64_t& out_local_vram_budget_bytes, uint64_t& out_local_vram_usage_bytes, bool& out_vram_valid) = 0;
 
-    virtual bool EnableHighPrecisionTimer(uint32_t ns100) = 0;
-    virtual bool RestoreDefaultTimer() = 0;
     virtual void SetDynamicPrioritySeparation(uint32_t val) = 0;
     virtual void SetGameDvrAndFseOptimized(bool optimize) = 0;
     virtual void SetApuLaptopPowerProfile(bool optimize, const ApuOptimizationPolicy& static_policy) = 0;

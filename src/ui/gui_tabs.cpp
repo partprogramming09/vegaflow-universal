@@ -84,19 +84,13 @@ void RenderTabDashboard(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* st
     swprintf_s(ecoBuf, L"%u activos", state->data.ecoqos_processes_count);
     DrawTextAt(hdcMem, rcK2.left + 12, rcK2.top + 28, ecoBuf, CLR_ACCENT_CYAN, state->hFontMetric);
 
-    // KPI 3: TIMER KERNEL
+    // KPI 3: RAM LIBRE
     RECT rcK3 = { rcK2.right + kpiGutter, kpiY, rcK2.right + kpiGutter + kpiW, kpiY + kpiH };
     DrawRoundedCard(hdcMem, rcK3, CLR_CARD_BG, CLR_CARD_BORDER, 6);
-    DrawTextAt(hdcMem, rcK3.left + 12, rcK3.top + 8, L"TIMER KERNEL", CLR_TEXT_MUTED, state->hFontSmall);
-    bool timerActive = (state->data.timer_resolution_ms <= 0.55 || state->data.timer_forced_manual || state->data.game_active);
-    wchar_t timerBuf[32];
-    if (timerActive) {
-        wcscpy_s(timerBuf, L"0.500 ms");
-        DrawTextAt(hdcMem, rcK3.left + 12, rcK3.top + 28, timerBuf, CLR_ACCENT_GREEN, state->hFontMetric);
-    } else {
-        swprintf_s(timerBuf, L"%.3f ms", state->data.timer_resolution_ms);
-        DrawTextAt(hdcMem, rcK3.left + 12, rcK3.top + 28, timerBuf, CLR_TEXT_TITLE, state->hFontMetric);
-    }
+    DrawTextAt(hdcMem, rcK3.left + 12, rcK3.top + 8, L"RAM LIBRE", CLR_TEXT_MUTED, state->hFontSmall);
+    wchar_t freeBuf[32];
+    swprintf_s(freeBuf, L"%llu MB", static_cast<unsigned long long>(state->data.free_ram_mb));
+    DrawTextAt(hdcMem, rcK3.left + 12, rcK3.top + 28, freeBuf, CLR_ACCENT_GREEN, state->hFontMetric);
 
     // KPI 4: STANDBY RAM
     RECT rcK4 = { rcK3.right + kpiGutter, kpiY, contentRight, kpiY + kpiH };
@@ -126,8 +120,8 @@ void RenderTabDashboard(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* st
         std::wstring(state->data.system_info.apu_guard.dx12_async_compute_allowed ? L"ON" : L"OFF");
 
     const OptCardDef optCards[4] = {
-        { L"MMCSS Prioridad GPU=8", L"Máxima prioridad en cola WDDM para el juego", (state->data.mmcss_task_active || state->data.mmcss_gaming_optimized), !state->data.is_elevated },
-        { L"Temporizador 0.500 ms", L"Quantum de kernel a 0.5ms para latencia mínima", timerActive, false },
+        { L"MMCSS Perfil Gaming", L"Prioridad multimedia y respuesta rápida para el juego", (state->data.mmcss_task_active || state->data.mmcss_gaming_optimized), !state->data.is_elevated },
+        { L"Presentación DXGI", L"Flip Model / DirectFlip para reducir latencia", state->data.directflip_active, false },
         { L"Perfil Sombras APU", csmSubtitle.c_str(), state->data.apu_shadows_active, false },
         { L"Blindaje Kernel NT", L"DisablePagingExecutive activo en memoria física", state->data.kernel_paging_shield_active, !state->data.is_elevated }
     };
@@ -255,7 +249,7 @@ void RenderTabDashboard(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* st
 }
 
 // =============================================================================
-// TAB 1: KERNEL & SYSTEM TWEAKS (MINIMALIST - 6 COMPACT CARDS WITH SWITCH)
+// TAB 1: KERNEL & SYSTEM TWEAKS (DYNAMICALLY GATED FAMILIES)
 // =============================================================================
 void RenderTabKernel(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* state,
                      int contentLeft, int contentRight, int contentTop, int /*contentBottom*/, int /*contentW*/) {
@@ -267,15 +261,14 @@ void RenderTabKernel(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* state
 
     struct KernelTweakDef {
         int id;
-        const wchar_t* title;
+        std::wstring title;
         const wchar_t* purpose;
-        const wchar_t* activeBadge;
+        std::wstring activeBadge;
         const wchar_t* inactiveBadge;
         bool isActive;
         COLORREF activeColor;
     };
 
-    bool swTimer = state->data.timer_forced_manual || state->data.game_active || (state->data.timer_resolution_ms <= 0.55);
     bool swMpo = state->data.mpo_disabled;
     bool swShader = state->data.amd_shader_cache_forced;
     bool swVramOverride = state->data.amd_vram_override_active || state->data.amd_vram_reported_mb >= 2048;
@@ -286,101 +279,95 @@ void RenderTabKernel(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* state
     uint32_t vramPoolMb = (state->data.system_info.apu_guard.safe_vram_pool_mb > 0)
         ? state->data.system_info.apu_guard.safe_vram_pool_mb
         : (state->data.amd_vram_reported_mb > 0 ? state->data.amd_vram_reported_mb : 4096);
-    std::wstring vramTitle = L"4. VRAM Pool Override (" + std::to_wstring(vramPoolMb) + L" MB DXGI/AMD)";
+    std::wstring vramTitle = L"VRAM Pool Override (" + std::to_wstring(vramPoolMb) + L" MB DXGI/AMD)";
     std::wstring vramActiveBadge = std::to_wstring(vramPoolMb) + L" MB UMA POOL";
 
     uint32_t stapmMhz = state->data.system_info.apu_guard.cpu_stapm_cap_mhz;
     std::wstring apuTitle;
-    std::wstring apuPurpose;
+    const wchar_t* apuPurpose = L"";
     std::wstring apuActiveBadge;
     if (stapmMhz == 0) {
-        apuTitle = L"7. Potencia APU Smart Boost (100% CPU + 100% GPU)";
+        apuTitle = L"Potencia APU Smart Boost (100% CPU + 100% GPU)";
         apuPurpose = L"4.0 GHz sin tope + EPP 25 + Ahorro en 2º plano (EcoQoS)";
         apuActiveBadge = L"100% SMART BOOST";
     } else {
-        apuTitle = L"7. Control Térmico APU (" + std::to_wstring(stapmMhz) + L" MHz Sustained)";
+        apuTitle = L"Control Térmico APU (" + std::to_wstring(stapmMhz) + L" MHz Sustained)";
         apuPurpose = L"Prioriza TDP continuo para gráficos integrados";
         apuActiveBadge = L"GPU-PRIORITY (" + std::to_wstring(stapmMhz) + L"M)";
     }
 
-    const KernelTweakDef tweaks[7] = {
-        {
-            ID_ACT_TOGGLE_TIMER,
-            L"1. Temporizador del Kernel (0.50 ms)",
-            L"Tick submilisegundo para latencia ultra-baja",
-            L"0.50 ms (ACTIVO)",
-            L"15.62 ms (STOCK)",
-            swTimer,
-            CLR_ACCENT_GREEN
-        },
-        {
-            ID_ACT_TOGGLE_MPO,
-            L"2. Multi-Plane Overlay (MPO Anti-Flicker)",
-            L"Elimina stuttering y parpadeos en pantalla",
-            L"MPO DESACTIVADO",
-            L"MPO ACTIVO (STOCK)",
-            swMpo,
-            CLR_ACCENT_GREEN
-        },
-        {
+    std::vector<KernelTweakDef> tweaks;
+    tweaks.push_back({
+        ID_ACT_TOGGLE_MPO,
+        L"Multi-Plane Overlay (MPO / OverlayTestMode)",
+        L"Sin documentar por Microsoft; apagado por defecto",
+        L"MPO DESACTIVADO",
+        L"MPO ACTIVO (STOCK)",
+        swMpo,
+        CLR_ACCENT_GREEN
+    });
+    if (state->data.has_amd_driver) {
+        tweaks.push_back({
             ID_ACT_TOGGLE_SHADERCACHE,
-            L"3. Boost Driver AMD (Shader Cache On)",
+            L"Boost Driver AMD (Shader Cache On)",
             L"Compilación continua y cola baja latencia",
             L"CACHE FORZADA",
             L"CACHE STOCK",
             swShader,
             CLR_ACCENT_GREEN
-        },
-        {
+        });
+        tweaks.push_back({
             ID_ACT_TOGGLE_VRAM_OVERRIDE,
-            vramTitle.c_str(),
+            vramTitle,
             L"Elimina pop-in de texturas y límite de 512 MB",
-            vramActiveBadge.c_str(),
+            vramActiveBadge,
             L"512 MB STOCK",
             swVramOverride,
             CLR_ACCENT_GREEN
-        },
-        {
-            ID_ACT_TOGGLE_MMCSS,
-            L"5. MMCSS Prioridad GPU 8",
-            L"Máxima prioridad en cola WDDM para juegos",
-            L"GPU PRIO: 8",
-            L"PRIO: STOCK (2)",
-            swMmcss,
-            CLR_ACCENT_GREEN
-        },
-        {
-            ID_ACT_TOGGLE_MEMCOMP,
-            L"6. RAM Lock (DisablePagingExecutive)",
-            L"Bloquea el kernel en RAM física",
-            L"RAM LOCK: ACTIVO",
-            L"PAGING: STOCK",
-            swRamLock,
-            CLR_ACCENT_GREEN
-        },
-        {
+        });
+    }
+    tweaks.push_back({
+        ID_ACT_TOGGLE_MMCSS,
+        L"MMCSS Perfil Gaming (Audio & Juegos)",
+        L"Prioridad multimedia y planificador para juegos",
+        L"MMCSS GAMING",
+        L"MMCSS STOCK",
+        swMmcss,
+        CLR_ACCENT_GREEN
+    });
+    tweaks.push_back({
+        ID_ACT_TOGGLE_MEMCOMP,
+        L"RAM Lock (DisablePagingExecutive)",
+        L"Bloquea el kernel en RAM física",
+        L"RAM LOCK: ACTIVO",
+        L"PAGING: STOCK",
+        swRamLock,
+        CLR_ACCENT_GREEN
+    });
+    if (state->data.has_power_mode) {
+        tweaks.push_back({
             ID_ACT_TOGGLE_APU_POWER,
-            apuTitle.c_str(),
-            apuPurpose.c_str(),
-            apuActiveBadge.c_str(),
+            apuTitle,
+            apuPurpose,
+            apuActiveBadge,
             L"STOCK (4.0G)",
             swApuPower,
             CLR_ACCENT_GREEN
-        }
-    };
+        });
+    }
 
     int startY = contentTop + 44;
     int cardH = 58;
     int cardSpacing = 8;
 
-    for (int i = 0; i < 7; ++i) {
-        int cY = startY + i * (cardH + cardSpacing);
+    for (size_t i = 0; i < tweaks.size(); ++i) {
+        int cY = startY + static_cast<int>(i) * (cardH + cardSpacing);
         RECT rcCard = { contentLeft, cY, contentRight, cY + cardH };
 
         DrawRoundedCard(hdcMem, rcCard, CLR_CARD_BG, CLR_CARD_BORDER, 8);
 
-        // Tweak title
-        DrawTextAt(hdcMem, rcCard.left + 16, rcCard.top + 10, tweaks[i].title, CLR_TEXT_TITLE, state->hFontBold);
+        std::wstring numberedTitle = std::to_wstring(i + 1) + L". " + tweaks[i].title;
+        DrawTextAt(hdcMem, rcCard.left + 16, rcCard.top + 10, numberedTitle, CLR_TEXT_TITLE, state->hFontBold);
 
         // Concise purpose (4-6 words)
         DrawTextAt(hdcMem, rcCard.left + 16, rcCard.top + 32, tweaks[i].purpose, CLR_TEXT_MUTED, state->hFontSmall);
@@ -388,7 +375,7 @@ void RenderTabKernel(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* state
         // Status badge to the left of the switch
         RECT rcBadge = { rcCard.right - 265, rcCard.top + (cardH - 24) / 2, rcCard.right - 105, rcCard.top + (cardH - 24) / 2 + 24 };
         if (tweaks[i].isActive) {
-            DrawBadge(hdcMem, rcBadge, tweaks[i].activeBadge, tweaks[i].activeColor, RGB(20, 36, 28), tweaks[i].activeColor, state->hFontSmallBold);
+            DrawBadge(hdcMem, rcBadge, tweaks[i].activeBadge.c_str(), tweaks[i].activeColor, RGB(20, 36, 28), tweaks[i].activeColor, state->hFontSmallBold);
         } else {
             DrawBadge(hdcMem, rcBadge, tweaks[i].inactiveBadge, CLR_TEXT_MUTED, RGB(33, 38, 48), CLR_CARD_BORDER, state->hFontSmallBold);
         }
@@ -434,25 +421,34 @@ void RenderTabMemory(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* state
         DrawBadge(hdcMem, rcDxgiBadge, dxgiBadgeText, CLR_ACCENT_CYAN, RGB(20, 36, 44), CLR_ACCENT_CYAN, state->hFontSmallBold);
     }
 
-    bool vramPoolActive = state->data.amd_vram_override_active || state->data.amd_vram_reported_mb >= 2048;
-    uint32_t activePoolMb = state->data.amd_vram_reported_mb > 0 ? state->data.amd_vram_reported_mb : (vramPoolActive ? 4096 : 512);
-    wchar_t poolBadgeText[64];
-    swprintf_s(poolBadgeText, L"POOL TEXTURAS: %u MB", activePoolMb);
-    RECT rcPoolBadge = { rcTopMem.right - 390, rcTopMem.top + 10, rcTopMem.right - 203, rcTopMem.top + 32 };
-    if (vramPoolActive) {
-        DrawBadge(hdcMem, rcPoolBadge, poolBadgeText, CLR_ACCENT_GREEN, RGB(20, 36, 28), CLR_ACCENT_GREEN, state->hFontSmallBold);
-    } else {
-        DrawBadge(hdcMem, rcPoolBadge, poolBadgeText, CLR_TEXT_MUTED, RGB(33, 38, 48), CLR_CARD_BORDER, state->hFontSmallBold);
-    }
-
     wchar_t mLine[256];
-    swprintf_s(mLine, L"Total: %llu MB   |   Libre: %llu MB   |   Standby: %llu MB   |   VRAM Local: %llu / %llu MB   |   Pool: %u MB",
-               static_cast<unsigned long long>(state->data.total_ram_mb),
-               static_cast<unsigned long long>(state->data.free_ram_mb),
-               static_cast<unsigned long long>(state->data.standby_ram_mb),
-               static_cast<unsigned long long>(state->data.vram_local_used_mb),
-               static_cast<unsigned long long>(state->data.vram_local_budget_mb),
-               activePoolMb);
+    if (state->data.has_amd_driver) {
+        bool vramPoolActive = state->data.amd_vram_override_active || state->data.amd_vram_reported_mb >= 2048;
+        uint32_t activePoolMb = state->data.amd_vram_reported_mb > 0 ? state->data.amd_vram_reported_mb : (vramPoolActive ? 4096 : 512);
+        wchar_t poolBadgeText[64];
+        swprintf_s(poolBadgeText, L"POOL TEXTURAS: %u MB", activePoolMb);
+        RECT rcPoolBadge = { rcTopMem.right - 390, rcTopMem.top + 10, rcTopMem.right - 203, rcTopMem.top + 32 };
+        if (vramPoolActive) {
+            DrawBadge(hdcMem, rcPoolBadge, poolBadgeText, CLR_ACCENT_GREEN, RGB(20, 36, 28), CLR_ACCENT_GREEN, state->hFontSmallBold);
+        } else {
+            DrawBadge(hdcMem, rcPoolBadge, poolBadgeText, CLR_TEXT_MUTED, RGB(33, 38, 48), CLR_CARD_BORDER, state->hFontSmallBold);
+        }
+
+        swprintf_s(mLine, L"Total: %llu MB   |   Libre: %llu MB   |   Standby: %llu MB   |   VRAM Local: %llu / %llu MB   |   Pool: %u MB",
+                   static_cast<unsigned long long>(state->data.total_ram_mb),
+                   static_cast<unsigned long long>(state->data.free_ram_mb),
+                   static_cast<unsigned long long>(state->data.standby_ram_mb),
+                   static_cast<unsigned long long>(state->data.vram_local_used_mb),
+                   static_cast<unsigned long long>(state->data.vram_local_budget_mb),
+                   activePoolMb);
+    } else {
+        swprintf_s(mLine, L"Total: %llu MB   |   Libre: %llu MB   |   Standby: %llu MB   |   VRAM Local: %llu / %llu MB",
+                   static_cast<unsigned long long>(state->data.total_ram_mb),
+                   static_cast<unsigned long long>(state->data.free_ram_mb),
+                   static_cast<unsigned long long>(state->data.standby_ram_mb),
+                   static_cast<unsigned long long>(state->data.vram_local_used_mb),
+                   static_cast<unsigned long long>(state->data.vram_local_budget_mb));
+    }
     DrawTextAt(hdcMem, rcTopMem.left + 16, rcTopMem.top + 38, mLine, CLR_TEXT_TITLE, state->hFontRegular);
 
     // Styled multi-segment progress bar

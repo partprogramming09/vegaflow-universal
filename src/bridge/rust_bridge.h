@@ -172,19 +172,17 @@ size_t vf_rust_steam_library_paths(const char* vdf, size_t len, VfSteamLibraryFn
 /* Bits of VfConfigLoad.rejected_keys, one per key. */
 #define VF_CONFIG_KEY_VERSION                  (1u << 0)
 #define VF_CONFIG_KEY_POLL_INTERVAL_MS         (1u << 1)
-#define VF_CONFIG_KEY_TIMER_RESOLUTION_NS100   (1u << 2)
-#define VF_CONFIG_KEY_TIMER_FORCED_MANUAL      (1u << 3)
-#define VF_CONFIG_KEY_RESTRICT_GAME_CPU_SETS   (1u << 4)
-#define VF_CONFIG_KEY_MIN_FREE_RAM_MB          (1u << 5)
-#define VF_CONFIG_KEY_MIN_STANDBY_MB           (1u << 6)
-#define VF_CONFIG_KEY_COOLDOWN_SECONDS         (1u << 7)
-#define VF_CONFIG_KEY_MAX_GAME_DISK_READ_MB_S  (1u << 8)
-#define VF_CONFIG_KEY_CUSTOM_GAME_EXES         (1u << 9)
-#define VF_CONFIG_KEY_MEMORY                   (1u << 10)
-#define VF_CONFIG_KEY_HEAVY_WORK_AS_GAME       (1u << 11)
-#define VF_CONFIG_KEY_PROCESS_CATEGORY_ACTIONS (1u << 12)
-#define VF_CONFIG_KEY_PROCESS_EXCEPTIONS       (1u << 13)
-#define VF_CONFIG_KEY_EXCLUDED_GAME_EXES       (1u << 14)
+#define VF_CONFIG_KEY_RESTRICT_GAME_CPU_SETS   (1u << 2)
+#define VF_CONFIG_KEY_MIN_FREE_RAM_MB          (1u << 3)
+#define VF_CONFIG_KEY_MIN_STANDBY_MB           (1u << 4)
+#define VF_CONFIG_KEY_COOLDOWN_SECONDS         (1u << 5)
+#define VF_CONFIG_KEY_MAX_GAME_DISK_READ_MB_S  (1u << 6)
+#define VF_CONFIG_KEY_CUSTOM_GAME_EXES         (1u << 7)
+#define VF_CONFIG_KEY_MEMORY                   (1u << 8)
+#define VF_CONFIG_KEY_HEAVY_WORK_AS_GAME       (1u << 9)
+#define VF_CONFIG_KEY_PROCESS_CATEGORY_ACTIONS (1u << 10)
+#define VF_CONFIG_KEY_PROCESS_EXCEPTIONS       (1u << 11)
+#define VF_CONFIG_KEY_EXCLUDED_GAME_EXES       (1u << 12)
 /* Results of vf_rust_config_save. */
 #define VF_CONFIG_SAVE_OK       0u
 #define VF_CONFIG_SAVE_BLOCKED  1u /* the current file has a VF_CONFIG_BLOCKS_SAVE status */
@@ -257,9 +255,7 @@ typedef struct VfProcessClassifyInput {
 /* Every setting of config.json; the game names travel apart. */
 typedef struct VfConfigSettings {
     uint32_t poll_interval_ms;
-    uint32_t timer_resolution_ns100;
     uint32_t cooldown_seconds;
-    bool timer_forced_manual;
     bool restrict_game_cpu_sets;
     uint64_t min_free_ram_mb;
     uint64_t min_standby_mb;

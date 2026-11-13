@@ -24,6 +24,7 @@
 #include "detect/hardware_profiler.hpp"
 #include "detect/process_detector.hpp"
 #include "optimize/graphics/graphics_optimizer.hpp"
+#include "windows/registry.hpp"
 #include "optimize/memory_manager.hpp"
 #include "optimize/cpu_orchestrator.hpp"
 #include "optimize/steam/steam_engine_optimizer.hpp"
@@ -171,7 +172,9 @@ void Test14() {
         if (hMutex1) CloseHandle(hMutex1);
 
         // 2. Non-blocking MMAgent dry-run check
-        bool mem_comp_dry_ok = vegaflow::GraphicsOptimizer::SetMemoryCompressionEnabled(true, true /* dry_run */);
+        vegaflow::WindowsRegistryPort reg;
+        vegaflow::KernelSchedulerTweaks kernel_tweaks(reg);
+        bool mem_comp_dry_ok = kernel_tweaks.SetMemoryCompressionEnabled(true, true /* dry_run */);
 
         // 3. Safe Steam RunningAppID query
         uint32_t running_app_id = vegaflow::SteamEngineOptimizer::GetRunningSteamAppId();

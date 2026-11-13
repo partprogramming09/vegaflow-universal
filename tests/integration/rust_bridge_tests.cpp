@@ -212,8 +212,7 @@ void Test34() {
         VF_LAYOUT_BEGIN(VfAllowedRoot)
         VF_FIELD(VfAllowedRoot, path) VF_FIELD(VfAllowedRoot, len) VF_FIELD(VfAllowedRoot, writable)
         VF_LAYOUT_BEGIN(VfConfigSettings)
-        VF_FIELD(VfConfigSettings, poll_interval_ms) VF_FIELD(VfConfigSettings, timer_resolution_ns100)
-        VF_FIELD(VfConfigSettings, cooldown_seconds) VF_FIELD(VfConfigSettings, timer_forced_manual)
+        VF_FIELD(VfConfigSettings, poll_interval_ms) VF_FIELD(VfConfigSettings, cooldown_seconds)
         VF_FIELD(VfConfigSettings, restrict_game_cpu_sets) VF_FIELD(VfConfigSettings, min_free_ram_mb)
         VF_FIELD(VfConfigSettings, min_standby_mb) VF_FIELD(VfConfigSettings, max_game_disk_read_mb_s)
         VF_LAYOUT_BEGIN(VfConfigLoad)
@@ -284,7 +283,7 @@ void Test34() {
         const std::vector<uint32_t> expected_constants = {
             VF_CONFIG_CORRUPT, VF_CONFIG_KEY_REJECTED, VF_CONFIG_NEWER_VERSION, VF_CONFIG_OLD_VERSION, VF_CONFIG_EMPTY,
             VF_CONFIG_BLOCKS_SAVE, VF_CONFIG_KEY_VERSION, VF_CONFIG_KEY_POLL_INTERVAL_MS,
-            VF_CONFIG_KEY_TIMER_RESOLUTION_NS100, VF_CONFIG_KEY_TIMER_FORCED_MANUAL, VF_CONFIG_KEY_RESTRICT_GAME_CPU_SETS,
+            VF_CONFIG_KEY_RESTRICT_GAME_CPU_SETS,
             VF_CONFIG_KEY_MIN_FREE_RAM_MB, VF_CONFIG_KEY_MIN_STANDBY_MB, VF_CONFIG_KEY_COOLDOWN_SECONDS,
             VF_CONFIG_KEY_MAX_GAME_DISK_READ_MB_S, VF_CONFIG_KEY_CUSTOM_GAME_EXES, VF_CONFIG_KEY_MEMORY,
             VF_CONFIG_KEY_HEAVY_WORK_AS_GAME, VF_CONFIG_KEY_PROCESS_CATEGORY_ACTIONS,

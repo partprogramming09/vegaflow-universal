@@ -95,7 +95,7 @@ void Test47() {
     cfg.memory.cooldown_seconds = 120;
     std::string why;
     const bool saved = first.Save(cfg, false, &why);
-    cfg.timer_forced_manual = true;
+    cfg.restrict_game_cpu_sets = true;
     const bool saved_again = first.Save(cfg, false, &why);
     const bool no_temp_left = !std::filesystem::exists(path + L".vegaflow.tmp", ec);
 
@@ -103,7 +103,7 @@ void Test47() {
     const bool still_trusted = vegaflow::ConfigLocationTrusted(path);
     vegaflow::app::ConfigStore next(fs, path, still_trusted);
     const vegaflow::app::AppConfig reread = next.Load();
-    const bool same = reread.memory.cooldown_seconds == 120 && reread.timer_forced_manual && next.Report().Warning().empty();
+    const bool same = reread.memory.cooldown_seconds == 120 && reread.restrict_game_cpu_sets && next.Report().Warning().empty();
 
     // A config.json that Users may modify, inside a trusted folder, makes the location untrusted.
     const bool open_file = SetSddl(path, L"O:BAD:P(A;;FA;;;BA)(A;;0x1301bf;;;BU)") && !vegaflow::ConfigLocationTrusted(path);

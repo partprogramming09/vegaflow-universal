@@ -32,18 +32,6 @@ typedef LONG NTSTATUS;
 #endif
 
 extern "C" {
-    NTSYSAPI NTSTATUS NTAPI NtSetTimerResolution(
-        ULONG DesiredResolution,
-        BOOLEAN SetResolution,
-        PULONG CurrentResolution
-    );
-
-    NTSYSAPI NTSTATUS NTAPI NtQueryTimerResolution(
-        PULONG MaximumResolution,
-        PULONG MinimumResolution,
-        PULONG CurrentResolution
-    );
-
     NTSYSAPI NTSTATUS NTAPI NtQuerySystemInformation(
         ULONG SystemInformationClass,
         PVOID SystemInformation,
@@ -97,8 +85,6 @@ enum PROCESS_INFORMATION_CLASS_NT {
     ProcessPagePriority = 39
 };
 
-using ::NtSetTimerResolution;
-using ::NtQueryTimerResolution;
 using ::NtQuerySystemInformation;
 using ::NtSetSystemInformation;
 using ::NtSetInformationProcess;

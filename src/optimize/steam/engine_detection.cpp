@@ -2,6 +2,9 @@
 #include "optimize/steam/steam_internal.hpp"
 #include "optimize/graphics/graphics_optimizer.hpp"
 #include "optimize/dxvk_manager.hpp"
+#include "windows/registry.hpp"
+
+#include <optional>
 
 namespace vegaflow {
 
@@ -25,7 +28,8 @@ bool ContainsInsensitiveW(std::wstring_view haystack, std::wstring_view needle) 
 SteamGameEntry SteamEngineOptimizer::InspectGameDirectory(
     const std::wstring& install_dir,
     uint32_t app_id,
-    const std::string& name) {
+    const std::string& name,
+    RegistryPort* reg) {
 
     SteamGameEntry entry{};
     entry.app_id = app_id;
@@ -155,8 +159,17 @@ SteamGameEntry SteamEngineOptimizer::InspectGameDirectory(
         entry.primary_exe_path = largest_exe_path;
     }
 
-    entry.flip_model_applied = !entry.primary_exe_path.empty() &&
-        GraphicsOptimizer::HasDxgiFlipModelUpgrade(entry.primary_exe_path);
+    if (!entry.primary_exe_path.empty()) {
+        std::optional<WindowsRegistryPort> local_reg;
+        RegistryPort* eff_reg = reg;
+        if (!eff_reg) {
+            local_reg.emplace();
+            eff_reg = &*local_reg;
+        }
+        entry.flip_model_applied = DxgiFlipTweaks(*eff_reg).HasFlipModelUpgrade(entry.primary_exe_path);
+    } else {
+        entry.flip_model_applied = false;
+    }
 
     entry.dxvk_installed = !entry.primary_exe_path.empty() &&
         DxvkManager::IsDxvkInstalled(entry.primary_exe_path);

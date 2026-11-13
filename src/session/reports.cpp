@@ -21,6 +21,8 @@
 #include "optimize/cpu_orchestrator.hpp"
 #include "optimize/steam/steam_engine_optimizer.hpp"
 #include "optimize/dxvk_manager.hpp"
+#include "windows/power.hpp"
+#include "windows/registry.hpp"
 #include <tlhelp32.h>
 #include "session/text_convert.hpp"
 
@@ -145,9 +147,13 @@ void PrintStatusReport() {
     MemoryManager mem_mgr(mem_cfg);
     SystemMemoryTelemetry mem = mem_mgr.SampleTelemetry();
 
-    TimerResolutionState timer = GraphicsOptimizer::QueryTimerResolution();
-    SystemGraphicsTweaksState tweaks = GraphicsOptimizer::QuerySystemGraphicsTweaks();
-    std::vector<ShaderCacheReport> shader_caches = GraphicsOptimizer::InspectShaderCaches();
+    WindowsRegistryPort reg;
+    WindowsPowerPort power;
+    ApuOptimizationPolicy policy = HardwareProfiler::BuildOptimizationPolicy(hw, mem.vram.local_budget_bytes);
+    GraphicsOptimizer gfx(hw, policy, reg, &power);
+
+    SystemGraphicsTweaksState tweaks = gfx.QuerySystemGraphicsTweaks();
+    std::vector<ShaderCacheReport> shader_caches = gfx.Display().InspectShaderCaches();
     std::vector<uint32_t> noisy_pids = ProcessDetector::FindBackgroundNoisyProcesses();
     uint64_t daemon_ram_bytes = MemoryManager::GetCurrentProcessPrivateWorkingSetBytes();
 
@@ -199,7 +205,6 @@ void PrintStatusReport() {
     std::cout << "  Dedicated Video Memory     : " << FormatBytes(hw.primary_gpu.dedicated_vram_bytes) << "\n";
     std::cout << "  Shared System Memory       : " << FormatBytes(hw.primary_gpu.shared_system_bytes) << "\n\n";
 
-    ApuOptimizationPolicy policy = HardwareProfiler::BuildOptimizationPolicy(hw, mem.vram.local_budget_bytes);
     UmaGuardStatus uma_guard = mem_mgr.EvaluateUmaPressureGuard(mem, policy, {}, true);
 
     std::cout << "[APU CAPABILITY GUARD & DX11/DX12 POLICY]\n";
@@ -216,21 +221,25 @@ void PrintStatusReport() {
     std::cout << "  Live DXGI Budget Pressure  : " << static_cast<int>(uma_guard.dxgi_budget_utilization * 100.0) << "% (Threshold: " << uma_thresh_pct << "% -> " << (uma_guard.guard_triggered ? "PRESSURE GUARD ACTIVE" : "HEALTHY") << ")\n\n";
 
     std::cout << "[SYSTEM GRAPHICS TWEAKS]\n";
-    std::cout << "  Multi-Plane Overlay (MPO)  : " << (tweaks.mpo_disabled ? "DISABLED (OverlayTestMode=5, Stutter-Free)" : "ENABLED (Windows Default)") << "\n";
-    std::cout << "  AMD ShaderCache Mode       : " << (tweaks.amd_shader_cache_forced ? "FORCED ON (0x3200, Stutter Elimination)" : "Driver Default (AMD Optimized)") << "\n";
-    std::cout << "  AMD DX11/UMA Driver Boost  : " << (tweaks.amd_dx11_uma_boost ? "ACTIVE (SurfaceFormat FP16 + FlipQueue=1)" : "Driver Default") << "\n";
-    std::cout << "  AMD VRAM Reporting Pool    : " << (tweaks.amd_vram_override_active ? ("FORCED (" + std::to_string(tweaks.amd_vram_reported_mb > 0 ? tweaks.amd_vram_reported_mb : 4096) + " MB DXGI/AMD)") : ("Driver Default (" + std::to_string(tweaks.amd_vram_reported_mb > 0 ? tweaks.amd_vram_reported_mb : 512) + " MB)")) << "\n";
-    std::cout << "  MMCSS WDDM Gaming Profile  : " << (tweaks.mmcss_gaming_optimized ? "OPTIMIZED (GPU Priority=8, SystemResponsiveness=10%)" : "Windows Default (GPU Priority=2)") << "\n";
+    std::cout << "  Multi-Plane Overlay (MPO)  : " << (tweaks.mpo_disabled ? "DISABLED (OverlayTestMode=5, undocumented)" : "ENABLED (Windows Default)") << "\n";
+    if (gfx.AmdDriver()) {
+        std::cout << "  AMD ShaderCache Mode       : " << (tweaks.amd_shader_cache_forced ? "FORCED ON (0x3200, Stutter Elimination)" : "Driver Default (AMD Optimized)") << "\n";
+        std::cout << "  AMD DX11/UMA Driver Boost  : " << (tweaks.amd_dx11_uma_boost ? "ACTIVE (SurfaceFormat FP16 + FlipQueue=1)" : "Driver Default") << "\n";
+        std::cout << "  AMD VRAM Reporting Pool    : " << (tweaks.amd_vram_override_active ? ("FORCED (" + std::to_string(tweaks.amd_vram_reported_mb > 0 ? tweaks.amd_vram_reported_mb : 4096) + " MB DXGI/AMD)") : ("Driver Default (" + std::to_string(tweaks.amd_vram_reported_mb > 0 ? tweaks.amd_vram_reported_mb : 512) + " MB)")) << "\n";
+        std::cout << "  AMD Tessellation Limiter   : " << ((tweaks.amd_tessellation_max > 0 && tweaks.amd_tessellation_max <= 16) ? (std::to_string(tweaks.amd_tessellation_max) + "x (Over-Geometry Capped)") : (tweaks.amd_dx11_uma_boost ? "16x (Over-Geometry Capped)" : (tweaks.amd_tessellation_max > 0 ? (std::to_string(tweaks.amd_tessellation_max) + "x (Driver Setting)") : "16x (Over-Geometry Capped)"))) << "\n";
+    } else {
+        std::cout << "  AMD Driver Tweaks          : N/A (GPU no AMD o driver tweaks bloqueados)\n";
+    }
+    std::cout << "  MMCSS WDDM Gaming Profile  : " << (tweaks.mmcss_gaming_optimized ? "OPTIMIZED (SystemResponsiveness=10%, High Priority)" : "Windows Default") << "\n";
     std::cout << "  GameDVR & FSE Bypass       : " << (tweaks.gamedvr_disabled ? "OPTIMIZED (Background Capture Off + FSE Mode 2)" : "DEFAULT (Windows DVR Active)") << "\n";
     std::cout << "  APU Laptop Power & Bus     : " << (tweaks.apu_power_optimized ? "ACTIVE (Boost Efficient-Aggressive + PCIe ASPM Off)" : "STANDARD (Windows Default)") << "\n";
     std::cout << "  CPU Quantum Separation     : 0x" << std::hex << tweaks.win32_priority_separation << std::dec << "\n";
     std::cout << "  Windows Memory Compression : " << (tweaks.memory_compression_enabled ? "ACTIVE (MemCompression Process)" : "DISABLED (Zero CPU Spikes / Low Latency)") << "\n";
     std::cout << "  Kernel Memory Paging Shield: " << (tweaks.kernel_paging_shield_active ? "ACTIVE (DisablePagingExecutive=1, RAM Lock)" : "DEFAULT (Paging Allowed)") << "\n";
-    std::cout << "  AMD Tessellation Limiter   : " << ((tweaks.amd_tessellation_max > 0 && tweaks.amd_tessellation_max <= 16) ? (std::to_string(tweaks.amd_tessellation_max) + "x (Over-Geometry Capped)") : (tweaks.amd_dx11_uma_boost ? "16x (Over-Geometry Capped)" : (tweaks.amd_tessellation_max > 0 ? (std::to_string(tweaks.amd_tessellation_max) + "x (Driver Setting)") : "16x (Over-Geometry Capped)"))) << "\n";
 
     uint32_t df_count = CountDirectFlipConfiguredGames();
     auto active_game = ProcessDetector::DetectActiveGame();
-    bool directflip_live = active_game.has_value() && GraphicsOptimizer::HasDirectFlipUpgrade(active_game->full_path);
+    bool directflip_live = active_game.has_value() && gfx.DxgiFlip().HasDirectFlipUpgrade(active_game->full_path);
     std::string df_status;
     if (directflip_live) {
         df_status = "ACTIVE (" + WideToUtf8(active_game->exe_name) + " - Latency 0ms / Zero-Copy Bypass)";
@@ -257,12 +266,6 @@ void PrintStatusReport() {
         std::cout << "  Local VRAM Usage / Budget  : N/A (Standard DXGI query unavailable)\n";
     }
     std::cout << "\n";
-
-    std::cout << "[WINDOWS TIMER RESOLUTION]\n";
-    std::cout << "  Current Resolution         : " << (static_cast<double>(timer.current_ns100) / 10000.0) << " ms (" << timer.current_ns100 << " in 100ns units)\n";
-    std::cout << "  Minimum (Default) Res      : " << (static_cast<double>(timer.minimum_ns100) / 10000.0) << " ms (" << timer.minimum_ns100 << " in 100ns units)\n";
-    std::cout << "  Maximum (High-Precision)   : " << (static_cast<double>(timer.maximum_ns100) / 10000.0) << " ms (" << timer.maximum_ns100 << " in 100ns units)\n";
-    std::cout << "  High-Precision Active      : " << (timer.active_high_res ? "YES" : "NO") << "\n\n";
 
     std::cout << "[SHADER CACHES DETECTED]\n";
     if (shader_caches.empty()) {
@@ -364,10 +367,11 @@ void ExecuteDryRun(const AppConfig& config) {
         std::cout << "  -> Presenter Thread ID: " << game.presenter_thread_id << "\n\n";
 
         std::cout << "[2/4] [DRY-RUN] Graphics Optimizations Evaluation:\n";
-        std::cout << "  -> High-Precision Timer: Would call NtSetTimerResolution(" << config.timer_resolution_ns100 << ", TRUE) [0.5 ms target]\n";
-        bool flip_already = GraphicsOptimizer::HasDxgiFlipModelUpgrade(game.full_path);
+        WindowsRegistryPort reg;
+        DxgiFlipTweaks flip(reg);
+        bool flip_already = flip.HasFlipModelUpgrade(game.full_path);
         std::cout << "  -> DXGI Flip Model Upgrade: " << (flip_already ? "Already enabled in registry" : "Would set SwapEffectUpgradeEnable=1 in HKCU UserGpuPreferences") << "\n";
-        GraphicsOptimizer::ApplyDxgiFlipModelUpgrade(game.full_path, true /* dry_run */);
+        flip.ApplyFlipModelUpgrade(game.full_path, true /* dry_run */);
         std::cout << "\n";
 
         std::cout << "[3/4] [DRY-RUN] CPU Orchestrator Evaluation:\n";
@@ -414,7 +418,7 @@ void ExecuteDryRun(const AppConfig& config) {
         for (const auto& t : bg_targets) {
             if (t.action == ProcessAction::Throttle) bg_pids.push_back(t.pid);
         }
-        std::cout << "[2/4] [DRY-RUN] High-Precision Timer: Would set timer resolution to " << config.timer_resolution_ns100 << " (0.5 ms)\n\n";
+        std::cout << "[2/4] [DRY-RUN] Graphics / Registry Tweaks: Idle (applied on game launch)\n\n";
 
         std::cout << "[3/4] [DRY-RUN] CPU Orchestrator Evaluation:\n";
         std::cout << "  -> Background Processes Found: " << bg_targets.size() << " PIDs\n";
