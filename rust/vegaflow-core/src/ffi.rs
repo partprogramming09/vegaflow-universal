@@ -11,6 +11,9 @@ use crate::policy::config_rules;
 use crate::policy::cpu_governor::{self, VfCpuCoreEntry, VfTopologyPartitionOut, VF_MAX_LOGICAL_PROCESSORS};
 use crate::policy::file_access::{self, AllowedRoot};
 use crate::policy::folder_trust::{self, Ace, SidKind};
+use crate::policy::ini_merge::{
+    self, VF_INI_ERR_ENCODING, VF_INI_ERR_INVALID_INPUT, VF_INI_ERR_MISSING_END_MARKER, VF_INI_ERR_UNMATCHED_END_MARKER, VF_INI_OK,
+};
 use crate::policy::path_policy::{self, VF_PATH_INTERNAL_ERROR};
 use crate::policy::sandbox_core;
 use crate::policy::steam_library;
@@ -381,6 +384,247 @@ pub extern "C" fn vf_rust_only_admins_can_write(has_dacl: bool, owner_kind: u8, 
     })
 }
 
+/// Called once with raw output bytes (may contain UTF-16 NULs), valid only during the call.
+pub type VfBytesFn = Option<unsafe extern "C" fn(ctx: *mut c_void, data: *const u8, len: usize)>;
+
+/// Called once per key/value pair read from an INI section; UTF-8, not NUL-terminated.
+pub type VfKvFn = Option<unsafe extern "C" fn(ctx: *mut c_void, key: *const u8, key_len: usize, val: *const u8, val_len: usize)>;
+
+/// One key/value update for INI / boot.config editing.
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct VfIniKv {
+    pub key: *const u8,
+    pub key_len: usize,
+    pub value: *const u8,
+    pub value_len: usize,
+}
+
+unsafe fn bytes_or_empty<'a>(ptr: *const u8, len: usize) -> Option<&'a [u8]> {
+    if len == 0 {
+        Some(&[])
+    } else if ptr.is_null() {
+        None
+    } else {
+        Some(core::slice::from_raw_parts(ptr, len))
+    }
+}
+
+unsafe fn extract_kv_pairs<'a>(pairs: *const VfIniKv, pair_count: usize) -> Option<Vec<(&'a str, &'a str)>> {
+    if pair_count == 0 {
+        return Some(Vec::new());
+    }
+    if pairs.is_null() {
+        return None;
+    }
+    let slice = core::slice::from_raw_parts(pairs, pair_count);
+    let mut out = Vec::with_capacity(pair_count);
+    for p in slice {
+        let kb = bytes_or_empty(p.key, p.key_len)?;
+        let vb = bytes_or_empty(p.value, p.value_len)?;
+        let k = std::str::from_utf8(kb).ok()?;
+        let v = std::str::from_utf8(vb).ok()?;
+        out.push((k, v));
+    }
+    Some(out)
+}
+
+#[no_mangle]
+pub extern "C" fn vf_rust_ini_merge_unreal(
+    original: *const u8,
+    original_len: usize,
+    block: *const u8,
+    block_len: usize,
+    on_out: VfBytesFn,
+    ctx: *mut c_void,
+) -> u32 {
+    ffi_guard(VF_INI_ERR_INVALID_INPUT, || {
+        let Some(orig_bytes) = (unsafe { bytes_or_empty(original, original_len) }) else {
+            return VF_INI_ERR_INVALID_INPUT;
+        };
+        let Some(block_bytes) = (unsafe { bytes_or_empty(block, block_len) }) else {
+            return VF_INI_ERR_INVALID_INPUT;
+        };
+        let Ok(block_str) = std::str::from_utf8(block_bytes) else {
+            return VF_INI_ERR_INVALID_INPUT;
+        };
+        match ini_merge::merge_unreal_uma_block(orig_bytes, block_str) {
+            Ok(out) => {
+                if let Some(cb) = on_out {
+                    unsafe { cb(ctx, out.as_ptr(), out.len()) };
+                }
+                VF_INI_OK
+            }
+            Err(e) => e.code(),
+        }
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn vf_rust_ini_remove_unreal(
+    original: *const u8,
+    original_len: usize,
+    out_changed: *mut bool,
+    on_out: VfBytesFn,
+    ctx: *mut c_void,
+) -> u32 {
+    ffi_guard(VF_INI_ERR_INVALID_INPUT, || {
+        let Some(orig_bytes) = (unsafe { bytes_or_empty(original, original_len) }) else {
+            return VF_INI_ERR_INVALID_INPUT;
+        };
+        match ini_merge::remove_unreal_uma_block(orig_bytes) {
+            Ok((out, changed)) => {
+                if !out_changed.is_null() {
+                    unsafe { *out_changed = changed };
+                }
+                if let Some(cb) = on_out {
+                    unsafe { cb(ctx, out.as_ptr(), out.len()) };
+                }
+                VF_INI_OK
+            }
+            Err(e) => e.code(),
+        }
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn vf_rust_ini_merge_unity(
+    original: *const u8,
+    original_len: usize,
+    pairs: *const VfIniKv,
+    pair_count: usize,
+    on_out: VfBytesFn,
+    ctx: *mut c_void,
+) -> u32 {
+    ffi_guard(VF_INI_ERR_INVALID_INPUT, || {
+        let Some(orig_bytes) = (unsafe { bytes_or_empty(original, original_len) }) else {
+            return VF_INI_ERR_INVALID_INPUT;
+        };
+        let Some(kv) = (unsafe { extract_kv_pairs(pairs, pair_count) }) else {
+            return VF_INI_ERR_INVALID_INPUT;
+        };
+        match ini_merge::merge_unity_boot_config(orig_bytes, &kv) {
+            Ok(out) => {
+                if let Some(cb) = on_out {
+                    unsafe { cb(ctx, out.as_ptr(), out.len()) };
+                }
+                VF_INI_OK
+            }
+            Err(e) => e.code(),
+        }
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn vf_rust_ini_apply_section(
+    original: *const u8,
+    original_len: usize,
+    section: *const u8,
+    section_len: usize,
+    pairs: *const VfIniKv,
+    pair_count: usize,
+    on_out: VfBytesFn,
+    ctx: *mut c_void,
+) -> u32 {
+    ffi_guard(VF_INI_ERR_INVALID_INPUT, || {
+        let Some(orig_bytes) = (unsafe { bytes_or_empty(original, original_len) }) else {
+            return VF_INI_ERR_INVALID_INPUT;
+        };
+        let Some(sec_bytes) = (unsafe { bytes_or_empty(section, section_len) }) else {
+            return VF_INI_ERR_INVALID_INPUT;
+        };
+        let Ok(sec_str) = std::str::from_utf8(sec_bytes) else {
+            return VF_INI_ERR_INVALID_INPUT;
+        };
+        let Some(kv) = (unsafe { extract_kv_pairs(pairs, pair_count) }) else {
+            return VF_INI_ERR_INVALID_INPUT;
+        };
+        match ini_merge::apply_ini_section_keys(orig_bytes, sec_str, &kv) {
+            Ok(out) => {
+                if let Some(cb) = on_out {
+                    unsafe { cb(ctx, out.as_ptr(), out.len()) };
+                }
+                VF_INI_OK
+            }
+            Err(e) => e.code(),
+        }
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn vf_rust_ini_remove_section_keys(
+    original: *const u8,
+    original_len: usize,
+    section: *const u8,
+    section_len: usize,
+    keys: *const VfIniKv,
+    key_count: usize,
+    out_changed: *mut bool,
+    on_out: VfBytesFn,
+    ctx: *mut c_void,
+) -> u32 {
+    ffi_guard(VF_INI_ERR_INVALID_INPUT, || {
+        let Some(orig_bytes) = (unsafe { bytes_or_empty(original, original_len) }) else {
+            return VF_INI_ERR_INVALID_INPUT;
+        };
+        let Some(sec_bytes) = (unsafe { bytes_or_empty(section, section_len) }) else {
+            return VF_INI_ERR_INVALID_INPUT;
+        };
+        let Ok(sec_str) = std::str::from_utf8(sec_bytes) else {
+            return VF_INI_ERR_INVALID_INPUT;
+        };
+        let Some(kv) = (unsafe { extract_kv_pairs(keys, key_count) }) else {
+            return VF_INI_ERR_INVALID_INPUT;
+        };
+        let key_names: Vec<&str> = kv.into_iter().map(|(k, _)| k).collect();
+        match ini_merge::remove_ini_section_keys(orig_bytes, sec_str, &key_names) {
+            Ok((out, changed)) => {
+                if !out_changed.is_null() {
+                    unsafe { *out_changed = changed };
+                }
+                if let Some(cb) = on_out {
+                    unsafe { cb(ctx, out.as_ptr(), out.len()) };
+                }
+                VF_INI_OK
+            }
+            Err(e) => e.code(),
+        }
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn vf_rust_ini_query_section(
+    original: *const u8,
+    original_len: usize,
+    section: *const u8,
+    section_len: usize,
+    on_kv: VfKvFn,
+    ctx: *mut c_void,
+) -> u32 {
+    ffi_guard(VF_INI_ERR_INVALID_INPUT, || {
+        let Some(orig_bytes) = (unsafe { bytes_or_empty(original, original_len) }) else {
+            return VF_INI_ERR_INVALID_INPUT;
+        };
+        let Some(sec_bytes) = (unsafe { bytes_or_empty(section, section_len) }) else {
+            return VF_INI_ERR_INVALID_INPUT;
+        };
+        let Ok(sec_str) = std::str::from_utf8(sec_bytes) else {
+            return VF_INI_ERR_INVALID_INPUT;
+        };
+        match ini_merge::query_ini_section_keys(orig_bytes, sec_str) {
+            Ok(pairs) => {
+                if let Some(cb) = on_kv {
+                    for (k, v) in &pairs {
+                        unsafe { cb(ctx, k.as_ptr(), k.len(), v.as_ptr(), v.len()) };
+                    }
+                }
+                VF_INI_OK
+            }
+            Err(e) => e.code(),
+        }
+    })
+}
+
 /// Size, alignment and the offset and size of each field of every struct shared with C++, in the order documented in rust_bridge.h.
 /// rust_bridge.h is written by hand; C++ Test 34 compares these numbers with its own sizeof/alignof/offsetof.
 fn bridge_layout() -> Vec<usize> {
@@ -411,6 +655,7 @@ fn bridge_layout() -> Vec<usize> {
         restrict_game_cpu_sets, min_free_ram_mb, min_standby_mb, max_game_disk_read_mb_s);
     layout!(v, VfConfigLoad, settings, status, rejected_keys);
     layout!(v, VfAceEntry, mask, sid_kind, allows, inherit_only);
+    layout!(v, VfIniKv, key, key_len, value, value_len);
     v
 }
 
@@ -428,6 +673,8 @@ pub extern "C" fn vf_rust_bridge_constants(out: *mut u32, cap: usize) -> usize {
             VF_CONFIG_KEY_MAX_GAME_DISK_READ_MB_S, VF_CONFIG_KEY_CUSTOM_GAME_EXES, VF_CONFIG_KEY_MEMORY,
             VF_CONFIG_SAVE_OK, VF_CONFIG_SAVE_BLOCKED, VF_CONFIG_SAVE_INVALID, VF_SID_OTHER as u32, VF_SID_SYSTEM as u32,
             VF_SID_ADMINISTRATORS as u32, VF_SID_TRUSTED_INSTALLER as u32,
+            VF_INI_OK, VF_INI_ERR_INVALID_INPUT, VF_INI_ERR_ENCODING, VF_INI_ERR_MISSING_END_MARKER,
+            VF_INI_ERR_UNMATCHED_END_MARKER,
         ];
         if !out.is_null() {
             let n = constants.len().min(cap);

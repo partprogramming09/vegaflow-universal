@@ -36,6 +36,10 @@
 - Sospechas de la revisión sin confirmar: una excepción de C++ (`bad_alloc`) dentro del callback que llama Rust cruzaría frames `extern "C"`; `icacls /setowner /T /C` en `setup_tasks.ps1` puede devolver 0 aunque falle un archivo y no está comprobado si sigue junctions.
 - Fase G: con un `config.json` corrupto, con un valor rechazado o de versión más nueva, la GUI solo avisa; el botón para que la persona decida (restaurar valores de fábrica o abrir el archivo) es de la fase G. Tras corregir el archivo hay que reiniciar VegaFlow.
 
+## Pendiente heredado de la fase 2
+
+- Prueba interactiva con un juego Unreal real en el laptop (Octopath Traveler II usa `Engine.ini` en UTF-8/CRLF; el editor nuevo se validó en el laptop con Prueba 48 y los vectores de `tests/vectors/ini/`, quedando pendiente la verificación en vivo con el juego abierto en sesión 1).
+
 ## 9. Ideas sin fase todavía
 
 Salieron de la ronda de ideas del 2026-11-09. Ninguna se empieza sin decidirla antes; las marcadas "sin verificar" necesitan investigación.

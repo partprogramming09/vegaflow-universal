@@ -201,6 +201,9 @@ void Test34() {
         VF_LAYOUT_BEGIN(VfAceEntry)
         VF_FIELD(VfAceEntry, mask) VF_FIELD(VfAceEntry, sid_kind) VF_FIELD(VfAceEntry, allows)
         VF_FIELD(VfAceEntry, inherit_only)
+        VF_LAYOUT_BEGIN(VfIniKv)
+        VF_FIELD(VfIniKv, key) VF_FIELD(VfIniKv, key_len)
+        VF_FIELD(VfIniKv, value) VF_FIELD(VfIniKv, value_len)
 #undef VF_FIELD
 #undef VF_LAYOUT_BEGIN
 
@@ -221,7 +224,9 @@ void Test34() {
             VF_CONFIG_KEY_MIN_FREE_RAM_MB, VF_CONFIG_KEY_MIN_STANDBY_MB, VF_CONFIG_KEY_COOLDOWN_SECONDS,
             VF_CONFIG_KEY_MAX_GAME_DISK_READ_MB_S, VF_CONFIG_KEY_CUSTOM_GAME_EXES, VF_CONFIG_KEY_MEMORY,
             VF_CONFIG_SAVE_OK, VF_CONFIG_SAVE_BLOCKED, VF_CONFIG_SAVE_INVALID, VF_SID_OTHER, VF_SID_SYSTEM,
-            VF_SID_ADMINISTRATORS, VF_SID_TRUSTED_INSTALLER};
+            VF_SID_ADMINISTRATORS, VF_SID_TRUSTED_INSTALLER,
+            VF_INI_OK, VF_INI_ERR_INVALID_INPUT, VF_INI_ERR_ENCODING, VF_INI_ERR_MISSING_END_MARKER,
+            VF_INI_ERR_UNMATCHED_END_MARKER};
         std::vector<uint32_t> rust_constants(expected_constants.size() + 8, 0);
         const size_t constant_count = vf_rust_bridge_constants(rust_constants.data(), rust_constants.size());
         rust_constants.resize(std::min(constant_count, rust_constants.size()));

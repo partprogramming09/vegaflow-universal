@@ -221,15 +221,46 @@ typedef struct VfAceEntry {
    DACL is not NULL (has_dacl) and no entry gives another account a right to write, delete or change permissions. */
 bool vf_rust_only_admins_can_write(bool has_dacl, uint8_t owner_kind, const VfAceEntry* aces, size_t count);
 
+/* Game INI / Unity boot.config editing (policy/ini_merge.rs). */
+#define VF_INI_OK                       0u
+#define VF_INI_ERR_INVALID_INPUT        1u
+#define VF_INI_ERR_ENCODING             2u
+#define VF_INI_ERR_MISSING_END_MARKER   3u
+#define VF_INI_ERR_UNMATCHED_END_MARKER 4u
+
+typedef void (*VfBytesFn)(void* ctx, const uint8_t* data, size_t len);
+typedef void (*VfKvFn)(void* ctx, const char* key, size_t key_len, const char* val, size_t val_len);
+
+typedef struct VfIniKv {
+    const char* key;
+    size_t key_len;
+    const char* value;
+    size_t value_len;
+} VfIniKv;
+
+uint32_t vf_rust_ini_merge_unreal(const uint8_t* original, size_t original_len, const char* block, size_t block_len,
+                                  VfBytesFn on_out, void* ctx);
+uint32_t vf_rust_ini_remove_unreal(const uint8_t* original, size_t original_len, bool* out_changed,
+                                   VfBytesFn on_out, void* ctx);
+uint32_t vf_rust_ini_merge_unity(const uint8_t* original, size_t original_len, const VfIniKv* pairs, size_t pair_count,
+                                 VfBytesFn on_out, void* ctx);
+uint32_t vf_rust_ini_apply_section(const uint8_t* original, size_t original_len, const char* section, size_t section_len,
+                                   const VfIniKv* pairs, size_t pair_count, VfBytesFn on_out, void* ctx);
+uint32_t vf_rust_ini_remove_section_keys(const uint8_t* original, size_t original_len, const char* section, size_t section_len,
+                                         const VfIniKv* keys, size_t key_count, bool* out_changed,
+                                         VfBytesFn on_out, void* ctx);
+uint32_t vf_rust_ini_query_section(const uint8_t* original, size_t original_len, const char* section, size_t section_len,
+                                   VfKvFn on_kv, void* ctx);
+
 /* Layout check for the structs above (this header is written by hand). Writes, for each struct in the order
    VfUmaTelemetryInput, VfUmaGuardDecision, VfNtMemoryListSample, VfCpuCoreEntry, VfTopologyPartitionOut,
-   VfTierInput, VfAllowedRoot, VfConfigSettings, VfConfigLoad, VfAceEntry: its size, its alignment and the offset and size of each field in declaration order. Writes at most `cap`
+   VfTierInput, VfAllowedRoot, VfConfigSettings, VfConfigLoad, VfAceEntry, VfIniKv: its size, its alignment and the offset and size of each field in declaration order. Writes at most `cap`
    numbers and returns how many there are in total. Checked by C++ Test 34. */
 size_t vf_rust_bridge_layout(size_t* out, size_t cap);
 
 /* The #defines above that Rust also defines, in this order: VF_CONFIG_CORRUPT .. VF_CONFIG_EMPTY, VF_CONFIG_BLOCKS_SAVE,
    VF_CONFIG_KEY_VERSION .. VF_CONFIG_KEY_MEMORY, VF_CONFIG_SAVE_OK .. VF_CONFIG_SAVE_INVALID, VF_SID_OTHER ..
-   VF_SID_TRUSTED_INSTALLER. Writes at most `cap` and returns how many there are. Checked by C++ Test 34. */
+   VF_SID_TRUSTED_INSTALLER, VF_INI_OK .. VF_INI_ERR_UNMATCHED_END_MARKER. Writes at most `cap` and returns how many there are. Checked by C++ Test 34. */
 size_t vf_rust_bridge_constants(uint32_t* out, size_t cap);
 
 #ifdef __cplusplus

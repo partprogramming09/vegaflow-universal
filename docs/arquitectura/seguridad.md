@@ -72,3 +72,9 @@ Implementado en [`src/windows/sandbox_guard.hpp`](../../src/windows/sandbox_guar
 6. **Auditoría y Registro de Violaciones (`SandboxViolationRecord`)**:
    - Cada intento de acceso no autorizado registra un evento con marca de tiempo precisa en milisegundos (`timestamp_ms`), la acción solicitada (`SandboxAction`), el motivo técnico (`SandboxDenialReason`) y un mensaje explicativo para trazabilidad forense.
 
+7. **Editor seguro de `.ini` y `boot.config` de juegos** (fase 2, 2026-11-12):
+   - Toda modificación pasa por [`ini_merge.rs`](../../rust/vegaflow-core/src/policy/ini_merge.rs) en Rust y por [`FileSystem`](../../src/ports/file_system.hpp) en C++ ([`engine_presets.cpp`](../../src/optimize/steam/engine_presets.cpp), [`apu_shadow_config.cpp`](../../src/optimize/steam/apu_shadow_config.cpp)).
+   - Copia de seguridad única `.vegaflow.bak` (la restauración acepta `.bak` heredada si no existe `.vegaflow.bak`). Si la copia falla antes de editar, la operación se detiene y el archivo original queda intacto.
+   - Al restaurar se copia el respaldo y se comprueba igualdad **byte a byte** antes de borrar `.vegaflow.bak`.
+   - Conserva UTF-8, UTF-8 con BOM, UTF-16 LE/BE con BOM y finales de línea originales (CRLF, LF o mezclados), solo modifica su bloque (`; [VegaFlowUMA_Start]`..`; [VegaFlowUMA_End]`) o las claves indicadas, colapsa claves repetidas en `boot.config` de Unity y falla sin borrar texto si falta un marcador de cierre. Casos compartidos en [`tests/vectors/ini/`](../../tests/vectors/ini/) y Prueba 48.
+

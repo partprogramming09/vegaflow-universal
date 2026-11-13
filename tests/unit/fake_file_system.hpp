@@ -14,6 +14,10 @@ class FakeFileSystem final : public vegaflow::FileSystem {
 public:
     bool allow_game_dir = true;            // answer of CanModifyGameDir
     bool fail_replace = false;             // Replace fails and changes nothing
+    bool fail_copy = false;                // Copy fails and changes nothing
+    bool fail_write = false;               // Write fails and changes nothing
+    bool fail_remove = false;              // Remove fails and changes nothing
+    bool corrupt_copy_target = false;      // Simulates truncated/corrupted copy output for restore verification
     std::map<std::wstring, std::string> files; // what Read returns and Write stores
     std::set<std::wstring> unreadable;         // exist, but Read fails
     std::vector<std::wstring> writes, copies, removes, replaces;
@@ -26,18 +30,23 @@ public:
         return true;
     }
     bool Write(const std::wstring& path, const std::string& content, bool anticheat_protected = false) override {
-        if (anticheat_protected) return false;
+        if (anticheat_protected || fail_write) return false;
         writes.push_back(path);
         files[path] = content;
         return true;
     }
     bool Copy(const std::wstring& src, const std::wstring& dst, bool, bool anticheat_protected = false) override {
-        if (anticheat_protected) return false;
+        if (anticheat_protected || fail_copy) return false;
         copies.push_back(src + L" -> " + dst);
+        if (unreadable.count(src)) return false;
+        auto it = files.find(src);
+        if (it != files.end()) {
+            files[dst] = corrupt_copy_target ? (it->second + "CORRUPT") : it->second;
+        }
         return true;
     }
     bool Remove(const std::wstring& path, bool anticheat_protected = false) override {
-        if (anticheat_protected) return false;
+        if (anticheat_protected || fail_remove) return false;
         removes.push_back(path);
         files.erase(path);
         return true;

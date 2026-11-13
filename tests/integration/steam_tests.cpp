@@ -206,7 +206,7 @@ void Test24() {
         std::filesystem::create_directories(test_dir, ec);
 
         std::filesystem::path ini_path = test_dir / "Engine.ini";
-        std::filesystem::path bak_path = test_dir / "Engine.ini.bak";
+        std::filesystem::path bak_path = test_dir / "Engine.ini.vegaflow.bak";
 
         // 1. Create an initial Engine.ini with other sections and keys
         std::string initial_ini = 
