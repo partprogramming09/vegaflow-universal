@@ -156,6 +156,7 @@ struct CpuCoreSetInfo {
     uint32_t cpu_set_id = 0;
     uint32_t core_index = 0;
     uint32_t logical_processor_index = 0;
+    uint16_t group = 0;
     uint32_t last_level_cache_index = 0; // CCX/CCD on AMD
     uint8_t efficiency_class = 0;        // P-Core vs E-Core on Intel
 };

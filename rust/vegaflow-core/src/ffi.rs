@@ -6,7 +6,7 @@ use std::os::raw::{c_char, c_void};
 use crate::policy::apu_tier::{self, VfTierInput, TIER_ENTRY, TIER_MID};
 use crate::policy::config_file::{self, SaveRefused, Settings};
 use crate::policy::config_rules;
-use crate::policy::cpu_governor::{self, VfCpuCoreEntry, VfTopologyPartitionOut, VF_MAX_LOGICAL_PROCESSORS};
+use crate::policy::cpu_governor::{self, VfCpuCoreEntry, VfTopologyPartitionOut};
 use crate::policy::device_profile::{
     self, ParsedGpuAdapter, VfDeviceProfileDecision, VfDeviceProfileInput, VfGpuAdapterInput, VF_ARCH_ARM64_EMULATED,
     VF_ARCH_ARM64_NATIVE, VF_ARCH_UNKNOWN, VF_ARCH_X64, VF_ARCH_X86, VF_DISK_HDD, VF_DISK_NVME, VF_DISK_SSD, VF_DISK_UNKNOWN,
@@ -208,11 +208,27 @@ pub extern "C" fn vf_rust_partition_cpu_topology(
     out: *mut VfTopologyPartitionOut,
 ) -> bool {
     ffi_guard(false, || {
-        if entries.is_null() || out.is_null() || count == 0 || (count as usize) > VF_MAX_LOGICAL_PROCESSORS {
+        if entries.is_null() || out.is_null() || count == 0 || count > 2048 {
             return false;
         }
         let entries_slice = unsafe { core::slice::from_raw_parts(entries, count as usize) };
         cpu_governor::partition(entries_slice, unsafe { &mut *out })
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn vf_rust_partition_cpu_topology_group(
+    entries: *const VfCpuCoreEntry,
+    count: u32,
+    target_group: u16,
+    out: *mut VfTopologyPartitionOut,
+) -> bool {
+    ffi_guard(false, || {
+        if entries.is_null() || out.is_null() || count == 0 || count > 2048 {
+            return false;
+        }
+        let entries_slice = unsafe { core::slice::from_raw_parts(entries, count as usize) };
+        cpu_governor::partition_for_group(entries_slice, target_group, unsafe { &mut *out })
     })
 }
 
@@ -939,7 +955,7 @@ fn bridge_layout() -> Vec<usize> {
     layout!(v, VfMemoryPurgeDecision, should_purge_standby, should_trim_background, skipped_due_to_cooldown,
         skipped_due_to_disk_io, cooldown_remaining_seconds, guard_triggered, dxgi_over_ceiling, free_ram_critical,
         dxgi_budget_utilization, available_os_headroom_mb, total_interventions);
-    layout!(v, VfCpuCoreEntry, cpu_set_id, core_index, logical_processor_index, last_level_cache_index, efficiency_class);
+    layout!(v, VfCpuCoreEntry, cpu_set_id, core_index, logical_processor_index, group, last_level_cache_index, efficiency_class);
     layout!(v, VfTopologyPartitionOut, game_cpu_set_ids, game_count, background_cpu_set_ids, background_count,
         physical_cores, logical_processors, has_multiple_ccx, has_hybrid_cores);
     layout!(v, VfTierInput, total_ram_mb, physical_cores, arch_gen, dedicated_vram, is_nvidia);

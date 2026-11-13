@@ -130,7 +130,7 @@ direct/
 │               ├── apu_tier.rs     # Tier de la APU (1 a 4)
 │               ├── config_file.rs  # Leer y guardar config.json sin perder claves desconocidas
 │               ├── config_rules.rs # Rangos de config.json y nombres de juego permitidos
-│               ├── cpu_governor.rs # CPU Sets según topología L3 / CCX e histéresis del confinamiento
+│               ├── cpu_governor.rs # CPU Sets dentro del grupo del proceso (L3/CCX, híbrido con exclusión de LP E-cores) e histéresis del confinamiento
 │               ├── device_profile.rs # Perfil universal del equipo: GPU (PCI ID/DXCore/pref), energía, ARM64 y banderas prudentes
 │               ├── file_access.rs  # Decisión completa de SandboxGuard: lista negra, ruta local, anti-cheat y carpetas permitidas
 │               ├── folder_trust.rs # ¿Solo administradores pueden escribir esta carpeta? (dueño y DACL)

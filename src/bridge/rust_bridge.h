@@ -50,6 +50,7 @@ typedef struct VfCpuCoreEntry {
     uint32_t cpu_set_id;
     uint32_t core_index;
     uint32_t logical_processor_index;
+    uint16_t group;
     uint8_t last_level_cache_index;
     uint8_t efficiency_class;
 } VfCpuCoreEntry;
@@ -79,6 +80,13 @@ bool vf_rust_is_factory_memory_protected_exe(
 bool vf_rust_partition_cpu_topology(
     const VfCpuCoreEntry* entries,
     uint32_t count,
+    VfTopologyPartitionOut* out
+);
+
+bool vf_rust_partition_cpu_topology_group(
+    const VfCpuCoreEntry* entries,
+    uint32_t count,
+    uint16_t target_group,
     VfTopologyPartitionOut* out
 );
 

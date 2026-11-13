@@ -1,6 +1,6 @@
 # Plan maestro: arquitectura nueva, Rust, seguridad y soporte universal
 
-**Lector:** personas. Fecha: 2026-11-08. Estado: **aprobado el 2026-11-09**. Hechas: fase 0, R1 y R2 (2026-11-09), fase 1 y fase 1b (2026-11-10), fase 2, fase 2b, fase 3, fase 4, fase 5 y fase 6 (2026-11-12). Siguiente: fase 7.
+**Lector:** personas. Fecha: 2026-11-08. Estado: **aprobado el 2026-11-09**. Hechas: fase 0, R1 y R2 (2026-11-09), fase 1 y fase 1b (2026-11-10), fase 2, fase 2b, fase 3, fase 4, fase 5 y fase 6 (2026-11-12), fase 7 (2026-11-13). Siguiente: fase 8.
 
 Este es el único plan del proyecto. Junta tres cosas que antes iban por separado:
 - la **arquitectura nueva** y la modularización (decisión en el [ADR 0001](../../adr/0001-nucleo-que-decide-y-puertos.md));
@@ -28,7 +28,7 @@ Un archivo por fase, en el orden en que se hacen. Lo común va aparte:
 | ~~`08-fase-4.md`~~ | Fase 4: **hecha el 2026-11-12** (regla única de purga y guardián UMA en Rust `policy/memory_purge.rs`, salida de `ntdll` de Rust a `windows/memory.*`, puertos `ports/memory_probe.hpp` y `ports/memory_control.hpp`, umbral único 0.85, pausa compartida de 90s, lectura de disco por vuelta sin dilución, eliminación del fallback `ullAvailPhys`, exclusiones de fábrica No tocar para OBS/Discord/llamadas, Prueba 53 y `tests/vectors/memory_purge.tsv`; el archivo se borró, la historia queda en git) |
 | ~~`09-fase-5.md`~~ | Fase 5: **hecha el 2026-11-12** (clasificación de procesos y acciones en Rust `policy/process_class.rs`, verificación de ruta completa + DLL 3D + señales genéricas anti-cheat, puerto `ports/process_control.hpp` + `windows/process_control.*` con verificación PID+`creation_time`, devolución del juego anterior al cambiar de juego, exclusión "Me fue mal en este juego" en `ExcludeGameAndRevert`, Pruebas 54 y 55 y `tests/vectors/process_class.tsv`; el archivo se borró, la historia queda en git) |
 | ~~`10-fase-6.md`~~ | Fase 6: **hecha el 2026-11-12** (eliminada la captura ETW de fotogramas `src/safety/frame_telemetry.*`, `-ltdh`, Test 7 y los campos de FPS en `--monitor`, GUI y `session_reports.log`; `--monitor` conserva RAM y VRAM; el archivo se borró, la historia queda en git) |
-| [`11-fase-7.md`](11-fase-7.md) | Fase 7: núcleos de CPU universales |
+| ~~`11-fase-7.md`~~ | Fase 7: **hecha el 2026-11-13** (eliminada la copia C++ de reparto de CPU Sets; reparto dentro del grupo del proceso vía `group` en `VfCpuCoreEntry` y `vf_rust_partition_cpu_topology_group`; exclusión de LP E-cores en Core Ultra y soporte multi-grupo/Strix Point; Prueba 56 y `tests/vectors/cpu_topology.tsv`; el archivo se borró, la historia queda en git) |
 | [`12-fase-8.md`](12-fase-8.md) | Fase 8: ajustes de sistema por fabricante |
 | [`13-fase-r3.md`](13-fase-r3.md) | Fase R3: cierre |
 | [`14-fase-g.md`](14-fase-g.md) | Fase G: GUI nueva |
@@ -51,7 +51,7 @@ Las fuentes externas están en [`docs/investigacion/`](../../investigacion/READM
 | 4 | Decidir cuándo liberar memoria | Reglas repetidas en dos lenguajes y una purga sin pausa | Media |
 | 5 | Elegir qué procesos frenar | Puede dejar frenado un proceso que no toca | Media |
 | 6 | Quitar la medición de fotogramas del daemon | VegaFlow no es un medidor; la captura usa números de evento que no son los de un fotograma | Media |
-| 7 | Núcleos de CPU universales (Intel híbrido, multi-CCD, más de 64 hilos) | La regla está **copiada** en C++ para más de 64 hilos, y en Intel manda todo el fondo a todos los E-cores | Media |
+| 7 | Núcleos de CPU universales (Intel híbrido, multi-CCD, más de 64 hilos). **Hecha** | La regla está **copiada** en C++ para más de 64 hilos, y en Intel manda todo el fondo a todos los E-cores | Media |
 | 8 | Ajustes de sistema por fabricante, detrás de un puerto de registro | 36 funciones estáticas; varios ajustes de AMD se intentan sin mirar el fabricante | Baja |
 | R3 | Cierre: armar todo en `main`, documentación y medir el consumo | Cierra el refactor | — |
 | G | GUI nueva: 7 pantallas en lenguaje claro, con el estado de evidencia de cada ajuste | Necesita la configuración segura (1b), el diario de cambios (2b), los datos limpios de las fases 3 a 8 y la carpeta `session/` | Media: hoy muestra el nombre del laptop de pruebas en otros equipos |

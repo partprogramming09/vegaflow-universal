@@ -74,13 +74,7 @@ mod tests {
     #[test]
     fn test_topology_symmetric_ryzen_4600h() {
         // Ryzen 5 4600H: 6C/12T, 2 CCX (Cores 0..2 on LLC 0, Cores 3..5 on LLC 1)
-        let mut entries = [VfCpuCoreEntry {
-            cpu_set_id: 0,
-            core_index: 0,
-            logical_processor_index: 0,
-            last_level_cache_index: 0,
-            efficiency_class: 0,
-        }; 12];
+        let mut entries = [VfCpuCoreEntry::default(); 12];
 
         for i in 0..12 {
             let core = (i / 2) as u32;
@@ -89,6 +83,7 @@ mod tests {
                 cpu_set_id: 256 + i as u32,
                 core_index: core,
                 logical_processor_index: i as u32,
+                group: 0,
                 last_level_cache_index: llc,
                 efficiency_class: 0,
             };
@@ -123,19 +118,14 @@ mod tests {
     #[test]
     fn test_topology_asymmetric_zen4_zen4c() {
         // 4C/8T Zen 4 on LLC 0 (Cores 0..3), 2C/4T Zen 4c on LLC 1 (Cores 4..5)
-        let mut entries = [VfCpuCoreEntry {
-            cpu_set_id: 0,
-            core_index: 0,
-            logical_processor_index: 0,
-            last_level_cache_index: 0,
-            efficiency_class: 0,
-        }; 12];
+        let mut entries = [VfCpuCoreEntry::default(); 12];
 
         for i in 0..8 {
             entries[i] = VfCpuCoreEntry {
                 cpu_set_id: 256 + i as u32,
                 core_index: (i / 2) as u32,
                 logical_processor_index: i as u32,
+                group: 0,
                 last_level_cache_index: 0,
                 efficiency_class: 0,
             };
@@ -145,6 +135,7 @@ mod tests {
                 cpu_set_id: 256 + i as u32,
                 core_index: 4 + ((i - 8) / 2) as u32,
                 logical_processor_index: i as u32,
+                group: 0,
                 last_level_cache_index: 1,
                 efficiency_class: 0,
             };
@@ -174,6 +165,7 @@ mod tests {
                 cpu_set_id: 100 + i,
                 core_index: i,
                 logical_processor_index: i,
+                group: 0,
                 last_level_cache_index: 0,
                 efficiency_class: 0,
             })
@@ -191,6 +183,7 @@ mod tests {
                 cpu_set_id: 100 + i,
                 core_index: i / 2,
                 logical_processor_index: i,
+                group: 0,
                 last_level_cache_index: 0,
                 efficiency_class: 0,
             })
@@ -208,6 +201,7 @@ mod tests {
                 cpu_set_id: 200 + i,
                 core_index: i / 2,
                 logical_processor_index: i,
+                group: 0,
                 last_level_cache_index: 0,
                 efficiency_class: 0,
             })
@@ -224,6 +218,7 @@ mod tests {
                 cpu_set_id: 300 + i,
                 core_index: i / 2,
                 logical_processor_index: i,
+                group: 0,
                 last_level_cache_index: 0,
                 efficiency_class: 0,
             })
@@ -240,6 +235,7 @@ mod tests {
                 cpu_set_id: 400 + i,
                 core_index: i,
                 logical_processor_index: i,
+                group: 0,
                 last_level_cache_index: 0,
                 efficiency_class: 0,
             })
@@ -260,6 +256,7 @@ mod tests {
                 cpu_set_id: 500 + i,
                 core_index: i,
                 logical_processor_index: i,
+                group: 0,
                 last_level_cache_index: 0,
                 efficiency_class: 1, // P-Core
             });
@@ -269,6 +266,7 @@ mod tests {
                 cpu_set_id: 500 + i,
                 core_index: i,
                 logical_processor_index: i,
+                group: 0,
                 last_level_cache_index: 0,
                 efficiency_class: 0, // E-Core
             });
@@ -286,10 +284,105 @@ mod tests {
     #[test]
     fn test_topology_invalid_inputs() {
         let mut out = VfTopologyPartitionOut::default();
+        let too_many_single_group = [VfCpuCoreEntry::default(); 65];
         assert!(!vf_rust_partition_cpu_topology(std::ptr::null(), 4, &mut out));
-        assert!(!vf_rust_partition_cpu_topology(out.game_cpu_set_ids.as_ptr() as *const _, 0, &mut out));
-        assert!(!vf_rust_partition_cpu_topology(out.game_cpu_set_ids.as_ptr() as *const _, 65, &mut out));
-        assert!(!vf_rust_partition_cpu_topology(out.game_cpu_set_ids.as_ptr() as *const _, 4, std::ptr::null_mut()));
+        assert!(!vf_rust_partition_cpu_topology(too_many_single_group.as_ptr(), 0, &mut out));
+        assert!(!vf_rust_partition_cpu_topology(too_many_single_group.as_ptr(), 65, &mut out));
+        assert!(!vf_rust_partition_cpu_topology(too_many_single_group.as_ptr(), 4, std::ptr::null_mut()));
+        assert!(!vf_rust_partition_cpu_topology_group(too_many_single_group.as_ptr(), 65, 0, &mut out));
+        assert!(!vf_rust_partition_cpu_topology_group(too_many_single_group.as_ptr(), 4, 1, &mut out));
+    }
+
+    #[test]
+    fn test_topology_shared_tsv_vectors() {
+        let manifest_dir = env!("CARGO_MANIFEST_DIR");
+        let path = format!("{}/../../tests/vectors/cpu_topology.tsv", manifest_dir);
+        let text = std::fs::read_to_string(&path).expect("read tests/vectors/cpu_topology.tsv");
+
+        fn parse_id_list(spec: &str) -> Vec<u32> {
+            let mut out = Vec::new();
+            if spec == "-" || spec.is_empty() {
+                return out;
+            }
+            for part in spec.split(',') {
+                if let Some((a, b)) = part.split_once("..") {
+                    let start: u32 = a.parse().unwrap();
+                    let end: u32 = b.parse().unwrap();
+                    for id in start..=end {
+                        out.push(id);
+                    }
+                } else {
+                    out.push(part.parse().unwrap());
+                }
+            }
+            out
+        }
+
+        let mut tested = 0usize;
+        for (line_no, raw) in text.lines().enumerate() {
+            let line = raw.trim();
+            if line.is_empty() || line.starts_with('#') {
+                continue;
+            }
+            let cols: Vec<&str> = line.split('\t').collect();
+            assert_eq!(cols.len(), 9, "line {}: expected 9 columns", line_no + 1);
+            let name = cols[0];
+            let specs = cols[1];
+            let target_group: u16 = cols[2].parse().unwrap();
+            let expected_game = parse_id_list(cols[3]);
+            let expected_bg = parse_id_list(cols[4]);
+            let expected_phys: u32 = cols[5].parse().unwrap();
+            let expected_logical: u32 = cols[6].parse().unwrap();
+            let expected_multi_ccx = cols[7] == "1";
+            let expected_hybrid = cols[8] == "1";
+
+            // Spec item: core_count@group:smt:llc:eff:start_core:start_cpu_id
+            let mut entries = Vec::new();
+            let mut logical_idx_per_group = [0u32; 8];
+            for item in specs.split(';') {
+                let (cnt_str, rest) = item.split_once('@').unwrap();
+                let core_count: u32 = cnt_str.parse().unwrap();
+                let nums: Vec<u32> = rest.split(':').map(|s| s.parse().unwrap()).collect();
+                assert_eq!(nums.len(), 6, "{name}: bad segment '{item}'");
+                let group = nums[0] as u16;
+                let smt = nums[1];
+                let llc = nums[2] as u8;
+                let eff = nums[3] as u8;
+                let start_core = nums[4];
+                let start_id = nums[5];
+                for c in 0..core_count {
+                    for t in 0..smt {
+                        let lp = logical_idx_per_group[group as usize];
+                        logical_idx_per_group[group as usize] += 1;
+                        entries.push(VfCpuCoreEntry {
+                            cpu_set_id: start_id + c * smt + t,
+                            core_index: start_core + c,
+                            logical_processor_index: lp,
+                            group,
+                            last_level_cache_index: llc,
+                            efficiency_class: eff,
+                        });
+                    }
+                }
+            }
+
+            let mut out = VfTopologyPartitionOut::default();
+            let ok = vf_rust_partition_cpu_topology_group(
+                entries.as_ptr(),
+                entries.len() as u32,
+                target_group,
+                &mut out,
+            );
+            assert!(ok, "{name}: partition failed");
+            assert_eq!(out.physical_cores, expected_phys, "{name}: physical_cores");
+            assert_eq!(out.logical_processors, expected_logical, "{name}: logical_processors");
+            assert_eq!(out.has_multiple_ccx, expected_multi_ccx, "{name}: has_multiple_ccx");
+            assert_eq!(out.has_hybrid_cores, expected_hybrid, "{name}: has_hybrid_cores");
+            assert_eq!(&out.game_cpu_set_ids[..out.game_count as usize], expected_game.as_slice(), "{name}: game_cpu_set_ids");
+            assert_eq!(&out.background_cpu_set_ids[..out.background_count as usize], expected_bg.as_slice(), "{name}: background_cpu_set_ids");
+            tested += 1;
+        }
+        assert_eq!(tested, 18);
     }
 
     #[test]

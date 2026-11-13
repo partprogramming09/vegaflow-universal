@@ -667,6 +667,7 @@ void DetectCpuSetsRaw(CpuTopologyProfile& cpu_topology) {
                     core_set.cpu_set_id = info->CpuSet.Id;
                     core_set.core_index = info->CpuSet.CoreIndex;
                     core_set.logical_processor_index = info->CpuSet.LogicalProcessorIndex;
+                    core_set.group = info->CpuSet.Group;
                     core_set.last_level_cache_index = info->CpuSet.LastLevelCacheIndex;
                     core_set.efficiency_class = info->CpuSet.EfficiencyClass;
                     cpu_topology.all_cpu_sets.push_back(core_set);

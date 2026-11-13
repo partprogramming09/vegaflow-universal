@@ -418,128 +418,50 @@ void HardwareProfiler::PartitionCpuSetsFromTopology(CpuTopologyProfile& cpu_topo
         return;
     }
 
-    if (cpu_topology.all_cpu_sets.size() <= VF_MAX_LOGICAL_PROCESSORS) {
-        VfCpuCoreEntry entries[VF_MAX_LOGICAL_PROCESSORS]{};
-        for (size_t i = 0; i < cpu_topology.all_cpu_sets.size(); ++i) {
-            const auto& cs = cpu_topology.all_cpu_sets[i];
-            entries[i].cpu_set_id = cs.cpu_set_id;
-            entries[i].core_index = cs.core_index;
-            entries[i].logical_processor_index = cs.logical_processor_index;
-            entries[i].last_level_cache_index = static_cast<uint8_t>(cs.last_level_cache_index);
-            entries[i].efficiency_class = cs.efficiency_class;
-        }
+    PROCESSOR_NUMBER proc_num{};
+    GetCurrentProcessorNumberEx(&proc_num);
+    uint16_t target_group = proc_num.Group;
+    bool has_current_group = false;
 
-        VfTopologyPartitionOut out{};
-        if (vf_rust_partition_cpu_topology(entries, static_cast<uint32_t>(cpu_topology.all_cpu_sets.size()), &out)) {
-            cpu_topology.logical_processors = out.logical_processors;
-            cpu_topology.physical_cores = out.physical_cores;
-            cpu_topology.has_multiple_ccx = out.has_multiple_ccx;
-            cpu_topology.has_hybrid_cores = out.has_hybrid_cores;
-            cpu_topology.game_optimal_cpu_set_ids.assign(out.game_cpu_set_ids, out.game_cpu_set_ids + out.game_count);
-            cpu_topology.background_cpu_set_ids.assign(out.background_cpu_set_ids, out.background_cpu_set_ids + out.background_count);
-            return;
-        }
-    }
-
-    std::set<uint32_t> physical_core_indices;
-    std::set<uint32_t> llc_indices;
-    std::map<uint32_t, uint32_t> llc_counts;
-    uint8_t min_eff = 255;
-    uint8_t max_eff = 0;
-
+    std::vector<VfCpuCoreEntry> entries;
+    entries.reserve(cpu_topology.all_cpu_sets.size());
+    std::set<std::pair<uint16_t, uint32_t>> total_phys_cores;
     for (const auto& cs : cpu_topology.all_cpu_sets) {
-        physical_core_indices.insert(cs.core_index);
-        llc_indices.insert(cs.last_level_cache_index);
-        llc_counts[cs.last_level_cache_index]++;
-        if (cs.efficiency_class < min_eff) min_eff = cs.efficiency_class;
-        if (cs.efficiency_class > max_eff) max_eff = cs.efficiency_class;
+        if (cs.group == target_group) {
+            has_current_group = true;
+        }
+        total_phys_cores.insert({cs.group, cs.core_index});
+        VfCpuCoreEntry entry{};
+        entry.cpu_set_id = cs.cpu_set_id;
+        entry.core_index = cs.core_index;
+        entry.logical_processor_index = cs.logical_processor_index;
+        entry.group = cs.group;
+        entry.last_level_cache_index = static_cast<uint8_t>(cs.last_level_cache_index);
+        entry.efficiency_class = cs.efficiency_class;
+        entries.push_back(entry);
+    }
+    if (!has_current_group) {
+        target_group = cpu_topology.all_cpu_sets.front().group;
     }
 
-    cpu_topology.logical_processors = static_cast<uint32_t>(cpu_topology.all_cpu_sets.size());
-    cpu_topology.physical_cores = static_cast<uint32_t>(physical_core_indices.size());
-    cpu_topology.has_multiple_ccx = (llc_indices.size() > 1);
-    cpu_topology.has_hybrid_cores = (min_eff != max_eff);
-
-    const size_t threads_per_core = std::max<size_t>(1, cpu_topology.logical_processors / std::max<uint32_t>(1, cpu_topology.physical_cores));
-    const size_t bg_limit = (cpu_topology.physical_cores >= 4) ? threads_per_core : 1;
-
-    if (cpu_topology.has_hybrid_cores) {
-        std::set<uint32_t> high_perf_cores;
-        for (const auto& cs : cpu_topology.all_cpu_sets) {
-            if (cs.efficiency_class == max_eff) high_perf_cores.insert(cs.core_index);
-        }
-        const bool exclude_core_zero = (high_perf_cores.size() >= 4);
-        for (const auto& cs : cpu_topology.all_cpu_sets) {
-            if (cs.efficiency_class == max_eff) {
-                if (!exclude_core_zero || cs.core_index != 0) cpu_topology.game_optimal_cpu_set_ids.push_back(cs.cpu_set_id);
-            } else {
-                cpu_topology.background_cpu_set_ids.push_back(cs.cpu_set_id);
-            }
-        }
-        return;
+    VfTopologyPartitionOut out{};
+    if (vf_rust_partition_cpu_topology_group(
+            entries.data(),
+            static_cast<uint32_t>(entries.size()),
+            target_group,
+            &out)) {
+        const bool multi_group = (cpu_topology.all_cpu_sets.size() > out.logical_processors);
+        cpu_topology.logical_processors = multi_group
+            ? static_cast<uint32_t>(cpu_topology.all_cpu_sets.size())
+            : out.logical_processors;
+        cpu_topology.physical_cores = multi_group
+            ? static_cast<uint32_t>(total_phys_cores.size())
+            : out.physical_cores;
+        cpu_topology.has_multiple_ccx = out.has_multiple_ccx;
+        cpu_topology.has_hybrid_cores = out.has_hybrid_cores;
+        cpu_topology.game_optimal_cpu_set_ids.assign(out.game_cpu_set_ids, out.game_cpu_set_ids + out.game_count);
+        cpu_topology.background_cpu_set_ids.assign(out.background_cpu_set_ids, out.background_cpu_set_ids + out.background_count);
     }
-
-    if (cpu_topology.has_multiple_ccx && cpu_topology.physical_cores >= 6) {
-        uint32_t min_count = UINT32_MAX;
-        uint32_t max_count = 0;
-        for (const auto& [llc, count] : llc_counts) {
-            if (count < min_count) min_count = count;
-            if (count > max_count) max_count = count;
-        }
-        uint32_t secondary_llc = *llc_indices.rbegin();
-        if (min_count != max_count) {
-            for (auto it = llc_indices.rbegin(); it != llc_indices.rend(); ++it) {
-                if (llc_counts[*it] == min_count) {
-                    secondary_llc = *it;
-                    break;
-                }
-            }
-        }
-        if (llc_counts[secondary_llc] <= (cpu_topology.logical_processors / 3)) {
-            const bool exclude_core_zero = (cpu_topology.physical_cores >= 4);
-            std::vector<CpuCoreSetInfo> candidate_game_sets;
-            for (const auto& cs : cpu_topology.all_cpu_sets) {
-                if (cs.last_level_cache_index == secondary_llc) {
-                    cpu_topology.background_cpu_set_ids.push_back(cs.cpu_set_id);
-                } else if (!exclude_core_zero || cs.core_index != 0) {
-                    candidate_game_sets.push_back(cs);
-                }
-            }
-            std::sort(candidate_game_sets.begin(), candidate_game_sets.end(),
-                      [](const CpuCoreSetInfo& a, const CpuCoreSetInfo& b) {
-                          if (a.last_level_cache_index != b.last_level_cache_index) return a.last_level_cache_index < b.last_level_cache_index;
-                          if (a.core_index != b.core_index) return a.core_index < b.core_index;
-                          return a.logical_processor_index < b.logical_processor_index;
-                      });
-            for (const auto& cs : candidate_game_sets) cpu_topology.game_optimal_cpu_set_ids.push_back(cs.cpu_set_id);
-            return;
-        }
-    }
-
-    const uint32_t last_core_index = *physical_core_indices.rbegin();
-    const bool exclude_core_zero = (cpu_topology.physical_cores >= 4);
-    std::vector<CpuCoreSetInfo> candidate_game_sets;
-    size_t bg_taken = 0;
-    for (const auto& cs : cpu_topology.all_cpu_sets) {
-        if (cs.core_index == last_core_index && bg_taken < bg_limit) {
-            bg_taken++;
-            cpu_topology.background_cpu_set_ids.push_back(cs.cpu_set_id);
-        } else if (!exclude_core_zero || cs.core_index != 0) {
-            candidate_game_sets.push_back(cs);
-        }
-    }
-    std::map<uint32_t, size_t> llc_core_counts;
-    for (const auto& cs : candidate_game_sets) llc_core_counts[cs.last_level_cache_index]++;
-    std::sort(candidate_game_sets.begin(), candidate_game_sets.end(),
-              [&llc_core_counts](const CpuCoreSetInfo& a, const CpuCoreSetInfo& b) {
-                  const size_t ca = llc_core_counts[a.last_level_cache_index];
-                  const size_t cb = llc_core_counts[b.last_level_cache_index];
-                  if (ca != cb) return ca > cb;
-                  if (a.last_level_cache_index != b.last_level_cache_index) return a.last_level_cache_index < b.last_level_cache_index;
-                  if (a.core_index != b.core_index) return a.core_index < b.core_index;
-                  return a.logical_processor_index < b.logical_processor_index;
-              });
-    for (const auto& cs : candidate_game_sets) cpu_topology.game_optimal_cpu_set_ids.push_back(cs.cpu_set_id);
 }
 
 } // namespace vegaflow
