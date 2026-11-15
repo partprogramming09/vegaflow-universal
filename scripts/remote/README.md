@@ -13,6 +13,7 @@ Los trabajos corren en el **ejecutor de trabajos de WinBridge** (`docs/JOBS.md` 
 | `winbridge-package/manifest.json` | laptop (paquete `vegaflow`) | Los trabajos permitidos: scripts, parámetros con su expresión regular, límite de tiempo, sesión 1 |
 | `jobs/*.ps1` | laptop | Los trabajos: `state`, `doctor`, `restore`, `daemon-start`, `daemon-stop`, `game`, `kill-game`, `bg-factors` |
 | `deploy_package.ps1` | laptop, administrador | Instala el paquete en el ejecutor de WinBridge y los archivos que usan las tareas `VegaFlow-*` |
+| `setup_capture.ps1` + `capture_dda.py` | laptop, administrador | Instala la herramienta del trabajo `screenshot`: copia el Python a `C:\ProgramData\VegaFlow\tools\capture\python`, crea el venv con `dxcam` (Desktop Duplication, versiones fijas) y deja `capture_dda.py` al lado. Todo en una carpeta solo de administradores, porque el trabajo corre elevado y un Python de usuario (uv, `%LOCALAPPDATA%`) lo puede escribir cualquiera. Se lleva a mano: `scp` de los dos archivos a `C:\dev\vf-pkg` y `powershell -File C:\dev\vf-pkg\setup_capture.ps1` por SSH de administrador |
 | `vfdev` | Mac | `run`, `submit`, `wait`, `status`, `cancel`, `busy`, `list` (a `winbridge jobs`), más `deploy`, `sync`, `build-test`, `cross-test`, `stats` |
 | `vfstats.py` | Mac | Agrupa filas de resultados: n, media, mediana y rango |
 | `vfframes.py` | Mac | Compara dos condiciones con los CSV de cuadros de `bench.ps1`: cuadros agrupados, intervalo de confianza del 1% Low y veredicto con los umbrales del plan de pruebas |
@@ -58,9 +59,18 @@ scripts/remote/vfdev run pack Process=juego.exe Label=escena-condicion Captures=
 - La carpeta de VegaFlow se fija con SID (`*S-1-5-32-544`, `*S-1-5-18`, `*S-1-5-32-545`): los nombres en texto fallan en un Windows en español. `doctor` informa `carpeta_escribible_por_usuarios`.
 - PresentMon y `drawstress` se copiaron desde una carpeta del usuario sin verificar su firma.
 
+## Despliegue y hash del ejecutor
+
+Las versiones nuevas de `Install-WinBridgeJobs.ps1` exigen el SHA-256 de `runner.ps1`. Hay que tomarlo del repositorio fuente de WinBridge (`bootstrap/jobs/runner.ps1`), nunca del `runner.ps1` instalado en el laptop, porque entonces la comprobación compararía un archivo consigo mismo:
+
+```sh
+export VFJOB_RUNNER_SHA256=$(shasum -a 256 <winbridge>/bootstrap/jobs/runner.ps1 | cut -c1-64)
+scripts/remote/vfdev deploy
+```
+
 ## Límites
 
 - Un trabajo a la vez (cola máxima de 20) y solo sesión 1: no hay trabajos de sesión 0.
 - Tras un reinicio hace falta iniciar sesión en el laptop; el inicio automático no funciona con la cuenta de Microsoft actual.
-- No ve la pantalla ni pulsa teclas (eso lo hace WinBridge).
+- No pulsa teclas (eso lo hace WinBridge). Para ver la pantalla: `vfdev run screenshot Name=x` y `scp` del PNG. Usa Desktop Duplication (`method=dda`), que ve juegos a pantalla completa; el GDI de antes salía negro en esos casos y queda como respaldo (`method=gdi`). Sin `setup_capture.ps1` instalado, cae al respaldo.
 - El MCP `vfjob` ya no existe y se quitó de la configuración de Claude Code el 2026-11-05.

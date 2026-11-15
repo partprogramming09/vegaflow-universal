@@ -13,7 +13,7 @@
 #   vfdev fetch PREFIX [DEST]         fetches from the laptop the JSON and frame CSVs of captures whose label starts with PREFIX
 #   vfdev frames GLOB_A GLOB_B        compares two conditions using the frame CSVs: grouped frames and confidence interval
 #   vfdev regress BASE.json GLOB      regression gate: compares new captures with a scene's baseline (baselines/); --make creates it
-# Variables: VFJOB_HOST (user@ip), VFJOB_KEY (SSH key), WINBRIDGE_BIN (winbridge client, `winbridge` by default),
+# Variables: VFJOB_HOST (user@ip), VFJOB_KEY (SSH key), VFJOB_RUNNER_SHA256 (deploy: sha256 of runner.ps1 from the WinBridge source repo), WINBRIDGE_BIN (winbridge client, `winbridge` by default),
 #   VFJOB_REPO (repository on the laptop), VFJOB_MINGW (g++ bin folder), VFJOB_BASE (bundle base branch, main),
 #   VFJOB_QUEUE=1 (build-test even if jobs are running)
 set -u
@@ -75,7 +75,15 @@ deploy)
     copy_to "$HERE/winbridge-package/manifest.json" "$HERE/busy.html" "$REPO/scripts/tweaks_state.ps1" "$REPO/scripts/ab_profile.ps1" \
         "$HERE/deploy_package.ps1" "$HOST:C:/dev/vf-pkg/" || exit 1
     copy_to "$HERE"/jobs/*.ps1 "$REPO/scripts/bench.ps1" "$REPO/scripts/bench_pack.ps1" "$REPO/scripts/ab_loop_task.ps1" "$HOST:C:/dev/vf-pkg/scripts/" || exit 1
-    remote "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\dev\\vf-pkg\\deploy_package.ps1 -Repo $LAPTOP_REPO" 2>&1 | LC_ALL=C tr -d '\r' | grep -v '^<\|CLIXML\|^$'
+    case "${VFJOB_RUNNER_SHA256:-}" in
+        "") ;;
+        *[!0-9a-fA-F]*) echo "VFJOB_RUNNER_SHA256 no es un SHA-256 hexadecimal"; exit 1 ;;
+        *) [ "${#VFJOB_RUNNER_SHA256}" -eq 64 ] || { echo "VFJOB_RUNNER_SHA256 no tiene 64 caracteres"; exit 1; } ;;
+    esac
+    # The exit status is the installer's, not grep's: a failed install must not look like success.
+    out="$(remote "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\dev\\vf-pkg\\deploy_package.ps1 -Repo $LAPTOP_REPO${VFJOB_RUNNER_SHA256:+ -RunnerSha256 $VFJOB_RUNNER_SHA256}" 2>&1)"; rc=$?
+    printf '%s\n' "$out" | LC_ALL=C tr -d '\r' | LC_ALL=C grep -v '^<\|CLIXML\|^$'
+    exit $rc
     ;;
 sync)
     tmp="$(mktemp -d)"

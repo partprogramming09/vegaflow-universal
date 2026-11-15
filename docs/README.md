@@ -38,7 +38,7 @@ Cada documento dice en su segunda línea para quién es (`**Lector:**`).
 | `modulos.md` | Capas del código, SystemInfo, GUI, suite 3D, silicio y el árbol del repo |
 | `patron-universal.md` | Por qué pasa en cualquier procesador, qué cambia entre Ryzen e Intel Core y qué decide el código en cada equipo (tipo de gráfica y reparto de núcleos) |
 
-**`mediciones/`: qué se midió.** Informes fechados que no se reescriben: `2026-11-base.md` (línea base), `2026-11-ab-daemon.md` (daemon apagado contra encendido), `2026-11-juegos-reales.md`, `2026-11-octopath2-factorial.md`, `2026-11-09-diagnostico-laptop.md` (estado del laptop y verificación de la investigación), `2026-11-14-paquete-0.1.0.md` (instalar, desinstalar y memoria en reposo del paquete), y `estado-de-verificacion.md`, que resume qué está medido y qué no. Las capturas están en `assets/`.
+**`mediciones/`: qué se midió.** Informes fechados que no se reescriben: `2026-11-base.md` (línea base), `2026-11-ab-daemon.md` (daemon apagado contra encendido), `2026-11-juegos-reales.md`, `2026-11-octopath2-factorial.md`, `2026-11-09-diagnostico-laptop.md` (estado del laptop y verificación de la investigación), `2026-11-14-paquete-0.1.0.md` (instalar, desinstalar y memoria en reposo del paquete), `2026-11-15-regresion-octopath.md` (puerta de regresión de Octopath con y sin el preset UMA), y `estado-de-verificacion.md`, que resume qué está medido y qué no. Las capturas están en `assets/`.
 
 **`plan/`: qué falta.** `maestro/`: el único plan, con un `README.md` de entrada, un archivo por fase y tres comunes (`producto.md`, `arquitectura.md` y `fuera-del-plan.md`). Arquitectura nueva y módulos, librerías, qué pasa a Rust, arreglos de seguridad, soporte para otro hardware y funciones futuras, en fases.
 
