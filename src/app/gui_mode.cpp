@@ -24,6 +24,7 @@
 #include "session/system_info.hpp"
 #include "session/config_screen.hpp"
 #include "session/history_screen.hpp"
+#include "session/programs_screen.hpp"
 #include "session/restore.hpp"
 #include <filesystem>
 #include "app/app_state.hpp"
@@ -400,6 +401,39 @@ int RunGuiMode(
         candidate.memory.is_uma_architecture = config.memory.is_uma_architecture;
         candidate.process_policy.heavy_work_as_game = factory.process_policy.heavy_work_as_game;
         return save_config_edit(candidate, "Configuración restablecida a los valores de fábrica.");
+    };
+
+    // Programas: each edit changes a copy, is checked by the same rules as Configuración and saved before `config` follows.
+    callbacks.on_PollPrograms = [&]() -> session::ProgramsScreenModel { return session::BuildProgramsScreen(config); };
+    auto edit_programs = [&](const std::function<bool(AppConfig&, std::string*)>& change) -> std::string {
+        AppConfig candidate = config;
+        std::string err;
+        if (!change(candidate, &err)) return say(err.empty() ? "Ese cambio no existe." : err);
+        return save_config_edit(candidate, "Guardado en config.json.");
+    };
+    callbacks.on_SetCategoryAction = [&](const std::string& id, int action) -> std::string {
+        return edit_programs([&](AppConfig& c, std::string*) { return session::SetCategoryAction(c, id, static_cast<ProcessAction>(action)); });
+    };
+    callbacks.on_AddException = [&](const std::string& exe) -> std::string {
+        return edit_programs([&](AppConfig& c, std::string* e) { return session::AddException(c, exe, e); });
+    };
+    callbacks.on_SetExceptionAction = [&](const std::string& exe, int action) -> std::string {
+        return edit_programs([&](AppConfig& c, std::string*) { return session::SetExceptionAction(c, exe, static_cast<ProcessAction>(action)); });
+    };
+    callbacks.on_RemoveException = [&](const std::string& exe) -> std::string {
+        return edit_programs([&](AppConfig& c, std::string*) { return session::RemoveException(c, exe); });
+    };
+    callbacks.on_AddManualGame = [&](const std::string& exe) -> std::string {
+        return edit_programs([&](AppConfig& c, std::string* e) { if (!session::AddManualGame(c, exe, e)) return false;
+            SyncSteamGamesToCustomExes(cached_steam_games, c);
+            return true;
+        });
+    };
+    callbacks.on_RemoveManualGame = [&](const std::string& exe) -> std::string {
+        return edit_programs([&](AppConfig& c, std::string*) { if (!session::RemoveManualGame(c, exe)) return false;
+            SyncSteamGamesToCustomExes(cached_steam_games, c);
+            return true;
+        });
     };
 
     callbacks.on_RequestElevate = [&]() -> bool {

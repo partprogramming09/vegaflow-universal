@@ -49,4 +49,23 @@ inline constexpr const wchar_t* kConfigRestoreAllButton = L"Devolver todo";
 inline constexpr const wchar_t* kConfigOn = L"Activado";
 inline constexpr const wchar_t* kConfigOff = L"Apagado";
 
+inline constexpr const wchar_t* kProgTitle = L"Programas";
+inline constexpr const wchar_t* kProgSubtitle =
+    L"Elige qué hace VegaFlow con cada tipo de programa mientras juegas. Los programas se reconocen por su nombre y por la carpeta donde están instalados.";
+inline constexpr const wchar_t* kProgLegend =
+    L"Frenar: ahorro de energía, disco en prioridad baja y un núcleo apartado.   Solo ahorro: gasta menos CPU pero no se le quita disco ni núcleos; bueno para música.   No tocar: sigue igual que siempre; para grabar, transmitir o hablar.";
+inline constexpr const wchar_t* kProgCategoriesTitle = L"Por tipo de programa";
+inline constexpr const wchar_t* kProgExceptionsTitle = L"Excepciones";
+inline constexpr const wchar_t* kProgExceptionsHelp = L"Un programa concreto que quieres tratar distinto de su tipo.";
+inline constexpr const wchar_t* kProgExceptionRowHelp = L"Siempre se trata con la acción de la derecha.";
+inline constexpr const wchar_t* kProgAddException = L"Añadir excepción";
+inline constexpr const wchar_t* kProgAddExceptionField = L"Nombre del programa, por ejemplo telegram.exe";
+inline constexpr const wchar_t* kProgGamesTitle = L"Juegos que no se detectan solos";
+inline constexpr const wchar_t* kProgGamesHelp = L"Los de Steam se añaden solos. Aquí van los de otras tiendas o sin tienda.";
+inline constexpr const wchar_t* kProgAddGame = L"Añadir un juego";
+inline constexpr const wchar_t* kProgAddGameField = L"Nombre del juego, por ejemplo juego.exe";
+inline constexpr const wchar_t* kProgRemove = L"Quitar";
+inline constexpr const wchar_t* kProgSelected = L", seleccionado";
+inline constexpr const wchar_t* kProgFooter = L"Los procesos de Windows nunca se tocan, y eso no se puede cambiar.";
+
 } // namespace vegaflow::ui::text

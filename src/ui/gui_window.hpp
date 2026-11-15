@@ -21,6 +21,7 @@
 
 #include "session/config_screen.hpp"
 #include "session/history_screen.hpp"
+#include "session/programs_screen.hpp"
 #include "session/settings_screen.hpp"
 #include "session/system_info.hpp"
 
@@ -140,6 +141,14 @@ struct GuiCallbacks {
     std::function<std::string(const std::string& id, const std::string& text)> on_SetConfigNumber;
     std::function<std::string(const std::string& id, bool on)> on_SetConfigToggle;
     std::function<std::string()> on_ResetConfig;
+    // Programas: same pattern; `action` is a vegaflow::ProcessAction value.
+    std::function<session::ProgramsScreenModel()> on_PollPrograms;
+    std::function<std::string(const std::string& id, int action)> on_SetCategoryAction;
+    std::function<std::string(const std::string& exe)> on_AddException;
+    std::function<std::string(const std::string& exe, int action)> on_SetExceptionAction;
+    std::function<std::string(const std::string& exe)> on_RemoveException;
+    std::function<std::string(const std::string& exe)> on_AddManualGame;
+    std::function<std::string(const std::string& exe)> on_RemoveManualGame;
 };
 
 class GuiWindow {

@@ -2,6 +2,7 @@
 #include "ui/app_identity.hpp"
 #include "ui/gui_components.hpp"
 #include "ui/config_view.hpp"
+#include "ui/programs_view.hpp"
 #include "ui/history_view.hpp"
 #include "ui/settings_view.hpp"
 
@@ -63,17 +64,18 @@ void PaintDashboard(HDC hdcMem, const RECT& rcClient, GuiWindowState* state) {
     SelectObject(hdcMem, hOldPen);
     DeleteObject(hPenHeadDiv);
 
-    // 5 tab buttons in the side menu
-    const wchar_t* tabTitles[6] = {
+    // 7 tab buttons in the side menu
+    const wchar_t* tabTitles[7] = {
         L"1. Dashboard & Telemetría",
         L"2. Ajustes del sistema",
         L"3. Memoria UMA & Núcleos CPU",
         L"4. Biblioteca Steam & Motores",
         L"5. Historial",
-        L"6. Configuración"
+        L"6. Configuración",
+        L"7. Programas"
     };
 
-    for (int i = 0; i < 6; ++i) {
+    for (int i = 0; i < 7; ++i) {
         int tabY = 78 + i * 44;
         RECT rcTab = { 12, tabY, SIDEBAR_WIDTH - 12, tabY + 38 };
         bool isActive = (state->current_tab == i);
@@ -139,6 +141,9 @@ void PaintDashboard(HDC hdcMem, const RECT& rcClient, GuiWindowState* state) {
         case 5:
             ui::ConfigViewPaint(hdcMem, state, RECT{contentLeft, contentTop, contentRight, contentBottom});
             break;
+        case 6:
+            ui::ProgramsViewPaint(hdcMem, state, RECT{contentLeft, contentTop, contentRight, contentBottom});
+            break;
         default:
             RenderTabDashboard(hdcMem, rcClient, state, contentLeft, contentRight, contentTop, contentBottom, contentW);
             break;
@@ -194,19 +199,21 @@ void RefreshActiveScreen(HWND hwnd, GuiWindowState* state) {
     if (state->current_tab == 1) ui::SettingsViewRefresh(hwnd, state);
     else if (state->current_tab == 4) ui::HistoryViewRefresh(hwnd, state);
     else if (state->current_tab == 5) ui::ConfigViewRefresh(hwnd, state);
+    else if (state->current_tab == 6) ui::ProgramsViewRefresh(hwnd, state);
 }
 
 void HandleActionClick(HWND hwnd, GuiWindowState* state, int id) {
     if (!state) return;
 
     // Tab switching
-    if (id >= ID_TAB_0 && id <= ID_TAB_5) {
+    if (id >= ID_TAB_0 && id <= ID_TAB_6) {
         ui::ConfigViewCommitPending(hwnd, state);
         state->current_tab = id - ID_TAB_0;
         RefreshActiveScreen(hwnd, state);
         ui::SettingsViewShow(state, state->current_tab == 1);
         ui::HistoryViewShow(state, state->current_tab == 4);
         ui::ConfigViewShow(state, state->current_tab == 5);
+        ui::ProgramsViewShow(state, state->current_tab == 6);
         InvalidateRect(hwnd, nullptr, FALSE);
         return;
     }
@@ -462,6 +469,7 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
             if (state && state->current_tab == 1) ui::SettingsViewRelayout(state);
             if (state && state->current_tab == 4) ui::HistoryViewRelayout(state);
             if (state && state->current_tab == 5) ui::ConfigViewRelayout(state);
+            if (state && state->current_tab == 6) ui::ProgramsViewRelayout(state);
             InvalidateRect(hwnd, nullptr, FALSE);
             return 0;
         }
@@ -479,13 +487,18 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                 ui::ConfigViewScroll(state, -GET_WHEEL_DELTA_WPARAM(wParam) / 2);
                 return 0;
             }
+            if (state && state->current_tab == 6) {
+                ui::ProgramsViewScroll(state, -GET_WHEEL_DELTA_WPARAM(wParam) / 2);
+                return 0;
+            }
             break;
         }
 
         case WM_DRAWITEM: {
             auto* item = reinterpret_cast<const DRAWITEMSTRUCT*>(lParam);
             if (state && item && item->CtlType == ODT_BUTTON) {
-                if (static_cast<int>(item->CtlID) >= ui::kConfigResetId) ui::ConfigViewDrawItem(item, state);
+                if (static_cast<int>(item->CtlID) >= ui::kProgKindBaseId) ui::ProgramsViewDrawItem(item, state);
+                else if (static_cast<int>(item->CtlID) >= ui::kConfigResetId) ui::ConfigViewDrawItem(item, state);
                 else if (static_cast<int>(item->CtlID) >= ui::kHistoryRestoreAllId) ui::HistoryViewDrawItem(item, state);
                 else ui::SettingsViewDrawItem(item, state);
                 return TRUE;
@@ -621,6 +634,7 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
         case WM_COMMAND: {
             int wmId = LOWORD(wParam);
             if (!state) break;
+            if (ui::ProgramsViewCommand(hwnd, state, wmId, HIWORD(wParam), reinterpret_cast<HWND>(lParam))) return 0;
             if (ui::ConfigViewCommand(hwnd, state, wmId, HIWORD(wParam), reinterpret_cast<HWND>(lParam))) return 0;
             if (ui::HistoryViewCommand(hwnd, state, wmId, HIWORD(wParam), reinterpret_cast<HWND>(lParam))) return 0;
             if (ui::SettingsViewCommand(hwnd, state, wmId, HIWORD(wParam), reinterpret_cast<HWND>(lParam))) return 0;
@@ -679,6 +693,7 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
             if (state) {
                 KillTimer(hwnd, TIMER_TELEMETRY_ID);
                 ui::ConfigViewDestroy(state);
+                ui::ProgramsViewDestroy(state);
 
                 if (state->tray_registered) {
                     Shell_NotifyIconW(NIM_DELETE, &state->nid);
@@ -782,14 +797,16 @@ int GuiWindow::RunGuiLoop(const GuiCallbacks& callbacks) {
     ui::HistoryViewShow(&state, false);
     ui::ConfigViewRefresh(hwnd, &state);
     ui::ConfigViewShow(&state, false);
+    ui::ProgramsViewRefresh(hwnd, &state);
+    ui::ProgramsViewShow(&state, false);
     ShowWindow(hwnd, SW_SHOW);
     UpdateWindow(hwnd);
 
     // Standard message loop
     MSG msg = {};
     while (GetMessageW(&msg, nullptr, 0, 0)) {
-        // Ctrl+1..5 jump to a tab: the sidebar is not a control yet, so this is the keyboard way in.
-        if (msg.message == WM_KEYDOWN && msg.wParam >= '1' && msg.wParam <= '6' && (GetKeyState(VK_CONTROL) & 0x8000) && !(GetKeyState(VK_MENU) & 0x8000) &&
+        // Ctrl+1..7 jump to a tab: the sidebar is not a control yet, so this is the keyboard way in.
+        if (msg.message == WM_KEYDOWN && msg.wParam >= '1' && msg.wParam <= '7' && (GetKeyState(VK_CONTROL) & 0x8000) && !(GetKeyState(VK_MENU) & 0x8000) &&
             GetAncestor(msg.hwnd, GA_ROOT) == hwnd) {
             HandleActionClick(hwnd, &state, ID_TAB_0 + static_cast<int>(msg.wParam - '1'));
             continue;
