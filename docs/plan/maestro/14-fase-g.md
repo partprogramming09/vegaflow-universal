@@ -83,6 +83,15 @@ Lo que ya está bien: el texto secundario tiene entre 5,69:1 y 6,94:1, las etiqu
 - se navega con el teclado (Tab) por todos los botones y los textos tienen un contraste de al menos 4,5:1;
 - el daemon en reposo sigue por debajo de 15 MB con la GUI cerrada.
 
+## Decisiones pendientes que salieron al construir el catálogo (2026-11-15)
+
+El catálogo de ajustes (`src/session/settings_catalog.*`, Prueba 61) se comparó fila por fila con lo que escribe el código. Quedan estas decisiones para el usuario; la prueba 61.10 fija la lista actual para que cambiarla sea a propósito:
+
+- **Cuatro ajustes sin medir se aplican solos**, contra la regla «lo no medido no va por defecto»: la memoria de vídeo informada (`main.cpp`, al arrancar con administrador), `Win32PrioritySeparation` y GameDVR (en cada juego detectado, `game_session.cpp`) y el perfil de energía (si la política fuerza el plan de alto rendimiento). Medidos sin efecto: `Win32PrioritySeparation` y GameDVR. La pantalla debe decirlo tal cual; apagarlos de fábrica es un cambio de comportamiento que pide su propia aprobación.
+- **«Caché de shaders» y «teselación» no son ajustes sueltos:** el código los escribe juntos con seis valores más del driver de AMD. El catálogo los muestra como un solo «Perfil del driver de AMD».
+- **La compresión de memoria y GameDVR** no estaban en el diseño del canvas; ya tienen fila.
+- **Sin probar todavía:** que cada fila coincida con lo que escribe el optimizador, con un `RegistryPort` en memoria como la Prueba 57. Hoy se comprobó leyendo el código.
+
 ## Evidencia (commit `61eed56`)
 
 **GUI ya hecha**
