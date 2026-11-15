@@ -161,7 +161,7 @@ void Test73() {
     const std::string boot_mhz = std::to_string(policy.cpu_stapm_cap_mhz) + " MHz";
     for (const auto& l : audit4) {
         power_text = power_text || (policy.cpu_stapm_cap_mhz != 0 && l.find(boot_mhz) != std::string::npos && l.find("15000 MHz") == std::string::npos) ||
-                     (policy.cpu_stapm_cap_mhz == 0 && l.find("15000 MHz") == std::string::npos && l.find("Control Térmico") != std::string::npos);
+                     (policy.cpu_stapm_cap_mhz == 0 && l.find("15000 MHz") == std::string::npos && l.find("sin tope activado") != std::string::npos);
     }
     RecordResult(wrote_live && original_back && power_text && audit4.size() >= 3,
                  "Test 73.6: VRAM reporting writes the live policy's size, turning it off puts the saved original back, and each answer is audited");

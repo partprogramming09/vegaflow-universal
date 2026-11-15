@@ -32,6 +32,10 @@ New native GUI (Win32, owner-draw controls reachable with Tab). Not tagged yet: 
 
 ### Fixed
 - Turning VRAM reporting off no longer writes an invented 512 MB: it puts back only the saved original.
+- DXVK: a failed backup of the game's own `d3d11.dll`/`dxgi.dll` now stops the install instead of overwriting them; a
+  failed copy undoes the half install; removal keeps the `.original.bak` until the original is back and says so when the
+  game (open, with the DLLs loaded) blocks it; a game's own DLLs with no VegaFlow marker are never deleted, also from
+  `--dxvk-remove`.
 
 ### Removed
 - Unreachable handlers for the old "apply preset" and "elevate" buttons (a posted `WM_COMMAND` could have reached

@@ -14,6 +14,7 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <utility>
 #include <vector>
 
 namespace vegaflow {
@@ -131,6 +132,15 @@ std::wstring DxvkManager::GetDxvkAssetsPath() {
     return L"";
 }
 
+// The dxvk.conf VegaFlow writes starts with "# VegaFlow" (also true of 0.1.0); a UTF-8 BOM before it is tolerated.
+static bool HasVegaFlowDxvkConf(const std::filesystem::path& dir) {
+    std::ifstream conf(dir / L"dxvk.conf", std::ios::binary);
+    std::string first;
+    std::getline(conf, first);
+    if (first.rfind("\xEF\xBB\xBF", 0) == 0) first.erase(0, 3);
+    return first.rfind("# VegaFlow", 0) == 0;
+}
+
 bool DxvkManager::IsDxvkInstalled(const std::wstring& game_exe_path) {
     if (game_exe_path.empty()) return false;
 
@@ -147,10 +157,7 @@ bool DxvkManager::IsDxvkInstalled(const std::wstring& game_exe_path) {
     if (!std::filesystem::exists(d3d11, ec) || !std::filesystem::exists(dxgi, ec)) return false;
 
     // A game may ship its own d3d11/dxgi DLLs: only the dxvk.conf we write last proves it was us.
-    std::ifstream conf(dir / L"dxvk.conf");
-    std::string first;
-    std::getline(conf, first);
-    return first.rfind("# VegaFlow", 0) == 0;
+    return HasVegaFlowDxvkConf(dir);
 }
 
 bool DxvkManager::BackupUserDxvkConf(FileSystem& fs, const std::wstring& conf_path, bool anticheat_protected) {
@@ -244,8 +251,9 @@ bool DxvkManager::DeployDxvk(
     // 1. Back up d3d11.dll if it existed and is not already the DXVK file
     if (std::filesystem::exists(dstD3d11, ec)) {
         if (!std::filesystem::exists(bakD3d11, ec)) {
-            if (!AreFilesIdentical(dstD3d11, srcD3d11)) {
-                fs_.Copy(dstD3d11.wstring(), bakD3d11.wstring(), true, has_anticheat);
+            if (!AreFilesIdentical(dstD3d11, srcD3d11) && !fs_.Copy(dstD3d11.wstring(), bakD3d11.wstring(), true, has_anticheat)) {
+                if (out_message) *out_message = "No se pudo guardar una copia de d3d11.dll; el juego quedó intacto";
+                return false;
             }
         }
     }
@@ -253,28 +261,15 @@ bool DxvkManager::DeployDxvk(
     // 2. Back up dxgi.dll if it existed and is not already the DXVK file
     if (std::filesystem::exists(dstDxgi, ec)) {
         if (!std::filesystem::exists(bakDxgi, ec)) {
-            if (!AreFilesIdentical(dstDxgi, srcDxgi)) {
-                fs_.Copy(dstDxgi.wstring(), bakDxgi.wstring(), true, has_anticheat);
+            if (!AreFilesIdentical(dstDxgi, srcDxgi) && !fs_.Copy(dstDxgi.wstring(), bakDxgi.wstring(), true, has_anticheat)) {
+                if (out_message) *out_message = "No se pudo guardar una copia de dxgi.dll; el juego quedó intacto";
+                return false;
             }
         }
     }
 
-    // 3. Copy DXVK DLLs, protected by SandboxGuard
-    if (!fs_.Copy(srcD3d11.wstring(), dstD3d11.wstring(), true, has_anticheat)) {
-        if (out_message) {
-            *out_message = "Error al copiar d3d11.dll a la carpeta del juego (bloqueado por SandboxGuard o fallo de I/O)";
-        }
-        return false;
-    }
-
-    if (!fs_.Copy(srcDxgi.wstring(), dstDxgi.wstring(), true, has_anticheat)) {
-        if (out_message) {
-            *out_message = "Error al copiar dxgi.dll a la carpeta del juego (bloqueado por SandboxGuard o fallo de I/O)";
-        }
-        return false;
-    }
-
-    // 4. Write dxvk.conf with an APU-optimized profile according to the HardwareProfiler Policy
+    // 3. Write dxvk.conf (APU profile from the policy) before the DLLs: it is the marker IsDxvkInstalled looks for, so a
+    // copy that fails halfway still leaves a game that "Quitar DXVK" can clean, and a failed write leaves the DLLs alone.
     std::filesystem::path confPath = dir / L"dxvk.conf";
     {
         std::string confContent =
@@ -295,6 +290,23 @@ bool DxvkManager::DeployDxvk(
             }
             return false;
         }
+    }
+
+    // 4. Copy DXVK DLLs, protected by SandboxGuard
+    if (!fs_.Copy(srcD3d11.wstring(), dstD3d11.wstring(), true, has_anticheat)) {
+        if (out_message) {
+            *out_message = "Error al copiar d3d11.dll a la carpeta del juego (bloqueado por SandboxGuard o fallo de I/O)";
+        }
+        RemoveDxvk(game_exe_path, false, nullptr); // undo what was already written: a half install must not stay
+        return false;
+    }
+
+    if (!fs_.Copy(srcDxgi.wstring(), dstDxgi.wstring(), true, has_anticheat)) {
+        if (out_message) {
+            *out_message = "Error al copiar dxgi.dll a la carpeta del juego (bloqueado por SandboxGuard o fallo de I/O)";
+        }
+        RemoveDxvk(game_exe_path, false, nullptr); // undo what was already written: a half install must not stay
+        return false;
     }
 
     if (out_message) {
@@ -337,6 +349,13 @@ bool DxvkManager::RemoveDxvk(
     std::filesystem::path bakD3d11 = dir / L"d3d11.dll.original.bak";
     std::filesystem::path bakDxgi = dir / L"dxgi.dll.original.bak";
 
+    // Only what VegaFlow put there is removed: a game that ships its own d3d11/dxgi (no marker, no backup) is left alone,
+    // which also guards the --dxvk-remove command line.
+    if (!HasVegaFlowDxvkConf(dir) && !std::filesystem::exists(bakD3d11, ec) && !std::filesystem::exists(bakDxgi, ec)) {
+        if (out_message) *out_message = "VegaFlow no instaló DXVK en esta carpeta: no se tocó nada";
+        return true;
+    }
+
     // 1. Delete DXVK files with SandboxGuard
     fs_.Remove(dstD3d11.wstring(), false);
     fs_.Remove(dstDxgi.wstring(), false);
@@ -353,15 +372,20 @@ bool DxvkManager::RemoveDxvk(
         }
     }
 
-    // 3. Restore backups if they existed
-    if (std::filesystem::exists(bakD3d11, ec)) {
-        fs_.Copy(bakD3d11.wstring(), dstD3d11.wstring(), true, false);
-        fs_.Remove(bakD3d11.wstring(), false);
+    // 3. Put the game's own DLLs back. A backup is deleted only after its copy succeeded; a DLL that could not be
+    // replaced or deleted (the game is open and has it loaded) makes the answer "no".
+    bool dlls_ok = true;
+    for (const auto& [bak, dst] : {std::pair{bakD3d11, dstD3d11}, std::pair{bakDxgi, dstDxgi}}) {
+        if (std::filesystem::exists(bak, ec)) {
+            if (fs_.Copy(bak.wstring(), dst.wstring(), true, false)) fs_.Remove(bak.wstring(), false);
+            else dlls_ok = false;
+        } else if (std::filesystem::exists(dst, ec)) {
+            dlls_ok = false; // no original to put back and our DLL is still there
+        }
     }
-
-    if (std::filesystem::exists(bakDxgi, ec)) {
-        fs_.Copy(bakDxgi.wstring(), dstDxgi.wstring(), true, false);
-        fs_.Remove(bakDxgi.wstring(), false);
+    if (!dlls_ok) {
+        if (out_message) *out_message = "No se pudo quitar DXVK del todo: ¿el juego está abierto? Ciérralo y vuelve a intentarlo (tus DLL originales siguen guardadas como .original.bak)";
+        return false;
     }
 
     if (out_message) {

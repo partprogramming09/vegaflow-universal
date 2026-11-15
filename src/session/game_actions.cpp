@@ -108,7 +108,7 @@ std::string GameActions::ToggleDxvk(uint32_t app_id) {
     SteamGameEntry* g = Find(app_id);
     if (!g) return NotFound(app_id);
     if (g->has_anticheat) return Said("Este juego usa anti-cheat: VegaFlow no cambia ni quita archivos en su carpeta.");
-    // Removing is always allowed (it is the way back); installing is not for a game the person excluded.
+    // Removing is the way back, so an excluded game may still do it (anti-cheat was refused above); installing is not.
     if (!g->dxvk_installed && IsExcludedGame(d_.config.process_policy.excluded_game_exes, *g)) {
         return Said("Este juego está en tu lista de excluidos: VegaFlow no instala nada en él.");
     }

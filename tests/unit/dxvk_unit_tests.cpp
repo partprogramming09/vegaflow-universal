@@ -11,6 +11,7 @@
 #include <windows.h>
 
 #include <filesystem>
+#include <fstream>
 #include <string>
 
 #include "optimize/dxvk_manager.hpp"
@@ -94,6 +95,60 @@ void Test71() {
     const bool told = !DxvkManager::RestoreUserDxvkConf(stuck, conf) && stuck.files.count(bak) == 1 && stuck.files.count(conf) == 1;
     RecordResult(kept && once && ours && absent && failed && restored && dropped && told,
                  "Test 71: a user's dxvk.conf is backed up once before DXVK writes its own, and restored on removal");
+}
+
+} // namespace vftest
+
+namespace vftest {
+
+void Test83() {
+    // Test 83: RemoveDxvk and IsDxvkInstalled never lose or misjudge a game's own DLLs (revisor findings of phase G).
+    // The manager still asks the real disk whether files exist, so the folder holds real (tiny) files; the changes go
+    // through the fake file system.
+    std::error_code ec;
+    const std::filesystem::path dir = std::filesystem::temp_directory_path(ec) / L"vegaflow_unit_dxvk83";
+    std::filesystem::remove_all(dir, ec);
+    std::filesystem::create_directories(dir, ec);
+    const std::wstring exe = (dir / L"game.exe").wstring();
+    auto Touch = [&](const wchar_t* name, const std::string& body) { std::ofstream(dir / name, std::ios::binary) << body; };
+
+    // 1. A game's own d3d11/dxgi, no VegaFlow marker and no backup: Quitar DXVK touches nothing.
+    Touch(L"d3d11.dll", "GAME_OWN");
+    Touch(L"dxgi.dll", "GAME_OWN");
+    FakeFileSystem foreign;
+    std::string msg1;
+    const bool foreign_ok = vegaflow::DxvkManager(foreign).RemoveDxvk(exe, false, &msg1) && foreign.Changes() == 0;
+    const bool not_dxvk = !vegaflow::DxvkManager::IsDxvkInstalled(exe);
+
+    // 2. The marker may come after a UTF-8 BOM (an editor saved the file): still ours.
+    Touch(L"dxvk.conf", "\xEF\xBB\xBF# VegaFlow DXVK AMD Vega 6 Profile\ndxvk.gpl = True\n");
+    const bool bom_ok = vegaflow::DxvkManager::IsDxvkInstalled(exe);
+
+    // 3. The original DLL is put back from its backup; the backup is deleted only when that copy worked.
+    Touch(L"d3d11.dll.original.bak", "ORIGINAL");
+    FakeFileSystem copy_fails;
+    copy_fails.fail_copy = true;
+    std::string msg3;
+    const bool refused = !vegaflow::DxvkManager(copy_fails).RemoveDxvk(exe, false, &msg3);
+    bool bak_kept = true;
+    for (const auto& r : copy_fails.removes) bak_kept = bak_kept && r.find(L".original.bak") == std::wstring::npos;
+    const bool says_why = msg3.find("original.bak") != std::string::npos;
+
+    std::filesystem::remove(dir / L"dxgi.dll", ec); // the fake file system cannot delete real files, so the DXVK dxgi.dll is gone beforehand
+    FakeFileSystem copy_works;
+    copy_works.files[(dir / L"d3d11.dll.original.bak").wstring()] = "ORIGINAL";
+    std::string msg4;
+    const bool restored = vegaflow::DxvkManager(copy_works).RemoveDxvk(exe, false, &msg4);
+    bool bak_removed = false;
+    for (const auto& r : copy_works.removes) bak_removed = bak_removed || r.find(L"d3d11.dll.original.bak") != std::wstring::npos;
+
+    std::filesystem::remove_all(dir, ec);
+    auto pass = [](bool b) { return std::string(b ? "PASS" : "FAIL"); };
+    RecordResult(foreign_ok && not_dxvk && bom_ok && refused && bak_kept && says_why && restored && bak_removed,
+                 "Test 83: RemoveDxvk leaves a game's own DLLs alone, keeps the backup when the copy fails and says so; the marker survives a BOM",
+                 "foreign DLLs untouched: " + pass(foreign_ok) + ", not DXVK: " + pass(not_dxvk) + ", BOM: " + pass(bom_ok) +
+                     ", refused: " + pass(refused) + ", backup kept: " + pass(bak_kept) + ", says why: " + pass(says_why) +
+                     ", restored: " + pass(restored) + ", backup removed after copy: " + pass(bak_removed));
 }
 
 } // namespace vftest

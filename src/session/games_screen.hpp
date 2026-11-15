@@ -50,12 +50,12 @@ const char* StatusLabel(GameStatus status);
 GamesScreenModel BuildGamesScreen(const std::vector<SteamGameEntry>& games, const ApuOptimizationPolicy& policy, uint32_t vram_pool_mb,
                                   const std::vector<std::wstring>& excluded);
 
-// Add / remove a game from excluded_game_exes by file name (any folder part is dropped, letter case ignored). The Rust
-// rules decide which names are valid; ConfigStore::Save stays the authority. false = nothing changed; `error` says why
-// when the name was the problem. The caller saves.
 // True when the game's program name is in the excluded list (any letter case). A game with no program is never excluded.
 bool IsExcludedGame(const std::vector<std::wstring>& excluded, const SteamGameEntry& game);
 
+// Add / remove a game from excluded_game_exes by file name (any folder part is dropped, letter case ignored). The Rust
+// rules decide which names are valid; ConfigStore::Save stays the authority. false = nothing changed; `error` says why
+// when the name was the problem. The caller saves.
 bool ExcludeGame(app::AppConfig& cfg, const std::string& exe_or_path, std::string* error = nullptr);
 bool IncludeGame(app::AppConfig& cfg, const std::string& exe_or_path);
 
