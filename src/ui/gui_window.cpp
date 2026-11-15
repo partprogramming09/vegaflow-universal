@@ -706,10 +706,14 @@ int GuiWindow::RunGuiLoop(const GuiCallbacks& callbacks) {
 
     int winWidth = rc.right - rc.left;
     int winHeight = rc.bottom - rc.top;
-    int screenW = GetSystemMetrics(SM_CXSCREEN);
-    int screenH = GetSystemMetrics(SM_CYSCREEN);
-    int posX = std::max<int>(0, (screenW - winWidth) / 2);
-    int posY = std::max<int>(0, (screenH - winHeight) / 2);
+    // Fit the usable area (screen minus taskbar): at 150 % scale a 1080p screen is 1280 x 720 for this window, smaller than
+    // the design size, and a window taller than that hid its status bar under the taskbar.
+    RECT work = {0, 0, GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN)};
+    SystemParametersInfoW(SPI_GETWORKAREA, 0, &work, 0);
+    winWidth = std::min<int>(winWidth, work.right - work.left);
+    winHeight = std::min<int>(winHeight, work.bottom - work.top);
+    int posX = work.left + std::max<int>(0, (work.right - work.left - winWidth) / 2);
+    int posY = work.top + std::max<int>(0, (work.bottom - work.top - winHeight) / 2);
 
     GuiWindowState state;
     state.callbacks = callbacks;

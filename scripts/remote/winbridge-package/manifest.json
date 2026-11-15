@@ -152,6 +152,22 @@
       "params": {
         "Keys": "^(\\{(TAB|ENTER|ESC|SPACE|LEFT|RIGHT|UP|DOWN)\\}|\\+\\{TAB\\}|\\^[1-8]|[0-9,])+$"
       }
+    },
+    "gui-second": {
+      "script": "gui_second.ps1",
+      "timeout_s": 60,
+      "session": 1,
+      "description": "Start a second test-build GUI while the first is open and report whether the first is brought forward",
+      "params": {}
+    },
+    "dpi": {
+      "script": "dpi.ps1",
+      "timeout_s": 60,
+      "session": 1,
+      "description": "Set the Windows display scale of the primary monitor (100/125/150/175/200) or put the saved original back",
+      "params": {
+        "Percent": "^(100|125|150|175|200|original)$"
+      }
     }
   }
 }
