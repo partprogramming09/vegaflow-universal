@@ -25,7 +25,7 @@ $esperado = (Get-Content .\VegaFlow-0.1.0-win-x64.zip.sha256).Split(' ')[0]
 
 Deberías ver `True`. Si ves `False`, no lo instales: descarga el zip otra vez.
 
-Este hash solo prueba que el zip es el que corresponde a ese `.sha256`. Sirve contra una descarga dañada o cambiada si el `.sha256` te llega por un camino distinto al del zip. Dónde se publicará cada uno está **pendiente de decidir**.
+Este hash solo prueba que el zip es el que corresponde a ese `.sha256`. El zip y el `.sha256` se publican como archivos adjuntos de la misma página de release de GitHub, así que la comprobación detecta una descarga dañada, pero no protege si alguien cambia los dos archivos de esa página. El zip no está firmado; para esa garantía haría falta un certificado de firma de código.
 
 ## Paso 2 de 5: descomprimir
 
