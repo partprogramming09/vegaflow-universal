@@ -15,6 +15,7 @@ New native GUI (Win32, owner-draw controls reachable with Tab). Not tagged yet: 
   excludes the game), "Volver a incluir" and DXVK install/remove; anti-cheat games are never touched.
 - Programas and Configuración are saved to `config.json` and read back (round trip tested).
 - Per-row undo in Historial and a "Devolver todo a como estaba" button.
+- Inicio card "¿Algo va mal?": "Devolver todo a como estaba" and "Copiar informe" (plain text on the clipboard: version, machine, memory, the last 30 changes with before and after; the Windows user name in any path is replaced by <usuario>).
 - `dxvk.conf.vegaflow.bak`: the game's own `dxvk.conf` is copied before DXVK is deployed and put back on removal.
 - `session/` layer: pure screen models and the action objects behind the buttons, tested with in-memory fakes of the
   file system, registry, power plan and clock. `scripts/check_layers.sh` enforces that `ui` includes only `session`

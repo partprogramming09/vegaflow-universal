@@ -117,6 +117,7 @@ struct GuiCallbacks {
     std::function<std::string()> on_IsolateBackgroundNow;
     std::function<std::string()> on_RestoreCpuAffinity;
     std::function<std::string()> on_RestoreAllDefaults;
+    std::function<void(const std::string&)> on_NoteStatus; // a view's own notice; the telemetry poll would overwrite a plain status
     std::function<std::string()> on_RescanSteamLibrary;
     std::function<std::string(uint32_t)> on_ApplyGameEnginePreset;
     std::function<std::string(uint32_t)> on_RestoreGameEngineConfig;

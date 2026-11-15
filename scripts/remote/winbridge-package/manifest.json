@@ -168,6 +168,13 @@
       "params": {
         "Percent": "^(100|125|150|175|200|original)$"
       }
+    },
+    "clip": {
+      "script": "clip.ps1",
+      "timeout_s": 30,
+      "session": 1,
+      "description": "Show the clipboard only if it holds the VegaFlow report (else just its length)",
+      "params": {}
     }
   }
 }

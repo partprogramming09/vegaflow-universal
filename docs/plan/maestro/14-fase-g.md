@@ -87,7 +87,7 @@ Lo que ya está bien: el texto secundario tiene entre 5,69:1 y 6,94:1, las etiqu
 
 ## Estado de la construcción (2026-11-15)
 
-Fuente de cada fila: el código en `src/ui/*_view.*`, `src/session/*_screen.*` y `src/app/gui_mode.cpp`. Suite de C++ en el laptop: `TEST RESULTS: 270 PASSED` (`scripts/remote/vfdev cross-test`). Cómo se reparte el código: [`modulos.md`](../../arquitectura/modulos.md), sección 3.3b.
+Fuente de cada fila: el código en `src/ui/*_view.*`, `src/session/*_screen.*` y `src/app/gui_mode.cpp`. Suite de C++ en el laptop: `TEST RESULTS: 281 PASSED` (`scripts/remote/vfdev cross-test`). Cómo se reparte el código: [`modulos.md`](../../arquitectura/modulos.md), sección 3.3b.
 
 **Hecho**
 
@@ -107,10 +107,10 @@ Fuente de cada fila: el código en `src/ui/*_view.*`, `src/session/*_screen.*` y
 
 - «Pausar VegaFlow en este juego» (la pantalla Inicio no lo tiene).
 - Bienvenida de la primera vez.
-- Atajo de pánico y «Algo va mal» (pausar, devolver todo y copiar el informe).
+- Atajo de pánico y la pausa de «Algo va mal». Hecho en Inicio: «Devolver todo a como estaba» y «Copiar informe» (texto plano al portapapeles; Prueba 84; comprobado en el laptop).
 - Mando (XInput).
 - Vista previa «qué haría en tu equipo» (el `dry_run` en pantalla).
-- Informe del equipo para copiar.
+- Informe copiable hecho en lo básico (Inicio → «Copiar informe»); falta el acceso desde la bandeja y el atajo.
 - Aviso al salir con cambios aplicados.
 - Configuración → «Funciones avanzadas» con «Modo desarrollador», y los grupos «General» (iniciar con Windows, bandeja), «Qué puede hacer este programa» y exportar la configuración: la pantalla Configuración tiene hoy cuatro grupos (Modo de uso, Detección de juegos, Memoria compartida y Avanzado, este último solo con «Limitar el juego a sus núcleos»).
 - **Escalado por DPI:** la GUI no escala sus tamaños (la amplía Windows). Capturada a 125 % y 150 % en el laptop de pruebas (job `dpi`, que guarda la escala original y la devuelve).

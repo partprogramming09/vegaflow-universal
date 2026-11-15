@@ -89,7 +89,7 @@ La interfaz gráfica Win32/GDI ([`gui_window.cpp`](../../src/ui/gui_window.cpp))
 
   | Entrada del menú | Qué responde |
   |---|---|
-  | 1. Inicio | ¿Hay un juego abierto? Tu equipo en tres líneas, la memoria gráfica compartida y los programas de fondo. Tres botones: «Ver todo el detalle» (lleva a Tu equipo), «Liberar memoria ahora» y «Elegir qué se frena» (lleva a Programas) |
+  | 1. Inicio | ¿Hay un juego abierto? Tu equipo en tres líneas, la memoria gráfica compartida y los programas de fondo. Tres botones: «Ver todo el detalle» (lleva a Tu equipo), «Liberar memoria ahora» y «Elegir qué se frena» (lleva a Programas). Al final, «¿Algo va mal?»: «Devolver todo a como estaba» y «Copiar informe» (texto plano con versión, equipo, memoria y los últimos 30 cambios; el nombre de usuario de Windows se cambia por <usuario> en toda ruta) |
   | 2. Ajustes del sistema | Cada ajuste de Windows que VegaFlow puede cambiar, con su estado real activado o de fábrica, si está medido o «Sin medir», un ⓘ con el cambio exacto y un aviso aparte para las funciones experimentales. Solo salen las familias que sirven en tu gráfica |
   | 3. Memoria UMA & Núcleos CPU | Sigue en el dibujo antiguo (GDI): no se ha rehecho |
   | 4. Juegos | Una fila por juego de Steam. «Ver cambios» muestra el archivo, la copia y las líneas que escribe el perfil. Botones: «Aplicar perfil», «Volver al archivo original», «Me fue mal en este juego» (lo excluye), «Volver a incluir», «Instalar DXVK» o «Quitar DXVK» y «Buscar juegos de nuevo» |

@@ -1,8 +1,11 @@
 #include "ui/home_view.hpp"
 
 #include <algorithm>
+#include <cstring>
 
 #include "session/home_screen.hpp"
+#include "session/report.hpp"
+#include "ui/app_identity.hpp"
 #include "ui/native_controls.hpp"
 #include "ui/texts.hpp"
 
@@ -41,8 +44,8 @@ session::HomeScreenModel Model(const GuiWindowState* st) {
 
 struct Layout {
     int title_y = 0;
-    RECT game{}, equipment{}, memory{}, background{};
-    RECT equipment_btn{}, purge_btn{}, programs_btn{};
+    RECT game{}, equipment{}, memory{}, background{}, trouble{};
+    RECT equipment_btn{}, purge_btn{}, programs_btn{}, undo_btn{}, report_btn{};
     int total = 0; // unscrolled height
     int eq_row_h = 0;
 };
@@ -83,6 +86,13 @@ Layout BuildLayout(GuiWindowState* st, const RECT& content, const session::HomeS
     l.background = {content.left, y, content.right, y + h};
     l.programs_btn = {content.left + kPad, l.background.bottom - 14 - kBtnH, content.left + kPad + 220, l.background.bottom - 14};
     y += h + kGap;
+
+    // "Algo va mal" card: what to do, then the two buttons side by side
+    h = kHeadH + 12 + TextHeight(dc, st->hFontRegular, text::kHomeTroubleBody, inner) + 12 + kBtnH + 14;
+    l.trouble = {content.left, y, content.right, y + h};
+    l.undo_btn = {content.left + kPad, l.trouble.bottom - 14 - kBtnH, content.left + kPad + 250, l.trouble.bottom - 14};
+    l.report_btn = {l.undo_btn.right + 12, l.undo_btn.top, l.undo_btn.right + 12 + 190, l.undo_btn.bottom};
+    y += h + kGap;
     ReleaseDC(st->hwnd, dc);
     l.total = y - top;
     return l;
@@ -107,8 +117,47 @@ const wchar_t* Label(int id) {
     switch (id) {
         case kHomeEquipmentId: return text::kHomeEquipmentButton;
         case kHomePurgeId: return text::kHomePurgeButton;
+        case kHomeUndoAllId: return text::kHomeUndoAllButton;
+        case kHomeReportId: return text::kHomeReportButton;
         default: return text::kHomeProgramsButton;
     }
+}
+
+std::string Utf8Of(const std::wstring& w) {
+    const int n = WideCharToMultiByte(CP_UTF8, 0, w.c_str(), static_cast<int>(w.size()), nullptr, 0, nullptr, nullptr);
+    std::string out(static_cast<size_t>(std::max(n, 0)), '\0');
+    if (n > 0) WideCharToMultiByte(CP_UTF8, 0, w.c_str(), static_cast<int>(w.size()), out.data(), n, nullptr, nullptr);
+    return out;
+}
+
+// The report as plain Unicode text on the clipboard. The history is read fresh so the report shows the latest changes.
+bool CopyReport(HWND hwnd, GuiWindowState* st) {
+    session::ReportInputs in;
+    in.version = ui::kVersion;
+    in.home = Model(st);
+    if (st->callbacks.on_PollHistory) in.history = st->callbacks.on_PollHistory();
+    in.status = st->data.last_action_status;
+    const std::wstring text = Utf8ToWide(session::BuildReport(in));
+    if (text.empty()) return false;
+    const size_t bytes = (text.size() + 1) * sizeof(wchar_t);
+    // Fill the memory first: the person's own clipboard is emptied only when there is something to put in it.
+    HGLOBAL mem = GlobalAlloc(GMEM_MOVEABLE, bytes);
+    if (!mem) return false;
+    void* p = GlobalLock(mem);
+    if (!p) {
+        GlobalFree(mem);
+        return false;
+    }
+    memcpy(p, text.c_str(), bytes);
+    GlobalUnlock(mem);
+    bool ok = false;
+    if (OpenClipboard(hwnd)) {
+        EmptyClipboard();
+        ok = SetClipboardData(CF_UNICODETEXT, mem) != nullptr; // the system owns the memory after a success
+        CloseClipboard();
+    }
+    if (!ok) GlobalFree(mem);
+    return ok;
 }
 
 } // namespace
@@ -133,6 +182,8 @@ void HomeViewRelayout(GuiWindowState* st) {
     PlaceClipped(Find(st, kHomeEquipmentId), l.equipment_btn, content);
     PlaceClipped(Find(st, kHomePurgeId), l.purge_btn, content);
     PlaceClipped(Find(st, kHomeProgramsId), l.programs_btn, content);
+    PlaceClipped(Find(st, kHomeUndoAllId), l.undo_btn, content);
+    PlaceClipped(Find(st, kHomeReportId), l.report_btn, content);
 }
 
 void HomeViewScroll(GuiWindowState* st, int delta_px) {
@@ -154,7 +205,7 @@ void HomeViewShow(GuiWindowState* st, bool show) {
 void HomeViewRefresh(HWND hwnd, GuiWindowState* st) {
     st->hwnd = hwnd;
     if (st->home_controls.empty()) {
-        for (int id : {kHomeEquipmentId, kHomePurgeId, kHomeProgramsId}) st->home_controls.push_back(MakeOwnerButton(hwnd, id, Label(id)));
+        for (int id : {kHomeEquipmentId, kHomePurgeId, kHomeProgramsId, kHomeUndoAllId, kHomeReportId}) st->home_controls.push_back(MakeOwnerButton(hwnd, id, Label(id)));
     }
     // The numbers change on every poll: only the paint differs, never the controls.
     if (st->current_tab == 0) HomeViewRelayout(st);
@@ -235,6 +286,12 @@ void HomeViewPaint(HDC hdc, GuiWindowState* st, const RECT& content) {
         DrawTextRect(hdc, {l.background.left + kPad, y, l.background.left + kPad + inner, l.programs_btn.top - 8}, Utf8ToWide(m.background_note), CLR_TEXT_MUTED, st->hFontSmall,
                      DT_LEFT | DT_WORDBREAK | DT_NOPREFIX);
     }
+
+    // Algo va mal
+    DrawRoundedCard(hdc, l.trouble, CLR_CARD_BG, CLR_CARD_BORDER, 8);
+    Header(hdc, st, l.trouble, text::kHomeTroubleTitle);
+    DrawTextRect(hdc, {l.trouble.left + kPad, l.trouble.top + kHeadH + 12, l.trouble.left + kPad + inner, l.undo_btn.top - 8}, text::kHomeTroubleBody, CLR_TEXT_BODY,
+                 st->hFontRegular, DT_LEFT | DT_WORDBREAK | DT_NOPREFIX);
     RestoreDC(hdc, saved);
 }
 
@@ -246,7 +303,7 @@ void HomeViewDrawItem(const DRAWITEMSTRUCT* d, GuiWindowState* st) {
 }
 
 bool HomeViewCommand(HWND hwnd, GuiWindowState* st, int id, int notify_code, HWND from) {
-    if (id < kHomeEquipmentId || id > kHomeProgramsId) return false;
+    if (id < kHomeEquipmentId || id > kHomeReportId) return false;
     // Only our own controls, on our own tab, may act (a posted fake has no sender, a foreign window, or an id that is not the sender's).
     if (st->current_tab != 0 || !from || GetDlgCtrlID(from) != id || std::find(st->home_controls.begin(), st->home_controls.end(), from) == st->home_controls.end()) return true;
     if (notify_code == BN_SETFOCUS) {
@@ -257,7 +314,13 @@ bool HomeViewCommand(HWND hwnd, GuiWindowState* st, int id, int notify_code, HWN
     if (notify_code != BN_CLICKED) return true;
     if (id == kHomeEquipmentId) SelectTab(hwnd, st, 7);
     else if (id == kHomeProgramsId) SelectTab(hwnd, st, 6);
-    else if (st->callbacks.on_PurgeNow) st->data.last_action_status = st->callbacks.on_PurgeNow();
+    else if (id == kHomeUndoAllId) {
+        if (st->callbacks.on_RestoreAllDefaults) st->data.last_action_status = st->callbacks.on_RestoreAllDefaults();
+    } else if (id == kHomeReportId) {
+        const std::string note = CopyReport(hwnd, st) ? Utf8Of(text::kHomeReportCopied) : Utf8Of(text::kHomeReportFailed);
+        st->data.last_action_status = note;
+        if (st->callbacks.on_NoteStatus) st->callbacks.on_NoteStatus(note);
+    } else if (st->callbacks.on_PurgeNow) st->data.last_action_status = st->callbacks.on_PurgeNow();
     InvalidateRect(hwnd, nullptr, FALSE);
     return true;
 }

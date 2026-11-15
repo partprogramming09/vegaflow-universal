@@ -373,6 +373,7 @@ int RunGuiMode(
         return msg;
     };
 
+    callbacks.on_NoteStatus = [&](const std::string& s) { last_gui_status = s; };
     callbacks.on_RestoreAllDefaults = [&]() -> std::string {
         RestoreReport rep{};
         if (ChangeJournal* j = GetActiveChangeJournal()) {

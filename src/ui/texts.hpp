@@ -93,6 +93,14 @@ inline constexpr const wchar_t* kHomeEquipmentButton = L"Ver todo el detalle";
 inline constexpr const wchar_t* kHomePurgeButton = L"Liberar memoria ahora";
 inline constexpr const wchar_t* kHomeBackgroundTitle = L"Programas en segundo plano";
 inline constexpr const wchar_t* kHomeProgramsButton = L"Elegir qué se frena";
+inline constexpr const wchar_t* kHomeTroubleTitle = L"¿Algo va mal?";
+inline constexpr const wchar_t* kHomeTroubleBody =
+    L"Si un juego o Windows se comporta raro después de un cambio de VegaFlow, devuelve todo a como estaba. Si quieres ayuda, copia el informe: "
+    L"es texto con tu equipo y los últimos cambios; léelo antes de enviarlo.";
+inline constexpr const wchar_t* kHomeUndoAllButton = L"Devolver todo a como estaba";
+inline constexpr const wchar_t* kHomeReportButton = L"Copiar informe";
+inline constexpr const wchar_t* kHomeReportCopied = L"Informe copiado: pégalo donde pidas ayuda. Revísalo antes de enviarlo.";
+inline constexpr const wchar_t* kHomeReportFailed = L"No se pudo copiar el informe al portapapeles.";
 
 // Juegos
 inline constexpr const wchar_t* kGamesTitle = L"Juegos";
