@@ -27,6 +27,8 @@ Deberías ver `True`. Si ves `False`, no lo instales: descarga el zip otra vez.
 
 Este hash solo prueba que el zip es el que corresponde a ese `.sha256`. El zip y el `.sha256` se publican como archivos adjuntos de la misma página de release de GitHub, así que la comprobación detecta una descarga dañada, pero no protege si alguien cambia los dos archivos de esa página. El zip no está firmado; para esa garantía haría falta un certificado de firma de código.
 
+**Solo el ejecutable.** El release también trae `vegaflow_daemon.exe` suelto, con su `.sha256` (el mismo archivo que va en el zip). Ejecutado desde una carpeta donde pueden escribir cuentas sin permisos de administrador (Descargas, el escritorio), VegaFlow muestra un aviso, usa los valores de fábrica y no guarda configuración: es una forma de probarlo, no de instalarlo. Para que guarde su configuración hay que instalarlo con `install.ps1`.
+
 ## Paso 2 de 5: descomprimir
 
 El zip contiene una carpeta `VegaFlow-0.1.0-win-x64` con:
