@@ -28,6 +28,7 @@ struct SettingSpec {
     const char* change = "";  // exact value written, or what the watcher does
     bool undoable = true;     // false for one-shot actions that leave no saved original (nothing to undo)
     bool applied_by_default = false; // the daemon applies it without the user asking (see 14-fase-g.md, pending decision)
+    bool user_switch = true;  // the person can turn it on and off; false when VegaFlow decides by itself (memory guard)
 };
 
 // What the screen needs to know about the machine; filled from the device profile (phase 3).

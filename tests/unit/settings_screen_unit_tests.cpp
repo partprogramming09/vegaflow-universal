@@ -75,6 +75,15 @@ void Test63() {
     }
     RecordResult(isolated, "Test 63.2: each state field turns on only its own row", bad);
 
+    // 2b. A Win32PrioritySeparation the user set (not the Windows 2, not a value VegaFlow writes) is not shown as ours.
+    SettingsScreenInputs foreign = in;
+    foreign.tweaks.win32_priority_separation = 0x18;
+    bool foreign_off = true;
+    for (const auto& f : BuildSettingsScreen(foreign).families) {
+        for (const auto& r : f.rows) foreign_off = foreign_off && !(std::string(r.spec->id) == "priority_separation" && r.on);
+    }
+    RecordResult(foreign_off, "Test 63.2b: a priority separation value VegaFlow did not write is not shown as on");
+
     // 3. Every catalog row has a state case (none can silently stay off for a missing mapping).
     bool covered = true;
     for (const auto& s : SettingsCatalog()) {

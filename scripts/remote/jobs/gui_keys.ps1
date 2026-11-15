@@ -12,7 +12,7 @@
 param([Parameter(Mandatory = $true)][string]$Keys)
 
 $ErrorActionPreference = 'Stop'
-if ($Keys -notmatch '^(\{(TAB|ENTER|ESC|SPACE|LEFT|RIGHT|UP|DOWN)\}|\+\{TAB\})+$') { throw 'Teclas no permitidas.' }
+if ($Keys -notmatch '^(\{(TAB|ENTER|ESC|SPACE|LEFT|RIGHT|UP|DOWN)\}|\+\{TAB\}|\^[1-5])+$') { throw 'Teclas no permitidas.' }
 $exe = 'C:\dev\vf-run\build\vegaflow_daemon.exe'
 $gui = Get-Process vegaflow_daemon -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $exe } | Select-Object -First 1
 if (-not $gui) { throw 'La GUI de prueba no esta abierta.' }
@@ -43,7 +43,8 @@ if ($fgPid -ne $gui.Id) {
     $title = [FgWin]::Info([ref]$fgPid)
 }
 if ($fgPid -ne $gui.Id) { throw "La ventana en primer plano no es de la GUI (pid $fgPid, '$title'): no se envia nada." }
-[System.Windows.Forms.SendKeys]::SendWait($Keys)
+# SendKeys has no {SPACE} keyword: the space bar is a plain space.
+[System.Windows.Forms.SendKeys]::SendWait(($Keys -replace '\{SPACE\}', ' '))
 Start-Sleep -Milliseconds 800
 $after = [FgWin]::Info([ref]$fgPid)
 'enviado a pid={0} ventana="{1}"; ahora primer plano pid={2} ventana="{3}"' -f $gui.Id, $title, $fgPid, $after

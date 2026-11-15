@@ -296,6 +296,63 @@ int RunGuiMode(
         return msg;
     };
 
+    callbacks.on_PollSettings = [&]() -> SettingsScreenInputs {
+        SettingsScreenInputs in;
+        in.device.vendor = hw.primary_gpu.vendor;
+        in.device.connection = hw.primary_gpu.connection;
+        in.device.driver_tweaks_allowed = !policy.block_driver_tweaks;
+        if (tweaks_query_countdown <= 0) { // a switch click sets this to 0 so the next read is fresh; otherwise the telemetry cadence rules
+            cached_tweaks = gfx.QuerySystemGraphicsTweaks();
+            tweaks_query_countdown = 10;
+        }
+        in.tweaks = cached_tweaks;
+        in.memory_guard_active = policy.apply_uma_memory_guard;
+        return in;
+    };
+
+    // One switch of the Ajustes screen: sets the row to `turn_on` and returns a status line. Rows with a toggle callback
+    // reuse it only when the current state differs, so a second click never undoes by accident.
+    callbacks.on_SetSetting = [&](const std::string& id, bool turn_on) -> std::string {
+        const auto cur = gfx.QuerySystemGraphicsTweaks();
+        auto toggle_if = [&](bool is_on, const std::function<std::string()>& fn) -> std::string {
+            return is_on == turn_on ? std::string("Ya estaba así: sin cambios") : fn();
+        };
+        std::string msg;
+        if (id == "vram_reporting") {
+            msg = toggle_if(cur.amd_vram_override_active, callbacks.on_ToggleVramOverride);
+        } else if (id == "amd_driver_profile") {
+            msg = toggle_if(cur.amd_shader_cache_forced, callbacks.on_ToggleShaderCache);
+        } else if (id == "mpo_disabled") {
+            msg = toggle_if(cur.mpo_disabled, callbacks.on_ToggleMpo);
+        } else if (id == "memory_compression") {
+            msg = toggle_if(cur.memory_compression_enabled, callbacks.on_ToggleMemCompression);
+        } else if (id == "power_profile") {
+            msg = toggle_if(cur.apu_power_optimized, callbacks.on_ToggleApuPowerMode);
+        } else if (id == "mmcss_gaming") {
+            const bool ok = gfx.Mmcss().SetGamingProfileOptimized(turn_on, false);
+            msg = ok ? (turn_on ? "Prioridad de multimedia para juegos activada" : "Prioridad de multimedia devuelta al valor de Windows")
+                     : "No se pudo cambiar la prioridad de multimedia (hace falta ser administrador)";
+        } else if (id == "priority_separation") {
+            const bool ok = gfx.KernelScheduler().SetDynamicPrioritySeparation(turn_on ? 0x26 : 0x02, false);
+            msg = ok ? (turn_on ? "Tiempo de CPU para la ventana activa: 0x26" : "Tiempo de CPU devuelto al valor de Windows (2)")
+                     : "No se pudo cambiar Win32PrioritySeparation (hace falta ser administrador)";
+        } else if (id == "paging_shield") {
+            const bool ok = gfx.KernelScheduler().SetKernelMemoryPagingShield(turn_on, false);
+            msg = ok ? (turn_on ? "Núcleo de Windows fijado en la RAM" : "Núcleo de Windows devuelto al comportamiento normal")
+                     : "No se pudo cambiar el blindaje del núcleo (hace falta ser administrador)";
+        } else if (id == "game_dvr") {
+            const bool ok = gfx.Display().SetGameDvrAndFseOptimized(turn_on, false);
+            msg = ok ? (turn_on ? "Grabación de Xbox Game Bar apagada" : "Grabación de Xbox Game Bar devuelta a Windows")
+                     : "No se pudo cambiar la grabación de Game Bar";
+        } else {
+            msg = "Este ajuste no tiene interruptor";
+        }
+        tweaks_query_countdown = 0;
+        last_gui_status = msg;
+        AddAuditLog("Ajustes: " + id + (turn_on ? " activar: " : " desactivar: ") + msg);
+        return msg;
+    };
+
     callbacks.on_RequestElevate = [&]() -> bool {
         AddAuditLog("Solicitud de elevación UAC enviada...");
         if (g_single_instance_mutex) {

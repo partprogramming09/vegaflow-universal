@@ -51,9 +51,6 @@ constexpr int ID_TAB_4 = 104;
 // Interactive control identifiers (GDI hit-test)
 constexpr int ID_ACT_APPLY_PRESET       = 201;
 constexpr int ID_ACT_PURGE_RAM          = 202;
-constexpr int ID_ACT_TOGGLE_MPO         = 204;
-constexpr int ID_ACT_TOGGLE_SHADERCACHE = 205;
-constexpr int ID_ACT_TOGGLE_MEMCOMP     = 206;
 constexpr int ID_ACT_ISOLATE_BG         = 207;
 constexpr int ID_ACT_RESTORE_CPU        = 208;
 constexpr int ID_ACT_RESTORE_DEFAULTS   = 214;
@@ -61,8 +58,6 @@ constexpr int ID_ACT_ELEVATE            = 215;
 constexpr int ID_ACT_MINIMIZE_TRAY      = 216;
 constexpr int ID_ACT_TOGGLE_APU_POWER   = 217;
 constexpr int ID_ACT_APPLY_ALL_2B       = 218;
-constexpr int ID_ACT_TOGGLE_VRAM_OVERRIDE = 219;
-constexpr int ID_ACT_TOGGLE_MMCSS       = 123;
 
 constexpr int ID_ACT_RESCAN_STEAM       = 220;
 constexpr int ID_ACT_STEAM_PREV_PAGE    = 221;
@@ -146,6 +141,16 @@ struct GuiWindowState {
 
     NOTIFYICONDATAW nid = {};
     bool tray_registered = false;
+
+    // Ajustes del sistema screen (ui/settings_view.cpp)
+    HWND hwnd = nullptr;
+    SettingsScreenModel settings_model;
+    SettingsScreenInputs settings_inputs;
+    bool settings_show_experimental = false;
+    std::string settings_open_tip;        // id of the row whose (i) text is open
+    int settings_scroll = 0;
+    std::vector<HWND> settings_controls;  // [0] experimental switch, then per row: switch, (i); in Tab order
+    std::vector<std::string> settings_signature;
 };
 
 // UTF-8 to UTF-16 string conversion
@@ -164,7 +169,6 @@ void DrawToggleSwitch(HDC hdc, const RECT& rc, bool is_on, bool is_hovered, int 
 
 // Modular rendering of the 5 tabs
 void RenderTabDashboard(HDC hdcMem, const RECT& rcClient, GuiWindowState* state, int contentLeft, int contentRight, int contentTop, int contentBottom, int contentW);
-void RenderTabKernel(HDC hdcMem, const RECT& rcClient, GuiWindowState* state, int contentLeft, int contentRight, int contentTop, int contentBottom, int contentW);
 void RenderTabMemory(HDC hdcMem, const RECT& rcClient, GuiWindowState* state, int contentLeft, int contentRight, int contentTop, int contentBottom, int contentW);
 void RenderTabSteam(HDC hdcMem, const RECT& rcClient, GuiWindowState* state, int contentLeft, int contentRight, int contentTop, int contentBottom, int contentW);
 void RenderTabAuditLog(HDC hdcMem, const RECT& rcClient, GuiWindowState* state, int contentLeft, int contentRight, int contentTop, int contentBottom, int contentW);

@@ -8,7 +8,7 @@ bool SettingIsOn(const SettingSpec& spec, const SettingsScreenInputs& in) {
     if (id == "memory_guard") return in.memory_guard_active;
     if (id == "vram_reporting") return t.amd_vram_override_active;
     if (id == "amd_driver_profile") return t.amd_shader_cache_forced;
-    if (id == "priority_separation") return t.win32_priority_separation != 2; // 2 is the Windows default
+    if (id == "priority_separation") return t.win32_priority_separation == 0x26 || t.win32_priority_separation == 0x28; // only the values VegaFlow writes; a value of the user is not "on"
     if (id == "paging_shield") return t.kernel_paging_shield_active;
     if (id == "mpo_disabled") return t.mpo_disabled;
     if (id == "mmcss_gaming") return t.mmcss_gaming_optimized;

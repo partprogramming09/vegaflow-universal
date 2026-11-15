@@ -156,6 +156,13 @@ void Test61() {
     }
     const std::set<std::string> expected = {"vram_reporting", "priority_separation", "game_dvr", "power_profile"};
     RecordResult(by_default == expected, "Test 61.10: the settings applied by default are exactly the known four");
+
+    // 11. Only the memory guard has no switch: VegaFlow decides it by itself, so the screen shows it as automatic.
+    std::set<std::string> no_switch;
+    for (const auto& s : vegaflow::SettingsCatalog()) {
+        if (!s.user_switch) no_switch.insert(s.id);
+    }
+    RecordResult(no_switch == std::set<std::string>{"memory_guard"}, "Test 61.11: only the memory guard has no user switch");
 }
 
 } // namespace vftest

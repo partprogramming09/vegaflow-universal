@@ -150,7 +150,7 @@
       "session": 1,
       "description": "Send Tab/Enter/Esc/Space/arrow keys to the test-build GUI, only while it is the foreground window",
       "params": {
-        "Keys": "^(\\{(TAB|ENTER|ESC|SPACE|LEFT|RIGHT|UP|DOWN)\\}|\\+\\{TAB\\})+$"
+        "Keys": "^(\\{(TAB|ENTER|ESC|SPACE|LEFT|RIGHT|UP|DOWN)\\}|\\+\\{TAB\\}|\\^[1-5])+$"
       }
     }
   }

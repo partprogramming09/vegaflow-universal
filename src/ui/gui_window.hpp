@@ -19,6 +19,7 @@
 #include <string>
 #include <vector>
 
+#include "session/settings_screen.hpp"
 #include "session/system_info.hpp"
 
 namespace vegaflow {
@@ -128,6 +129,9 @@ struct GuiCallbacks {
     std::function<std::string()> on_ToggleApuPowerMode;
     std::function<std::string()> on_ApplyAllGamingTweaks;
     std::function<std::string()> on_ToggleVramOverride;
+    // Ajustes del sistema screen: what the machine and the settings look like now, and turning one on or off by id.
+    std::function<SettingsScreenInputs()> on_PollSettings;
+    std::function<std::string(const std::string& setting_id, bool turn_on)> on_SetSetting;
 };
 
 class GuiWindow {
