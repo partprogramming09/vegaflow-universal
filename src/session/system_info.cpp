@@ -4,8 +4,9 @@
 #include "optimize/graphics/graphics_optimizer.hpp"
 #include "windows/power.hpp"
 #include "windows/registry.hpp"
+#include "windows/system_counters.hpp"
+#include "windows/text_convert.hpp"
 
-#include <intrin.h>
 #include <iomanip>
 #include <sstream>
 #include <vector>
@@ -46,15 +47,6 @@ std::string FormatUintVector(const std::vector<uint32_t>& vec) {
     }
     ss << "]";
     return ss.str();
-}
-
-std::string WideToUtf8Sys(const std::wstring& w) {
-    if (w.empty()) return {};
-    int sz = WideCharToMultiByte(CP_UTF8, 0, w.data(), static_cast<int>(w.size()), nullptr, 0, nullptr, nullptr);
-    if (sz <= 0) return {};
-    std::string out(static_cast<size_t>(sz), '\0');
-    WideCharToMultiByte(CP_UTF8, 0, w.data(), static_cast<int>(w.size()), out.data(), sz, nullptr, nullptr);
-    return out;
 }
 
 } // anonymous namespace
@@ -134,31 +126,7 @@ CpuInfo SystemInfo::GatherCpu(const SystemHardwareProfile& hw) {
         cpu.microarchitecture = "x86_64";
     }
 
-    uint64_t total_l3_bytes = 0;
-    DWORD len = 0;
-    GetLogicalProcessorInformationEx(RelationCache, nullptr, &len);
-    if (len > 0) {
-        std::vector<BYTE> buffer(len);
-        if (GetLogicalProcessorInformationEx(RelationCache,
-                reinterpret_cast<PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX>(buffer.data()),
-                &len)) {
-            const BYTE* ptr = buffer.data();
-            const BYTE* end = ptr + len;
-            while (ptr < end) {
-                const auto info = reinterpret_cast<const SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX*>(ptr);
-                if (info->Relationship == RelationCache && info->Cache.Level == 3) {
-                    total_l3_bytes += info->Cache.CacheSize;
-                }
-                ptr += info->Size;
-            }
-        }
-    }
-
-    if (total_l3_bytes == 0) {
-        int ext_info[4] = {0};
-        __cpuid(ext_info, 0x80000006);
-        total_l3_bytes = static_cast<uint64_t>(static_cast<unsigned int>(ext_info[3]) >> 18) * 512ULL * 1024ULL;
-    }
+    const uint64_t total_l3_bytes = ReadL3CacheBytes();
 
     cpu.l3_cache_bytes = total_l3_bytes;
     cpu.l3_cache_mb = static_cast<double>(total_l3_bytes) / (1024.0 * 1024.0);
@@ -190,7 +158,7 @@ GpuInfo SystemInfo::GatherGpu(const SystemHardwareProfile& hw, bool include_live
         return gpu;
     }
 
-    std::string desc_utf8 = WideToUtf8Sys(hw.primary_gpu.description);
+    std::string desc_utf8 = app::WideToUtf8(hw.primary_gpu.description);
     if (desc_utf8.empty()) {
         desc_utf8 = "No se pudo leer";
     }
@@ -282,30 +250,7 @@ RamInfo SystemInfo::GatherRam(const SystemHardwareProfile& hw, bool include_live
         return ram;
     }
 
-    constexpr DWORD kRsmbSignature = 0x52534D42;
-    DWORD smbios_size = GetSystemFirmwareTable(kRsmbSignature, 0, nullptr, 0);
-    int populated_slots = 0;
-    if (smbios_size > 8) {
-        std::vector<BYTE> smbios_buf(smbios_size);
-        if (GetSystemFirmwareTable(kRsmbSignature, 0, smbios_buf.data(), smbios_size) == smbios_size) {
-            const BYTE* table = smbios_buf.data() + 8;
-            const DWORD table_len = smbios_size - 8;
-            const BYTE* ptr = table;
-            const BYTE* end = table + table_len;
-            while (ptr + 4 <= end) {
-                const BYTE type = ptr[0];
-                const BYTE length = ptr[1];
-                if (length < 4 || type == 127) break;
-                if (type == 17 && length >= 0x0E) {
-                    const WORD size_val = *reinterpret_cast<const WORD*>(ptr + 0x0C);
-                    if (size_val > 0 && size_val != 0xFFFF) populated_slots++;
-                }
-                ptr += length;
-                while (ptr + 1 < end && !(ptr[0] == 0 && ptr[1] == 0)) ptr++;
-                ptr += 2;
-            }
-        }
-    }
+    const int populated_slots = static_cast<int>(CountPopulatedDimmSlots());
 
     if (populated_slots >= 2) {
         ram.channel_topology = "Dual-Channel (128-bit bus bandwidth)";

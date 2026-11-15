@@ -23,7 +23,8 @@
 #include "app/gui_mode.hpp"
 #include "app/monitor.hpp"
 #include "session/reports.hpp"
-#include "session/text_convert.hpp"
+#include "ui/app_identity.hpp"
+#include "windows/text_convert.hpp"
 #include "windows/change_journal.hpp"
 #include "windows/config_location.hpp"
 #include "windows/power.hpp"
@@ -114,9 +115,9 @@ int main(int argc, char* argv[]) {
     if (!opts.once_flag) {
         g_single_instance_mutex = CreateMutexW(nullptr, FALSE, L"Local\\VegaFlowUniversal_SingleInstance");
         if (g_single_instance_mutex && GetLastError() == ERROR_ALREADY_EXISTS) {
-            HWND hExisting = FindWindowW(L"VegaFlowUniversalUxtuClass", nullptr);
+            HWND hExisting = FindWindowW(vegaflow::ui::kWindowClass, nullptr);
             if (hExisting) {
-                PostMessageW(hExisting, WM_COMMAND, 2001 /* ID_TRAY_RESTORE */, 0);
+                PostMessageW(hExisting, WM_COMMAND, vegaflow::ui::kTrayRestoreCommand, 0);
                 SetForegroundWindow(hExisting);
             }
             std::cout << "[INFO] VegaFlow Universal is already running. Focusing existing instance.\n";

@@ -16,10 +16,11 @@
 #include "optimize/steam/steam_engine_optimizer.hpp"
 #include "session/game_session.hpp"
 #include "session/reports.hpp"
-#include "session/text_convert.hpp"
+#include "windows/text_convert.hpp"
 #include "windows/device_probe.hpp"
 #include "windows/power.hpp"
 #include "windows/registry.hpp"
+#include "windows/system_counters.hpp"
 
 namespace vegaflow::app {
 
@@ -41,7 +42,7 @@ public:
     }
 
     bool IsWindowValid(HWND hwnd) override {
-        return IsWindow(hwnd) != FALSE;
+        return vegaflow::IsWindowHandleValid(hwnd);
     }
 
     bool IsProcessAlive(uint32_t pid) override {

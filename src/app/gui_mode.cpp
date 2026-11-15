@@ -28,7 +28,8 @@
 #include "session/config.hpp"
 #include "session/reports.hpp"
 #include "session/run_cycle.hpp"
-#include "session/text_convert.hpp"
+#include "windows/system_counters.hpp"
+#include "windows/text_convert.hpp"
 
 namespace vegaflow::app {
 
@@ -313,7 +314,7 @@ int RunGuiMode(
         bool target = !cur.memory_compression_enabled;
         bool ok = gfx.KernelScheduler().SetMemoryCompressionEnabled(target, false);
         tweaks_query_countdown = 0;
-        std::string msg = ok ? (target ? "Compresión de Memoria Habilitada" : "Compresión de Memoria Deshabilitada (Latencia Cero)") : "Fallo al cambiar compresión (Requiere Administrador)";
+        std::string msg = ok ? (target ? "Compresión de Memoria Habilitada" : "Compresión de Memoria Deshabilitada") : "Fallo al cambiar compresión (Requiere Administrador)";
         last_gui_status = msg;
         AddAuditLog("Ajuste Windows MMAgent: " + msg);
         return msg;
@@ -329,7 +330,7 @@ int RunGuiMode(
         bool target = !cur.amd_shader_cache_forced;
         bool ok = gfx.AmdDriver()->SetShaderCacheForced(target, policy, false);
         tweaks_query_countdown = 0;
-        std::string msg = ok ? (target ? "Boost AMD DX11/UMA + ShaderCache 0x3200 Activado (SurfaceFormat + FlipQueue=1)" : "AMD ShaderCache y Driver Boost restaurados a Driver Default") : "Fallo al cambiar ShaderCache (Requiere Administrador)";
+        std::string msg = ok ? (target ? "ShaderCache AMD 0x3200 forzada (SurfaceFormat + FlipQueue=1)" : "AMD ShaderCache restaurada al valor del driver") : "Fallo al cambiar ShaderCache (Requiere Administrador)";
         last_gui_status = msg;
         AddAuditLog("Ajuste AMD ShaderCache: " + msg);
         return msg;
@@ -387,8 +388,8 @@ int RunGuiMode(
         );
         tweaks_query_countdown = 0;
         std::string ceiling_str = (pol.cpu_stapm_cap_mhz == 0)
-            ? "Control Térmico APU: Smart Uncapped Boost Activado (Boost eficiente + EPP 25)"
-            : ("Control Térmico APU: Modo GPU-Priority Activado (" + std::to_string(pol.cpu_stapm_cap_mhz) + " MHz ceiling / 15W sostenidos)");
+            ? "Control Térmico APU: perfil sin tope activado (Efficient-Aggressive + EPP 25)"
+            : ("Control Térmico APU: Modo GPU-Priority Activado (" + std::to_string(pol.cpu_stapm_cap_mhz) + " MHz de techo)");
         std::string msg = ok
             ? (target_prio
                 ? ceiling_str

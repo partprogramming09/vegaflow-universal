@@ -21,7 +21,8 @@
 #include "session/config.hpp"
 #include "session/reports.hpp"
 #include "session/run_cycle.hpp"
-#include "session/text_convert.hpp"
+#include "ui/app_identity.hpp"
+#include "windows/text_convert.hpp"
 
 namespace vegaflow::app {
 
@@ -74,6 +75,9 @@ std::optional<int> ParseCommandLine(int argc, char* argv[], CliOptions& opts) {
             opts.gui_flag = true;
         } else if (arg == "--system-info") {
             opts.system_info_flag = true;
+        } else if (arg == "--version") {
+            std::cout << "VegaFlow Universal " << ui::kVersion << "\n";
+            return 0;
         } else if (arg == "--help" || arg == "-h") {
             std::cout << "VegaFlow Daemon - Dynamic Hardware & OS Performance Orchestrator\n";
             std::cout << "Usage: vegaflow_daemon [OPTIONS]\n\n";
@@ -83,13 +87,13 @@ std::optional<int> ParseCommandLine(int argc, char* argv[], CliOptions& opts) {
             std::cout << "  --once, -1               Execute one optimization evaluation cycle and exit cleanly.\n";
             std::cout << "  --elevate, -e            Relaunch current executable with Administrator privileges (UAC).\n";
             std::cout << "  --purge-now, -p          Force immediate trimming of background working sets and Standby List purge.\n";
-            std::cout << "  --mpo-disable            Disable Multi-Plane Overlay (MPO) in Windows DWM to eliminate stutter/flicker.\n";
+            std::cout << "  --mpo-disable            Disable Multi-Plane Overlay (MPO) in Windows DWM (OverlayTestMode=5, undocumented).\n";
             std::cout << "  --mpo-restore            Restore Multi-Plane Overlay (MPO) in Windows DWM to system default.\n";
             std::cout << "  --shader-cache-force     Force AMD driver shader cache to always compile to disk (0x3200).\n";
             std::cout << "  --shader-cache-default   Restore AMD driver shader cache to default setting.\n";
-            std::cout << "  --mem-compression-off    Disable Windows kernel Memory Compression to eliminate latency/hiccups.\n";
+            std::cout << "  --mem-compression-off    Disable Windows kernel Memory Compression.\n";
             std::cout << "  --mem-compression-on     Enable Windows kernel Memory Compression.\n";
-            std::cout << "  --apu-gpu-priority       Activate APU thermal & power profile with sustained GPU priority (3.4 GHz CPU cap).\n";
+            std::cout << "  --apu-gpu-priority       Activate APU thermal & power profile with sustained GPU priority (CPU ceiling from the tier policy).\n";
             std::cout << "  --apu-balanced           Restore standard Windows balanced APU power profile.\n";
             std::cout << "  --vram-override          Override AMD VRAM reporting to 4096 MB in DXGI and AMD driver.\n";
             std::cout << "  --vram-restore           Restore AMD VRAM reporting to driver default (512 MB).\n";
@@ -101,6 +105,7 @@ std::optional<int> ParseCommandLine(int argc, char* argv[], CliOptions& opts) {
             std::cout << "  --monitor, -m            Real-time console dashboard displaying live RAM and VRAM telemetry.\n";
             std::cout << "  --gui, -g                Launch native zero-overhead Win32/GDI dashboard with system tray support.\n";
             std::cout << "  --system-info            Output complete hardware, APU UMA, RAM topology, and OS specs in JSON format.\n";
+            std::cout << "  --version                Print the version and exit.\n";
             std::cout << "  --help, -h               Display this help menu.\n";
             return 0;
         }
@@ -193,8 +198,8 @@ std::optional<int> RunOneShotCommand(const CliOptions& opts, int argc, char* arg
         vegaflow::ApuOptimizationPolicy pol = detected_policy();
         bool ok = vegaflow::PowerModeTweaks(power).SetApuPowerMode(vegaflow::ApuPowerMode::GpuPrioritySustained, pol, opts.dry_run_flag);
         std::string mode_str = (pol.cpu_stapm_cap_mhz == 0)
-            ? "Control Térmico APU: Smart Uncapped Boost Activado (100% CPU 4.0 GHz + 100% GPU con Efficient-Aggressive + EPP 25)"
-            : ("GPU-Priority sustained mode active (" + std::to_string(pol.cpu_stapm_cap_mhz) + " MHz CPU ceiling / 15W continuous)");
+            ? "Control Térmico APU: perfil sin tope activado (Efficient-Aggressive + EPP 25)"
+            : ("GPU-Priority sustained mode active (" + std::to_string(pol.cpu_stapm_cap_mhz) + " MHz CPU ceiling)");
         std::cout << "[APU Power] SetApuPowerMode(GpuPrioritySustained) " << (opts.dry_run_flag ? "[DRY-RUN] " : "")
                   << (ok ? ("SUCCEEDED. " + mode_str + ".") : "FAILED. Check power configuration permissions.") << "\n";
         return ok ? 0 : 1;

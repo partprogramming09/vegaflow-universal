@@ -8,8 +8,6 @@
 
 namespace vegaflow::app {
 
-uint32_t CountEcoQoSProcesses();
-uint32_t CountDirectFlipConfiguredGames();
 bool SaveSessionReportToFile(
     const std::string& game_name,
     const std::string& api_name = "",

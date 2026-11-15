@@ -17,7 +17,7 @@
 #include "ports/process_control.hpp"
 #include "session/config.hpp"
 #include "session/game_session.hpp"
-#include "session/text_convert.hpp"
+#include "windows/text_convert.hpp"
 #include "windows/change_journal.hpp"
 
 #include "../test_support.hpp"

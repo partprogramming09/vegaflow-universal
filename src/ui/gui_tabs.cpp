@@ -1,3 +1,4 @@
+#include "ui/app_identity.hpp"
 #include "ui/gui_components.hpp"
 
 #include <algorithm>
@@ -16,17 +17,10 @@ void RenderTabDashboard(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* st
     if (!state) return;
 
     // 1. Clean top header
-    DrawTextAt(hdcMem, contentLeft, contentTop, L"VEGAFLOW APU TUNER v1.2", CLR_ACCENT_CYAN, state->hFontHeader);
+    DrawTextAt(hdcMem, contentLeft, contentTop, L"VEGAFLOW", CLR_ACCENT_CYAN, state->hFontHeader);
 
-    std::wstring hwLine = L"AMD Ryzen 5 4600H  |  Radeon Vega 6 (UMA)";
-    if (!state->data.system_info.cpu.brand_string.empty()) {
-        std::string cpuShort = state->data.system_info.cpu.brand_string;
-        std::string gpuShort = state->data.gpu_summary.empty() ? "Radeon Vega 6 (UMA)" : state->data.gpu_summary;
-        hwLine = Utf8ToWide(cpuShort) + L"  |  " + Utf8ToWide(gpuShort);
-        if (hwLine.length() > 65) {
-            hwLine = L"AMD Ryzen 5 4600H  |  Radeon Vega 6 (UMA)";
-        }
-    }
+    const std::wstring hwLine = Utf8ToWide(ui::FormatHardwareLine(
+        state->data.system_info.cpu.brand_string, state->data.gpu_summary));
     DrawTextAt(hdcMem, contentLeft, contentTop + 22, hwLine, CLR_TEXT_MUTED, state->hFontSmall);
 
     // APU Guard badge (active) to the left of the UAC badge
@@ -120,8 +114,8 @@ void RenderTabDashboard(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* st
         std::wstring(state->data.system_info.apu_guard.dx12_async_compute_allowed ? L"ON" : L"OFF");
 
     const OptCardDef optCards[4] = {
-        { L"MMCSS Perfil Gaming", L"Prioridad multimedia y respuesta rápida para el juego", (state->data.mmcss_task_active || state->data.mmcss_gaming_optimized), !state->data.is_elevated },
-        { L"Presentación DXGI", L"Flip Model / DirectFlip para reducir latencia", state->data.directflip_active, false },
+        { L"MMCSS Perfil Gaming", L"Sube la prioridad multimedia (MMCSS) del juego", (state->data.mmcss_task_active || state->data.mmcss_gaming_optimized), !state->data.is_elevated },
+        { L"Presentación DXGI", L"Presenta los fotogramas con Flip Model / DirectFlip", state->data.directflip_active, false },
         { L"Perfil Sombras APU", csmSubtitle.c_str(), state->data.apu_shadows_active, false },
         { L"Blindaje Kernel NT", L"DisablePagingExecutive activo en memoria física", state->data.kernel_paging_shield_active, !state->data.is_elevated }
     };
@@ -215,7 +209,7 @@ void RenderTabDashboard(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* st
         RECT rcCh3 = { rcCh2.right + btnGutter, rcBotCard.top + 54, rcBotCard.right - 16, rcBotCard.top + 94 };
         DrawRoundedCard(hdcMem, rcCh3, RGB(22, 25, 30), CLR_CARD_BORDER, 6);
         DrawTextAt(hdcMem, rcCh3.left + 10, rcCh3.top + 5, L"Presentación DXGI", CLR_TEXT_MUTED, state->hFontSmall);
-        DrawTextAt(hdcMem, rcCh3.left + 10, rcCh3.top + 20, state->data.directflip_active ? L"DirectFlip 0ms (Zero-Copy)" : L"Flip Model Estándar", state->data.directflip_active ? CLR_ACCENT_GREEN : CLR_TEXT_MUTED, state->hFontSmallBold);
+        DrawTextAt(hdcMem, rcCh3.left + 10, rcCh3.top + 20, state->data.directflip_active ? L"DirectFlip activo" : L"Flip Model Estándar", state->data.directflip_active ? CLR_ACCENT_GREEN : CLR_TEXT_MUTED, state->hFontSmallBold);
 
         std::wstring stLine = L"Estado: " + (state->data.last_action_status.empty() ? L"Telemetría en vivo activa" : Utf8ToWide(state->data.last_action_status));
         DrawTextAt(hdcMem, rcBotCard.left + 16, rcBotCard.top + 102, stLine, CLR_TEXT_MUTED, state->hFontSmall);
@@ -223,7 +217,7 @@ void RenderTabDashboard(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* st
         DrawTextAt(hdcMem, rcBotCard.left + 16, rcBotCard.top + 10, L"MONITOR DE SISTEMA EN ESPERA", CLR_ACCENT_CYAN, state->hFontBold);
 
         RECT rcWaitBadge = { rcBotCard.right - 160, rcBotCard.top + 8, rcBotCard.right - 16, rcBotCard.top + 28 };
-        DrawBadge(hdcMem, rcWaitBadge, L"0% OVERHEAD", CLR_ACCENT_CYAN, RGB(20, 36, 44), CLR_CARD_BORDER, state->hFontSmallBold);
+        DrawBadge(hdcMem, rcWaitBadge, L"EN ESPERA", CLR_ACCENT_CYAN, RGB(20, 36, 44), CLR_CARD_BORDER, state->hFontSmallBold);
 
         DrawTextAt(hdcMem, rcBotCard.left + 16, rcBotCard.top + 32, L"Listo para detección automática en DirectX 11/12, Vulkan y títulos de Steam.", CLR_TEXT_TITLE, state->hFontSmallBold);
 
@@ -240,8 +234,8 @@ void RenderTabDashboard(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* st
 
         RECT rcCh3 = { rcCh2.right + btnGutter, rcBotCard.top + 54, rcBotCard.right - 16, rcBotCard.top + 94 };
         DrawRoundedCard(hdcMem, rcCh3, RGB(22, 25, 30), CLR_CARD_BORDER, 6);
-        DrawTextAt(hdcMem, rcCh3.left + 10, rcCh3.top + 5, L"Consumo en Reposo", CLR_TEXT_MUTED, state->hFontSmall);
-        DrawTextAt(hdcMem, rcCh3.left + 10, rcCh3.top + 20, L"0% CPU | Cero VRAM", CLR_ACCENT_GREEN, state->hFontSmallBold);
+        DrawTextAt(hdcMem, rcCh3.left + 10, rcCh3.top + 5, L"Estado", CLR_TEXT_MUTED, state->hFontSmall);
+        DrawTextAt(hdcMem, rcCh3.left + 10, rcCh3.top + 20, L"Sin juego activo", CLR_ACCENT_GREEN, state->hFontSmallBold);
 
         std::wstring stLine = L"Última acción: " + (state->data.last_action_status.empty() ? L"Sistema sincronizado y listo para jugar." : Utf8ToWide(state->data.last_action_status));
         DrawTextAt(hdcMem, rcBotCard.left + 16, rcBotCard.top + 102, stLine, CLR_TEXT_MUTED, state->hFontSmall);
@@ -257,7 +251,7 @@ void RenderTabKernel(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* state
 
     // Clean top header
     DrawTextAt(hdcMem, contentLeft, contentTop, L"AJUSTES DE KERNEL & SISTEMA", CLR_ACCENT_CYAN, state->hFontHeader);
-    DrawTextAt(hdcMem, contentLeft, contentTop + 20, L"Optimización de baja latencia con conmutación dinámica instantánea", CLR_TEXT_MUTED, state->hFontSmall);
+    DrawTextAt(hdcMem, contentLeft, contentTop + 20, L"Cambios de Windows que VegaFlow aplica mientras juegas y devuelve al salir", CLR_TEXT_MUTED, state->hFontSmall);
 
     struct KernelTweakDef {
         int id;
@@ -287,9 +281,9 @@ void RenderTabKernel(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* state
     const wchar_t* apuPurpose = L"";
     std::wstring apuActiveBadge;
     if (stapmMhz == 0) {
-        apuTitle = L"Potencia APU Smart Boost (100% CPU + 100% GPU)";
-        apuPurpose = L"4.0 GHz sin tope + EPP 25 + Ahorro en 2º plano (EcoQoS)";
-        apuActiveBadge = L"100% SMART BOOST";
+        apuTitle = L"Perfil de energía de la APU: sin tope";
+        apuPurpose = L"Sin tope de potencia sostenida, EPP 25 y ahorro en segundo plano (EcoQoS)";
+        apuActiveBadge = L"SIN TOPE";
     } else {
         apuTitle = L"Control Térmico APU (" + std::to_wstring(stapmMhz) + L" MHz Sustained)";
         apuPurpose = L"Prioriza TDP continuo para gráficos integrados";
@@ -309,8 +303,8 @@ void RenderTabKernel(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* state
     if (state->data.has_amd_driver) {
         tweaks.push_back({
             ID_ACT_TOGGLE_SHADERCACHE,
-            L"Boost Driver AMD (Shader Cache On)",
-            L"Compilación continua y cola baja latencia",
+            L"Caché de sombras del driver AMD",
+            L"Fuerza al driver a guardar la caché de sombras en disco",
             L"CACHE FORZADA",
             L"CACHE STOCK",
             swShader,
@@ -319,7 +313,7 @@ void RenderTabKernel(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* state
         tweaks.push_back({
             ID_ACT_TOGGLE_VRAM_OVERRIDE,
             vramTitle,
-            L"Elimina pop-in de texturas y límite de 512 MB",
+            L"Cambia el límite de memoria de vídeo que el driver informa (512 MB de fábrica)",
             vramActiveBadge,
             L"512 MB STOCK",
             swVramOverride,

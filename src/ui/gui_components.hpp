@@ -18,6 +18,8 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+
+#include "ui/app_identity.hpp"
 #include <utility>
 
 #include "ui/gui_window.hpp"
@@ -76,11 +78,11 @@ constexpr int ID_ACT_STEAM_DXVK_1       = 251;
 constexpr int ID_ACT_STEAM_DXVK_2       = 252;
 
 // Tray context menu
-constexpr int ID_TRAY_RESTORE           = 3001;
+constexpr int ID_TRAY_RESTORE           = ui::kTrayRestoreCommand;
 constexpr int ID_TRAY_PURGE             = 3002;
 constexpr int ID_TRAY_EXIT              = 3004;
 
-// UXTU design dimensions
+// Design dimensions
 constexpr int SIDEBAR_WIDTH             = 250;
 constexpr int STATUSBAR_HEIGHT          = 32;
 

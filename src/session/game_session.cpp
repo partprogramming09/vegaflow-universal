@@ -3,7 +3,8 @@
 #include "bridge/rust_bridge.h"
 #include "detect/hardware_profiler.hpp"
 #include "optimize/cpu_orchestrator.hpp"
-#include "session/text_convert.hpp"
+#include "windows/system_counters.hpp"
+#include "windows/text_convert.hpp"
 
 #include <cwctype>
 #include <filesystem>
@@ -13,15 +14,6 @@
 namespace vegaflow::session {
 
 namespace {
-
-std::string WideToUtf8Session(const std::wstring& w) {
-    if (w.empty()) return {};
-    int needed = WideCharToMultiByte(CP_UTF8, 0, w.data(), static_cast<int>(w.size()), nullptr, 0, nullptr, nullptr);
-    if (needed <= 0) return {};
-    std::string out(static_cast<size_t>(needed), '\0');
-    WideCharToMultiByte(CP_UTF8, 0, w.data(), static_cast<int>(w.size()), out.data(), needed, nullptr, nullptr);
-    return out;
-}
 
 uint8_t SystemArchToFfiByte(SystemArch a) {
     switch (a) {
@@ -105,7 +97,7 @@ SystemHardwareProfile BuildHardwareProfileFromSnapshot(
     names.reserve(hw.all_gpus.size());
     ffi_adapters.reserve(hw.all_gpus.size());
     for (const auto& g : hw.all_gpus) {
-        names.push_back(WideToUtf8Session(g.description));
+        names.push_back(app::WideToUtf8(g.description));
         VfGpuAdapterInput a{};
         a.vendor_id = g.vendor_id;
         a.device_id = g.device_id;
@@ -212,7 +204,7 @@ void RunGameSessionCycle(
         else if (state.active_game_api == "DirectX 9/10") cached.api = RenderApi::DirectX9_10;
         else cached.api = RenderApi::DirectX11;
         cached.main_window = state.active_game_hwnd;
-        cached.presenter_thread_id = static_cast<uint32_t>(GetWindowThreadProcessId(state.active_game_hwnd, nullptr));
+        cached.presenter_thread_id = WindowThreadId(state.active_game_hwnd);
         cached.generic_anticheat_detected = state.active_game_anticheat;
         game_opt = cached;
     } else {
@@ -260,7 +252,7 @@ void RunGameSessionCycle(
 
         if (hw_changed && audit_cb) {
             audit_cb("[GPU] Cambio de adaptador o preferencia detectado: GPU=" +
-                     WideToUtf8Session(hw.primary_gpu.description) + " [" +
+                     app::WideToUtf8(hw.primary_gpu.description) + " [" +
                      HardwareProfiler::ConnectionToString(hw.primary_gpu.connection) + "]");
         }
 

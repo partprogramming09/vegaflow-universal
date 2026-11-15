@@ -1,10 +1,9 @@
 #include "session/reports.hpp"
 
-#include <windows.h>
-
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <ctime>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
@@ -23,8 +22,8 @@
 #include "optimize/dxvk_manager.hpp"
 #include "windows/power.hpp"
 #include "windows/registry.hpp"
-#include <tlhelp32.h>
-#include "session/text_convert.hpp"
+#include "windows/system_counters.hpp"
+#include "windows/text_convert.hpp"
 
 namespace vegaflow::app {
 
@@ -46,59 +45,6 @@ std::string FormatBytes(uint64_t bytes) {
 
 } // namespace
 
-uint32_t CountEcoQoSProcesses() {
-    uint32_t count = 0;
-    HANDLE hSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-    if (hSnap != INVALID_HANDLE_VALUE) {
-        PROCESSENTRY32W pe{};
-        pe.dwSize = sizeof(pe);
-        if (Process32FirstW(hSnap, &pe)) {
-            do {
-                if (pe.th32ProcessID <= 4) continue;
-                HANDLE hProc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pe.th32ProcessID);
-                if (hProc) {
-                    PROCESS_POWER_THROTTLING_STATE throttling{};
-                    throttling.Version = PROCESS_POWER_THROTTLING_CURRENT_VERSION;
-                    if (GetProcessInformation(hProc, ProcessPowerThrottling, &throttling, sizeof(throttling))) {
-                        if (throttling.StateMask & PROCESS_POWER_THROTTLING_EXECUTION_SPEED) {
-                            count++;
-                        }
-                    }
-                    CloseHandle(hProc);
-                }
-            } while (Process32NextW(hSnap, &pe));
-        }
-        CloseHandle(hSnap);
-    }
-    return count;
-}
-
-uint32_t CountDirectFlipConfiguredGames() {
-    uint32_t count = 0;
-    HKEY hPref = nullptr;
-    if (RegOpenKeyExW(HKEY_CURRENT_USER, L"Software\\Microsoft\\DirectX\\UserGpuPreferences", 0, KEY_READ, &hPref) == ERROR_SUCCESS) {
-        DWORD index = 0;
-        wchar_t val_name[MAX_PATH];
-        DWORD val_name_len = MAX_PATH;
-        DWORD val_type = 0;
-        wchar_t val_data[512];
-        DWORD val_data_len = sizeof(val_data);
-        while (RegEnumValueW(hPref, index++, val_name, &val_name_len, nullptr, &val_type, reinterpret_cast<LPBYTE>(val_data), &val_data_len) == ERROR_SUCCESS) {
-            if (val_type == REG_SZ) {
-                std::wstring data_str(val_data);
-                for (auto& c : data_str) c = static_cast<wchar_t>(std::towlower(c));
-                if (data_str.find(L"autoflipmodel=1") != std::wstring::npos && data_str.find(L"directflip=1") != std::wstring::npos) {
-                    count++;
-                }
-            }
-            val_name_len = MAX_PATH;
-            val_data_len = sizeof(val_data);
-        }
-        RegCloseKey(hPref);
-    }
-    return count;
-}
-
 bool SaveSessionReportToFile(
     const std::string& game_name,
     const std::string& api_name,
@@ -108,7 +54,8 @@ bool SaveSessionReportToFile(
         std::filesystem::path p(file_path);
         std::ofstream out(p, std::ios::app);
         if (!out.is_open() && p.has_parent_path()) {
-            CreateDirectoryW(p.parent_path().wstring().c_str(), nullptr);
+            std::error_code ec;
+            std::filesystem::create_directories(p.parent_path(), ec);
             out.clear();
             out.open(p, std::ios::app);
         }
@@ -116,11 +63,11 @@ bool SaveSessionReportToFile(
             return false;
         }
 
-        SYSTEMTIME st{};
-        GetLocalTime(&st);
+        const std::time_t now = std::time(nullptr);
+        std::tm tm_local{};
+        localtime_s(&tm_local, &now);
         char time_buf[64] = {0};
-        std::snprintf(time_buf, sizeof(time_buf), "[%04u-%02u-%02u %02u:%02u:%02u] ",
-                      st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond);
+        std::strftime(time_buf, sizeof(time_buf), "[%Y-%m-%d %H:%M:%S] ", &tm_local);
 
         out << time_buf << "Session Report: " << game_name << "\n"
             << "========================================================\n"
@@ -234,7 +181,7 @@ void PrintStatusReport() {
     std::cout << "  GameDVR & FSE Bypass       : " << (tweaks.gamedvr_disabled ? "OPTIMIZED (Background Capture Off + FSE Mode 2)" : "DEFAULT (Windows DVR Active)") << "\n";
     std::cout << "  APU Laptop Power & Bus     : " << (tweaks.apu_power_optimized ? "ACTIVE (Boost Efficient-Aggressive + PCIe ASPM Off)" : "STANDARD (Windows Default)") << "\n";
     std::cout << "  CPU Quantum Separation     : 0x" << std::hex << tweaks.win32_priority_separation << std::dec << "\n";
-    std::cout << "  Windows Memory Compression : " << (tweaks.memory_compression_enabled ? "ACTIVE (MemCompression Process)" : "DISABLED (Zero CPU Spikes / Low Latency)") << "\n";
+    std::cout << "  Windows Memory Compression : " << (tweaks.memory_compression_enabled ? "ACTIVE (MemCompression Process)" : "DISABLED") << "\n";
     std::cout << "  Kernel Memory Paging Shield: " << (tweaks.kernel_paging_shield_active ? "ACTIVE (DisablePagingExecutive=1, RAM Lock)" : "DEFAULT (Paging Allowed)") << "\n";
 
     uint32_t df_count = CountDirectFlipConfiguredGames();
@@ -242,9 +189,9 @@ void PrintStatusReport() {
     bool directflip_live = active_game.has_value() && gfx.DxgiFlip().HasDirectFlipUpgrade(active_game->full_path);
     std::string df_status;
     if (directflip_live) {
-        df_status = "ACTIVE (" + WideToUtf8(active_game->exe_name) + " - Latency 0ms / Zero-Copy Bypass)";
+        df_status = "ACTIVE (" + WideToUtf8(active_game->exe_name) + ")";
     } else if (df_count > 0) {
-        df_status = "CONFIGURED (" + std::to_string(df_count) + " Games with AutoFlip/DirectFlip, Latency 0ms)";
+        df_status = "CONFIGURED (" + std::to_string(df_count) + " Games with AutoFlip/DirectFlip)";
     } else {
         df_status = "READY (AutoFlipModel=1 & DirectFlip=1 Injection on Launch)";
     }
@@ -307,7 +254,7 @@ void PrintStatusReport() {
     std::cout << "  Background Noisy PIDs Found: " << noisy_pids.size() << " processes\n";
     std::cout << "  Daemon Private Working Set : " << (static_cast<double>(daemon_ram_bytes) / (1024.0 * 1024.0)) << " MB ("
               << (daemon_ram_bytes / 1024) << " KB)\n";
-    std::cout << "  Zero-Overhead KPI Target   : < 15.00 MB -> "
+    std::cout << "  Idle RAM target (daemon)  : < 15.00 MB -> "
               << (daemon_ram_bytes < 15ULL * 1024 * 1024 ? "PASSED (Optimal)" : "WARNING") << "\n";
     std::cout << "================================================================================\n";
 }
@@ -399,7 +346,7 @@ void ExecuteDryRun(const AppConfig& config) {
         std::cout << "  -> Game CPU Sets Targeted  : " << hw.cpu_topology.game_optimal_cpu_set_ids.size() << " cores\n";
         std::cout << "  -> Background Isolated Sets: " << hw.cpu_topology.background_cpu_set_ids.size() << " cores\n\n";
 
-        std::cout << "[4/4] [DRY-RUN] Memory Manager Evaluation (Zero-Stutter Hysteresis):\n";
+        std::cout << "[4/4] [DRY-RUN] Memory Manager Evaluation (hysteresis):\n";
         auto mem_res = mem_mgr.EvaluateAndOptimize(game.pid, bg_pids, true /* dry_run */);
         std::cout << "  -> Standby Purge Triggered : " << (mem_res.standby_purged ? "YES" : "NO") << "\n";
         std::cout << "  -> Background Trim Triggered: " << (mem_res.background_processes_trimmed > 0 ? "YES" : "NO") << " (" << mem_res.background_processes_trimmed << " processes)\n";

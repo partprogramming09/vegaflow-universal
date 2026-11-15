@@ -9,7 +9,7 @@
 
 #include "optimize/steam/steam_engine_optimizer.hpp"
 #include <filesystem>
-#include "session/text_convert.hpp"
+#include "windows/text_convert.hpp"
 #include "bridge/rust_bridge.h"
 
 namespace vegaflow::app {
