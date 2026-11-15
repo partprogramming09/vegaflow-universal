@@ -409,14 +409,7 @@ int RunGuiMode(
         last_isolated_count = 0;
         safe_mode = false;
 
-        std::string msg;
-        if (rep.total_count > 0) {
-            msg = rep.summary_message;
-        } else if (reg_tot > 0) {
-            msg = "Se devolvieron " + std::to_string(reg_rev) + " de " + std::to_string(reg_tot) + ".";
-        } else {
-            msg = "Se devolvieron 0 de 0 (ajustes en valores originales de Windows).";
-        }
+        std::string msg = session::RestoreAllMessage(rep, reg_rev, reg_tot);
         SaveSettings(msg);
         last_gui_status = msg;
         AddAuditLog(msg);

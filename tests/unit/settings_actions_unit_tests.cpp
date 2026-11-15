@@ -1,6 +1,7 @@
 // Unit tests: the switches of the Ajustes screen (phase G). Each row of the catalog is turned on through SettingsActions
 // with an in-memory registry and power plan, and what it writes is compared with what the row says it changes.
 
+#include "session/restore.hpp"
 #include "session/settings_actions.hpp"
 #include "session/settings_catalog.hpp"
 #include "fake_registry_power.hpp"
@@ -171,6 +172,17 @@ void Test73() {
     const std::string off_msg = act5.Set("vram_reporting", false);
     RecordResult(reg5.writes.empty() && off_msg.find("no tiene guardado") != std::string::npos,
                  "Test 73.7: turning VRAM reporting off with no saved original writes nothing and says there is no saved value");
+}
+
+void Test75() {
+    // Test 75: the sentence after "Volver todo": the journal's summary, else the registry count, else "0 de 0"
+    vegaflow::RestoreReport journal;
+    journal.total_count = 3;
+    journal.summary_message = "Se devolvieron 3 de 3.";
+    const bool j = gs::RestoreAllMessage(journal, 9, 9) == "Se devolvieron 3 de 3.";
+    const bool r = gs::RestoreAllMessage({}, 2, 5) == "Se devolvieron 2 de 5.";
+    const bool none = gs::RestoreAllMessage({}, 0, 0).find("0 de 0") != std::string::npos;
+    RecordResult(j && r && none, "Test 75: the Volver todo sentence names the journal summary, else the registry count, else 0 of 0");
 }
 
 } // namespace vftest
