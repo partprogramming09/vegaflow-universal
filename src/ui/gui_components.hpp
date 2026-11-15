@@ -57,24 +57,10 @@ constexpr int ID_ACT_APPLY_PRESET       = 201;
 constexpr int ID_ACT_PURGE_RAM          = 202;
 constexpr int ID_ACT_ISOLATE_BG         = 207;
 constexpr int ID_ACT_RESTORE_CPU        = 208;
-constexpr int ID_ACT_RESTORE_DEFAULTS   = 214;
 constexpr int ID_ACT_ELEVATE            = 215;
 constexpr int ID_ACT_MINIMIZE_TRAY      = 216;
 constexpr int ID_ACT_TOGGLE_APU_POWER   = 217;
-constexpr int ID_ACT_APPLY_ALL_2B       = 218;
 
-constexpr int ID_ACT_RESCAN_STEAM       = 220;
-constexpr int ID_ACT_STEAM_PREV_PAGE    = 221;
-constexpr int ID_ACT_STEAM_NEXT_PAGE    = 222;
-constexpr int ID_ACT_STEAM_APPLY_0      = 230;
-constexpr int ID_ACT_STEAM_APPLY_1      = 231;
-constexpr int ID_ACT_STEAM_APPLY_2      = 232;
-constexpr int ID_ACT_STEAM_RESTORE_0    = 240;
-constexpr int ID_ACT_STEAM_RESTORE_1    = 241;
-constexpr int ID_ACT_STEAM_RESTORE_2    = 242;
-constexpr int ID_ACT_STEAM_DXVK_0       = 250;
-constexpr int ID_ACT_STEAM_DXVK_1       = 251;
-constexpr int ID_ACT_STEAM_DXVK_2       = 252;
 
 // Tray context menu
 constexpr int ID_TRAY_RESTORE           = ui::kTrayRestoreCommand;
@@ -129,9 +115,8 @@ struct HitBox {
 struct GuiWindowState {
     GuiCallbacks callbacks;
     GuiDashboardData data;
-    int current_tab = 0; // 0: Dashboard, 1: Ajustes, 2: Mem/CPU, 3: Steam, 4: Historial, 5: Configuración, 6: Programas, 7: Tu equipo
+    int current_tab = 0; // 0: Dashboard, 1: Ajustes, 2: Mem/CPU, 3: Juegos, 4: Historial, 5: Configuración, 6: Programas, 7: Tu equipo
     int hovered_id = 0;
-    int steam_page = 0;
     std::vector<HitBox> hit_boxes;
 
     HFONT hFontTitle = nullptr;
@@ -177,6 +162,18 @@ struct GuiWindowState {
     size_t programs_games = 0;
     int programs_focus_id = 0;           // the EDIT that has the keyboard, for its focus ring
 
+    // Inicio screen (ui/home_view.cpp): the numbers are drawn from `data` on every paint; three native buttons
+    std::vector<HWND> home_controls;
+    int home_scroll = 0;
+    int home_max_scroll = 0;
+
+    // Juegos screen (ui/games_view.cpp)
+    session::GamesScreenModel games_model;
+    int games_scroll = 0;
+    uint32_t games_open_app_id = 0;     // the game whose details are open (0 = none)
+    std::vector<HWND> games_controls;   // [0] rescan, then one per game row, then the open row's action buttons
+    std::string games_signature;
+
     // Tu equipo screen (ui/equipment_view.cpp): read-only, scrolls with the wheel
     int equipment_scroll = 0;
     int equipment_max_scroll = 0;
@@ -205,8 +202,6 @@ void DrawTabButton(HDC hdc, const RECT& rc, const std::wstring& text, bool is_ac
 void DrawToggleSwitch(HDC hdc, const RECT& rc, bool is_on, bool is_hovered, int id, GuiWindowState* state);
 
 // Modular rendering of the 5 tabs
-void RenderTabDashboard(HDC hdcMem, const RECT& rcClient, GuiWindowState* state, int contentLeft, int contentRight, int contentTop, int contentBottom, int contentW);
 void RenderTabMemory(HDC hdcMem, const RECT& rcClient, GuiWindowState* state, int contentLeft, int contentRight, int contentTop, int contentBottom, int contentW);
-void RenderTabSteam(HDC hdcMem, const RECT& rcClient, GuiWindowState* state, int contentLeft, int contentRight, int contentTop, int contentBottom, int contentW);
 
 } // namespace vegaflow

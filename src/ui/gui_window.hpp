@@ -22,22 +22,12 @@
 #include "session/config_screen.hpp"
 #include "session/equipment_screen.hpp"
 #include "session/history_screen.hpp"
+#include "session/games_screen.hpp"
 #include "session/programs_screen.hpp"
 #include "session/settings_screen.hpp"
 #include "session/system_info.hpp"
 
 namespace vegaflow {
-
-struct GuiSteamGameItem {
-    uint32_t app_id = 0;
-    std::string name;
-    std::string exe_name;
-    std::string engine_name;
-    bool has_anticheat = false;
-    bool flip_model_applied = false;
-    bool engine_preset_applied = false;
-    bool dxvk_installed = false;
-};
 
 struct GuiDashboardData {
     bool is_elevated = false;
@@ -86,7 +76,7 @@ struct GuiDashboardData {
 
     uint32_t running_steam_app_id = 0;
     std::string active_game_engine;
-    std::vector<GuiSteamGameItem> steam_games;
+    bool has_steam_games = false; // Requisitos: whether a Steam library was found
 
     bool restrict_game_cpu_sets = false; // Configuración: the game is limited to its own cores
     bool mmcss_gaming_optimized = false;
@@ -114,6 +104,8 @@ struct GuiDashboardData {
     double dxgi_pressure_threshold = 0.0;
     uint32_t uma_guard_interventions = 0;
     bool uma_guard_triggered_live = false;
+    bool automatic = true;           // false in safe mode: nothing is detected or changed by VegaFlow itself
+    bool uma_guard_enabled = true;   // the guardian runs: policy on and not safe mode
 };
 
 struct GuiCallbacks {
@@ -130,9 +122,12 @@ struct GuiCallbacks {
     std::function<std::string(uint32_t)> on_ApplyGameEnginePreset;
     std::function<std::string(uint32_t)> on_RestoreGameEngineConfig;
     std::function<std::string(uint32_t)> on_ToggleGameDxvk;
+    // Juegos screen: the rows now, "Me fue mal en este juego" (restore if applied, then exclude) and "Volver a incluir".
+    std::function<session::GamesScreenModel()> on_PollGames;
+    std::function<std::string(uint32_t)> on_ExcludeGame;
+    std::function<std::string(uint32_t)> on_IncludeGame;
     std::function<std::string()> on_ToggleMmcssGaming;
     std::function<std::string()> on_ToggleApuPowerMode;
-    std::function<std::string()> on_ApplyAllGamingTweaks;
     std::function<std::string()> on_ToggleVramOverride;
     // Ajustes del sistema screen: what the machine and the settings look like now, and turning one on or off by id.
     std::function<SettingsScreenInputs()> on_PollSettings;

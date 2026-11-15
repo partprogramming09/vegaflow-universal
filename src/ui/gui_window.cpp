@@ -5,7 +5,9 @@
 #include "ui/programs_view.hpp"
 #include "ui/equipment_view.hpp"
 #include "ui/requirements_view.hpp"
+#include "ui/games_view.hpp"
 #include "ui/history_view.hpp"
+#include "ui/home_view.hpp"
 #include "ui/settings_view.hpp"
 
 #include <psapi.h>
@@ -68,10 +70,10 @@ void PaintDashboard(HDC hdcMem, const RECT& rcClient, GuiWindowState* state) {
 
     // 8 tab buttons in the side menu
     const wchar_t* tabTitles[8] = {
-        L"1. Dashboard & Telemetría",
+        L"1. Inicio",
         L"2. Ajustes del sistema",
         L"3. Memoria UMA & Núcleos CPU",
-        L"4. Biblioteca Steam & Motores",
+        L"4. Juegos",
         L"5. Historial",
         L"6. Configuración",
         L"7. Programas",
@@ -127,7 +129,7 @@ void PaintDashboard(HDC hdcMem, const RECT& rcClient, GuiWindowState* state) {
 
     switch (state->current_tab) {
         case 0:
-            RenderTabDashboard(hdcMem, rcClient, state, contentLeft, contentRight, contentTop, contentBottom, contentW);
+            ui::HomeViewPaint(hdcMem, state, RECT{contentLeft, contentTop, contentRight, contentBottom});
             break;
         case 1:
             ui::SettingsViewPaint(hdcMem, state, RECT{contentLeft, contentTop, contentRight, contentBottom});
@@ -136,7 +138,7 @@ void PaintDashboard(HDC hdcMem, const RECT& rcClient, GuiWindowState* state) {
             RenderTabMemory(hdcMem, rcClient, state, contentLeft, contentRight, contentTop, contentBottom, contentW);
             break;
         case 3:
-            RenderTabSteam(hdcMem, rcClient, state, contentLeft, contentRight, contentTop, contentBottom, contentW);
+            ui::GamesViewPaint(hdcMem, state, RECT{contentLeft, contentTop, contentRight, contentBottom});
             break;
         case 4:
             ui::HistoryViewPaint(hdcMem, state, RECT{contentLeft, contentTop, contentRight, contentBottom});
@@ -154,7 +156,7 @@ void PaintDashboard(HDC hdcMem, const RECT& rcClient, GuiWindowState* state) {
             ui::RequirementsViewPaint(hdcMem, state, RECT{contentLeft, contentTop, contentRight, contentBottom});
             break;
         default:
-            RenderTabDashboard(hdcMem, rcClient, state, contentLeft, contentRight, contentTop, contentBottom, contentW);
+            ui::HomeViewPaint(hdcMem, state, RECT{contentLeft, contentTop, contentRight, contentBottom});
             break;
     }
 
@@ -205,7 +207,9 @@ void PaintDashboard(HDC hdcMem, const RECT& rcClient, GuiWindowState* state) {
 // =============================================================================
 // Polls the screen with native controls that is in front, so its switches and fields show what is saved now.
 void RefreshActiveScreen(HWND hwnd, GuiWindowState* state) {
-    if (state->current_tab == 1) ui::SettingsViewRefresh(hwnd, state);
+    if (state->current_tab == 0) ui::HomeViewRefresh(hwnd, state);
+    else if (state->current_tab == 1) ui::SettingsViewRefresh(hwnd, state);
+    else if (state->current_tab == 3) ui::GamesViewRefresh(hwnd, state);
     else if (state->current_tab == 4) ui::HistoryViewRefresh(hwnd, state);
     else if (state->current_tab == 5) ui::ConfigViewRefresh(hwnd, state);
     else if (state->current_tab == 6) ui::ProgramsViewRefresh(hwnd, state);
@@ -221,6 +225,8 @@ void HandleActionClick(HWND hwnd, GuiWindowState* state, int id) {
         state->current_tab = id - ID_TAB_0;
         RefreshActiveScreen(hwnd, state);
         ui::SettingsViewShow(state, state->current_tab == 1);
+        ui::HomeViewShow(state, state->current_tab == 0);
+        ui::GamesViewShow(state, state->current_tab == 3);
         ui::HistoryViewShow(state, state->current_tab == 4);
         ui::ConfigViewShow(state, state->current_tab == 5);
         ui::ProgramsViewShow(state, state->current_tab == 6);
@@ -266,14 +272,6 @@ void HandleActionClick(HWND hwnd, GuiWindowState* state, int id) {
             break;
         }
 
-        case ID_ACT_APPLY_ALL_2B: {
-            if (state->callbacks.on_ApplyAllGamingTweaks) {
-                res = state->callbacks.on_ApplyAllGamingTweaks();
-                state->data.last_action_status = res;
-            }
-            break;
-        }
-
         case ID_ACT_ISOLATE_BG: {
             if (state->callbacks.on_IsolateBackgroundNow) {
                 res = state->callbacks.on_IsolateBackgroundNow();
@@ -286,85 +284,6 @@ void HandleActionClick(HWND hwnd, GuiWindowState* state, int id) {
             if (state->callbacks.on_RestoreCpuAffinity) {
                 res = state->callbacks.on_RestoreCpuAffinity();
                 state->data.last_action_status = res;
-            }
-            break;
-        }
-
-        case ID_ACT_RESTORE_DEFAULTS: {
-            if (state->callbacks.on_RestoreAllDefaults) {
-                res = state->callbacks.on_RestoreAllDefaults();
-                state->data.last_action_status = res;
-            }
-            break;
-        }
-
-        case ID_ACT_RESCAN_STEAM: {
-            if (state->callbacks.on_RescanSteamLibrary) {
-                res = state->callbacks.on_RescanSteamLibrary();
-                state->steam_page = 0;
-                state->data.last_action_status = res;
-            }
-            break;
-        }
-
-        case ID_ACT_STEAM_PREV_PAGE: {
-            if (state->steam_page > 0) {
-                state->steam_page--;
-            }
-            InvalidateRect(hwnd, nullptr, FALSE);
-            return;
-        }
-
-        case ID_ACT_STEAM_NEXT_PAGE: {
-            int totalPages = static_cast<int>((state->data.steam_games.size() + 2) / 3);
-            if (state->steam_page + 1 < totalPages) {
-                state->steam_page++;
-            }
-            InvalidateRect(hwnd, nullptr, FALSE);
-            return;
-        }
-
-        case ID_ACT_STEAM_APPLY_0:
-        case ID_ACT_STEAM_APPLY_1:
-        case ID_ACT_STEAM_APPLY_2: {
-            size_t slotIdx = static_cast<size_t>(id - ID_ACT_STEAM_APPLY_0);
-            size_t gIdx = static_cast<size_t>(state->steam_page * 3) + slotIdx;
-            if (gIdx < state->data.steam_games.size()) {
-                uint32_t appId = state->data.steam_games[gIdx].app_id;
-                if (state->callbacks.on_ApplyGameEnginePreset) {
-                    res = state->callbacks.on_ApplyGameEnginePreset(appId);
-                    state->data.last_action_status = res;
-                }
-            }
-            break;
-        }
-
-        case ID_ACT_STEAM_RESTORE_0:
-        case ID_ACT_STEAM_RESTORE_1:
-        case ID_ACT_STEAM_RESTORE_2: {
-            size_t slotIdx = static_cast<size_t>(id - ID_ACT_STEAM_RESTORE_0);
-            size_t gIdx = static_cast<size_t>(state->steam_page * 3) + slotIdx;
-            if (gIdx < state->data.steam_games.size()) {
-                uint32_t appId = state->data.steam_games[gIdx].app_id;
-                if (state->callbacks.on_RestoreGameEngineConfig) {
-                    res = state->callbacks.on_RestoreGameEngineConfig(appId);
-                    state->data.last_action_status = res;
-                }
-            }
-            break;
-        }
-
-        case ID_ACT_STEAM_DXVK_0:
-        case ID_ACT_STEAM_DXVK_1:
-        case ID_ACT_STEAM_DXVK_2: {
-            size_t slotIdx = static_cast<size_t>(id - ID_ACT_STEAM_DXVK_0);
-            size_t gIdx = static_cast<size_t>(state->steam_page * 3) + slotIdx;
-            if (gIdx < state->data.steam_games.size()) {
-                uint32_t appId = state->data.steam_games[gIdx].app_id;
-                if (state->callbacks.on_ToggleGameDxvk) {
-                    res = state->callbacks.on_ToggleGameDxvk(appId);
-                    state->data.last_action_status = res;
-                }
             }
             break;
         }
@@ -478,6 +397,8 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 
         case WM_SIZE: {
             if (state && state->current_tab == 1) ui::SettingsViewRelayout(state);
+            if (state && state->current_tab == 0) ui::HomeViewRelayout(state);
+            if (state && state->current_tab == 3) ui::GamesViewRelayout(state);
             if (state && state->current_tab == 4) ui::HistoryViewRelayout(state);
             if (state && state->current_tab == 5) ui::ConfigViewRelayout(state);
             if (state && state->current_tab == 6) ui::ProgramsViewRelayout(state);
@@ -489,6 +410,14 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
         case WM_MOUSEWHEEL: {
             if (state && state->current_tab == 1) {
                 ui::SettingsViewScroll(state, -GET_WHEEL_DELTA_WPARAM(wParam) / 2);
+                return 0;
+            }
+            if (state && state->current_tab == 0) {
+                ui::HomeViewScroll(state, -GET_WHEEL_DELTA_WPARAM(wParam) / 2);
+                return 0;
+            }
+            if (state && state->current_tab == 3) {
+                ui::GamesViewScroll(state, -GET_WHEEL_DELTA_WPARAM(wParam) / 2);
                 return 0;
             }
             if (state && state->current_tab == 4) {
@@ -517,7 +446,9 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
         case WM_DRAWITEM: {
             auto* item = reinterpret_cast<const DRAWITEMSTRUCT*>(lParam);
             if (state && item && item->CtlType == ODT_BUTTON) {
-                if (static_cast<int>(item->CtlID) == ui::kRequirementsBackId) ui::RequirementsViewDrawItem(item, state);
+                if (static_cast<int>(item->CtlID) >= ui::kHomeEquipmentId) ui::HomeViewDrawItem(item, state);
+                else if (static_cast<int>(item->CtlID) >= ui::kGamesRowBaseId) ui::GamesViewDrawItem(item, state);
+                else if (static_cast<int>(item->CtlID) == ui::kRequirementsBackId) ui::RequirementsViewDrawItem(item, state);
                 else if (static_cast<int>(item->CtlID) >= ui::kProgKindBaseId) ui::ProgramsViewDrawItem(item, state);
                 else if (static_cast<int>(item->CtlID) >= ui::kConfigResetId) ui::ConfigViewDrawItem(item, state);
                 else if (static_cast<int>(item->CtlID) >= ui::kHistoryRestoreAllId) ui::HistoryViewDrawItem(item, state);
@@ -655,6 +586,8 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
         case WM_COMMAND: {
             int wmId = LOWORD(wParam);
             if (!state) break;
+            if (ui::HomeViewCommand(hwnd, state, wmId, HIWORD(wParam), reinterpret_cast<HWND>(lParam))) return 0;
+            if (ui::GamesViewCommand(hwnd, state, wmId, HIWORD(wParam), reinterpret_cast<HWND>(lParam))) return 0;
             if (ui::RequirementsViewCommand(hwnd, state, wmId, HIWORD(wParam), reinterpret_cast<HWND>(lParam))) return 0;
             if (ui::ProgramsViewCommand(hwnd, state, wmId, HIWORD(wParam), reinterpret_cast<HWND>(lParam))) return 0;
             if (ui::ConfigViewCommand(hwnd, state, wmId, HIWORD(wParam), reinterpret_cast<HWND>(lParam))) return 0;
@@ -716,6 +649,8 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                 KillTimer(hwnd, TIMER_TELEMETRY_ID);
                 ui::ConfigViewDestroy(state);
                 ui::ProgramsViewDestroy(state);
+                ui::HomeViewDestroy(state);
+                ui::GamesViewDestroy(state);
                 ui::RequirementsViewDestroy(state);
 
                 if (state->tray_registered) {
@@ -818,6 +753,10 @@ int GuiWindow::RunGuiLoop(const GuiCallbacks& callbacks) {
 
     ui::SettingsViewRefresh(hwnd, &state);
     ui::SettingsViewShow(&state, false);
+    ui::HomeViewRefresh(hwnd, &state);
+    ui::HomeViewShow(&state, true);
+    ui::GamesViewRefresh(hwnd, &state);
+    ui::GamesViewShow(&state, false);
     ui::HistoryViewRefresh(hwnd, &state);
     ui::HistoryViewShow(&state, false);
     ui::ConfigViewRefresh(hwnd, &state);
@@ -839,7 +778,7 @@ int GuiWindow::RunGuiLoop(const GuiCallbacks& callbacks) {
             continue;
         }
         // The read-only screens have no field to focus: Page Up/Down, Home and End (and the arrows on Tu equipo) scroll them.
-        if (msg.message == WM_KEYDOWN && (state.current_tab == 7 || state.current_tab == 8) && GetAncestor(msg.hwnd, GA_ROOT) == hwnd &&
+        if (msg.message == WM_KEYDOWN && (state.current_tab == 0 || state.current_tab == 7 || state.current_tab == 8) && GetAncestor(msg.hwnd, GA_ROOT) == hwnd &&
             !(GetKeyState(VK_CONTROL) & 0x8000) && !(GetKeyState(VK_MENU) & 0x8000)) {
             int delta = 0;
             if (msg.wParam == VK_NEXT) delta = 240;
@@ -849,7 +788,8 @@ int GuiWindow::RunGuiLoop(const GuiCallbacks& callbacks) {
             else if (state.current_tab == 7 && msg.wParam == VK_DOWN) delta = 40;
             else if (state.current_tab == 7 && msg.wParam == VK_UP) delta = -40;
             if (delta != 0) {
-                if (state.current_tab == 7) ui::EquipmentViewScroll(&state, delta);
+                if (state.current_tab == 0) ui::HomeViewScroll(&state, delta);
+                else if (state.current_tab == 7) ui::EquipmentViewScroll(&state, delta);
                 else ui::RequirementsViewScroll(&state, delta);
                 continue;
             }

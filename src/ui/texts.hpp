@@ -85,4 +85,29 @@ inline constexpr const wchar_t* kConfigRequirements = L"Requisitos y advertencia
 inline constexpr const wchar_t* kConfigRequirementsButton = L"Ver";
 inline constexpr const wchar_t* kConfigRequirementsHelp = L"Qué necesita VegaFlow, si tu equipo lo cumple, y qué conviene saber.";
 
+
+// Inicio
+inline constexpr const wchar_t* kHomeTitle = L"Inicio";
+inline constexpr const wchar_t* kHomeEquipmentTitle = L"Tu equipo, según VegaFlow";
+inline constexpr const wchar_t* kHomeEquipmentButton = L"Ver todo el detalle";
+inline constexpr const wchar_t* kHomePurgeButton = L"Liberar memoria ahora";
+inline constexpr const wchar_t* kHomeBackgroundTitle = L"Programas en segundo plano";
+inline constexpr const wchar_t* kHomeProgramsButton = L"Elegir qué se frena";
+
+// Juegos
+inline constexpr const wchar_t* kGamesTitle = L"Juegos";
+inline constexpr const wchar_t* kGamesSubtitle = L"Tus juegos de Steam y lo que VegaFlow escribe para cada uno. Aquí puedes aplicar un perfil, volver al archivo original o excluir un juego.";
+inline constexpr const wchar_t* kGamesRescan = L"Buscar juegos de nuevo";
+inline constexpr const wchar_t* kGamesShow = L"Ver cambios";
+inline constexpr const wchar_t* kGamesHide = L"Ocultar cambios";
+inline constexpr const wchar_t* kGamesApply = L"Aplicar perfil";
+inline constexpr const wchar_t* kGamesRestore = L"Volver al archivo original";
+inline constexpr const wchar_t* kGamesBad = L"Me fue mal en este juego";
+inline constexpr const wchar_t* kGamesInclude = L"Volver a incluir";
+inline constexpr const wchar_t* kGamesDxvkInstall = L"Instalar DXVK";
+inline constexpr const wchar_t* kGamesDxvkRemove = L"Quitar DXVK";
+inline constexpr const wchar_t* kGamesFile = L"Archivo que cambia: ";
+inline constexpr const wchar_t* kGamesChanges = L"Lo que se escribe, línea por línea";
+inline constexpr const wchar_t* kGamesTooMany = L"Se muestran los primeros 200 juegos.";
+
 } // namespace vegaflow::ui::text

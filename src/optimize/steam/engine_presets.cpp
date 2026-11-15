@@ -122,6 +122,18 @@ bool RestoreFromBackupVerified(
 
 } // namespace
 
+const std::vector<std::pair<std::string, std::string>>& SteamEngineOptimizer::UnityBootConfigKeys() {
+    static const std::vector<std::pair<std::string, std::string>> keys = {
+        {"gfx-enable-gfx-jobs", "1"},
+        {"gfx-enable-native-gfx-jobs", "1"},
+        {"gfx-enable-mt-rendering", "1"},
+        {"wait-for-native-debugger", "0"},
+        {"hdr-display-enabled", "0"},
+        {"gc-max-time-slice", "3"}
+    };
+    return keys;
+}
+
 std::string SteamEngineOptimizer::GenerateUnrealUmaBlock(const ApuOptimizationPolicy& policy, uint32_t vram_pool_mb_override) {
     std::string umaBlock;
     umaBlock += "\n\n; [VegaFlowUMA_Start]\n";
@@ -329,16 +341,9 @@ EngineOptimizationReport SteamEngineOptimizer::ApplyEngineUmaPreset(
             }
         }
 
-        const std::pair<std::string, std::string> keysToSet[] = {
-            {"gfx-enable-gfx-jobs", "1"},
-            {"gfx-enable-native-gfx-jobs", "1"},
-            {"gfx-enable-mt-rendering", "1"},
-            {"wait-for-native-debugger", "0"},
-            {"hdr-display-enabled", "0"},
-            {"gc-max-time-slice", "3"}
-        };
+        const auto& keysToSet = UnityBootConfigKeys();
         std::vector<VfIniKv> kv;
-        kv.reserve(6);
+        kv.reserve(keysToSet.size());
         for (const auto& [k, v] : keysToSet) {
             kv.push_back(VfIniKv{k.data(), k.size(), v.data(), v.size()});
         }

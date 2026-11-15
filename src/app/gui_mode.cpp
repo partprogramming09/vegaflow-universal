@@ -29,6 +29,7 @@
 #include <filesystem>
 #include "app/app_state.hpp"
 #include "session/config.hpp"
+#include "session/game_actions.hpp"
 #include "session/reports.hpp"
 #include "session/run_cycle.hpp"
 #include "windows/system_counters.hpp"
@@ -116,6 +117,18 @@ int RunGuiMode(
     std::vector<SteamGameEntry> cached_steam_games = SteamEngineOptimizer::ScanSteamLibrary();
     SyncSteamGamesToCustomExes(cached_steam_games, config);
 
+    // What the Juegos buttons do lives in session/game_actions; the scan and the folder read are handed in because they touch Windows.
+    session::GameActions game_actions(session::GameActionsDeps{
+        steam, dxvk, config, config_store, cached_steam_games, policy,
+        []() {
+            auto games = SteamEngineOptimizer::ScanSteamLibrary();
+            SandboxGuard::ReloadSteamLibraryFolders(); // a library added in Steam becomes writable without a restart
+            return games;
+        },
+        [](const SteamGameEntry& g) { return SteamEngineOptimizer::InspectGameDirectory(g.install_dir, g.app_id, g.name); },
+        [&](const std::string& line) { AddAuditLog(line); }});
+    bool flags_seen_game_active = false;
+
     GuiCallbacks callbacks;
     callbacks.on_PollTelemetry = [&]() -> GuiDashboardData {
         std::function<void(const std::string&)> audit_fn = AddAuditLog;
@@ -153,6 +166,13 @@ int RunGuiMode(
                     }
                 }
             }
+        }
+
+        // The daemon part of this process writes game files when a game opens, so the flags of that one game are read again
+        // then (closing writes nothing, and reading the whole library on the GUI thread would freeze it).
+        if (game_active != flags_seen_game_active) {
+            flags_seen_game_active = game_active;
+            if (game_active && running_steam_appid != 0) game_actions.RefreshFlags(running_steam_appid);
         }
 
         auto mem_sample = mem_mgr.SampleTelemetry();
@@ -232,9 +252,7 @@ int RunGuiMode(
         data.active_game_pid = active_game_pid;
 
         // Modern suite for 3D games (EcoQoS, I/O hierarchy and DirectFlip)
-        data.ecoqos_processes_count = game_active
-            ? std::max(last_isolated_count, cpu_orchestrator.GetThrottledBackgroundCount())
-            : CountEcoQoSProcesses();
+        data.ecoqos_processes_count = game_active ? cpu_orchestrator.GetThrottledBackgroundCount() : CountEcoQoSProcesses();
         data.io_priority_active = game_active;
         data.directflip_active = game_active
             ? (gfx.DxgiFlip().HasDirectFlipUpgrade(active_game_full_path) || gfx.DxgiFlip().HasDirectFlipUpgrade(active_game_exe))
@@ -245,23 +263,7 @@ int RunGuiMode(
 
         data.running_steam_app_id = running_steam_appid;
         data.active_game_engine = active_game_engine;
-        data.steam_games.clear();
-        data.steam_games.reserve(cached_steam_games.size());
-        for (const auto& sg : cached_steam_games) {
-            GuiSteamGameItem item;
-            item.app_id = sg.app_id;
-            item.name = sg.name;
-            item.exe_name = WideToUtf8(std::filesystem::path(sg.primary_exe_path).filename().wstring());
-            if (item.exe_name.empty()) {
-                item.exe_name = "N/A";
-            }
-            item.engine_name = SteamEngineOptimizer::EngineTypeToString(sg.engine);
-            item.has_anticheat = sg.has_anticheat;
-            item.engine_preset_applied = sg.engine_preset_applied;
-            item.flip_model_applied = sg.flip_model_applied;
-            item.dxvk_installed = sg.dxvk_installed;
-            data.steam_games.push_back(std::move(item));
-        }
+        data.has_steam_games = !cached_steam_games.empty();
 
         data.system_info = SystemInfo::FromHardware(hw, true);
         data.sandbox_violations = SandboxGuard::GetViolationCount();
@@ -270,6 +272,8 @@ int RunGuiMode(
         data.dxgi_pressure_ratio = mem_mgr.GetLastDxgiPressureRatio();
         data.dxgi_pressure_threshold = vf_rust_vram_pressure_threshold();
         data.uma_guard_interventions = mem_mgr.GetUmaGuardInterventionsCount();
+        data.automatic = !safe_mode;
+        data.uma_guard_enabled = policy.apply_uma_memory_guard && !safe_mode;
         data.uma_guard_triggered_live = mem_mgr.IsUmaGuardCurrentlyTriggered();
 
         return data;
@@ -546,24 +550,6 @@ int RunGuiMode(
         return msg;
     };
 
-    callbacks.on_ApplyAllGamingTweaks = [&]() -> std::string {
-        ApuOptimizationPolicy pol = HardwareProfiler::BuildOptimizationPolicy(hw, mem_mgr.SampleTelemetry().vram.local_budget_bytes);
-        bool ok_mmcss = gfx.Mmcss().ApplyTaskTweaks(false);
-        bool ok_ram = MemoryManager::PurgeStandbyList(false);
-        bool ok_vram = (pol.apply_uma_vram_reg_override && gfx.AmdDriver())
-            ? gfx.AmdDriver()->ApplyVramReportingOverride(pol.safe_vram_pool_mb, false)
-            : false;
-        tweaks_query_countdown = 0;
-
-        (void)ok_mmcss; (void)ok_ram; (void)ok_vram;
-
-        std::string msg = "Combo Gaming aplicado: MMCSS, Purga RAM" +
-            std::string(ok_vram ? (", VRAM " + std::to_string(pol.safe_vram_pool_mb) + "MB.") : ".");
-        last_gui_status = msg;
-        AddAuditLog(msg);
-        return msg;
-    };
-
     callbacks.on_IsolateBackgroundNow = [&]() -> std::string {
         auto noisy = ProcessDetector::FindBackgroundNoisyProcesses(active_game_pid);
         std::vector<ULONG> empty_game_sets;
@@ -630,81 +616,13 @@ int RunGuiMode(
         return msg;
     };
 
-    callbacks.on_RescanSteamLibrary = [&]() -> std::string {
-        cached_steam_games = SteamEngineOptimizer::ScanSteamLibrary();
-        SandboxGuard::ReloadSteamLibraryFolders(); // a library added in Steam becomes writable without a restart
-        SyncSteamGamesToCustomExes(cached_steam_games, config);
-        std::string msg = "Biblioteca Steam re-escaneada: " + std::to_string(cached_steam_games.size()) + " juegos detectados";
-        last_gui_status = msg;
-        AddAuditLog(msg);
-        return msg;
-    };
-
-    callbacks.on_ApplyGameEnginePreset = [&](uint32_t app_id) -> std::string {
-        const ApuOptimizationPolicy static_pol = HardwareProfiler::BuildOptimizationPolicy(hw);
-        const uint32_t pool_mb = static_pol.safe_vram_pool_mb;
-        for (auto& sg : cached_steam_games) {
-            if (sg.app_id == app_id) {
-                auto rep = steam.ApplyEngineUmaPreset(sg, static_pol, pool_mb, false);
-                if (rep.success) {
-                    sg.engine_preset_applied = true;
-                    sg.flip_model_applied = true;
-                }
-                last_gui_status = rep.status_message;
-                AddAuditLog(rep.status_message);
-                return rep.status_message;
-            }
-        }
-        std::string msg = "Error: AppID " + std::to_string(app_id) + " no encontrado en la biblioteca de Steam";
-        last_gui_status = msg;
-        AddAuditLog(msg);
-        return msg;
-    };
-
-    callbacks.on_RestoreGameEngineConfig = [&](uint32_t app_id) -> std::string {
-        for (auto& sg : cached_steam_games) {
-            if (sg.app_id == app_id) {
-                auto rep = steam.RestoreEngineOriginalConfig(sg, false);
-                if (rep.success) {
-                    sg.engine_preset_applied = false;
-                }
-                last_gui_status = rep.status_message;
-                AddAuditLog(rep.status_message);
-                return rep.status_message;
-            }
-        }
-        std::string msg = "Error: AppID " + std::to_string(app_id) + " no encontrado en la biblioteca de Steam";
-        last_gui_status = msg;
-        AddAuditLog(msg);
-        return msg;
-    };
-
-    callbacks.on_ToggleGameDxvk = [&](uint32_t app_id) -> std::string {
-        const ApuOptimizationPolicy static_pol = HardwareProfiler::BuildOptimizationPolicy(hw);
-        for (auto& sg : cached_steam_games) {
-            if (sg.app_id == app_id) {
-                std::string msg;
-                if (sg.dxvk_installed) {
-                    bool ok = dxvk.RemoveDxvk(sg.primary_exe_path, false, &msg);
-                    if (ok) {
-                        sg.dxvk_installed = false;
-                    }
-                } else {
-                    bool ok = dxvk.DeployDxvk(sg.primary_exe_path, static_pol, sg.has_anticheat, true, false, &msg);
-                    if (ok) {
-                        sg.dxvk_installed = true;
-                    }
-                }
-                last_gui_status = msg;
-                AddAuditLog(msg);
-                return msg;
-            }
-        }
-        std::string msg = "Error: AppID " + std::to_string(app_id) + " no encontrado en la biblioteca de Steam";
-        last_gui_status = msg;
-        AddAuditLog(msg);
-        return msg;
-    };
+    callbacks.on_RescanSteamLibrary = [&]() { return say(game_actions.Rescan()); };
+    callbacks.on_ApplyGameEnginePreset = [&](uint32_t app_id) { return say(game_actions.Apply(app_id)); };
+    callbacks.on_RestoreGameEngineConfig = [&](uint32_t app_id) { return say(game_actions.Restore(app_id)); };
+    callbacks.on_PollGames = [&]() { return game_actions.Poll(); };
+    callbacks.on_ExcludeGame = [&](uint32_t app_id) { return say(game_actions.Exclude(app_id)); };
+    callbacks.on_IncludeGame = [&](uint32_t app_id) { return say(game_actions.Include(app_id)); };
+    callbacks.on_ToggleGameDxvk = [&](uint32_t app_id) { return say(game_actions.ToggleDxvk(app_id)); };
 
     int exit_code = GuiWindow::RunGuiLoop(callbacks);
     if (!safe_mode) {

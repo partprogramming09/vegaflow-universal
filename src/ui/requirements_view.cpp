@@ -14,7 +14,7 @@ constexpr int kHeadH = 38;
 constexpr int kBackH = 34;
 
 session::RequirementsScreenModel Model(const GuiWindowState* st) {
-    return session::BuildRequirementsScreen(st->data.system_info, st->data.is_elevated, !st->data.steam_games.empty());
+    return session::BuildRequirementsScreen(st->data.system_info, st->data.is_elevated, st->data.has_steam_games);
 }
 
 struct Look {
