@@ -14,8 +14,12 @@ inline constexpr wchar_t kWindowClass[] = L"VegaFlowUniversalWindow";
 inline constexpr wchar_t kWindowTitle[] = L"VegaFlow Universal";
 inline constexpr wchar_t kTrayTip[] = L"VegaFlow Universal";
 
-// WM_COMMAND id of the tray menu entry "Restaurar"; main.cpp posts it to the running window.
+// WM_COMMAND id of the tray menu entry "Restaurar" (sent by the menu, inside our own process).
 inline constexpr int kTrayRestoreCommand = 3001;
+
+// Registered message a second launch posts to the running window to bring it forward. It is the only message let through
+// the UIPI filter: WM_COMMAND is not, so a lower-integrity process cannot click the elevated window's buttons.
+inline constexpr wchar_t kRestoreWindowMessage[] = L"VegaFlowUniversal.RestoreWindow";
 
 // "CPU  |  GPU" from what this machine reported. Empty parts say so instead of borrowing another machine's name;
 // a line over 65 bytes is cut with "..." on a character boundary, never replaced.

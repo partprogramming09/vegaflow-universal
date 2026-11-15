@@ -117,7 +117,7 @@ int main(int argc, char* argv[]) {
         if (g_single_instance_mutex && GetLastError() == ERROR_ALREADY_EXISTS) {
             HWND hExisting = FindWindowW(vegaflow::ui::kWindowClass, nullptr);
             if (hExisting) {
-                PostMessageW(hExisting, WM_COMMAND, vegaflow::ui::kTrayRestoreCommand, 0);
+                PostMessageW(hExisting, RegisterWindowMessageW(vegaflow::ui::kRestoreWindowMessage), 0, 0);
                 SetForegroundWindow(hExisting);
             }
             std::cout << "[INFO] VegaFlow Universal is already running. Focusing existing instance.\n";

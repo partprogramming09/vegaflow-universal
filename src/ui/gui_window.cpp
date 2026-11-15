@@ -295,6 +295,15 @@ void HandleActionClick(HWND hwnd, GuiWindowState* state, int id) {
 LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     auto* state = reinterpret_cast<GuiWindowState*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
 
+    // A second launch asks the running window to come forward (the one message let through UIPI, see app_identity.hpp).
+    static const UINT restore_msg = RegisterWindowMessageW(ui::kRestoreWindowMessage);
+    if (uMsg == restore_msg && state) {
+        ShowWindow(hwnd, IsIconic(hwnd) ? SW_RESTORE : SW_SHOW);
+        SetForegroundWindow(hwnd);
+        InvalidateRect(hwnd, nullptr, FALSE);
+        return 0;
+    }
+
     switch (uMsg) {
         case WM_NCCREATE: {
             auto* cs = reinterpret_cast<CREATESTRUCTW*>(lParam);
@@ -348,7 +357,7 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
             // 1500 ms telemetry timer
             SetTimer(hwnd, TIMER_TELEMETRY_ID, TIMER_TELEMETRY_INTERVAL, nullptr);
 
-            ChangeWindowMessageFilterEx(hwnd, WM_COMMAND, MSGFLT_ALLOW, nullptr);
+            ChangeWindowMessageFilterEx(hwnd, RegisterWindowMessageW(ui::kRestoreWindowMessage), MSGFLT_ALLOW, nullptr);
 
             // Initial query
             if (state->callbacks.on_PollTelemetry) {
@@ -652,7 +661,8 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 void SelectTab(HWND hwnd, GuiWindowState* state, int tab) { HandleActionClick(hwnd, state, ID_TAB_0 + tab); }
 
 int GuiWindow::RunGuiLoop(const GuiCallbacks& callbacks) {
-    // High-DPI V2 if available
+    // The layout is drawn in fixed pixels, so the window asks Windows to scale it (crisp GDI text) instead of being
+    // per-monitor aware, which left it tiny at 125 % and 150 %. Older Windows ignores the call and scales it anyway.
     HMODULE hUser32 = GetModuleHandleW(L"user32.dll");
     if (hUser32) {
         using SetProcessDpiAwarenessContextProc = BOOL (WINAPI *)(HANDLE);
@@ -666,7 +676,7 @@ int GuiWindow::RunGuiLoop(const GuiCallbacks& callbacks) {
 #pragma GCC diagnostic pop
 #endif
         if (pfnSetDpi) {
-            pfnSetDpi(reinterpret_cast<HANDLE>(-4)); // DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2
+            pfnSetDpi(reinterpret_cast<HANDLE>(-5)); // DPI_AWARENESS_CONTEXT_UNAWARE_GDISCALED
         }
     }
 

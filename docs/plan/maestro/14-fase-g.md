@@ -66,7 +66,7 @@ Lo que ya está bien: el texto secundario tiene entre 5,69:1 y 6,94:1, las etiqu
 - **Primera vez:** una pantalla corta al abrir VegaFlow por primera vez. Muestra el perfil del equipo, lo que va a hacer y lo que no (nada con anti-cheat), y deja elegir si arranca con Windows.
 - **Aviso al salir:** si al cerrar quedan cambios aplicados, ofrecer "Devolver todo a como estaba" o "Dejarlos".
 - **Atajo de pánico:** una combinación de teclas que pausa VegaFlow al momento, por si un juego va mal.
-- **Escala de Windows:** respetar 125 % y 150 %. La GUI ya pide reconocer el DPI (`gui_window.cpp:710-716`); falta comprobar que todo se redibuja bien.
+- **Escala de Windows:** respetar 125 % y 150 %. La GUI pide a Windows «sin reconocer DPI, GDI escalado» (`SetProcessDpiAwarenessContext(-5)` en `GuiWindow::RunGuiLoop`) y Windows la amplía con texto nítido: con el modo por monitor anterior la ventana quedaba diminuta, porque el diseño usa píxeles fijos. Visto a 125 %; el 150 % falta.
 - **Idioma:** los textos en un solo archivo, para poder traducirlos al inglés sin tocar el código de dibujo.
 
 **Cómo se construye (sin librerías nuevas):**
@@ -113,7 +113,7 @@ Fuente de cada fila: el código en `src/ui/*_view.*`, `src/session/*_screen.*` y
 - Informe del equipo para copiar.
 - Aviso al salir con cambios aplicados.
 - Configuración → «Funciones avanzadas» con «Modo desarrollador», y los grupos «General» (iniciar con Windows, bandeja), «Qué puede hacer este programa» y exportar la configuración: la pantalla Configuración tiene hoy cuatro grupos (Modo de uso, Detección de juegos, Memoria compartida y Avanzado, este último solo con «Limitar el juego a sus núcleos»).
-- **Escalado por DPI:** la GUI no escala sus tamaños, y **las capturas a 125 % y 150 % no se hicieron**.
+- **Escalado por DPI:** la GUI no escala sus tamaños (la amplía Windows). Capturada a 125 % (laptop de pruebas); **la captura a 150 % no se hizo**: pide cambiar la escala de pantalla del laptop, decisión del usuario.
 - Lector de pantalla: sin probar.
 
 **Terminado cuando**, punto por punto

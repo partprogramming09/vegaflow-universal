@@ -24,6 +24,9 @@ New native GUI (Win32, owner-draw controls reachable with Tab). Not tagged yet: 
   test GUI.
 
 ### Changed
+- The window asks Windows for "DPI unaware, GDI scaled" instead of per-monitor awareness: it was tiny at 125 %.
+- `WM_COMMAND` is no longer let through the UIPI filter, so a lower-integrity process cannot click the elevated window's
+  buttons; a second launch brings the window forward with a registered message instead.
 - "Me fue mal en este juego" saves the configuration before touching any game file; a refused save leaves the game as it was.
 - `IsDxvkInstalled` needs the VegaFlow marker in `dxvk.conf`: a game that ships its own `d3d11.dll` and `dxgi.dll`
   is no longer reported as having DXVK.
@@ -42,7 +45,7 @@ New native GUI (Win32, owner-draw controls reachable with Tab). Not tagged yet: 
   them) and the unused in-memory audit list.
 
 ### Known limits
-- No DPI scaling; 125 % and 150 % were not checked with screenshots. Screen readers were not tested.
+- The window does no DPI scaling of its own (fixed pixels): Windows enlarges it. Checked with a screenshot at 125 %, not at 150 %. Screen readers were not tested.
 - Some actions still live in `gui_mode.cpp` (telemetry poll, purge, isolate, restore CPU affinity, history poll): they
   call Windows classes that have no fakes.
 - Tab 2 (Memoria UMA & Núcleos CPU) is still the old GDI view.
