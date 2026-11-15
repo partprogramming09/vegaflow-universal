@@ -530,6 +530,61 @@ mod tests {
         "; [VegaFlowUMA_Start]\n[SystemSettings]\nr.Streaming.PoolSize=4096\n; [VegaFlowUMA_End]";
 
     #[test]
+    fn error_codes_match_the_ffi_constants() {
+        assert_eq!(IniError::InvalidInput.code(), VF_INI_ERR_INVALID_INPUT);
+        assert_eq!(IniError::InvalidEncoding.code(), VF_INI_ERR_ENCODING);
+        assert_eq!(IniError::MissingEndMarker.code(), VF_INI_ERR_MISSING_END_MARKER);
+        assert_eq!(IniError::UnmatchedEndMarker.code(), VF_INI_ERR_UNMATCHED_END_MARKER);
+    }
+
+    #[test]
+    fn a_tie_between_crlf_and_lf_inserts_the_block_with_lf() {
+        let merged = merge_unreal_uma_block(b"a=1\r\nb=2\n", SAMPLE_BLOCK).unwrap();
+        let text = String::from_utf8(merged).unwrap();
+        assert_eq!(text.matches("\r\n").count(), 1, "only the original CRLF may remain: {text:?}");
+        assert!(text.starts_with("a=1\r\nb=2\n\n; [VegaFlowUMA_Start]\n"), "{text:?}");
+    }
+
+    #[test]
+    fn merging_into_a_file_without_final_newline_separates_the_block_with_a_blank_line() {
+        let merged = merge_unreal_uma_block(b"[Core]\nKey=1", SAMPLE_BLOCK).unwrap();
+        let text = String::from_utf8(merged).unwrap();
+        assert!(text.starts_with("[Core]\nKey=1\n\n; [VegaFlowUMA_Start]\n"), "{text:?}");
+    }
+
+    #[test]
+    fn merging_into_an_empty_file_writes_only_the_block() {
+        let merged = merge_unreal_uma_block(b"", SAMPLE_BLOCK).unwrap();
+        let text = String::from_utf8(merged).unwrap();
+        assert_eq!(
+            text,
+            "; [VegaFlowUMA_Start]\n[SystemSettings]\nr.Streaming.PoolSize=4096\n; [VegaFlowUMA_End]\n"
+        );
+    }
+
+    #[test]
+    fn merging_into_a_crlf_file_without_final_newline_keeps_crlf() {
+        let merged = merge_unreal_uma_block(b"[Core]\r\nKey=1", SAMPLE_BLOCK).unwrap();
+        let text = String::from_utf8(merged).unwrap();
+        assert!(text.starts_with("[Core]\r\nKey=1\r\n\r\n; [VegaFlowUMA_Start]\r\n"), "{text:?}");
+    }
+
+    #[test]
+    fn utf16_with_an_odd_byte_count_is_rejected_for_both_byte_orders() {
+        // BOM + one full unit ('A') + one stray byte.
+        assert_eq!(decode_text(&[0xFF, 0xFE, 0x41, 0x00, 0x42]).unwrap_err(), IniError::InvalidEncoding);
+        assert_eq!(decode_text(&[0xFE, 0xFF, 0x00, 0x41, 0x42]).unwrap_err(), IniError::InvalidEncoding);
+    }
+
+    #[test]
+    fn utf16_with_an_even_byte_count_decodes_for_both_byte_orders() {
+        let (le, text_le) = decode_text(&[0xFF, 0xFE, 0x41, 0x00, 0x42, 0x00]).unwrap();
+        assert_eq!((le, text_le.as_str()), (TextEncoding::Utf16LeBom, "AB"));
+        let (be, text_be) = decode_text(&[0xFE, 0xFF, 0x00, 0x41, 0x00, 0x42]).unwrap();
+        assert_eq!((be, text_be.as_str()), (TextEncoding::Utf16BeBom, "AB"));
+    }
+
+    #[test]
     fn missing_end_marker_returns_error_and_does_not_delete_user_content() {
         let raw = b"[Core.System]\nPaths=foo\n\n; [VegaFlowUMA_Start]\n[SystemSettings]\nKeepMe=1\n";
         let err = merge_unreal_uma_block(raw, SAMPLE_BLOCK).unwrap_err();
