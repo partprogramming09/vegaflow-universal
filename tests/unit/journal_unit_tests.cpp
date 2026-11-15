@@ -127,14 +127,44 @@ void Test49() {
                        undo_ok.restore_point_calls == 1 && !hist.empty() &&
                        hist.back().find("Windows Restore Point") != std::string::npos;
 
+    // 9. Answering "No" never calls Windows, is recorded as skipped and is not offered again
+    FakeFileSystem fs_rp_no;
+    FileChangeJournal jno(fs_rp_no, clock, jpath);
+    jno.Load();
+    jno.BeginSession();
+    FakeSystemUndo undo_no;
+    std::string no_msg;
+    const bool no_ran = session::ExecuteRestorePointOffer(jno, undo_no, false, "Antes de registro", &no_msg);
+    const auto hist_no = session::FormatJournalHistory(jno);
+    const bool rp_no_ok = no_ran && undo_no.restore_point_calls == 0 &&
+                          !session::ShouldOfferRestorePoint(jno) &&
+                          no_msg.find("omitida") != std::string::npos && !hist_no.empty() &&
+                          hist_no.back().find("Omitido por el usuario") != std::string::npos;
+
+    // 10. "Yes" with System Protection off: reports the reason, records the failure, does not ask again
+    FakeFileSystem fs_rp_off;
+    FileChangeJournal joff(fs_rp_off, clock, jpath);
+    joff.Load();
+    joff.BeginSession();
+    FakeSystemUndo undo_off;
+    undo_off.restore_point_succeeds = false;
+    std::string off_msg;
+    const bool off_ran = session::ExecuteRestorePointOffer(joff, undo_off, true, "Antes de registro", &off_msg);
+    const auto hist_off = session::FormatJournalHistory(joff);
+    const bool rp_off_ok = !off_ran && undo_off.restore_point_calls == 1 &&
+                           !session::ShouldOfferRestorePoint(joff) && !off_msg.empty() &&
+                           !hist_off.empty() &&
+                           hist_off.back().find("No se pudo crear punto de restauración") != std::string::npos;
+
     const bool all = fresh_ok && crash1_detected && restore_2_of_2 && partial_msg_ok &&
-                     safe_mode_triggered && corrupt_ok && rp_ok;
+                     safe_mode_triggered && corrupt_ok && rp_ok && rp_no_ok && rp_off_ok;
     RecordResult(all,
                  "Test 49: Change journal atomic writes, crash recovery, Safe Mode, and corrupt handling",
                  "fresh: " + Pass(fresh_ok) + ", crash1: " + Pass(crash1_detected) +
                      ", restore 2/2: " + Pass(restore_2_of_2) + ", partial msg: " + Pass(partial_msg_ok) +
                      ", safe mode: " + Pass(safe_mode_triggered) + ", corrupt: " + Pass(corrupt_ok) +
-                     ", restore point: " + Pass(rp_ok));
+                     ", restore point: " + Pass(rp_ok) + ", restore point No: " + Pass(rp_no_ok) +
+                     ", restore point protection off: " + Pass(rp_off_ok));
 }
 
 } // namespace vftest

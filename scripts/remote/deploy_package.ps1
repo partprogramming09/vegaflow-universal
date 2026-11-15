@@ -16,12 +16,17 @@
     WinBridge runner folder containing Install-WinBridgeJobs.ps1 and packages\.
 .PARAMETER Root
     VegaFlow installation with the VegaFlow-* tasks and the tools.
+.PARAMETER RunnerSha256
+    SHA-256 of runner.ps1 as published in the WinBridge source repository (bootstrap/jobs/runner.ps1). Newer versions of
+    Install-WinBridgeJobs.ps1 require it and refuse to install when the runner on the laptop differs. Take it from the
+    source repository, never from the runner installed on the laptop: that would make the check compare a file with itself.
 #>
 param(
     [string]$Staging = 'C:\dev\vf-pkg',
     [Parameter(Mandatory)][string]$Repo,
     [string]$JobsRoot = (Join-Path $env:LOCALAPPDATA 'winbridge\bin\jobs'),
-    [string]$Root = 'C:\ProgramData\VegaFlow'
+    [string]$Root = 'C:\ProgramData\VegaFlow',
+    [ValidatePattern('^([A-Fa-f0-9]{64})?\z')][string]$RunnerSha256 = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -46,4 +51,6 @@ if (-not (Test-Path $daemon)) {
     'daemon: copiado'
 }
 
-& (Join-Path $JobsRoot 'Install-WinBridgeJobs.ps1') -Packages (Join-Path $JobsRoot 'packages') -AgentUser $env:USERNAME -Update
+$install = @{ Packages = (Join-Path $JobsRoot 'packages'); AgentUser = $env:USERNAME; Update = $true }
+if ($RunnerSha256) { $install.RunnerSha256 = $RunnerSha256 }
+& (Join-Path $JobsRoot 'Install-WinBridgeJobs.ps1') @install
