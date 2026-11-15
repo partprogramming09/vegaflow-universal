@@ -60,3 +60,6 @@ assets/dxvk/dxvk-*/
 
 # Session handoff notes for this machine (read by the local hooks); not part of the product
 docs/estado.md
+
+# Release packages
+dist/

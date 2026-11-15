@@ -271,6 +271,8 @@ std::optional<int> RunOneShotCommand(const CliOptions& opts, int argc, char* arg
         vegaflow::FileChangeJournal journal(file_system, clock, vegaflow::JournalFilePath());
         vegaflow::WindowsSystemUndo undo(file_system);
         const bool loaded = journal.Load();
+        // A corrupt journal means its game-file changes were not reverted: that must not look like a clean restore.
+        const bool journal_corrupt = journal.Header().corrupt;
 
         vegaflow::RestoreReport rep{};
         if (loaded && !journal.Header().corrupt) {
@@ -295,7 +297,7 @@ std::optional<int> RunOneShotCommand(const CliOptions& opts, int argc, char* arg
         } else {
             std::cout << "[Restore] Se devolvieron " << reg_rev << " de " << reg_tot << ".\n";
         }
-        return (rep.all_succeeded && reg_ok) ? 0 : 1;
+        return (rep.all_succeeded && reg_ok && !journal_corrupt) ? 0 : 1;
     }
 
     if (!opts.dxvk_install_path.empty()) {
