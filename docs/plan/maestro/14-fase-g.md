@@ -2,10 +2,10 @@
 
 **Lector:** personas. Parte del [plan maestro](README.md); método común y orden de las fases en el README.
 
-**Por qué.** La GUI de hoy funciona, pero tiene cuatro problemas:
-- **Muestra el equipo de pruebas en otros equipos:** si el nombre de la CPU y la GPU pasa de 65 caracteres, escribe "AMD Ryzen 5 4600H | Radeon Vega 6 (UMA)" fijo (`src/ui/gui_tabs.cpp:21-28`). En un equipo universal eso es un dato falso.
-- **Usa el nombre de otro programa:** "UXTU" (Universal x86 Tuning Utility, un proyecto ajeno) aparece 8 veces, entre ellas en el título de la ventana (`gui_window.cpp:474`) y en la clase de ventana (`:726`).
-- **Jerga y mezcla de idiomas:** "Combo Gaming 2B", "Quantum de kernel", "TIMER KERNEL", "AVG FPS". La persona no sabe qué hace cada botón ni si sirve.
+**Estado (2026-11-14).** Las correcciones de «Terminado cuando» que no necesitaban pantallas nuevas **están hechas** (commit `eb0cf5a`, fase R3, versión 0.1.0): la GUI ya no escribe el nombre fijo del laptop de pruebas (la línea «procesador | gráfica» sale de `ui/app_identity.hpp`, con «no identificado» si falta un dato), ya no dice «UXTU» (clase de ventana `VegaFlowUniversalWindow`, título «VegaFlow Universal») y ya no tiene textos que prometan mejoras (se quitaron «0 % OVERHEAD», «Cero VRAM», «0ms» y «4.0 GHz»). **Las 7 pantallas pasan a la versión 0.2.0**; lo que sigue es lo que queda pendiente.
+
+**Por qué.** La GUI de 0.1.0 funciona, pero le quedan dos problemas:
+- **Jerga y mezcla de idiomas:** "Combo Gaming 2B", "Quantum de kernel", "TIMER KERNEL", "AVG FPS" (sin revisar si siguen todos en pantalla). La persona no sabe qué hace cada botón ni si sirve.
 - **Falta de diseño, no fallo:** no dice qué está medido. Un ajuste sin medir se ve igual que uno con ganancia demostrada, aunque la regla del proyecto es que lo no medido no va por defecto.
 
 **Cómo quedaría:** hay un diseño en un canvas privado (no se enlaza desde este repositorio público). Datos de ejemplo. Siete pantallas, con el menú en cuatro grupos: **Ahora** (Inicio), **Optimizar** (Ajustes del sistema, Juegos, Programas), **Tu PC** (Tu equipo) y **VegaFlow** (Historial, Configuración).
@@ -75,10 +75,8 @@ Lo que ya está bien: el texto secundario tiene entre 5,69:1 y 6,94:1, las etiqu
 - La evidencia de cada ajuste sale de una sola tabla en el código, la misma que resume `docs/mediciones/estado-de-verificacion.md`.
 - Textos en español claro; los nombres técnicos (`r.AOQuality`, `MPO`) solo como detalle secundario.
 
-**Terminado cuando:**
-- en un equipo simulado se ve su nombre real, nunca el del laptop de pruebas, en los tres casos de `gui_tabs.cpp:21-28`: nombre de más de 65 caracteres, marca de CPU vacía y resumen de GPU vacío;
-- no queda ninguna mención a "UXTU"; la clase de ventana se renombra a la vez en `gui_window.cpp:726` y en `main.cpp:59` (`FindWindowW`);
-- ningún texto promete una mejora; cada ajuste tiene su ⓘ con el cambio exacto, y solo los que pasan la puerta de evidencia se marcan "Recomendado";
+**Terminado cuando** (quitados los puntos ya hechos: nombre del laptop, «UXTU» y textos que prometen):
+- cada ajuste tiene su ⓘ con el cambio exacto, y solo los que pasan la puerta de evidencia se marcan "Recomendado" (y ningún texto nuevo promete una mejora);
 - todos los bordes de controles tienen al menos 3:1 y el foco del teclado se ve;
 - cada lista tiene su estado vacío con una acción;
 - todo lo que se cambia en Programas y Configuración se guarda en `config.json` y sobrevive a un reinicio;

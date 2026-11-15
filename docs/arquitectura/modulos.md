@@ -2,8 +2,34 @@
 
 **Lector:** personas
 
+## Capas del código (estado tras la fase R3, 2026-11-14)
+
+**Lo esencial:** cada carpeta de `src/` solo puede incluir a las que están debajo de ella. Desde R3, los casos de uso de `session/` no llaman a funciones de Win32: piden esas lecturas a `windows/`.
+
+**Ejemplo.** `--status` muestra cuántos procesos tienen el modo de ahorro (EcoQoS). Antes, `session/` hacía ese recorrido de procesos con llamadas de Windows. Ahora `session/reports.cpp` llama a `CountEcoQoSProcesses()` y quien habla con Windows es [`src/windows/system_counters.cpp`](../../src/windows/system_counters.cpp). Así el código de `session/` se lee sin saber nada de Win32.
+
+![Capas del código de VegaFlow: app/ usa ui/ y session/; session/ pide sus lecturas de Windows a windows/ y habla con los puertos; windows/ implementa los puertos y llama al núcleo Rust por bridge/; model/ lo usan todas las capas](../diagrams/capas-del-codigo.png)
+
+[Ver el diagrama a pantalla completa](../diagrams/capas-del-codigo.html)
+
+Términos: un **puerto** es una interfaz pequeña (por ejemplo, «leer y escribir el registro») que las pruebas pueden sustituir por una versión falsa; un **adaptador** es la versión real, que llama a Windows.
+
+| Qué se movió en R3 | A dónde |
+| --- | --- |
+| Conteo de procesos en EcoQoS y de juegos con Direct Flip configurado | `windows/system_counters.*` |
+| Tamaño de la caché L3 (topología de caché; si no sirve, CPUID, hoja `0x80000006`; 0 si ninguna responde) | `windows/system_counters.*` |
+| Ranuras de RAM ocupadas por SMBIOS, con recorrido acotado: se detiene ante una entrada truncada en vez de leer más allá del final | `windows/system_counters.*` (la parte pura, `CountDimmsInSmbiosTable`, se prueba con tablas inventadas) |
+| Comprobar una ventana y su hilo | `windows/system_counters.*` |
+| Conversión UTF-8 ↔ UTF-16 (`text_convert`) | de `session/` a `windows/text_convert.*` |
+| Versión (0.1.0), clase y título de ventana, id del comando de la bandeja y la línea «procesador \| gráfica» | `ui/app_identity.hpp` |
+
+Lo que comprueba el repositorio:
+- `scripts/check_layers.sh` revisa cada `#include` de `src/` contra la tabla de capas del [plan maestro](../plan/maestro/arquitectura.md): 272 includes comprobados, capas respetadas (2026-11-14). Corre en el CI.
+- `session/` todavía incluye cabeceras de `windows/`, `detect/` y `optimize/`. El script las permite como **migración** (están marcadas así en su tabla) hasta que cada pieza pase detrás de un puerto; lo que ya no hay en `session/` son las llamadas a Win32.
+- Las pruebas que tocan el registro real están solo en `tests/integration/`; `tests/unit/` usa puertos falsos. Suite de C++ en el laptop de pruebas, 2026-11-14: `57 PASSED, 0 FAILED`.
+
 ### 3.2. Subsistema `SystemInfo`: Telemetría Desacoplada y Detección de Hardware
-Implementado en [`src/session/system_info.hpp`](../../src/session/system_info.hpp) y [`src/session/system_info.cpp`](../../src/session/system_info.cpp), este módulo aísla toda la lógica de recopilación de hardware y sistema operativo en una biblioteca reutilizable:
+Implementado en [`src/session/system_info.hpp`](../../src/session/system_info.hpp) y [`src/session/system_info.cpp`](../../src/session/system_info.cpp), este módulo aísla toda la lógica de recopilación de hardware y sistema operativo en una biblioteca reutilizable. Las lecturas que necesitan Windows (L3, ranuras DIMM, conteos) están en [`src/windows/system_counters.cpp`](../../src/windows/system_counters.cpp):
 - **Detección de CPU**:
   - Lectura de marca mediante la instrucción x86 `CPUID` (registros EAX, EBX, ECX, EDX) reportando el procesador completo (e.g. *AMD Ryzen 5 4600H with Radeon Graphics*).
   - Conteo riguroso de núcleos físicos (6) y procesadores lógicos (12) mediante `GetLogicalProcessorInformationEx`.
@@ -28,6 +54,7 @@ Implementado en [`src/session/system_info.hpp`](../../src/session/system_info.hp
 ### 3.3. Arquitectura y Rediseño Visual de la GUI (Clean Slate / Nordic Dark Mode)
 Implementado en [`src/ui/gui_window.hpp`](../../src/ui/gui_window.hpp) y [`src/ui/gui_window.cpp`](../../src/ui/gui_window.cpp):
 - **Cero Dependencias & Ultra Bajo Consumo**: GUI construida enteramente sobre la API pura de Win32/GDI con doble búfer (`BitBlt`), sin marcos pesados (Qt, WPF, Electron). Consume menos de **15 MB de RAM privada** y **0.0% de CPU** en reposo. Al detectar un juego en primer plano, la interfaz suspende sus llamadas gráficas de telemetría para ceder el 100% de los ciclos a la GPU.
+- **Identidad de la ventana (R3):** [`src/ui/app_identity.hpp`](../../src/ui/app_identity.hpp) guarda en un solo sitio la versión, la clase y el título de la ventana (`VegaFlowUniversalWindow`, «VegaFlow Universal») y la línea «procesador | gráfica» (`FormatHardwareLine`). Esa línea nunca toma el nombre de otro equipo: lo que no se pudo leer sale como «Procesador no identificado» o «Gráfica no identificada», y una línea de más de 65 bytes se corta con «...» sin partir un carácter UTF-8. La GUI ya no promete mejoras en sus textos; las siete pantallas nuevas son de la fase G (versión 0.2.0).
 - **Paleta Slate / Zinc Neutra ("Clean Slate / Nordic Dark Mode")**:
   - Fondo principal: `#111317` (`RGB(17, 19, 23)`).
   - Barra lateral: `#16191E` (`RGB(22, 25, 30)`).
@@ -49,11 +76,11 @@ Implementado en [`src/ui/gui_window.hpp`](../../src/ui/gui_window.hpp) y [`src/u
     3. *Memoria RAM Dual-Channel*: Barra multi-segmento con desglose en uso / standby / modificada / libre y ancho de banda de 128 bits.
     4. *Kernel NT & SO*: Build de Windows, MMCSS y compresión de memoria.
     5. *Seguridad SandboxGuard*: Indicador de blindaje activo, contador de violaciones y cuarentena anti-cheat.
-    6. *Monitor de Juego Activo*: Indicador de primer plano, badge `DIRECTFLIP 0ms ACTIVO` y estado del perfil.
+    6. *Monitor de Juego Activo*: Indicador de primer plano, indicador `DirectFlip activo` (o `Flip Model Estándar`) y estado del perfil.
     7. *Tarjetas de Estado de la Suite 3D*: Sub-panel inferior con 3 tarjetas especializadas:
        - **EcoQoS en 2º Plano**: Procesos de fondo confinados en Efficiency Mode para recuperar 3W-5W de STAPM.
        - **Prioridad I/O**: Estado de `IoPriorityHigh` en el juego e `IoPriorityVeryLow` (0) en procesos de fondo para eliminar stuttering de texturas.
-       - **DirectFlip / AutoFlip**: Indicador de derivación directa de swap chain (0ms de latencia, bypass de cola DWM).
+       - **DirectFlip / AutoFlip**: Indicador de derivación directa de swap chain (sin la copia intermedia del DWM).
 - **Tab 1: Ajustes de Kernel & Sistema por Fabricante**:
   - Muestra dinámicamente solo las familias disponibles para el equipo detectado (`AmdDriverTweaks` solo en GPUs AMD sin bloqueo de driver; `PowerModeTweaks` solo cuando aplica la política de energía).
 
@@ -113,14 +140,19 @@ Implementada en [`src/optimize/graphics/`](../../src/optimize/graphics/), [`src/
 ## 4. Estructura del Repositorio y Módulos de Código
 
 ```
-direct/
+vegaflow-universal/
 ├── .gitignore                    # Reglas de exclusión para Git (artefactos, temporales, logs)
+├── CHANGELOG.md                  # Historial de versiones (la versión 0.1.0 es la primera)
 ├── config/
 │   └── config.json               # Configuración persistente del daemon y lista de juegos
 ├── assets/
 │   └── dxvk/                     # Aquí se colocan las DLL de DXVK (no se incluyen; ver su README)
 ├── scripts/
-│   └── build.ps1                 # Script automatizado de compilación y pruebas PowerShell
+│   ├── build.ps1                 # Script automatizado de compilación y pruebas PowerShell
+│   ├── build-cross.sh            # Lo mismo desde un Mac o Linux
+│   ├── check_layers.sh           # Comprueba las capas de src/ (corre en el CI)
+│   ├── package.sh                # Genera dist/VegaFlow-<versión>-win-x64.zip
+│   └── package/                  # Lo que va dentro del zip: install.ps1 y uninstall.ps1 (ver la guía de instalar)
 ├── rust/
 │   └── vegaflow-core/            # Núcleo híbrido Rust de alta seguridad y zero-allocation FFI
 │       ├── Cargo.toml            # staticlib/rlib con LTO y panic = unwind (ffi_guard captura los pánicos)
@@ -145,7 +177,7 @@ direct/
 ├── src/                          # Cada .hpp vive junto a su .cpp, agrupado por función
 │   ├── app/                      # Entradas del programa (main.cpp solo orquesta)
 │   │   ├── main.cpp              # Punto de entrada: lee la línea de comandos y elige el modo
-│   │   ├── cli.*                 # Banderas y órdenes de un solo uso (--status, --purge-now, ...)
+│   │   ├── cli.*                 # Banderas y órdenes de un solo uso (--status, --purge-now, --version, ...)
 │   │   ├── daemon_loop.*         # Modo por defecto: bucle del daemon y apagado limpio
 │   │   ├── gui_mode.*            # --gui: ventana nativa con bandeja
 │   │   ├── monitor.*             # --monitor: panel de consola en vivo
@@ -154,10 +186,9 @@ direct/
 │   │   ├── run_cycle.*           # Un ciclo de evaluación: detectar juego, aplicar o soltar
 │   │   ├── game_session.*        # Sesión inyectable por puertos, detección de hot-plug GPU, paso estático/vivo y exclusión al vuelo
 │   │   ├── reports.*             # --status, --dry-run y --purge-now
-│   │   ├── system_info.*         # Informe SystemInfo (hardware, UMA, SMBIOS RAM, OS y JSON)
+│   │   ├── system_info.*         # Informe SystemInfo (hardware, UMA, RAM, OS y JSON); las lecturas de Windows las pide a windows/system_counters
 │   │   ├── config.*              # ConfigStore: leer y guardar config.json (reglas en Rust) y lista de juegos
-│   │   ├── restore.*             # Evaluación al arranque, recuperación del diario, formato de historial y punto de restauración
-│   │   └── text_convert.*        # UTF-8 <-> UTF-16
+│   │   └── restore.*             # Evaluación al arranque, recuperación del diario, formato de historial y punto de restauración
 │   ├── ports/                    # Interfaces que los casos de uso piden y las pruebas falsifican
 │   │   ├── file_system.hpp       # Leer, escribir, reemplazar entero, copiar y borrar archivos
 │   │   ├── clock.hpp             # La hora actual y fecha legible (`WallNow`); las pruebas lo adelantan a mano
@@ -199,10 +230,13 @@ direct/
 │   │   └── dxvk_manager.*        # Despliegue seguro de DXVK-GPLAsync y backups
 │   ├── ui/                       # Ventana nativa Win32/GDI
 │   │   ├── gui_window.*          # Interfaz Slate/Zinc y System Tray
+│   │   ├── app_identity.hpp      # Versión, clase y título de ventana, id de la bandeja y la línea «procesador | gráfica» (solo nombres, sin llamadas a Windows)
 │   │   ├── gui_components.*      # Componentes modulares de UI y renderizado gráfico
 │   │   └── gui_tabs.cpp          # Contenido de cada pestaña
 │   ├── windows/                  # Envolturas de la API de Windows
 │   │   ├── nt_defs.hpp           # Typedefs y llamadas nativas indocumentadas de NTDLL
+│   │   ├── system_counters.*     # Lecturas para el informe y la GUI: procesos en EcoQoS, juegos con Direct Flip, caché L3 (con respaldo CPUID), ranuras DIMM por SMBIOS e ids de ventana
+│   │   ├── text_convert.*        # UTF-8 <-> UTF-16 (`Utf8ToWide`, `WideToUtf8`)
 │   │   ├── unique_handle.hpp     # Cierre automático de handles, claves de registro y búsquedas (RAII)
 │   │   ├── device_probe.*        # Sonda real Windows (DXCore COM, DXGI, SetupAPI RemovalPolicy, Storage SeekPenalty/BusType, Power, IsWow64Process2)
 │   │   ├── memory.*              # Implementación Windows de MemoryProbe y MemoryControl (ntdll, DXGI, Working Sets)
@@ -222,12 +256,14 @@ direct/
 │   ├── test_support.*            # Contadores, RecordResult y lector de los .tsv
 │   ├── integration/              # Pruebas que tocan Windows de verdad, un archivo por módulo
 │   ├── unit/                     # Pruebas con puertos falsos (no escriben archivos de juegos ni el registro; como mucho una carpeta temporal vacía)
+│   ├── package/                  # package_tests.ps1: prueba de extremo a extremo del zip (instala, aplica un cambio, desinstala y compara)
 │   └── vectors/                  # Casos compartidos con las pruebas de Rust
 ├── logs/
 │   └── session_reports.log       # Registro persistente de sesiones y telemetría
-└── build/
-    ├── vegaflow_daemon.exe       # Ejecutable principal
-    └── vegaflow_tests.exe        # Ejecutable de verificación de pruebas
+├── build/
+│   ├── vegaflow_daemon.exe       # Ejecutable principal
+│   └── vegaflow_tests.exe        # Ejecutable de verificación de pruebas
+└── dist/                         # Salida de package.sh: el zip, su .sha256 y la carpeta que se comprime (fuera de git)
 ```
 
 ---

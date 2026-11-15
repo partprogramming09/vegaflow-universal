@@ -6,8 +6,9 @@ Solo Windows (PowerShell) salvo `remote/`, que corre en la Mac. Ninguno forma pa
 
 | Script | Qué hace |
 | --- | --- |
-| `build.ps1` | Compila el daemon y la suite de pruebas; con `-RunTests` corre las 45 |
+| `build.ps1` | Compila el daemon y la suite de pruebas; con `-RunTests` corre las 57 |
 | `build-cross.sh` | Lo mismo desde un Mac o Linux con mingw-w64 (compilación cruzada); los `.exe` se prueban luego en Windows |
+| `package.sh` | Arma `dist/VegaFlow-<versión>-win-x64.zip` (daemon, `install.ps1`, `uninstall.ps1`, `SHA256SUMS`); se niega si `Cargo.toml`, `src/ui/app_identity.hpp` y el `CHANGELOG.md` no coinciden. Los scripts del paquete están en `scripts/package/`; su prueba, en `tests/package/package_tests.ps1` |
 | `check_layers.sh` | Comprueba que cada carpeta de `src/` solo incluye las capas permitidas (tabla en el plan maestro, sección 3b); corre en el CI |
 
 ## Medir (PresentMon y A/B)

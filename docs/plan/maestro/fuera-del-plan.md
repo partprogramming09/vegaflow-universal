@@ -45,24 +45,35 @@
 - Punto de restauración de Windows (`SRSetRestorePointW` vía `srclient.dll`): sin verificar en el escritorio interactivo qué ocurre cuando la Protección del sistema está desactivada o dentro de la ventana de frecuencia de Windows (24 h); el diario de cambios, `--once`, el modo seguro tras dos cierres anormales y la tolerancia a diario corrupto sí se validaron en el laptop y en las Pruebas 49 y 50.
 - Diálogos de `--gui` (`MessageBoxW` de recuperación y punto de restauración opcional) y pestaña Historial alimentada por `FormatJournalHistory`: sin prueba visual en sesión de escritorio (la lógica de decisión está cubierta en la Prueba 49).
 
+## Pendiente heredado de la fase R3 y del paquete 0.1.0
+
+- **Consumo en reposo:** el criterio de R3 (el daemon por debajo de 15 MB) se mide aparte, con el método de `docs/mediciones/`; hasta entonces no se afirma una cifra.
+- **Capas en migración:** `scripts/check_layers.sh` todavía deja a `session/` incluir `detect/`, `optimize/` y `windows/` (marcado como «Migration» en su tabla). Esas entradas se quitan cuando cada pieza pase detrás de un puerto; `session/` ya no llama a Win32, pero sí incluye adaptadores concretos.
+- **Dónde se publican el zip y su `.sha256`:** sin decidir. El hash solo protege si llega por un camino distinto al del zip.
+- **La prueba del paquete** (`tests/package/package_tests.ps1`) corre a mano, como administrador, en un Windows real; no está en el CI.
+- **El paquete no está firmado, ni es un MSI, ni se actualiza solo:** ver las tres primeras filas de la tabla de la sección 9.
+
 ## 9. Ideas sin fase todavía
 
 Salieron de la ronda de ideas del 2026-11-09. Ninguna se empieza sin decidirla antes; las marcadas "sin verificar" necesitan investigación.
 
 | Idea | Para qué | Coste | Riesgo o duda |
 |---|---|---|---|
+| Ejecutable y scripts firmados | Quitar avisos de SmartScreen y poder comprobar el origen. Hoy el zip 0.1.0 no está firmado y solo trae SHA-256 | Medio-alto | Coste del certificado, sin verificar |
+| Instalador MSI o MSIX en lugar del zip con PowerShell | Doble clic, sin consola de administrador | Medio-alto | Sin verificar qué exige cada formato; habría que repetir la prueba de instalar y desinstalar |
+| Actualizaciones automáticas (descargar e instalar solas) | No quedarse en una versión vieja | Alto | Exige firma y un canal de red nuevo; distinto del «aviso de actualizaciones» de abajo, que no instala nada |
 | Perfil de portátil de mano (ROG Ally, Legion Go, Steam Deck) | Ajustes prudentes sin que la persona sepa qué es un nivel | Medio | Sin verificar que el nombre del fabricante sea estable entre modelos |
 | Preguntar por programas desconocidos | Un programa nuevo que gasta CPU se pregunta una vez, fuera del juego | Medio | Que resulte pesado |
 | Avisar si otro optimizador toca lo mismo (Armoury Crate, Legion Space) | Evita dos programas peleando por un valor | Medio | Sin verificar qué toca cada uno |
 | Juegos de Epic, GOG, EA, Ubisoft y Xbox | Más juegos sin añadirlos a mano | Alto | Rutas de Xbox con permisos especiales; más anti-cheat |
 | Modo simple y modo detallado | No abrumar | Medio | Dos vistas que mantener |
 | Aviso de actualizaciones (sin instalar solo) | Saber que hay versión nueva | Medio | Conexión de red nueva; mejor en la GUI y opcional |
-| Ejecutable firmado y hashes publicados | Quitar avisos de SmartScreen y poder comprobar el original | Medio-alto | Coste del certificado, sin verificar |
+| Hashes publicados en un sitio aparte del zip | Poder comprobar el original aunque el zip no esté firmado | Bajo | Dónde publicarlos (ver «Pendiente heredado de la fase R3») |
 | GUI sin permisos de administrador, separada del daemon | Un fallo de la GUI no ejecuta nada como administrador | Alto | Más piezas y un canal local nuevo |
 
 ## 10. Después del plan: sacar el máximo del hardware
 
-**No forma parte de este plan.** Es lo que se estudia cuando la fase R3 y la G estén terminadas: palancas que hoy no se tocan porque necesitan acceso más profundo al hardware. Todas entrarían como **experimentales**, nunca por defecto, y cada una necesita su propio ADR.
+**No forma parte de este plan.** Es lo que se estudia cuando la fase R3 y la G estén terminadas: palancas que hoy no se tocan porque necesitan acceso más profundo al hardware (la R3 ya terminó, falta la G). Todas entrarían como **experimentales**, nunca por defecto, y cada una necesita su propio ADR.
 
 | Tema | Qué podría dar | Por qué no está en el plan | Por investigar |
 |---|---|---|---|

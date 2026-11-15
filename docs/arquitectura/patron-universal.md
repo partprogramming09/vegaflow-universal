@@ -103,3 +103,62 @@ A pesar de que el problema de contención es universal, la anatomía interna de 
 
 ---
 
+## 3.5 Qué decide el código en cada equipo (fases 3 y 7)
+
+**Lo esencial:** el patrón es universal, pero lo que VegaFlow hace depende de dos reglas escritas en Rust, sin llamadas a Windows y con los mismos casos de prueba en Rust y en C++: **qué clase de gráfica hay** ([`device_profile.rs`](../../rust/vegaflow-core/src/policy/device_profile.rs), fase 3) y **cómo se reparten los núcleos** ([`cpu_governor.rs`](../../rust/vegaflow-core/src/policy/cpu_governor.rs), fase 7). Las tablas 3.1 y 3.2 dicen qué se espera por familia; esta sección dice qué hace el código hoy.
+
+> [!NOTE]
+> Dos puntos de las tablas 3.1 y 3.2 no coinciden con el código y están pendientes de decidir si se corrige el texto o el código: el código no tiene una regla propia para procesadores X3D (reparte por caché y núcleo, sin saber cuál lleva la V-Cache), y en una eGPU lo que es propio de ella (ajustes de streaming) solo se activa con una opción experimental. Las cifras de impacto de esas tablas no llevan fuente enlazada en este documento.
+
+### Fase 3: perfil del equipo y tipo de conexión de la GPU
+
+**Ejemplo.** Un portátil enchufado con una RTX conectada por PCIe. DXCore (la interfaz de Windows que describe los adaptadores de vídeo) dice que la RTX no es integrada ni desmontable, así que cuenta como **dedicada**. El perfil la elige, no aplica recortes visuales ni la protección de memoria compartida (UMA) y da el nivel 4. El mismo portátil con una caja Thunderbolt: Windows marca la caja como desmontable, cuenta como **externa** y, sin preferencia de la persona, manda sobre la dedicada y la integrada.
+
+La regla recibe lo que la sonda leyó (gráficas, RAM, núcleos, energía, arquitectura de Windows, familia y modelo de CPU) y devuelve una decisión. Cuatro pasos:
+
+1. **Tipo de conexión de cada gráfica:**
+
+   | Lo que informa Windows | Conexión |
+   | --- | --- |
+   | DXCore dice «desmontable», o SetupAPI dice que se puede quitar (salvo que DXCore diga a la vez que es integrada) | Externa |
+   | DXCore disponible y dice «integrada» | Integrada |
+   | DXCore disponible y no integrada | Dedicada |
+   | Sin DXCore | Desconocida |
+
+2. **Qué gráfica manda** si hay varias: la preferencia de la persona (ahorro: la primera integrada; alto rendimiento: la externa y luego la dedicada); sin preferencia, externa, dedicada, integrada y, si ninguna encaja, la primera.
+3. **Generación y nivel:** solo en las integradas se identifica la generación (Vega, RDNA2, RDNA3 o superior, Intel UHD, Intel Xe/Arc), primero por el identificador PCI exacto, luego por el nombre del driver y, como último recurso, por la familia y el modelo de CPU. Con eso, `apu_tier.rs` da el nivel de 1 a 4 (dedicada y NVIDIA son nivel 4; ver [`hardware-y-tiers.md`](hardware-y-tiers.md)). El nivel fija además el pool seguro de VRAM, el tope de teselación y los hilos de DXVK.
+4. **Qué se activa según la conexión:**
+
+   | Decisión | Integrada | Dedicada | Externa | Desconocida |
+   | --- | --- | --- | --- | --- |
+   | Recortes visuales | Sí | No | No | No |
+   | Protección de memoria UMA (si se pudo leer la RAM) | Sí | No | No | No |
+   | Cambio del VRAM que informa el driver (solo AMD y sin bloqueo) | Sí | No | No | No |
+   | Ajustes de streaming de eGPU | No | No | Solo con la opción experimental | No |
+   | Bloquear los ajustes del driver | No | No | No | **Sí** |
+
+   Valen para cualquier conexión: Windows sobre ARM (emulado o nativo) también bloquea los ajustes del driver, y VegaFlow solo informa; el plan de energía de alto rendimiento solo se fuerza con la lectura de energía conocida, el equipo enchufado y sin ahorro de batería; la purga de RAM solo se permite si se pudo leer la RAM. Si no se puede leer ninguna gráfica, la regla es prudente: la trata como dedicada de nivel 4, sin recortes y sin ajustes del driver.
+
+### Fase 7: reparto de núcleos (CPU Sets)
+
+Términos: un **CPU Set** es la unidad de CPU que Windows permite asignar a un proceso (normalmente un hilo lógico). Windows agrupa los hilos lógicos en **grupos de procesadores** de hasta 64. La **caché de último nivel** (LLC, la L3) puede estar repartida en bloques (CCX o CCD en AMD). La **clase de eficiencia** es un número que Windows da a cada núcleo: mayor, más rápido.
+
+**Ejemplo.** Un Ryzen 5 4600H tiene 6 núcleos y 12 hilos en dos bloques de L3 de 3 núcleos cada uno. El caso `ryzen_4600h_6c12t` de [`tests/vectors/cpu_topology.tsv`](../../tests/vectors/cpu_topology.tsv) da: el fondo toma los dos hilos del último núcleo (CPU Sets 266 y 267) y el juego los ocho de los núcleos 1 a 4 (258 a 265), dejando libre el núcleo 0.
+
+![Cómo se reparten los núcleos: híbrida (juego en P-cores, fondo en E-cores sin los de bajo consumo), varios bloques de caché con isla compacta o bloques simétricos, y monolítica](../diagrams/reparto-de-nucleos.png)
+
+[Ver el diagrama a pantalla completa](../diagrams/reparto-de-nucleos.html)
+
+Reglas, en este orden:
+
+1. **Dentro de un solo grupo.** Windows ignora los CPU Sets que no son del grupo del hilo que los pide, así que la regla reparte el grupo de quien consulta (o el primero que exista). Con **más de 64 hilos lógicos** hay varios grupos: cada uno admite hasta 64 entradas (con más, la regla falla y no se reparte nada) y el informe suma núcleos e hilos de todos los grupos.
+2. **Híbrida** (clases de eficiencia distintas): el juego va a los núcleos de mayor clase, salvo el primero si hay 4 o más; el fondo, a los demás núcleos eficientes.
+3. **E-cores de bajo consumo excluidos.** En las Core Ultra, los E-cores del bloque del SoC no se mandan al fondo: con tres o más clases de eficiencia se excluye la más baja; con dos, se excluyen los E-cores que están en una caché sin P-cores cuando también hay E-cores que comparten caché con los P-cores. Esos núcleos no entran en ninguna lista: los decide Windows.
+4. **Varios bloques de caché y 6 o más núcleos físicos:** un bloque secundario pequeño y sin el primer núcleo (un tercio de los hilos o menos) se trata como isla y recibe todo el fondo; si no, el fondo toma el último núcleo físico y el juego se ordena empezando por el bloque con menos fondo.
+5. **Monolítica o uniforme:** el fondo toma el último núcleo físico y el juego, el resto. En las reglas 4 y 5 el fondo recibe todos los hilos de ese núcleo si hay 4 o más núcleos físicos (si no, uno), y el núcleo 0 queda libre para el sistema con 4 o más.
+6. **Cuándo confinar** (histéresis): el fondo se confina al usar 0,50 hilos lógicos o más y se suelta al bajar de 0,25.
+
+Cómo comprobarlo: `cargo test --manifest-path rust/vegaflow-core/Cargo.toml` corre las dos reglas con `tests/vectors/device_profiles.tsv` y `tests/vectors/cpu_topology.tsv`; los mismos archivos los usan las pruebas unitarias de C++.
+
+---
+

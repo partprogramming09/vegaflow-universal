@@ -2,9 +2,9 @@
 
 [Español](README.md) · **English**
 
-A Windows daemon written in C++20, with a hybrid Rust core, that optimizes games on AMD APUs (test bench: Ryzen 5 4600H with Radeon Vega 6). It isolates background processes, applies profiles according to the APU tier, uses DXVK-GPLAsync and records frametimes. It never injects anything into games that use anti-cheat.
+A Windows daemon written in C++20, with a hybrid Rust core, that optimizes games on AMD APUs (test bench: Ryzen 5 4600H with Radeon Vega 6). It isolates background processes, applies profiles according to the APU tier, and uses DXVK-GPLAsync. It never injects anything into games that use anti-cheat. Current version: **0.1.0** ([`CHANGELOG.md`](CHANGELOG.md)).
 
-![Language](https://img.shields.io/badge/C%2B%2B20%20%2B%20Rust-blue.svg) ![Platform](https://img.shields.io/badge/Windows%2010%20%7C%2011%20x64-0078D6.svg) ![Tests](https://img.shields.io/badge/tests-31%20C%2B%2B%20%7C%2025%20Rust-success.svg)
+![Language](https://img.shields.io/badge/C%2B%2B20%20%2B%20Rust-blue.svg) ![Platform](https://img.shields.io/badge/Windows%2010%20%7C%2011%20x64-0078D6.svg) ![Tests](https://img.shields.io/badge/tests-57%20C%2B%2B%20%7C%20176%20Rust-success.svg)
 
 > The detailed documentation under `docs/` is written in Spanish for now.
 
@@ -32,6 +32,17 @@ Each feature is described in [`docs/guias/uso-y-funciones.md`](docs/guias/uso-y-
 
 The figures come from PresentMon, with their method and limits, in [`docs/mediciones/`](docs/mediciones/); what is still unmeasured is in [`estado-de-verificacion.md`](docs/mediciones/estado-de-verificacion.md). In short: in Octopath Traveler II the UMA preset in `Engine.ini` gave +40% average FPS in the overworld (one non-interleaved capture, cause not isolated); in Zenless Zone Zero the daemon did not change the FPS (58.57 to 58.89, no effect) and there was no anti-cheat ban.
 
+## Install
+
+The `VegaFlow-0.1.0-win-x64.zip` package holds the daemon and two PowerShell scripts. It is built with `scripts/package.sh`. Unzip it and, in PowerShell as administrator, from the unzipped folder:
+
+```powershell
+.\install.ps1 -DryRun    # shows the steps without changing anything
+.\install.ps1            # installs into C:\Program Files\VegaFlow
+```
+
+`install.ps1` checks the SHA-256 of every file before copying. `uninstall.ps1` gives the system back VegaFlow's changes before it deletes anything. VegaFlow does not start with Windows unless you ask for it with `-Autostart`. The package is not code-signed: check its hash. Full guide: [install and uninstall](docs/guias/instalar-y-desinstalar.md) (in Spanish).
+
 ## Build and use
 
 The program runs on Windows only. It is built with MinGW-w64 g++ 13+ and cargo with the `x86_64-pc-windows-gnu` target:
@@ -51,16 +62,15 @@ src/                C++20 daemon code, grouped by function (each .hpp next to it
   app/                startup, command line and modes (daemon, window, monitor)
   session/            use cases: one daemon cycle, reports, SystemInfo, config.json
   model/              shared types (hardware, game), no logic
-  ports/              interfaces the tests replace with fakes (files, clock)
+  ports/              interfaces the tests replace with fakes (files, clock, registry, power...)
   detect/             hardware and processes
   optimize/           the levers: graphics, memory, CPU, DXVK, Steam engines
-  safety/             SandboxGuard and frame telemetry
   ui/                 Win32/GDI window
-  windows/            native Windows calls, privileges, handle RAII and the real file system
+  windows/            every call into Windows: privileges, registry, SandboxGuard, system reads and the real file system
   bridge/             contract between C++ and Rust
 rust/vegaflow-core/ pure rules in Rust (UMA pressure, topology, confinement, tiers, path policy, signatures)
-tests/              the 45 C++ tests (tests/integration/ touches Windows, tests/unit/ uses fake ports) and the cases shared with Rust (tests/vectors/)
-scripts/            build, measure and operate the test laptop (see scripts/README.md)
+tests/              the 57 C++ tests (tests/integration/ touches Windows, tests/unit/ uses fake ports), the package test (tests/package/) and the cases shared with Rust (tests/vectors/)
+scripts/            build, package, measure and operate the test laptop (see scripts/README.md)
 assets/dxvk/        where you put the DXVK DLLs the daemon installs into games (not included; see its README)
 config/             daemon defaults
 docs/               all the documentation (see docs/README.md)

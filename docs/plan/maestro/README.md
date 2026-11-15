@@ -1,6 +1,6 @@
 # Plan maestro: arquitectura nueva, Rust, seguridad y soporte universal
 
-**Lector:** personas. Fecha: 2026-11-08. Estado: **aprobado el 2026-11-09**. Hechas: fase 0, R1 y R2 (2026-11-09), fase 1 y fase 1b (2026-11-10), fase 2, fase 2b, fase 3, fase 4, fase 5 y fase 6 (2026-11-12), fase 7 y fase 8 (2026-11-13). Siguiente: fase R3.
+**Lector:** personas. Fecha: 2026-11-08. Estado: **aprobado el 2026-11-09**. Hechas: fase 0, R1 y R2 (2026-11-09), fase 1 y fase 1b (2026-11-10), fase 2, fase 2b, fase 3, fase 4, fase 5 y fase 6 (2026-11-12), fase 7 y fase 8 (2026-11-13), fase R3 (2026-11-14). Siguiente: fase G (la versión 0.1.0 se empaqueta sin ella; sus siete pantallas pasan a la 0.2.0).
 
 Este es el único plan del proyecto. Junta tres cosas que antes iban por separado:
 - la **arquitectura nueva** y la modularización (decisión en el [ADR 0001](../../adr/0001-nucleo-que-decide-y-puertos.md));
@@ -30,8 +30,8 @@ Un archivo por fase, en el orden en que se hacen. Lo común va aparte:
 | ~~`10-fase-6.md`~~ | Fase 6: **hecha el 2026-11-12** (eliminada la captura ETW de fotogramas `src/safety/frame_telemetry.*`, `-ltdh`, Test 7 y los campos de FPS en `--monitor`, GUI y `session_reports.log`; `--monitor` conserva RAM y VRAM; el archivo se borró, la historia queda en git) |
 | ~~`11-fase-7.md`~~ | Fase 7: **hecha el 2026-11-13** (eliminada la copia C++ de reparto de CPU Sets; reparto dentro del grupo del proceso vía `group` en `VfCpuCoreEntry` y `vf_rust_partition_cpu_topology_group`; exclusión de LP E-cores en Core Ultra y soporte multi-grupo/Strix Point; Prueba 56 y `tests/vectors/cpu_topology.tsv`; el archivo se borró, la historia queda en git) |
 | ~~`12-fase-8.md`~~ | Fase 8: **hecha el 2026-11-13** (6 familias inyectables en `GraphicsOptimizer` sin métodos estáticos detrás de `RegistryPort` y `PowerPort`, proveedor AMD y plan de energía centralizados, retirados el temporizador NT de 0,5 ms y MMCSS `GPU Priority` conservando limpieza de copias legadas, `OverlayTestMode` apagado por defecto y documentado, Prueba 57; el archivo se borró, la historia queda en git) |
-| [`13-fase-r3.md`](13-fase-r3.md) | Fase R3: cierre |
-| [`14-fase-g.md`](14-fase-g.md) | Fase G: GUI nueva |
+| ~~`13-fase-r3.md`~~ | Fase R3: **hecha el 2026-11-14** (ningún caso de uso de `session/` llama a Win32: las lecturas de Windows están en `windows/system_counters.*`, `text_convert` pasó a `windows/` y `ui/app_identity.hpp` guarda versión y nombre de la ventana; `scripts/check_layers.sh` pasa; ADR 0001 aceptado; el archivo se borró, la historia queda en git). Resultado en [`docs/arquitectura/modulos.md`](../../arquitectura/modulos.md) y [`docs/arquitectura/patron-universal.md`](../../arquitectura/patron-universal.md). La medición del consumo en reposo se hace aparte, en [`docs/mediciones/`](../../mediciones/) |
+| [`14-fase-g.md`](14-fase-g.md) | Fase G: GUI nueva (las correcciones de nombre del laptop, «UXTU» y textos que prometen mejoras ya están hechas; quedan las 7 pantallas, para la 0.2.0) |
 | [`fuera-del-plan.md`](fuera-del-plan.md) | Secciones 6, 9 y 10: lo descartado, las ideas sin fase y lo que viene después del plan |
 
 Las fuentes externas están en [`docs/investigacion/`](../../investigacion/README.md). Cuando una fase termina, lo que implementó pasa a `docs/arquitectura/` o `docs/guias/` y su archivo se borra (la historia queda en git); cuando terminan todas, se borra la carpeta.
@@ -53,8 +53,8 @@ Las fuentes externas están en [`docs/investigacion/`](../../investigacion/READM
 | 6 | Quitar la medición de fotogramas del daemon | VegaFlow no es un medidor; la captura usa números de evento que no son los de un fotograma | Media |
 | 7 | Núcleos de CPU universales (Intel híbrido, multi-CCD, más de 64 hilos). **Hecha** | La regla está **copiada** en C++ para más de 64 hilos, y en Intel manda todo el fondo a todos los E-cores | Media |
 | 8 | Ajustes de sistema por fabricante, detrás de un puerto de registro. **Hecha** | 36 funciones estáticas; varios ajustes de AMD se intentan sin mirar el fabricante | Baja |
-| R3 | Cierre: armar todo en `main`, documentación y medir el consumo | Cierra el refactor | — |
-| G | GUI nueva: 7 pantallas en lenguaje claro, con el estado de evidencia de cada ajuste | Necesita la configuración segura (1b), el diario de cambios (2b), los datos limpios de las fases 3 a 8 y la carpeta `session/` | Media: hoy muestra el nombre del laptop de pruebas en otros equipos |
+| R3 | Cierre: `session/` sin llamadas a Win32, documentación y paquete 0.1.0. **Hecha** | Cierra el refactor | — |
+| G | GUI nueva: 7 pantallas en lenguaje claro, con el estado de evidencia de cada ajuste (versión 0.2.0) | Necesita la configuración segura (1b), el diario de cambios (2b), los datos limpios de las fases 3 a 8 y la carpeta `session/` | Media: la GUI actual ya no muestra el nombre del laptop de pruebas ni promete mejoras, pero sigue sin decir qué está medido |
 | — | Lector de cabecera `.exe` | **Se descarta**: no tiene fallo de memoria y hoy no se ejecuta | Baja |
 
 La GUI nueva es la fase G. Las ideas que todavía no tienen fase están en la [fuera del plan](fuera-del-plan.md).
@@ -85,7 +85,7 @@ El orden de las fases 1 a 8 va de lo que más daño puede hacer a lo que menos. 
                       |
                       v
 +---------------------------------------------+
-| R3: cierre (sin clases estáticas, docs)     |
+| R3: cierre (hecha el 2026-11-14)            |
 +---------------------------------------------+
                       |
                       v
