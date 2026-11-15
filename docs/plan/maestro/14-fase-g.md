@@ -87,7 +87,7 @@ Lo que ya está bien: el texto secundario tiene entre 5,69:1 y 6,94:1, las etiqu
 
 ## Estado de la construcción (2026-11-15)
 
-Fuente de cada fila: el código en `src/ui/*_view.*`, `src/session/*_screen.*` y `src/app/gui_mode.cpp`. Suite de C++ en el laptop: `TEST RESULTS: 281 PASSED` (`scripts/remote/vfdev cross-test`). Cómo se reparte el código: [`modulos.md`](../../arquitectura/modulos.md), sección 3.3b.
+Fuente de cada fila: el código en `src/ui/*_view.*`, `src/session/*_screen.*` y `src/app/gui_mode.cpp`. Suite de C++ en el laptop: `TEST RESULTS: 310 PASSED` (`scripts/remote/vfdev cross-test`). Cómo se reparte el código: [`modulos.md`](../../arquitectura/modulos.md), sección 3.3b.
 
 **Hecho**
 

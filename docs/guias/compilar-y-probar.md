@@ -19,7 +19,7 @@ El proyecto incluye el script automatizado [`scripts/build.ps1`](../../scripts/b
 # Compilar vegaflow_daemon.exe y vegaflow_tests.exe:
 powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
 
-# Compilar y ejecutar inmediatamente la suite completa de C++ (la última corrida con `scripts/remote/vfdev cross-test`, 2026-11-15, imprime `TEST RESULTS: 281 PASSED` sin fallos; el número crece con cada prueba nueva, no lo copies de aquí):
+# Compilar y ejecutar inmediatamente la suite completa de C++ (la última corrida con `scripts/remote/vfdev cross-test`, 2026-11-15, imprime `TEST RESULTS: 310 PASSED` sin fallos; el número crece con cada prueba nueva, no lo copies de aquí):
 powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1 -RunTests
 ```
 

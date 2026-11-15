@@ -28,6 +28,16 @@ std::string EvidenceLabel(const SettingSpec& spec) {
     return "Sin medir";
 }
 
+std::string SettingPreview(const SettingSpec& spec, bool on_now, bool elevated) {
+    std::string t = std::string("Ahora: ") + (on_now ? "encendido" : "apagado") + ".\n";
+    if (!spec.user_switch) return t + "VegaFlow lo decide solo: no hay interruptor que pulsar.";
+    t += on_now ? "Si lo apagas: VegaFlow devuelve el valor que tenía antes."
+                : std::string("Si lo enciendes: VegaFlow escribe ") + spec.change + " en " + spec.target + ".";
+    t += std::string("\nSe puede deshacer: ") + (spec.undoable ? "sí, desde Historial." : "no: no deja un valor original guardado.");
+    if (!elevated) t += "\nVegaFlow no corre como administrador: el cambio puede no aplicarse y te lo dirá.";
+    return t;
+}
+
 SettingsScreenModel BuildSettingsScreen(const SettingsScreenInputs& in) {
     SettingsScreenModel model;
     model.experimental_notice = in.show_experimental;
@@ -37,7 +47,8 @@ SettingsScreenModel BuildSettingsScreen(const SettingsScreenInputs& in) {
         fam.title = view.title;
         fam.scope = view.scope;
         for (const SettingSpec* spec : view.rows) {
-            fam.rows.push_back({spec, SettingIsOn(*spec, in), EvidenceLabel(*spec), ChangeDescription(*spec)});
+            const bool on = SettingIsOn(*spec, in);
+            fam.rows.push_back({spec, on, EvidenceLabel(*spec), ChangeDescription(*spec), SettingPreview(*spec, on, in.elevated)});
         }
         model.families.push_back(std::move(fam));
     }

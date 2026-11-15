@@ -17,6 +17,7 @@ struct HomeInputs {
     uint64_t daemon_ws_kb = 0; // working set of the VegaFlow process
     bool game_active = false;
     std::string game_name;
+    uint32_t game_app_id = 0; // Steam app id of the running game, 0 when unknown
     std::string game_engine; // "" when unknown
     std::string game_api;    // "" when unknown
     bool game_foreground = false;
@@ -42,6 +43,8 @@ struct HomeScreenModel {
     std::string game_title; // "Juego detectado" or "En espera"
     std::string game_name;
     std::string game_sub;
+    bool can_pause = false;     // "Pausar VegaFlow en este juego" is offered (a known game, VegaFlow acting by itself)
+    uint32_t pause_app_id = 0;
     std::vector<std::string> game_facts;
     std::string waiting_text;
     std::vector<std::pair<std::string, std::string>> equipment; // label, value
