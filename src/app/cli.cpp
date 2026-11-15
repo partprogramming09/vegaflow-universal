@@ -98,7 +98,7 @@ std::optional<int> ParseCommandLine(int argc, char* argv[], CliOptions& opts) {
             std::cout << "  --apu-gpu-priority       Activate APU thermal & power profile with sustained GPU priority (CPU ceiling from the tier policy).\n";
             std::cout << "  --apu-balanced           Restore standard Windows balanced APU power profile.\n";
             std::cout << "  --vram-override          Override AMD VRAM reporting to 4096 MB in DXGI and AMD driver.\n";
-            std::cout << "  --vram-restore           Restore AMD VRAM reporting to driver default (512 MB).\n";
+            std::cout << "  --vram-restore           Put back the AMD VRAM reporting VegaFlow saved (nothing to put back: no change).\n";
             std::cout << "  --restore-registry       Restore all pending journal entries and VegaFlow registry backups.\n";
             std::cout << "  --recover                Alias for --restore-registry (recovers pending changes after crash).\n";
             std::cout << "  --create-restore-point   Attempt to create a Windows System Restore Point now.\n";
@@ -265,7 +265,7 @@ std::optional<int> RunOneShotCommand(const CliOptions& opts, int argc, char* arg
         vegaflow::GraphicsOptimizer gfx(hw, pol, reg, &power);
         bool ok = gfx.AmdDriver() && gfx.AmdDriver()->RestoreVramReporting(opts.dry_run_flag);
         std::cout << "[AMD VRAM] RestoreAmdVramReporting() " << (opts.dry_run_flag ? "[DRY-RUN] " : "")
-                  << (ok ? "SUCCEEDED. VRAM reporting restored to driver default (512 MB)." : (gfx.AmdDriver() ? "FAILED. Administrator privileges required." : "SKIPPED. GPU is not AMD or driver tweaks blocked.")) << "\n";
+                  << (ok ? "SUCCEEDED. VRAM reporting put back as VegaFlow saved it." : (gfx.AmdDriver() ? "FAILED. VegaFlow has no saved value to put back (or administrator privileges are missing)." : "SKIPPED. GPU is not AMD or driver tweaks blocked.")) << "\n";
         return ok ? 0 : 1;
     }
 
