@@ -102,13 +102,18 @@ constexpr COLORREF CLR_CARD_HEADER      = RGB(32, 36, 44);     // #20242C card h
 constexpr COLORREF CLR_TEXT_TITLE       = RGB(243, 244, 246);  // #F3F4F6 neutral white title
 constexpr COLORREF CLR_TEXT_BODY        = RGB(209, 213, 219);  // #D1D5DB light text
 constexpr COLORREF CLR_TEXT_MUTED       = RGB(156, 163, 175);  // #9CA3AF medium text
-constexpr COLORREF CLR_TEXT_DIM         = RGB(107, 114, 128);  // #6B7280 dark text
 
 constexpr COLORREF CLR_ACCENT_CYAN      = RGB(59, 130, 246);   // #3B82F6 sober steel blue
 constexpr COLORREF CLR_ACCENT_GREEN     = RGB(16, 185, 129);   // #10B981 optimal green
 constexpr COLORREF CLR_ACCENT_AMBER     = RGB(245, 158, 11);   // #F59E0B warning amber
 constexpr COLORREF CLR_ACCENT_RED       = RGB(239, 68, 68);    // #EF4444 critical red
-constexpr COLORREF CLR_ACCENT_PURPLE    = RGB(139, 92, 246);   // #8B5CF6 sober indigo/purple
+constexpr COLORREF CLR_ACCENT_PURPLE    = RGB(139, 92, 246);   // #8B5CF6 sober indigo/purple (fills and borders only: 3.9:1 on cards)
+constexpr COLORREF CLR_ACCENT_PURPLE_TEXT = RGB(167, 139, 250); // #A78BFA the same hue for text (4.5:1 or more)
+
+// Controls: the border of a button, field or switch must reach 3:1 against the surface it sits on (WCAG 1.4.11);
+// the keyboard focus ring must be visible on every surface (WCAG 2.4.7). Checked by Test 62.
+constexpr COLORREF CLR_CONTROL_BORDER   = RGB(110, 119, 135);  // #6E7787
+constexpr COLORREF CLR_FOCUS_RING       = RGB(147, 180, 248);  // #93B4F8
 
 constexpr COLORREF CLR_BTN_BG           = RGB(33, 38, 48);     // Normal button
 constexpr COLORREF CLR_BTN_HOVER        = RGB(48, 55, 70);     // Hover button

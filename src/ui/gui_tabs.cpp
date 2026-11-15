@@ -92,7 +92,7 @@ void RenderTabDashboard(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* st
     DrawTextAt(hdcMem, rcK4.left + 12, rcK4.top + 8, L"STANDBY RAM", CLR_TEXT_MUTED, state->hFontSmall);
     wchar_t ramBuf[32];
     swprintf_s(ramBuf, L"%llu MB", static_cast<unsigned long long>(state->data.standby_ram_mb));
-    DrawTextAt(hdcMem, rcK4.left + 12, rcK4.top + 28, ramBuf, CLR_ACCENT_PURPLE, state->hFontMetric);
+    DrawTextAt(hdcMem, rcK4.left + 12, rcK4.top + 28, ramBuf, CLR_ACCENT_PURPLE_TEXT, state->hFontMetric);
 
     // -------------------------------------------------------------------------
     // 3. Optimization Status Grid (4 cards, 2x2)
