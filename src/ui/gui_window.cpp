@@ -3,6 +3,8 @@
 #include "ui/gui_components.hpp"
 #include "ui/config_view.hpp"
 #include "ui/programs_view.hpp"
+#include "ui/equipment_view.hpp"
+#include "ui/requirements_view.hpp"
 #include "ui/history_view.hpp"
 #include "ui/settings_view.hpp"
 
@@ -64,21 +66,22 @@ void PaintDashboard(HDC hdcMem, const RECT& rcClient, GuiWindowState* state) {
     SelectObject(hdcMem, hOldPen);
     DeleteObject(hPenHeadDiv);
 
-    // 7 tab buttons in the side menu
-    const wchar_t* tabTitles[7] = {
+    // 8 tab buttons in the side menu
+    const wchar_t* tabTitles[8] = {
         L"1. Dashboard & Telemetría",
         L"2. Ajustes del sistema",
         L"3. Memoria UMA & Núcleos CPU",
         L"4. Biblioteca Steam & Motores",
         L"5. Historial",
         L"6. Configuración",
-        L"7. Programas"
+        L"7. Programas",
+        L"8. Tu equipo"
     };
 
-    for (int i = 0; i < 7; ++i) {
+    for (int i = 0; i < 8; ++i) {
         int tabY = 78 + i * 44;
         RECT rcTab = { 12, tabY, SIDEBAR_WIDTH - 12, tabY + 38 };
-        bool isActive = (state->current_tab == i);
+        bool isActive = (state->current_tab == i) || (i == 5 && state->current_tab == 8); // Requisitos hangs from Configuración
         bool isHovered = (state->hovered_id == (ID_TAB_0 + i));
         DrawTabButton(hdcMem, rcTab, tabTitles[i], isActive, isHovered, ID_TAB_0 + i, state);
     }
@@ -144,6 +147,12 @@ void PaintDashboard(HDC hdcMem, const RECT& rcClient, GuiWindowState* state) {
         case 6:
             ui::ProgramsViewPaint(hdcMem, state, RECT{contentLeft, contentTop, contentRight, contentBottom});
             break;
+        case 7:
+            ui::EquipmentViewPaint(hdcMem, state, RECT{contentLeft, contentTop, contentRight, contentBottom});
+            break;
+        case 8:
+            ui::RequirementsViewPaint(hdcMem, state, RECT{contentLeft, contentTop, contentRight, contentBottom});
+            break;
         default:
             RenderTabDashboard(hdcMem, rcClient, state, contentLeft, contentRight, contentTop, contentBottom, contentW);
             break;
@@ -200,13 +209,14 @@ void RefreshActiveScreen(HWND hwnd, GuiWindowState* state) {
     else if (state->current_tab == 4) ui::HistoryViewRefresh(hwnd, state);
     else if (state->current_tab == 5) ui::ConfigViewRefresh(hwnd, state);
     else if (state->current_tab == 6) ui::ProgramsViewRefresh(hwnd, state);
+    else if (state->current_tab == 8) ui::RequirementsViewRefresh(hwnd, state);
 }
 
 void HandleActionClick(HWND hwnd, GuiWindowState* state, int id) {
     if (!state) return;
 
     // Tab switching
-    if (id >= ID_TAB_0 && id <= ID_TAB_6) {
+    if (id >= ID_TAB_0 && id <= ID_TAB_8) {
         ui::ConfigViewCommitPending(hwnd, state);
         state->current_tab = id - ID_TAB_0;
         RefreshActiveScreen(hwnd, state);
@@ -214,6 +224,7 @@ void HandleActionClick(HWND hwnd, GuiWindowState* state, int id) {
         ui::HistoryViewShow(state, state->current_tab == 4);
         ui::ConfigViewShow(state, state->current_tab == 5);
         ui::ProgramsViewShow(state, state->current_tab == 6);
+        ui::RequirementsViewShow(state, state->current_tab == 8);
         InvalidateRect(hwnd, nullptr, FALSE);
         return;
     }
@@ -470,6 +481,7 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
             if (state && state->current_tab == 4) ui::HistoryViewRelayout(state);
             if (state && state->current_tab == 5) ui::ConfigViewRelayout(state);
             if (state && state->current_tab == 6) ui::ProgramsViewRelayout(state);
+            if (state && state->current_tab == 8) ui::RequirementsViewRelayout(state);
             InvalidateRect(hwnd, nullptr, FALSE);
             return 0;
         }
@@ -491,13 +503,22 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                 ui::ProgramsViewScroll(state, -GET_WHEEL_DELTA_WPARAM(wParam) / 2);
                 return 0;
             }
+            if (state && state->current_tab == 7) {
+                ui::EquipmentViewScroll(state, -GET_WHEEL_DELTA_WPARAM(wParam) / 2);
+                return 0;
+            }
+            if (state && state->current_tab == 8) {
+                ui::RequirementsViewScroll(state, -GET_WHEEL_DELTA_WPARAM(wParam) / 2);
+                return 0;
+            }
             break;
         }
 
         case WM_DRAWITEM: {
             auto* item = reinterpret_cast<const DRAWITEMSTRUCT*>(lParam);
             if (state && item && item->CtlType == ODT_BUTTON) {
-                if (static_cast<int>(item->CtlID) >= ui::kProgKindBaseId) ui::ProgramsViewDrawItem(item, state);
+                if (static_cast<int>(item->CtlID) == ui::kRequirementsBackId) ui::RequirementsViewDrawItem(item, state);
+                else if (static_cast<int>(item->CtlID) >= ui::kProgKindBaseId) ui::ProgramsViewDrawItem(item, state);
                 else if (static_cast<int>(item->CtlID) >= ui::kConfigResetId) ui::ConfigViewDrawItem(item, state);
                 else if (static_cast<int>(item->CtlID) >= ui::kHistoryRestoreAllId) ui::HistoryViewDrawItem(item, state);
                 else ui::SettingsViewDrawItem(item, state);
@@ -634,6 +655,7 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
         case WM_COMMAND: {
             int wmId = LOWORD(wParam);
             if (!state) break;
+            if (ui::RequirementsViewCommand(hwnd, state, wmId, HIWORD(wParam), reinterpret_cast<HWND>(lParam))) return 0;
             if (ui::ProgramsViewCommand(hwnd, state, wmId, HIWORD(wParam), reinterpret_cast<HWND>(lParam))) return 0;
             if (ui::ConfigViewCommand(hwnd, state, wmId, HIWORD(wParam), reinterpret_cast<HWND>(lParam))) return 0;
             if (ui::HistoryViewCommand(hwnd, state, wmId, HIWORD(wParam), reinterpret_cast<HWND>(lParam))) return 0;
@@ -694,6 +716,7 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                 KillTimer(hwnd, TIMER_TELEMETRY_ID);
                 ui::ConfigViewDestroy(state);
                 ui::ProgramsViewDestroy(state);
+                ui::RequirementsViewDestroy(state);
 
                 if (state->tray_registered) {
                     Shell_NotifyIconW(NIM_DELETE, &state->nid);
@@ -720,6 +743,8 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 }
 
 } // namespace
+
+void SelectTab(HWND hwnd, GuiWindowState* state, int tab) { HandleActionClick(hwnd, state, ID_TAB_0 + tab); }
 
 int GuiWindow::RunGuiLoop(const GuiCallbacks& callbacks) {
     // High-DPI V2 if available
@@ -799,17 +824,35 @@ int GuiWindow::RunGuiLoop(const GuiCallbacks& callbacks) {
     ui::ConfigViewShow(&state, false);
     ui::ProgramsViewRefresh(hwnd, &state);
     ui::ProgramsViewShow(&state, false);
+    ui::RequirementsViewRefresh(hwnd, &state);
+    ui::RequirementsViewShow(&state, false);
     ShowWindow(hwnd, SW_SHOW);
     UpdateWindow(hwnd);
 
     // Standard message loop
     MSG msg = {};
     while (GetMessageW(&msg, nullptr, 0, 0)) {
-        // Ctrl+1..7 jump to a tab: the sidebar is not a control yet, so this is the keyboard way in.
-        if (msg.message == WM_KEYDOWN && msg.wParam >= '1' && msg.wParam <= '7' && (GetKeyState(VK_CONTROL) & 0x8000) && !(GetKeyState(VK_MENU) & 0x8000) &&
+        // Ctrl+1..8 jump to a tab: the sidebar is not a control yet, so this is the keyboard way in.
+        if (msg.message == WM_KEYDOWN && msg.wParam >= '1' && msg.wParam <= '8' && (GetKeyState(VK_CONTROL) & 0x8000) && !(GetKeyState(VK_MENU) & 0x8000) &&
             GetAncestor(msg.hwnd, GA_ROOT) == hwnd) {
             HandleActionClick(hwnd, &state, ID_TAB_0 + static_cast<int>(msg.wParam - '1'));
             continue;
+        }
+        // The read-only screens have no field to focus: Page Up/Down, Home and End (and the arrows on Tu equipo) scroll them.
+        if (msg.message == WM_KEYDOWN && (state.current_tab == 7 || state.current_tab == 8) && GetAncestor(msg.hwnd, GA_ROOT) == hwnd &&
+            !(GetKeyState(VK_CONTROL) & 0x8000) && !(GetKeyState(VK_MENU) & 0x8000)) {
+            int delta = 0;
+            if (msg.wParam == VK_NEXT) delta = 240;
+            else if (msg.wParam == VK_PRIOR) delta = -240;
+            else if (msg.wParam == VK_HOME) delta = -100000;
+            else if (msg.wParam == VK_END) delta = 100000;
+            else if (state.current_tab == 7 && msg.wParam == VK_DOWN) delta = 40;
+            else if (state.current_tab == 7 && msg.wParam == VK_UP) delta = -40;
+            if (delta != 0) {
+                if (state.current_tab == 7) ui::EquipmentViewScroll(&state, delta);
+                else ui::RequirementsViewScroll(&state, delta);
+                continue;
+            }
         }
         if (IsDialogMessageW(hwnd, &msg)) continue; // Tab, Shift+Tab, arrows and Space reach the native controls
         TranslateMessage(&msg);

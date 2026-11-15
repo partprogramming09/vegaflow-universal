@@ -41,7 +41,7 @@ constexpr UINT     TIMER_TELEMETRY_INTERVAL = 1500;
 constexpr UINT     WM_APP_TRAYICON          = WM_USER + 101;
 constexpr UINT     ID_TRAY_ICON             = 1001;
 
-// Side menu tab identifiers (0 to 6)
+// Side menu tab identifiers (0 to 7)
 constexpr int ID_TAB_0 = 100;
 constexpr int ID_TAB_1 = 101;
 constexpr int ID_TAB_2 = 102;
@@ -49,6 +49,8 @@ constexpr int ID_TAB_3 = 103;
 constexpr int ID_TAB_4 = 104;
 constexpr int ID_TAB_5 = 105;
 constexpr int ID_TAB_6 = 106;
+constexpr int ID_TAB_7 = 107;
+constexpr int ID_TAB_8 = 108; // Requisitos: reached from Configuración, not listed in the sidebar
 
 // Interactive control identifiers (GDI hit-test)
 constexpr int ID_ACT_APPLY_PRESET       = 201;
@@ -127,7 +129,7 @@ struct HitBox {
 struct GuiWindowState {
     GuiCallbacks callbacks;
     GuiDashboardData data;
-    int current_tab = 0; // 0: Dashboard, 1: Ajustes, 2: Mem/CPU, 3: Steam, 4: Historial, 5: Configuración, 6: Programas
+    int current_tab = 0; // 0: Dashboard, 1: Ajustes, 2: Mem/CPU, 3: Steam, 4: Historial, 5: Configuración, 6: Programas, 7: Tu equipo
     int hovered_id = 0;
     int steam_page = 0;
     std::vector<HitBox> hit_boxes;
@@ -162,7 +164,7 @@ struct GuiWindowState {
     // Configuración screen (ui/config_view.cpp)
     session::ConfigScreenModel config_model;
     int config_scroll = 0;
-    std::vector<HWND> config_controls; // [0] reset, then one per row in order (switch button or EDIT), then restore-all
+    std::vector<HWND> config_controls; // [0] reset, then one per row in order (switch button or EDIT), then restore-all, then Requisitos
     size_t config_structure = 0;       // how many rows the controls were built for
     int config_focus_id = 0;           // the EDIT that has the keyboard, for its focus ring
     HBRUSH config_edit_brush = nullptr;
@@ -174,7 +176,19 @@ struct GuiWindowState {
     size_t programs_exceptions = 0;      // rows the controls were built for
     size_t programs_games = 0;
     int programs_focus_id = 0;           // the EDIT that has the keyboard, for its focus ring
+
+    // Tu equipo screen (ui/equipment_view.cpp): read-only, scrolls with the wheel
+    int equipment_scroll = 0;
+    int equipment_max_scroll = 0;
+
+    // Requisitos screen (ui/requirements_view.cpp): read-only, one native button back to Configuración
+    std::vector<HWND> requirements_controls;
+    int requirements_scroll = 0;
+    int requirements_max_scroll = 0;
 };
+
+// Shows tab `tab` (0-based), saving what is half typed on the screen being left.
+void SelectTab(HWND hwnd, GuiWindowState* state, int tab);
 
 // UTF-8 to UTF-16 string conversion
 std::wstring Utf8ToWide(const std::string& str);

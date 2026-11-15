@@ -100,5 +100,7 @@ void Test63();
 void Test64();
 void Test65();
 void Test66();
+void Test67();
+void Test68();
 
 } // namespace vftest

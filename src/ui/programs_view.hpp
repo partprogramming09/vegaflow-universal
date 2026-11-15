@@ -20,6 +20,7 @@ static_assert(kProgKindBaseId > kConfigRestoreAllId, "Programas ids start above 
 
 static_assert(kProgExcBaseId + 2 * kProgMaxRows <= kProgExcEditId, "exception ids overlap the field");
 static_assert(kProgGameBaseId + kProgMaxRows <= kProgGameEditId, "game ids overlap the field");
+static_assert(kProgGameAddId < 9600, "Programas ids stay below Requisitos (ui/requirements_view.hpp)");
 
 void ProgramsViewRefresh(HWND hwnd, GuiWindowState* state);
 void ProgramsViewShow(GuiWindowState* state, bool show);

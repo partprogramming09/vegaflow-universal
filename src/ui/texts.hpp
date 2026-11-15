@@ -68,4 +68,21 @@ inline constexpr const wchar_t* kProgRemove = L"Quitar";
 inline constexpr const wchar_t* kProgSelected = L", seleccionado";
 inline constexpr const wchar_t* kProgFooter = L"Los procesos de Windows nunca se tocan, y eso no se puede cambiar.";
 
+inline constexpr const wchar_t* kEquipTitle = L"Tu equipo";
+inline constexpr const wchar_t* kEquipThreadsTitle = L"Cómo se reparten los núcleos mientras juegas";
+inline constexpr const wchar_t* kEquipLegendGame = L"El juego puede usar estos hilos";
+inline constexpr const wchar_t* kEquipLegendBackground = L"Aquí se envían los programas de fondo";
+inline constexpr const wchar_t* kEquipLegendSystem = L"Lo decide Windows";
+inline constexpr const wchar_t* kEquipGraphicsTitle = L"Gráficas";
+inline constexpr const wchar_t* kEquipTierTitle = L"Nivel de protección de memoria";
+inline constexpr const wchar_t* kEquipYours = L" (el tuyo)";
+
+inline constexpr const wchar_t* kReqTitle = L"Requisitos y advertencias";
+inline constexpr const wchar_t* kReqBack = L"← Volver a Configuración";
+inline constexpr const wchar_t* kReqNeedsTitle = L"Qué necesita";
+inline constexpr const wchar_t* kReqWarnTitle = L"Conviene saber";
+inline constexpr const wchar_t* kConfigRequirements = L"Requisitos y advertencias";
+inline constexpr const wchar_t* kConfigRequirementsButton = L"Ver";
+inline constexpr const wchar_t* kConfigRequirementsHelp = L"Qué necesita VegaFlow, si tu equipo lo cumple, y qué conviene saber.";
+
 } // namespace vegaflow::ui::text

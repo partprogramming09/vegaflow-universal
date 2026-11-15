@@ -177,6 +177,12 @@ int RunGuiMode(
             : "No se pudo leer";
         data.physical_cores = hw.cpu_topology.physical_cores;
         data.logical_processors = hw.cpu_topology.logical_processors;
+        data.restrict_game_cpu_sets = config.restrict_game_cpu_sets;
+        {
+            auto ordered = hw.cpu_topology.all_cpu_sets;
+            std::sort(ordered.begin(), ordered.end(), [](const CpuCoreSetInfo& x, const CpuCoreSetInfo& y) { return x.group != y.group ? x.group < y.group : x.logical_processor_index < y.logical_processor_index; });
+            for (const auto& c : ordered) data.cpu_sets.push_back({c.cpu_set_id, c.core_index, c.group});
+        }
         data.game_cpu_sets.assign(hw.cpu_topology.game_optimal_cpu_set_ids.begin(), hw.cpu_topology.game_optimal_cpu_set_ids.end());
         data.background_cpu_sets.assign(hw.cpu_topology.background_cpu_set_ids.begin(), hw.cpu_topology.background_cpu_set_ids.end());
 

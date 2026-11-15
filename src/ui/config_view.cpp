@@ -38,6 +38,7 @@ struct Layout {
     RECT reset{};
     std::vector<Slot> slots;
     RECT restore_all_btn{};
+    RECT requirements_btn{};
     int total = 0;
 };
 
@@ -72,10 +73,11 @@ Layout BuildLayout(HDC hdc, const GuiWindowState* st, const RECT& content) {
     }
     Slot backups;
     backups.kind = Slot::Backups;
-    backups.rc = {content.left, y, content.right, y + kHeadH + kRowH};
+    backups.rc = {content.left, y, content.right, y + kHeadH + 2 * kRowH};
     l.slots.push_back(backups);
     l.restore_all_btn = {content.right - 16 - 132, y + kHeadH + (kRowH - kCtlH) / 2, content.right - 16, y + kHeadH + (kRowH - kCtlH) / 2 + kCtlH};
-    y += kHeadH + kRowH + 16;
+    l.requirements_btn = {content.right - 16 - 132, y + kHeadH + kRowH + (kRowH - kCtlH) / 2, content.right - 16, y + kHeadH + kRowH + (kRowH - kCtlH) / 2 + kCtlH};
+    y += kHeadH + 2 * kRowH + 16;
     l.total = y - top;
     return l;
 }
@@ -144,7 +146,8 @@ void ConfigViewRelayout(GuiWindowState* st) {
         if (rows[k]->kind == ConfigRowKind::Toggle) PlaceClipped(st->config_controls[1 + k], ToggleRect(s.rc), content);
         else PlaceClipped(st->config_controls[1 + k], EditInner(EditFrame(s.rc)), content);
     }
-    PlaceClipped(st->config_controls.back(), l.restore_all_btn, content);
+    PlaceClipped(st->config_controls[st->config_controls.size() - 2], l.restore_all_btn, content);
+    PlaceClipped(st->config_controls.back(), l.requirements_btn, content);
 }
 
 void ConfigViewShow(GuiWindowState* st, bool show) {
@@ -172,6 +175,7 @@ void ConfigViewRefresh(HWND hwnd, GuiWindowState* st, bool force_text) {
                                                                                   : MakeEdit(hwnd, id, Utf8ToWide(rows[k]->value), st->hFontRegular));
         }
         st->config_controls.push_back(MakeOwnerButton(hwnd, kConfigRestoreAllId, text::kConfigRestoreAllName));
+        st->config_controls.push_back(MakeOwnerButton(hwnd, kConfigRequirementsId, text::kConfigRequirements));
         st->config_structure = rows.size();
         changed = true;
     } else {
@@ -261,6 +265,9 @@ void ConfigViewPaint(HDC hdc, GuiWindowState* st, const RECT& content) {
             const RECT row = {s.rc.left, s.rc.top + kHeadH, s.rc.right, s.rc.bottom};
             separator(row);
             label(row, text::kConfigRestoreAllName, text::kConfigRestoreAllHelp, L"", l.restore_all_btn.left - 16);
+            const RECT row2 = {s.rc.left, s.rc.top + kHeadH + kRowH, s.rc.right, s.rc.bottom};
+            separator(row2);
+            label(row2, text::kConfigRequirements, text::kConfigRequirementsHelp, L"", l.requirements_btn.left - 16);
         }
     }
     RestoreDC(hdc, saved);
@@ -269,7 +276,11 @@ void ConfigViewPaint(HDC hdc, GuiWindowState* st, const RECT& content) {
 void ConfigViewDrawItem(const DRAWITEMSTRUCT* d, GuiWindowState* st) {
     const int id = static_cast<int>(d->CtlID);
     const bool pressed = (d->itemState & ODS_SELECTED) != 0;
-    if (id == kConfigResetId || id == kConfigRestoreAllId) {
+    if (id == kConfigRequirementsId) {
+        DrawButtonFrame(d->hDC, d->rcItem, CLR_CARD_BG, pressed);
+        SetBkMode(d->hDC, TRANSPARENT);
+        DrawTextRect(d->hDC, d->rcItem, text::kConfigRequirementsButton, CLR_TEXT_TITLE, st->hFontBold, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+    } else if (id == kConfigResetId || id == kConfigRestoreAllId) {
         DrawButtonFrame(d->hDC, d->rcItem, id == kConfigResetId ? CLR_BG_MAIN : CLR_CARD_BG, pressed);
         SetBkMode(d->hDC, TRANSPARENT);
         DrawTextRect(d->hDC, d->rcItem, id == kConfigResetId ? text::kConfigReset : text::kConfigRestoreAllButton, CLR_TEXT_TITLE, st->hFontBold,
@@ -333,7 +344,7 @@ bool ConfigViewCommand(HWND hwnd, GuiWindowState* st, int id, int notify_code, H
         }
         return true;
     }
-    if (id < kConfigResetId || id > kConfigRestoreAllId) return false;
+    if (id < kConfigResetId || id > kConfigRequirementsId) return false;
     // Only our own controls, on our own tab, may act (a posted fake is not ours).
     if (st->current_tab != 5 || !from || GetDlgCtrlID(from) != id) return true;
     if (std::find(st->config_controls.begin(), st->config_controls.end(), from) == st->config_controls.end()) return true;
@@ -359,6 +370,8 @@ bool ConfigViewCommand(HWND hwnd, GuiWindowState* st, int id, int notify_code, H
     if (id == kConfigResetId) {
         if (st->callbacks.on_ResetConfig) st->data.last_action_status = st->callbacks.on_ResetConfig();
         ConfigViewRefresh(hwnd, st, true);
+    } else if (id == kConfigRequirementsId) {
+        SelectTab(hwnd, st, 8);
     } else if (id == kConfigRestoreAllId) {
         if (st->callbacks.on_RestoreAllDefaults) st->data.last_action_status = st->callbacks.on_RestoreAllDefaults();
     } else {

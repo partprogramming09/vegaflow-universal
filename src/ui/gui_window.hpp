@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "session/config_screen.hpp"
+#include "session/equipment_screen.hpp"
 #include "session/history_screen.hpp"
 #include "session/programs_screen.hpp"
 #include "session/settings_screen.hpp"
@@ -44,6 +45,7 @@ struct GuiDashboardData {
     std::string gpu_summary;
     uint32_t physical_cores = 0;
     uint32_t logical_processors = 0;
+    std::vector<session::CpuSetRef> cpu_sets; // every logical processor in order, with its CPU set id and core
     std::vector<uint32_t> game_cpu_sets;
     std::vector<uint32_t> background_cpu_sets;
 
@@ -86,6 +88,7 @@ struct GuiDashboardData {
     std::string active_game_engine;
     std::vector<GuiSteamGameItem> steam_games;
 
+    bool restrict_game_cpu_sets = false; // Configuración: the game is limited to its own cores
     bool mmcss_gaming_optimized = false;
     bool amd_dx11_uma_boost = false;
     uint32_t win32_priority_separation = 2;
