@@ -107,7 +107,12 @@ Comprobados en Microsoft Learn el 2026-11-09:
 - Las funciones experimentales pueden no hacer nada o causar efectos raros; se deshacen desde Historial.
 - Si VegaFlow se cierra de golpe, al abrirlo otra vez ofrece deshacer lo que quedó aplicado (fase 2b).
 
-**Pendiente de comprobar:** que el ejecutable arranque en la versión 1709 (hoy se usan funciones de Windows 10 posteriores, como `SetProcessDpiAwarenessContext`, que se carga de forma dinámica). Se prueba al empezar la fase G; si no arranca, el mínimo sube a la versión que se compruebe.
+**Pendiente de comprobar:** que el ejecutable arranque en la versión 1709 (hoy se usan funciones de Windows 10 posteriores, como `SetProcessDpiAwarenessContext`, que se carga de forma dinámica). Se iba a probar al empezar la fase G y **no se probó (2026-11-15)**: el mínimo sigue declarado como 1709 sin comprobar. Si no arranca, el mínimo sube a la versión que se compruebe.
+
+**Estado tras la fase G (2026-11-15).**
+- **Hecho:** la pantalla «Requisitos y advertencias» existe (`src/session/requirements_screen.*`, `src/ui/requirements_view.*`) y se abre desde Configuración con el botón «Ver». Muestra cinco filas (Windows, Permisos, Procesador, Gráfica y Steam), cada una con su estado: cumple, limitado, falta, no se pudo leer u opcional. En una versión de Windows anterior a la 1709 la fila sale como «limitada» y dice que VegaFlow no se probó ahí.
+- **Advertencias que muestra hoy (cuatro):** el resultado depende de cada equipo; otro programa de optimización puede cambiar los mismos ajustes; las funciones experimentales pueden no hacer nada o causar efectos raros; los cambios de registro, energía y archivos de juegos se deshacen desde Historial o con «Devolver todo», y vaciar la memoria no se puede deshacer.
+- **No hecho:** las advertencias de batería y de cierre brusco de la lista de arriba no están en esa pantalla (la oferta de deshacer tras un cierre brusco existe por su cuenta, fase 2b), y la pantalla no se enlaza desde una bienvenida porque la bienvenida no se construyó.
 
 ## 1f. Modo desarrollador: que cualquiera pueda hacer sus propias pruebas
 

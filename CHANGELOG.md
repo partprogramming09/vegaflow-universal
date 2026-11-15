@@ -3,6 +3,51 @@
 All notable changes to VegaFlow Universal. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.2.0] - Unreleased
+
+New native GUI (Win32, owner-draw controls reachable with Tab). Not tagged yet: the version number in the binary and
+`Cargo.toml` still reads 0.1.0 until the release step.
+
+### Added
+- Screens: Inicio, Juegos, Programas, Tu equipo, Configuración, Requisitos, plus Ajustes del sistema and Historial.
+  Plain-language text; every tweak shows its evidence status and whether it is measured.
+- Juegos: per-game "Aplicar perfil", "Volver al archivo original", "Me fue mal en este juego" (restores the files and
+  excludes the game), "Volver a incluir" and DXVK install/remove; anti-cheat games are never touched.
+- Programas and Configuración are saved to `config.json` and read back (round trip tested).
+- Per-row undo in Historial and a "Devolver todo a como estaba" button.
+- `dxvk.conf.vegaflow.bak`: the game's own `dxvk.conf` is copied before DXVK is deployed and put back on removal.
+- `session/` layer: pure screen models and the action objects behind the buttons, tested with in-memory fakes of the
+  file system, registry, power plan and clock. `scripts/check_layers.sh` enforces that `ui` includes only `session`
+  and `model`.
+- WCAG contrast test of the palette; adversarial tests for every new screen and action object.
+- `--observe` with `--gui`: opens the window without automatic changes. Remote jobs to open, drive and close the
+  test GUI.
+
+### Changed
+- "Me fue mal en este juego" saves the configuration before touching any game file; a refused save leaves the game as it was.
+- `IsDxvkInstalled` needs the VegaFlow marker in `dxvk.conf`: a game that ships its own `d3d11.dll` and `dxgi.dll`
+  is no longer reported as having DXVK.
+- The UMA guard is shown as active only outside safe mode.
+- Memory percent on Inicio is computed in 128 bits; path comparisons fold case the Windows way.
+
+### Fixed
+- Turning VRAM reporting off no longer writes an invented 512 MB: it puts back only the saved original.
+
+### Removed
+- Unreachable handlers for the old "apply preset" and "elevate" buttons (a posted `WM_COMMAND` could have reached
+  them) and the unused in-memory audit list.
+
+### Known limits
+- No DPI scaling; 125 % and 150 % were not checked with screenshots. Screen readers were not tested.
+- Some actions still live in `gui_mode.cpp` (telemetry poll, purge, isolate, restore CPU affinity, history poll): they
+  call Windows classes that have no fakes.
+- Tab 2 (Memoria UMA & Núcleos CPU) is still the old GDI view.
+- "Devolver todo a como estaba" writes Windows defaults without a prior copy for several settings.
+- The UMA guard reads a per-process DXGI counter, so it may never see a game's memory use.
+- Not built yet: pause VegaFlow per game, welcome screen, panic hotkey, controller input, dry-run preview, copyable
+  report, exit warning. Configuración saves at once, but the daemon reads interval and memory limits at start.
+- See `docs/mediciones/estado-de-verificacion.md` for what is measured and what is not.
+
 ## [0.1.0] - 2026-11-14
 
 First packaged release. Windows x64 only; the binary is not code-signed.
@@ -33,5 +78,5 @@ First packaged release. Windows x64 only; the binary is not code-signed.
   name for its window class and title, and its texts no longer promise gains.
 
 ### Known limits
-- The new GUI (seven screens, plain-language text, evidence status per tweak) is planned for 0.2.0.
+- The new GUI (plain-language text, evidence status per tweak) is planned for 0.2.0.
 - Tweaks without their own measurement are listed as not measured in `docs/mediciones/estado-de-verificacion.md`.

@@ -18,7 +18,7 @@ Empieza aquí. Cada documento responde una sola pregunta; busca la tuya.
 | Saber qué hace cada módulo o dónde está un archivo | [`arquitectura/modulos.md`](arquitectura/modulos.md) |
 | Dar soporte a otro hardware (Intel, AMD multi-CCD, dGPU, eGPU) | [`arquitectura/patron-universal.md`](arquitectura/patron-universal.md), sección 3.5: el porqué y las reglas de la fase 3 (tipo de gráfica) y la fase 7 (reparto de núcleos) |
 | Saber qué falta por hacer, en qué orden y con qué arquitectura | [`plan/maestro/README.md`](plan/maestro/README.md) |
-| Cambiar o rediseñar la GUI | [`plan/maestro/14-fase-g.md`](plan/maestro/14-fase-g.md) |
+| Cambiar o rediseñar la GUI | [`plan/maestro/14-fase-g.md`](plan/maestro/14-fase-g.md) (qué está hecho y qué no) y [`arquitectura/modulos.md`](arquitectura/modulos.md), sección 3.3b (cómo se reparte una pantalla entre `ui/` y `session/`) |
 | Saber qué se investigó ya (APIs de Windows, gráficas, librerías, accesibilidad) antes de buscar en la web | [`investigacion/`](investigacion/README.md) |
 | Ver cifras y cómo se midieron | [`mediciones/`](mediciones/) |
 | Usar los scripts de medición o los trabajos remotos | [`../scripts/README.md`](../scripts/README.md) |
@@ -35,7 +35,7 @@ Cada documento dice en su segunda línea para quién es (`**Lector:**`).
 | `nucleo-rust-cpp.md` | Puente FFI C++ ↔ Rust, ciclo de vida del daemon y la especificación del guardián UMA |
 | `hardware-y-tiers.md` | UMA, falso límite de 512 MB, GPL, STAPM, los 4 Tiers y su especificación DX11/DX12 |
 | `seguridad.md` | Política anti-cheat y aislamiento Zero-Trust de `SandboxGuard` |
-| `modulos.md` | Capas del código, SystemInfo, GUI, suite 3D, silicio y el árbol del repo |
+| `modulos.md` | Capas del código, SystemInfo, GUI y su capa `session/` (pantallas y botones), suite 3D, silicio y el árbol del repo |
 | `patron-universal.md` | Por qué pasa en cualquier procesador, qué cambia entre Ryzen e Intel Core y qué decide el código en cada equipo (tipo de gráfica y reparto de núcleos) |
 
 **`mediciones/`: qué se midió.** Informes fechados que no se reescriben: `2026-11-base.md` (línea base), `2026-11-ab-daemon.md` (daemon apagado contra encendido), `2026-11-juegos-reales.md`, `2026-11-octopath2-factorial.md`, `2026-11-09-diagnostico-laptop.md` (estado del laptop y verificación de la investigación), `2026-11-14-paquete-0.1.0.md` (instalar, desinstalar y memoria en reposo del paquete), `2026-11-15-regresion-octopath.md` (puerta de regresión de Octopath con y sin el preset UMA), y `estado-de-verificacion.md`, que resume qué está medido y qué no. Las capturas están en `assets/`.

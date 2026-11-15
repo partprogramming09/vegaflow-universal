@@ -13,6 +13,8 @@ La escena de la línea base (autoguardado, de noche, personaje quieto, D3D11), c
 
 En la tanda B las capturas con el daemon encendido dieron 43,13 · 43,07 · 43,05 FPS (`Hardware: Independent Flip`); las «off» salieron en `Hardware: Legacy Flip`, como la línea base. En la tanda C, 43,63 · 43,79 · 43,68 con el daemon encendido (Independent Flip) y las «off» otra vez en Legacy Flip.
 
+> **Nota (2026-11-15, fase G, versión 0.2.0):** el botón «Aplicar Preset APU» de esta medición ya no existe. En la pantalla Juegos de la GUI nueva los botones son «Aplicar perfil», «Volver al archivo original» y «Me fue mal en este juego». Las tandas de arriba se hicieron con la GUI anterior; en esta carpeta no hay una repetición con la nueva. El texto original no se cambia.
+
 ## Qué significa
 - La línea base se tomó con el preset puesto. Sin él, la escena queda limitada por la GPU (el overlay del equipo marcaba GPU al 100 % y 30 FPS; `FrameRateLimit=60` en `GameUserSettings.ini`, así que no es un tope del juego).
 - Con el preset aplicado por la propia GUI, la escena vuelve a la línea base. Eso comprueba que «Aplicar Preset APU» sigue funcionando sobre un juego real.
