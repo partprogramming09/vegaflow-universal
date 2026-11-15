@@ -21,9 +21,6 @@ struct Layout {
     int total = 0; // unscrolled height
 };
 
-// Control ids follow the journal id, not the row position, so a new row never moves a button's id under the user.
-int RowControlId(const session::HistoryRow& r) { return kHistoryRowBaseId + static_cast<int>(r.id % 100000); }
-
 std::wstring UndoName(const session::HistoryRow& r) { return std::wstring(text::kUndo) + L": " + Utf8ToWide(r.what); }
 
 Layout BuildLayout(const GuiWindowState* st, const RECT& content) {
@@ -86,24 +83,41 @@ void HistoryViewShow(GuiWindowState* st, bool show) {
 
 void HistoryViewRefresh(HWND hwnd, GuiWindowState* st) {
     st->hwnd = hwnd;
+    const auto old_rows = st->history_model.rows;
     if (st->callbacks.on_PollHistory) st->history_model = st->callbacks.on_PollHistory();
     std::vector<std::string> signature;
     for (const auto& r : st->history_model.rows) signature.push_back(std::to_string(r.id) + ":" + r.state);
     if (signature == st->history_signature && !st->history_controls.empty()) return; // nothing changed: no repaint, no flicker
     const HWND focused = GetFocus();
-    const int focused_id = (focused && GetParent(focused) == hwnd) ? GetDlgCtrlID(focused) : 0;
+    // Remember the focused row by its journal id: positions shift when a new change arrives at the top.
+    uint64_t focused_row_id = 0;
+    bool focus_on_restore_all = false;
+    for (size_t i = 0; i < st->history_controls.size(); ++i) {
+        if (st->history_controls[i] && st->history_controls[i] == focused) {
+            if (i == 0) focus_on_restore_all = true;
+            else if (i - 1 < old_rows.size()) focused_row_id = old_rows[i - 1].id;
+        }
+    }
     DestroyControls(st);
     st->history_controls.push_back(MakeOwnerButton(hwnd, kHistoryRestoreAllId, text::kHistoryRestoreAll));
+    std::vector<int> used;
     for (size_t i = 0; i < st->history_model.rows.size(); ++i) {
         const auto& r = st->history_model.rows[i];
-        st->history_controls.push_back(r.can_undo ? MakeOwnerButton(hwnd, RowControlId(r), UndoName(r)) : nullptr);
+        if (!r.can_undo) {
+            st->history_controls.push_back(nullptr);
+            continue;
+        }
+        int id = kHistoryRowBaseId + static_cast<int>(r.id % 1000);
+        while (std::find(used.begin(), used.end(), id) != used.end()) id = id == kHistoryLastId ? kHistoryRowBaseId : id + 1;
+        used.push_back(id);
+        st->history_controls.push_back(MakeOwnerButton(hwnd, id, UndoName(r)));
     }
     st->history_signature = signature;
     HistoryViewRelayout(st);
-    if (focused_id >= kHistoryRestoreAllId) { // keep the keyboard where it was; after an undo that row has no button, so go to the first
+    if (focused_row_id != 0 || focus_on_restore_all) { // keep the keyboard where it was; after an undo that row has no button, so go to the first
         HWND target = st->history_controls[0];
-        for (HWND h : st->history_controls) {
-            if (h && GetDlgCtrlID(h) == focused_id) target = h;
+        for (size_t i = 0; i < st->history_model.rows.size(); ++i) {
+            if (st->history_model.rows[i].id == focused_row_id && st->history_controls[1 + i]) target = st->history_controls[1 + i];
         }
         SetFocus(target); // after the relayout: a button still at its creation size would make the scroll jump
     }
@@ -165,7 +179,7 @@ void HistoryViewDrawItem(const DRAWITEMSTRUCT* d, GuiWindowState* st) {
 }
 
 bool HistoryViewCommand(HWND hwnd, GuiWindowState* st, int id, int notify_code, HWND from) {
-    if (id < kHistoryRestoreAllId || id >= kHistoryRowBaseId + 100000) return false;
+    if (id < kHistoryRestoreAllId || id > kHistoryLastId) return false;
     // Only our own controls, on our own tab, may act: WM_COMMAND is let through the UIPI filter for the tray, so a posted
     // fake (no sender, a foreign window, or an id that is not the sender's) must not reach the system.
     if (st->current_tab != 4 || !from || GetDlgCtrlID(from) != id) return true;
@@ -179,11 +193,10 @@ bool HistoryViewCommand(HWND hwnd, GuiWindowState* st, int id, int notify_code, 
     if (id == kHistoryRestoreAllId) {
         if (st->callbacks.on_RestoreAllDefaults) st->data.last_action_status = st->callbacks.on_RestoreAllDefaults();
     } else {
-        for (const auto& row : st->history_model.rows) {
-            if (RowControlId(row) == id && row.can_undo && st->callbacks.on_UndoChange) {
-                st->data.last_action_status = st->callbacks.on_UndoChange(row.id);
-                break;
-            }
+        const auto it = std::find(st->history_controls.begin(), st->history_controls.end(), from);
+        const size_t i = static_cast<size_t>(it - st->history_controls.begin()) - 1; // controls[0] is restore-all
+        if (i < st->history_model.rows.size() && st->history_model.rows[i].can_undo && st->callbacks.on_UndoChange) {
+            st->data.last_action_status = st->callbacks.on_UndoChange(st->history_model.rows[i].id);
         }
     }
     HistoryViewRefresh(hwnd, st);

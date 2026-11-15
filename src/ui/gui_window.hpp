@@ -19,6 +19,7 @@
 #include <string>
 #include <vector>
 
+#include "session/config_screen.hpp"
 #include "session/history_screen.hpp"
 #include "session/settings_screen.hpp"
 #include "session/system_info.hpp"
@@ -134,6 +135,11 @@ struct GuiCallbacks {
     std::function<std::string(const std::string& setting_id, bool turn_on)> on_SetSetting;
     std::function<session::HistoryScreenModel()> on_PollHistory;
     std::function<std::string(uint64_t journal_id)> on_UndoChange; // undoes one row of Historial
+    // Configuración: each edit is checked, saved to config.json and answered with a sentence; Poll returns what is saved.
+    std::function<session::ConfigScreenModel()> on_PollConfig;
+    std::function<std::string(const std::string& id, const std::string& text)> on_SetConfigNumber;
+    std::function<std::string(const std::string& id, bool on)> on_SetConfigToggle;
+    std::function<std::string()> on_ResetConfig;
 };
 
 class GuiWindow {

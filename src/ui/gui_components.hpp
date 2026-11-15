@@ -41,12 +41,13 @@ constexpr UINT     TIMER_TELEMETRY_INTERVAL = 1500;
 constexpr UINT     WM_APP_TRAYICON          = WM_USER + 101;
 constexpr UINT     ID_TRAY_ICON             = 1001;
 
-// Side menu tab identifiers (0 to 4)
+// Side menu tab identifiers (0 to 5)
 constexpr int ID_TAB_0 = 100;
 constexpr int ID_TAB_1 = 101;
 constexpr int ID_TAB_2 = 102;
 constexpr int ID_TAB_3 = 103;
 constexpr int ID_TAB_4 = 104;
+constexpr int ID_TAB_5 = 105;
 
 // Interactive control identifiers (GDI hit-test)
 constexpr int ID_ACT_APPLY_PRESET       = 201;
@@ -125,7 +126,7 @@ struct HitBox {
 struct GuiWindowState {
     GuiCallbacks callbacks;
     GuiDashboardData data;
-    int current_tab = 0; // 0: Dashboard, 1: Kernel, 2: Mem/CPU, 3: Steam, 4: Audit Log
+    int current_tab = 0; // 0: Dashboard, 1: Kernel, 2: Mem/CPU, 3: Steam, 4: Historial, 5: Configuración
     int hovered_id = 0;
     int steam_page = 0;
     std::vector<HitBox> hit_boxes;
@@ -156,6 +157,14 @@ struct GuiWindowState {
     int history_scroll = 0;
     std::vector<HWND> history_controls; // [0] restore all, then one per row (nullptr when the row cannot be undone)
     std::vector<std::string> history_signature;
+
+    // Configuración screen (ui/config_view.cpp)
+    session::ConfigScreenModel config_model;
+    int config_scroll = 0;
+    std::vector<HWND> config_controls; // [0] reset, then one per row in order (switch button or EDIT), then restore-all
+    size_t config_structure = 0;       // how many rows the controls were built for
+    int config_focus_id = 0;           // the EDIT that has the keyboard, for its focus ring
+    HBRUSH config_edit_brush = nullptr;
 };
 
 // UTF-8 to UTF-16 string conversion

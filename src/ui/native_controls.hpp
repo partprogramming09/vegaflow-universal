@@ -21,5 +21,7 @@ int ScrollDeltaToReveal(HWND parent, HWND control);
 
 void DrawButtonFrame(HDC hdc, const RECT& rc, COLORREF surface, bool pressed);
 void DrawFocusRing(HDC hdc, const RECT& rc);
+// Switch face: track and knob, then the state in words (colour is never the only cue).
+void DrawSwitchFace(HDC hdc, const RECT& rc, bool on, const std::wstring& label, HFONT font);
 
 } // namespace vegaflow::ui

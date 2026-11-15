@@ -22,6 +22,7 @@
 #include "windows/registry.hpp"
 #include "bridge/rust_bridge.h"
 #include "session/system_info.hpp"
+#include "session/config_screen.hpp"
 #include "session/history_screen.hpp"
 #include "session/restore.hpp"
 #include <filesystem>
@@ -360,6 +361,45 @@ int RunGuiMode(
         last_gui_status = res.message;
         AddAuditLog("Historial: " + res.message);
         return res.message;
+    };
+
+    callbacks.on_PollConfig = [&]() -> session::ConfigScreenModel { return session::BuildConfigScreen(config); };
+
+    // A Configuración edit: parse, check against the daemon's rules without writing, then save. `config` changes only
+    // when the file was written, so a refused edit leaves the field showing what is really saved.
+    auto say = [&](const std::string& msg) {
+        last_gui_status = msg; // the telemetry poll copies this into the status bar, so every answer goes through it
+        return msg;
+    };
+    auto save_config_edit = [&](const AppConfig& candidate, const std::string& done) -> std::string {
+        std::string why;
+        // Save checks every rule before it writes, so a refusal leaves the file as it was. The reason goes first: the
+        // status bar cuts long text at the end and the reason is what the person must act on.
+        if (!config_store.Save(candidate, false, &why)) return say(why + " (No se guardó.)");
+        config = candidate;
+        AddAuditLog("Configuración: " + done);
+        return say(done);
+    };
+    callbacks.on_SetConfigNumber = [&](const std::string& id, const std::string& text) -> std::string {
+        AppConfig candidate = config;
+        std::string err;
+        if (!session::ApplyConfigNumber(candidate, id, text, &err)) return say(err);
+        return save_config_edit(candidate, "Guardado en config.json.");
+    };
+    callbacks.on_SetConfigToggle = [&](const std::string& id, bool on) -> std::string {
+        AppConfig candidate = config;
+        if (!session::ApplyConfigToggle(candidate, id, on)) return say("Ese ajuste no existe.");
+        return save_config_edit(candidate, "Guardado en config.json.");
+    };
+    callbacks.on_ResetConfig = [&]() -> std::string {
+        AppConfig candidate = config; // the games and the exceptions are not part of this screen and stay
+        const AppConfig factory;
+        candidate.poll_interval_ms = factory.poll_interval_ms;
+        candidate.restrict_game_cpu_sets = factory.restrict_game_cpu_sets;
+        candidate.memory = factory.memory;
+        candidate.memory.is_uma_architecture = config.memory.is_uma_architecture;
+        candidate.process_policy.heavy_work_as_game = factory.process_policy.heavy_work_as_game;
+        return save_config_edit(candidate, "Configuración restablecida a los valores de fábrica.");
     };
 
     callbacks.on_RequestElevate = [&]() -> bool {

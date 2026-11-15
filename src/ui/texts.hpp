@@ -38,4 +38,15 @@ inline constexpr const wchar_t* kBefore = L"Antes: ";
 inline constexpr const wchar_t* kNow = L"  ·  Ahora: ";
 inline constexpr const wchar_t* kNoUndoNeeded = L"Sin acción";
 
+inline constexpr const wchar_t* kConfigTitle = L"Configuración";
+inline constexpr const wchar_t* kConfigSubtitle =
+    L"Cómo se comporta VegaFlow. Los valores de fábrica son los que se probaron en el equipo de pruebas. Cada cambio se guarda al momento en config.json.";
+inline constexpr const wchar_t* kConfigReset = L"Restablecer esta configuración";
+inline constexpr const wchar_t* kConfigBackupsTitle = L"Copias y restauración";
+inline constexpr const wchar_t* kConfigRestoreAllName = L"Devolver todo a como estaba";
+inline constexpr const wchar_t* kConfigRestoreAllHelp = L"Registro, plan de energía y archivos de juegos, con las copias guardadas.";
+inline constexpr const wchar_t* kConfigRestoreAllButton = L"Devolver todo";
+inline constexpr const wchar_t* kConfigOn = L"Activado";
+inline constexpr const wchar_t* kConfigOff = L"Apagado";
+
 } // namespace vegaflow::ui::text

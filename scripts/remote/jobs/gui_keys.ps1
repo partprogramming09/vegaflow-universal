@@ -12,7 +12,7 @@
 param([Parameter(Mandatory = $true)][string]$Keys)
 
 $ErrorActionPreference = 'Stop'
-if ($Keys -notmatch '^(\{(TAB|ENTER|ESC|SPACE|LEFT|RIGHT|UP|DOWN)\}|\+\{TAB\}|\^[1-5])+$') { throw 'Teclas no permitidas.' }
+if ($Keys -notmatch '^(\{(TAB|ENTER|ESC|SPACE|LEFT|RIGHT|UP|DOWN)\}|\+\{TAB\}|\^[1-6]|[0-9,])+$') { throw 'Teclas no permitidas.' }
 $exe = 'C:\dev\vf-run\build\vegaflow_daemon.exe'
 $gui = Get-Process vegaflow_daemon -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $exe } | Select-Object -First 1
 if (-not $gui) { throw 'La GUI de prueba no esta abierta.' }

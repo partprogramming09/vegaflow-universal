@@ -68,4 +68,22 @@ void DrawFocusRing(HDC hdc, const RECT& rc) {
     DeleteObject(ring);
 }
 
+void DrawSwitchFace(HDC hdc, const RECT& rc, bool on, const std::wstring& label, HFONT font) {
+    const int tx = rc.left + 10;
+    const int ty = (rc.top + rc.bottom) / 2 - 10;
+    const RECT track = {tx, ty, tx + 34, ty + 20};
+    DrawRoundedCard(hdc, track, on ? CLR_ACCENT_CYAN : CLR_CONTROL_BORDER, on ? CLR_ACCENT_CYAN : CLR_CONTROL_BORDER, 10);
+    const int kx = on ? tx + 34 - 18 : tx + 2;
+    HBRUSH knob = CreateSolidBrush(RGB(255, 255, 255));
+    HGDIOBJ old_brush = SelectObject(hdc, knob);
+    HGDIOBJ old_pen = SelectObject(hdc, GetStockObject(NULL_PEN));
+    Ellipse(hdc, kx, ty + 2, kx + 16, ty + 18);
+    SelectObject(hdc, old_pen);
+    SelectObject(hdc, old_brush);
+    DeleteObject(knob);
+    SetBkMode(hdc, TRANSPARENT);
+    const RECT tr = {tx + 34 + 8, rc.top, rc.right - 6, rc.bottom};
+    DrawTextRect(hdc, tr, label, CLR_TEXT_TITLE, font, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+}
+
 } // namespace vegaflow::ui
