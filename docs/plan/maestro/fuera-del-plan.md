@@ -47,11 +47,14 @@
 
 ## Pendiente heredado de la fase R3 y del paquete 0.1.0
 
-- **Consumo en reposo:** el criterio de R3 (el daemon por debajo de 15 MB) se mide aparte, con el método de `docs/mediciones/`; hasta entonces no se afirma una cifra.
+- **Consumo en reposo:** medido el 2026-11-14 con el paquete 0.1.0 instalado: 1,10 a 1,11 MB de conjunto de trabajo privado, sin juego abierto (método y límites en [`2026-11-14-paquete-0.1.0.md`](../../mediciones/2026-11-14-paquete-0.1.0.md)). Con un juego abierto no se midió.
 - **Capas en migración:** `scripts/check_layers.sh` todavía deja a `session/` incluir `detect/`, `optimize/` y `windows/` (marcado como «Migration» en su tabla). Esas entradas se quitan cuando cada pieza pase detrás de un puerto; `session/` ya no llama a Win32, pero sí incluye adaptadores concretos.
 - **Dónde se publican el zip y su `.sha256`:** sin decidir. El hash solo protege si llega por un camino distinto al del zip.
 - **La prueba del paquete** (`tests/package/package_tests.ps1`) corre a mano, como administrador, en un Windows real; no está en el CI.
 - **El paquete no está firmado, ni es un MSI, ni se actualiza solo:** ver las tres primeras filas de la tabla de la sección 9.
+- **Marcadores de ruta sin anclar en `process_class.rs`:** `in_windows_root` e `in_standard_install_root` usan `contains`, así que `C:\WindowsX\...` cuenta como raíz de Windows y `D:\Games\Program Files\Discord\discord.exe` como instalación estándar. Hoy el impacto es pequeño: `path_verified` es solo informativo (el C++ no lo lee) y un nombre de Windows queda en `DO_NOT_TOUCH` sin importar la ruta; un exe suplantado solo se libraría de que VegaFlow lo limite. Anclar cada marcador a un `\` inicial y a fin de ruta o `\`, y añadir las filas a `tests/vectors/process_class.tsv`, que comparte el C++.
+- **`RestoreAllBackups` y el hive del registro:** respeta el hive de destino que trae cada registro guardado en `HKCU\SOFTWARE\VegaFlow\RegBackup`. Hallazgo de la revisión de seguridad, anterior a 0.1.0; conviene restringir los destinos a una lista de claves conocidas.
+- **Comprobaciones duplicadas en `memory_purge.rs`:** `local_budget_bytes > 0` (línea 89) repite la guarda de la línea 56, por eso su mutante es equivalente. Quitar una de las dos si se vuelve a tocar esa función.
 
 ## 9. Ideas sin fase todavía
 

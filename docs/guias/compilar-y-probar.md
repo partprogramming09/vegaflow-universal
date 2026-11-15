@@ -85,7 +85,7 @@ Dónde está cada prueba:
 - `tests/unit/`: usan puertos falsos y no escriben archivos de juegos ni el registro.
 - `tests/test_main.cpp`: las corre en orden y, al final, un guardián devuelve el sistema a como estaba. No la interrumpas a mitad.
 
-Las reglas escritas en Rust se prueban aparte con `cargo test` (176 pruebas el 2026-11-14), y las capas de `src/` con `scripts/check_layers.sh`.
+Las reglas escritas en Rust se prueban aparte con `cargo test` (252 pruebas el 2026-11-14), y las capas de `src/` con `scripts/check_layers.sh`.
 
 ---
 
