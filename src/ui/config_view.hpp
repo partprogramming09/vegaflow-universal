@@ -9,6 +9,7 @@ constexpr int kConfigResetId = 8000;
 constexpr int kConfigRowBaseId = 8001; // row k (in screen order): base + k
 constexpr int kConfigRestoreAllId = 8900;
 constexpr int kConfigRequirementsId = 8901;
+static_assert(kConfigRowBaseId < kConfigRestoreAllId && kConfigRequirementsId < 9001, "Configuración ids stay below Programas (ui/programs_view.hpp)");
 
 void ConfigViewRefresh(HWND hwnd, GuiWindowState* state, bool force_text = false);
 void ConfigViewShow(GuiWindowState* state, bool show);

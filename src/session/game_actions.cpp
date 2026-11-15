@@ -52,6 +52,7 @@ std::string GameActions::Rescan() {
 std::string GameActions::Apply(uint32_t app_id) {
     SteamGameEntry* g = Find(app_id);
     if (!g) return NotFound(app_id);
+    if (IsExcludedGame(d_.config.process_policy.excluded_game_exes, *g)) return Said("Este juego está en tu lista de excluidos: VegaFlow no escribe nada para él.");
     const auto rep = d_.steam.ApplyEngineUmaPreset(*g, d_.policy, d_.policy.safe_vram_pool_mb, false);
     if (rep.success) {
         g->engine_preset_applied = true;
@@ -77,17 +78,18 @@ std::string GameActions::Exclude(uint32_t app_id) {
     std::string err;
     if (!ExcludeGame(candidate, exe, &err)) return Said(err); // an invalid name stops here, before any file changes
 
-    // The daemon may have applied the profile since the scan, so the flag is read from disk now, then the file is put back.
+    // The daemon may have applied the profile since the scan, so the flag is read from disk now. The list is saved first: if
+    // that fails nothing else has changed, and once it is saved the daemon ignores the game whatever happens to its file.
     RefreshFlags(app_id);
+    std::string why;
+    if (!d_.store.Save(candidate, false, &why)) return Said(why + " (No se guardó: el juego no quedó excluido y sus archivos siguen igual.)");
+    d_.config = candidate;
     std::string note;
     if (HasProfile(*g) && !g->has_anticheat && g->engine_preset_applied) {
         const auto rep = d_.steam.RestoreEngineOriginalConfig(*g, false);
         if (rep.success) g->engine_preset_applied = false;
-        note = rep.success ? "Archivo original devuelto. " : "No se pudo devolver el archivo original: " + rep.status_message + " ";
+        note = rep.success ? "Archivo original devuelto. " : "No se pudo devolver el archivo original: " + rep.status_message + ". ";
     }
-    std::string why;
-    if (!d_.store.Save(candidate, false, &why)) return Said(note + why + " (No se guardó: el juego no quedó excluido.)");
-    d_.config = candidate;
     return Said(note + "Juego excluido: VegaFlow lo ignora desde ahora.");
 }
 
@@ -105,6 +107,11 @@ std::string GameActions::Include(uint32_t app_id) {
 std::string GameActions::ToggleDxvk(uint32_t app_id) {
     SteamGameEntry* g = Find(app_id);
     if (!g) return NotFound(app_id);
+    if (g->has_anticheat) return Said("Este juego usa anti-cheat: VegaFlow no cambia ni quita archivos en su carpeta.");
+    // Removing is always allowed (it is the way back); installing is not for a game the person excluded.
+    if (!g->dxvk_installed && IsExcludedGame(d_.config.process_policy.excluded_game_exes, *g)) {
+        return Said("Este juego está en tu lista de excluidos: VegaFlow no instala nada en él.");
+    }
     std::string msg;
     if (g->dxvk_installed) {
         if (d_.dxvk.RemoveDxvk(g->primary_exe_path, false, &msg)) g->dxvk_installed = false;

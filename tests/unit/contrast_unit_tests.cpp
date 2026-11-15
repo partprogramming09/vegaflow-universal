@@ -67,6 +67,7 @@ void Test62() {
     }
     accent_ratios.push_back({"red on main", Ratio(CLR_ACCENT_RED, CLR_BG_MAIN)});
     accent_ratios.push_back({"red on log", Ratio(CLR_ACCENT_RED, CLR_BAR_BG)});
+    accent_ratios.push_back({"red chip text on its fill", Ratio(CLR_CHIP_RED_TEXT, CLR_CHIP_RED_FILL)});
     const std::string accent_bad = Below(4.5, accent_ratios);
     RecordResult(accent_bad.empty(), "Test 62.3: accent text colours reach 4.5:1 on main, sidebar and card", accent_bad);
 

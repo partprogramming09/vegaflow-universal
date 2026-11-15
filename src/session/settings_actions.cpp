@@ -3,7 +3,7 @@
 namespace vegaflow::session {
 
 std::string SettingsActions::Said(const std::string& msg, const char* audit_prefix) {
-    if (d_.audit && audit_prefix) d_.audit(std::string(audit_prefix) + msg);
+    if (d_.audit && audit_prefix && !quiet_) d_.audit(std::string(audit_prefix) + msg);
     return msg;
 }
 
@@ -40,6 +40,7 @@ std::string SettingsActions::ToggleVramOverride() {
     if (!gfx.AmdDriver()) return "Ajuste VRAM Reporting AMD no disponible en esta GPU";
     const ApuOptimizationPolicy pol = d_.live_policy ? d_.live_policy() : d_.policy;
     const bool target = !gfx.QuerySystemGraphicsTweaks().amd_vram_override_active;
+    if (target && pol.safe_vram_pool_mb == 0) return Said("No se pudo calcular un tamaño de memoria gráfica para este equipo: no se cambió nada", "Ajuste VRAM Reporting: ");
     const bool ok = target ? gfx.AmdDriver()->ApplyVramReportingOverride(pol.safe_vram_pool_mb, false)
                            : gfx.AmdDriver()->RestoreVramReporting(false);
     const std::string pool = std::to_string(pol.safe_vram_pool_mb);
@@ -63,12 +64,12 @@ std::string SettingsActions::ToggleMmcssGaming() {
 std::string SettingsActions::ToggleApuPowerMode() {
     auto& gfx = d_.gfx;
     if (!gfx.PowerMode()) return "Modo de energía APU no disponible para la política actual";
-    const ApuOptimizationPolicy pol = d_.live_policy ? d_.live_policy() : d_.policy;
     const bool target = !gfx.QuerySystemGraphicsTweaks().apu_power_optimized;
     const bool ok = gfx.PowerMode()->SetApuPowerMode(target ? ApuPowerMode::GpuPrioritySustained : ApuPowerMode::Balanced, d_.policy, false);
-    const std::string on = pol.cpu_stapm_cap_mhz == 0
+    // The text states the ceiling of the policy that was just applied (the boot one), not a newer reading.
+    const std::string on = d_.policy.cpu_stapm_cap_mhz == 0
         ? "Control Térmico APU: perfil sin tope activado (Efficient-Aggressive + EPP 25)"
-        : "Control Térmico APU: Modo GPU-Priority Activado (" + std::to_string(pol.cpu_stapm_cap_mhz) + " MHz de techo)";
+        : "Control Térmico APU: Modo GPU-Priority Activado (" + std::to_string(d_.policy.cpu_stapm_cap_mhz) + " MHz de techo)";
     return Said(ok ? (target ? on : std::string("Control Térmico APU: Perfil Balanceado Estándar Restaurado")) : "Fallo al alternar modo de energía APU", "");
 }
 
@@ -92,7 +93,11 @@ std::string SettingsActions::Set(const std::string& id, bool turn_on) {
     auto& gfx = d_.gfx;
     const auto cur = gfx.QuerySystemGraphicsTweaks();
     auto toggle_if = [&](bool is_on, std::string (SettingsActions::*fn)()) {
-        return is_on == turn_on ? std::string("Ya estaba así: sin cambios") : (this->*fn)();
+        if (is_on == turn_on) return std::string("Ya estaba así: sin cambios");
+        quiet_ = true;
+        const std::string answer = (this->*fn)();
+        quiet_ = false;
+        return answer;
     };
     std::string msg;
     if (id == "vram_reporting") {

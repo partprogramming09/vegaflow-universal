@@ -246,24 +246,6 @@ void HandleActionClick(HWND hwnd, GuiWindowState* state, int id) {
             break;
         }
 
-        case ID_ACT_APPLY_PRESET: {
-            if (state->data.has_amd_driver && state->callbacks.on_ToggleShaderCache && !state->data.amd_shader_cache_forced) {
-                state->callbacks.on_ToggleShaderCache();
-            }
-            if (state->callbacks.on_ToggleMmcssGaming && !state->data.mmcss_gaming_optimized) {
-                state->callbacks.on_ToggleMmcssGaming();
-            }
-            if (state->callbacks.on_PurgeNow) {
-                res = state->callbacks.on_PurgeNow();
-            }
-            if (state->callbacks.on_IsolateBackgroundNow) {
-                state->callbacks.on_IsolateBackgroundNow();
-            }
-            if (res.empty()) res = "Preset óptimo aplicado exitosamente (MMCSS, Purga, CPU Sets)";
-            state->data.last_action_status = res;
-            break;
-        }
-
         case ID_ACT_PURGE_RAM: {
             if (state->callbacks.on_PurgeNow) {
                 res = state->callbacks.on_PurgeNow();
@@ -284,18 +266,6 @@ void HandleActionClick(HWND hwnd, GuiWindowState* state, int id) {
             if (state->callbacks.on_RestoreCpuAffinity) {
                 res = state->callbacks.on_RestoreCpuAffinity();
                 state->data.last_action_status = res;
-            }
-            break;
-        }
-
-        case ID_ACT_ELEVATE: {
-            if (state->callbacks.on_RequestElevate) {
-                if (state->callbacks.on_RequestElevate()) {
-                    DestroyWindow(hwnd);
-                    return;
-                } else {
-                    state->data.last_action_status = "Elevación UAC cancelada o no disponible";
-                }
             }
             break;
         }

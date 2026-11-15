@@ -14,9 +14,7 @@ using app::WideToUtf8;
 
 namespace {
 
-bool SameName(const std::wstring& a, const std::wstring& b) {
-    return a.size() == b.size() && std::equal(a.begin(), a.end(), b.begin(), [](wchar_t x, wchar_t y) { return std::towlower(x) == std::towlower(y); });
-}
+bool SameName(const std::wstring& a, const std::wstring& b) { return app::EqualsIgnoreCase(a, b); }
 
 std::wstring FileName(const std::wstring& path) { return std::filesystem::path(path).filename().wstring(); }
 
@@ -76,7 +74,7 @@ GamesScreenModel BuildGamesScreen(const std::vector<SteamGameEntry>& games, cons
         r.engine = EngineLabel(g.engine);
         const std::wstring exe = FileName(g.primary_exe_path);
         r.exe = WideToUtf8(exe);
-        r.excluded = !exe.empty() && std::any_of(excluded.begin(), excluded.end(), [&](const std::wstring& x) { return SameName(x, exe); });
+        r.excluded = IsExcludedGame(excluded, g);
         const bool has_profile = g.engine == GameEngineType::UnrealEngine4_5 || g.engine == GameEngineType::Unity;
         const bool unreal = g.engine == GameEngineType::UnrealEngine4_5;
         r.backup_hint = "Antes de cambiar el archivo, VegaFlow guarda una copia con el mismo nombre y la terminación .vegaflow.bak, en la misma carpeta.";
@@ -105,7 +103,7 @@ GamesScreenModel BuildGamesScreen(const std::vector<SteamGameEntry>& games, cons
             r.can_apply = true;
         }
 
-        if (has_profile && !g.has_anticheat && !r.excluded) {
+        if (has_profile && !g.has_anticheat && !r.excluded && !g.primary_exe_path.empty()) {
             if (unreal) {
                 r.file_hint = "Engine.ini del juego, en su carpeta de configuración";
                 r.changes = UnrealKeys(policy, vram_pool_mb);
@@ -129,8 +127,17 @@ GamesScreenModel BuildGamesScreen(const std::vector<SteamGameEntry>& games, cons
     return m;
 }
 
+bool IsExcludedGame(const std::vector<std::wstring>& excluded, const SteamGameEntry& game) {
+    const std::wstring exe = FileName(game.primary_exe_path);
+    return !exe.empty() && std::any_of(excluded.begin(), excluded.end(), [&](const std::wstring& x) { return SameName(x, exe); });
+}
+
 bool ExcludeGame(app::AppConfig& cfg, const std::string& exe_or_path, std::string* error) {
     if (error) error->clear();
+    if (!app::IsValidUtf8(exe_or_path)) {
+        if (error) *error = "Ese nombre no es un texto válido.";
+        return false;
+    }
     const std::wstring name = FileName(Utf8ToWide(exe_or_path));
     const std::string utf8 = WideToUtf8(name);
     if (name.empty() || !vf_rust_is_allowed_game_exe(utf8.data(), utf8.size())) {

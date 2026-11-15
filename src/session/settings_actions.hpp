@@ -40,6 +40,8 @@ public:
 private:
     std::string Said(const std::string& msg, const char* audit_prefix);
 
+    bool quiet_ = false; // Set audits its own line, so the toggle it calls must not add a second
+
     SettingsActionsDeps d_;
 };
 

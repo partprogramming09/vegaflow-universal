@@ -16,6 +16,7 @@ constexpr int kGamesIncludeId = 9903;
 constexpr int kGamesRescanId = 9904;
 constexpr int kGamesDxvkId = 9905;
 constexpr int kGamesLastId = 9999;
+static_assert(kGamesRowBaseId > 9600 && kGamesLastId < 65536, "Juegos ids sit above Requisitos and fit the 16-bit LOWORD of wParam");
 static_assert(kGamesRowBaseId + kGamesMaxRows <= kGamesApplyId, "row ids overlap the action ids");
 
 void GamesViewRefresh(HWND hwnd, GuiWindowState* state);

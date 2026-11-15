@@ -235,7 +235,7 @@ void ConfigViewPaint(HDC hdc, GuiWindowState* st, const RECT& content) {
         if (!chip.empty()) {
             const int x = rc.left + 20 + TextWidth(hdc, st->hFontBold, name) + 12;
             const RECT chip_rc = {x, rc.top + 12, x + TextWidth(hdc, st->hFontSmall, chip) + 20, rc.top + 32};
-            DrawBadge(hdc, chip_rc, chip, CLR_ACCENT_RED, RGB(58, 28, 31), CLR_ACCENT_RED, st->hFontSmall);
+            DrawBadge(hdc, chip_rc, chip, CLR_CHIP_RED_TEXT, CLR_CHIP_RED_FILL, CLR_ACCENT_RED, st->hFontSmall);
         }
         RECT h = {rc.left + 20, rc.top + 36, right_limit, rc.bottom - 6};
         DrawTextRect(hdc, h, help, CLR_TEXT_MUTED, st->hFontSmall, DT_LEFT | DT_WORDBREAK | DT_NOPREFIX);

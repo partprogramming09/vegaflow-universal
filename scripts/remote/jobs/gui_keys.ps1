@@ -7,7 +7,7 @@
     or in another program the person is using. Tokens are limited by the manifest pattern to Tab, Enter, Escape,
     Space and arrows.
 .PARAMETER Keys
-    A list of tokens such as {TAB}{TAB}{ENTER} (SendKeys syntax).
+    A list of tokens such as {TAB}{TAB}{SPACE} (SendKeys syntax; owner-draw buttons react to SPACE, not ENTER).
 #>
 param([Parameter(Mandatory = $true)][string]$Keys)
 

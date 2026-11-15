@@ -7,8 +7,13 @@ namespace vegaflow::session {
 namespace {
 
 std::string Tenths(uint64_t kb) { // KB as MB with one decimal and a decimal comma
-    const uint64_t t = (kb * 10 + 512) / 1024;
-    return std::to_string(t / 10) + "," + std::to_string(t % 10);
+    uint64_t whole = kb / 1024;
+    uint64_t tenth = ((kb % 1024) * 10 + 512) / 1024; // rounded to nearest, with no kb * 10 to overflow
+    if (tenth == 10) {
+        ++whole;
+        tenth = 0;
+    }
+    return std::to_string(whole) + "," + std::to_string(tenth);
 }
 
 } // namespace
@@ -40,15 +45,20 @@ HomeScreenModel BuildHomeScreen(const HomeInputs& in, const EquipmentScreenModel
                                       : "Modo seguro: VegaFlow no cambia nada por su cuenta.";
     }
 
-    m.equipment.push_back({"Procesador", eq.cpu_line});
-    if (!eq.gpus.empty()) m.equipment.push_back({"Gráfica", eq.gpus[0].name + " · " + eq.gpus[0].link});
+    if (!eq.cpu_line.empty()) m.equipment.push_back({"Procesador", eq.cpu_line});
+    if (!eq.gpus.empty()) {
+        const std::string gpu = eq.gpus[0].name.empty() ? eq.gpus[0].link : eq.gpus[0].link.empty() ? eq.gpus[0].name : eq.gpus[0].name + " · " + eq.gpus[0].link;
+        if (!gpu.empty()) m.equipment.push_back({"Gráfica", gpu});
+    }
     if (eq.tier >= 1 && eq.tier <= 4 && eq.tier_labels.size() == 4) m.equipment.push_back({"Nivel de tu equipo", eq.tier_labels[static_cast<size_t>(eq.tier - 1)]});
 
     if (in.ram_total_mb == 0) {
         m.memory_detail = "No se pudo leer la memoria del equipo.";
     } else {
         const uint64_t free_mb = in.ram_available_mb > in.ram_total_mb ? in.ram_total_mb : in.ram_available_mb;
-        m.memory_percent = static_cast<int>(((in.ram_total_mb - free_mb) * 100 + in.ram_total_mb / 2) / in.ram_total_mb);
+        // 128-bit: a corrupt total near 2^63 must not overflow used*100 (MinGW-only project, so __int128 is available).
+        const unsigned __int128 used = in.ram_total_mb - free_mb;
+        m.memory_percent = static_cast<int>((used * 100 + in.ram_total_mb / 2) / in.ram_total_mb);
         m.memory_detail = std::to_string(free_mb) + " MB disponibles de " + std::to_string(in.ram_total_mb) + " MB";
     }
     const bool integrated = !eq.gpus.empty() && eq.gpus[0].link == "Integrada";

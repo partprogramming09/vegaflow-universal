@@ -76,23 +76,13 @@ int RunGuiMode(
         ? "MODO SEGURO: 2+ cierres anormales seguidos. Sin cambios automáticos."
         : "VegaFlow GUI Inicializada";
 
-    std::vector<std::string> audit_log;
     auto AddAuditLog = [&](const std::string& msg) {
-        SYSTEMTIME st;
-        GetLocalTime(&st);
-        char buf[32];
-        std::snprintf(buf, sizeof(buf), "[%02d:%02d:%02d] ", st.wHour, st.wMinute, st.wSecond);
-        audit_log.push_back(std::string(buf) + msg);
-        if (audit_log.size() > 200) {
-            audit_log.erase(audit_log.begin());
-        }
         if (ChangeJournal* j = GetActiveChangeJournal()) {
             j->RecordAuditEvent("GUI", msg, "");
         }
     };
     if (!journal_warning.empty()) {
         last_gui_status = journal_warning;
-        audit_log.push_back(journal_warning);
     }
     if (const std::string warning = config_store.Report().Warning(); !warning.empty()) {
         last_gui_status = warning;
@@ -306,7 +296,7 @@ int RunGuiMode(
             tweaks_query_countdown = 10;
         }
         in.tweaks = cached_tweaks;
-        in.memory_guard_active = policy.apply_uma_memory_guard;
+        in.memory_guard_active = policy.apply_uma_memory_guard && !safe_mode;
         return in;
     };
 
@@ -357,19 +347,6 @@ int RunGuiMode(
     callbacks.on_RemoveException = [&](const std::string& exe) { return say(config_actions.RemoveException(exe)); };
     callbacks.on_AddManualGame = [&](const std::string& exe) { return say(config_actions.AddManualGame(exe)); };
     callbacks.on_RemoveManualGame = [&](const std::string& exe) { return say(config_actions.RemoveManualGame(exe)); };
-
-    callbacks.on_RequestElevate = [&]() -> bool {
-        AddAuditLog("Solicitud de elevación UAC enviada...");
-        if (g_single_instance_mutex) {
-            CloseHandle(g_single_instance_mutex);
-            g_single_instance_mutex = nullptr;
-        }
-        bool ok = PrivilegeManager::RelaunchAsAdmin(L"--gui");
-        if (!ok) {
-            g_single_instance_mutex = CreateMutexW(nullptr, FALSE, L"Local\\VegaFlowUniversal_SingleInstance");
-        }
-        return ok;
-    };
 
     callbacks.on_IsolateBackgroundNow = [&]() -> std::string {
         auto noisy = ProcessDetector::FindBackgroundNoisyProcesses(active_game_pid);

@@ -112,7 +112,6 @@ struct GuiCallbacks {
     std::function<GuiDashboardData()> on_PollTelemetry;
     std::function<std::string()> on_PurgeNow;
     std::function<std::string()> on_ToggleMpo;
-    std::function<bool()> on_RequestElevate;
     std::function<std::string()> on_ToggleMemCompression;
     std::function<std::string()> on_ToggleShaderCache;
     std::function<std::string()> on_IsolateBackgroundNow;

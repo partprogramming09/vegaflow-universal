@@ -102,7 +102,7 @@ ConfigScreenModel BuildConfigScreen(const app::AppConfig& cfg) {
                                 std::to_string(cfg.memory.max_game_disk_read_bytes_per_sec / kBytesPerMb), "MB/s")}});
     m.groups.push_back({"Avanzado", "Cambiar solo si sabes lo que haces",
                         {Toggle("restrict_cpu_sets", "Limitar el juego a sus núcleos",
-                                "Usa CPU Sets para que el juego solo corra en los núcleos que VegaFlow elige. En la mayoría de equipos el juego rinde mejor con todos los núcleos.",
+                                "Usa CPU Sets para que el juego solo corra en los núcleos que VegaFlow elige. En el equipo de pruebas el juego rindió peor limitado a sus núcleos.",
                                 cfg.restrict_game_cpu_sets, "No recomendado")}});
     return m;
 }

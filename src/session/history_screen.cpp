@@ -55,6 +55,7 @@ HistoryScreenModel BuildHistoryScreen(const std::vector<JournalEntry>& entries, 
         row.id = it->id;
         row.when = it->timestamp;
         row.what = it->reason.empty() ? it->target : it->reason;
+        if (row.what.empty()) row.what = "Cambio sin descripción";
         row.before = it->before_value;
         row.after = it->after_value;
         row.state = StateWord(it->status);

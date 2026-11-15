@@ -8,6 +8,7 @@ namespace vegaflow::ui {
 constexpr int kHistoryRestoreAllId = 6000;
 constexpr int kHistoryRowBaseId = 6001; // row buttons take ids base..base+999 (LOWORD of wParam keeps ids under 65536)
 constexpr int kHistoryLastId = 7000;
+static_assert(kHistoryLastId < 8000, "Historial ids stay below Configuración (ui/config_view.hpp)");
 
 void HistoryViewRefresh(HWND hwnd, GuiWindowState* state);
 void HistoryViewShow(GuiWindowState* state, bool show);

@@ -48,13 +48,20 @@ std::string ConfigActions::Reset() {
     return Save(candidate, "Configuración restablecida a los valores de fábrica.");
 }
 
+namespace {
+// The screen sends 0..2; anything else must not wrap around when it becomes the one-byte enum.
+bool InRange(int action) { return action >= 0 && action <= 2; }
+} // namespace
+
 std::string ConfigActions::SetCategoryAction(const std::string& id, int action) {
+    if (!InRange(action)) return "Ese cambio no existe.";
     return EditPrograms([&](AppConfig& c, std::string*) { return session::SetCategoryAction(c, id, static_cast<ProcessAction>(action)); });
 }
 std::string ConfigActions::AddException(const std::string& exe) {
     return EditPrograms([&](AppConfig& c, std::string* e) { return session::AddException(c, exe, e); });
 }
 std::string ConfigActions::SetExceptionAction(const std::string& exe, int action) {
+    if (!InRange(action)) return "Ese cambio no existe.";
     return EditPrograms([&](AppConfig& c, std::string*) { return session::SetExceptionAction(c, exe, static_cast<ProcessAction>(action)); });
 }
 std::string ConfigActions::RemoveException(const std::string& exe) {

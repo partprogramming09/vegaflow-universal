@@ -106,7 +106,7 @@ std::optional<int> ParseCommandLine(int argc, char* argv[], CliOptions& opts) {
             std::cout << "  --dxvk-remove <path>     Remove DXVK and restore original DirectX 11 runtime.\n";
             std::cout << "  --monitor, -m            Real-time console dashboard displaying live RAM and VRAM telemetry.\n";
             std::cout << "  --observe                With --gui: no automatic changes and no restore-point offer (safe mode on demand).\n";
-        std::cout << "  --gui, -g                Launch native zero-overhead Win32/GDI dashboard with system tray support.\n";
+            std::cout << "  --gui, -g                Launch native zero-overhead Win32/GDI dashboard with system tray support.\n";
             std::cout << "  --system-info            Output complete hardware, APU UMA, RAM topology, and OS specs in JSON format.\n";
             std::cout << "  --version                Print the version and exit.\n";
             std::cout << "  --help, -h               Display this help menu.\n";

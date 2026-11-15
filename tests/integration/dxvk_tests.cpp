@@ -164,6 +164,10 @@ void Test16() {
             original_restored = (content == "CUSTOM_D3D11_ORIGINAL_DATA");
         }
 
+        // 8. A game that ships its own d3d11/dxgi (no dxvk.conf of ours) is not "DXVK installed"
+        for (const char* dll : {"d3d11.dll", "dxgi.dll"}) std::ofstream(temp_base / dll, std::ios::binary) << "GAME_OWN_DLL";
+        bool foreign_dlls_not_dxvk = !vegaflow::DxvkManager::IsDxvkInstalled(game_exe.wstring());
+
         // Cleanup
         std::filesystem::remove_all(temp_base, ec);
         if (using_stand_ins) {
@@ -172,7 +176,7 @@ void Test16() {
         }
 
         bool t16_success = assets_found && ac_blocked && ac_msg_ok && no_files_installed &&
-                           dry_ok && still_no_files && deploy_ok && is_installed &&
+                           dry_ok && still_no_files && deploy_ok && is_installed && foreign_dlls_not_dxvk &&
                            d3d11_exists && dxgi_exists && conf_exists && bak_exists &&
                            conf_content_ok && scan_detected_dxvk && remove_ok &&
                            conf_deleted && logs_deleted && bak_deleted && dxgi_deleted && original_restored;

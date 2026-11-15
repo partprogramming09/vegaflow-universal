@@ -28,4 +28,15 @@ std::wstring Utf8ToWide(const std::string& str) {
     return result;
 }
 
+bool EqualsIgnoreCase(const std::wstring& a, const std::wstring& b) {
+    if (a.size() != b.size()) return false;
+    if (a.empty()) return true;
+    return CompareStringOrdinal(a.data(), static_cast<int>(a.size()), b.data(), static_cast<int>(b.size()), TRUE) == CSTR_EQUAL;
+}
+
+bool IsValidUtf8(const std::string& str) {
+    if (str.empty()) return true;
+    return MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, str.data(), static_cast<int>(str.size()), nullptr, 0) > 0;
+}
+
 } // namespace vegaflow::app

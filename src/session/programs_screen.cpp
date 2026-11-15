@@ -37,9 +37,10 @@ std::string Trim(const std::string& s) {
     return s.substr(a, s.find_last_not_of(" \t") - a + 1);
 }
 
-bool SameName(const std::wstring& a, const std::wstring& b) {
-    return a.size() == b.size() && std::equal(a.begin(), a.end(), b.begin(), [](wchar_t x, wchar_t y) { return std::towlower(x) == std::towlower(y); });
-}
+bool SameName(const std::wstring& a, const std::wstring& b) { return app::EqualsIgnoreCase(a, b); }
+
+// The three choices the screen offers. BoostAsGame is not one of them, and no other number is an action.
+bool IsChoice(ProcessAction a) { return a == ProcessAction::DoNotTouch || a == ProcessAction::EcoOnly || a == ProcessAction::Throttle; }
 
 // A bare file name ending in .exe, like the daemon expects. The Rust rules decide the rest when saving.
 bool CheckName(const std::string& text, std::wstring* out, std::string* error) {
@@ -47,6 +48,7 @@ bool CheckName(const std::string& text, std::wstring* out, std::string* error) {
         if (error) *error = why;
         return false;
     };
+    if (!app::IsValidUtf8(text)) return fail("Ese nombre no es un texto válido.");
     const std::string t = Trim(text);
     if (t.empty()) return fail("Escribe el nombre del programa, por ejemplo juego.exe.");
     if (t.find_first_of("\\/:*?\"<>|") != std::string::npos) return fail("Escribe solo el nombre del archivo, sin carpeta, por ejemplo juego.exe.");
@@ -90,7 +92,7 @@ ProgramsScreenModel BuildProgramsScreen(const app::AppConfig& cfg) {
 }
 
 bool SetCategoryAction(app::AppConfig& cfg, const std::string& id, ProcessAction action) {
-    if (action == ProcessAction::BoostAsGame) return false;
+    if (!IsChoice(action)) return false;
     for (const auto& c : kCategories) {
         if (id == c.id) {
             cfg.process_policy.category_actions.*c.field = action;
@@ -114,6 +116,7 @@ bool AddException(app::AppConfig& cfg, const std::string& text, std::string* err
 }
 
 bool SetExceptionAction(app::AppConfig& cfg, const std::string& exe, ProcessAction action) {
+    if (!IsChoice(action)) return false;
     const std::wstring name = Utf8ToWide(exe);
     for (auto& e : cfg.process_policy.exceptions) {
         if (SameName(e.exe_name, name)) {

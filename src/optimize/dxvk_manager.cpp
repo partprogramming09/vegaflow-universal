@@ -144,8 +144,13 @@ bool DxvkManager::IsDxvkInstalled(const std::wstring& game_exe_path) {
 
     std::filesystem::path d3d11 = dir / L"d3d11.dll";
     std::filesystem::path dxgi = dir / L"dxgi.dll";
+    if (!std::filesystem::exists(d3d11, ec) || !std::filesystem::exists(dxgi, ec)) return false;
 
-    return std::filesystem::exists(d3d11, ec) && std::filesystem::exists(dxgi, ec);
+    // A game may ship its own d3d11/dxgi DLLs: only the dxvk.conf we write last proves it was us.
+    std::ifstream conf(dir / L"dxvk.conf");
+    std::string first;
+    std::getline(conf, first);
+    return first.rfind("# VegaFlow", 0) == 0;
 }
 
 bool DxvkManager::BackupUserDxvkConf(FileSystem& fs, const std::wstring& conf_path, bool anticheat_protected) {

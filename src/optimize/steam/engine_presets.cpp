@@ -304,7 +304,7 @@ EngineOptimizationReport SteamEngineOptimizer::ApplyEngineUmaPreset(
                 : "Preset Unreal aplicado sin recortes visuales (ShaderCache=ON, FlipModel=ON)";
         } else {
             report.status_message = "Preset UMA Unreal Engine aplicado (PoolVRAM=" +
-                std::to_string(effective_pool_mb) + "MB, AsyncShaders=ON, FlipModel=ON, 60FPS-VegaTuned)";
+                std::to_string(effective_pool_mb) + "MB, AsyncShaders=ON, FlipModel=ON)";
         }
         return report;
     }
