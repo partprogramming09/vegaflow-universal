@@ -129,6 +129,29 @@
       "params": {
         "Name": "^[A-Za-z0-9_.-]{1,40}$"
       }
+    },
+    "gui": {
+      "script": "gui.ps1",
+      "timeout_s": 60,
+      "session": 1,
+      "description": "Open the GUI of the test build (--gui; needs an elevated session)",
+      "params": {}
+    },
+    "kill-gui": {
+      "script": "kill_gui.ps1",
+      "timeout_s": 30,
+      "session": 1,
+      "description": "Close the test-build GUI (never the installed daemon)",
+      "params": {}
+    },
+    "gui-keys": {
+      "script": "gui_keys.ps1",
+      "timeout_s": 30,
+      "session": 1,
+      "description": "Send Tab/Enter/Esc/Space/arrow keys to the test-build GUI, only while it is the foreground window",
+      "params": {
+        "Keys": "^(\\{(TAB|ENTER|ESC|SPACE|LEFT|RIGHT|UP|DOWN)\\}|\\+\\{TAB\\})+$"
+      }
     }
   }
 }

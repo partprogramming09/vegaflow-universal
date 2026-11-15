@@ -178,7 +178,7 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    const bool safe_mode = (!journal_eval.corrupt && journal_eval.safe_mode);
+    const bool safe_mode = opts.observe_flag || (!journal_eval.corrupt && journal_eval.safe_mode);
     JournalSessionGuard session_guard;
     if (!journal_eval.corrupt) {
         if (!safe_mode && !opts.dry_run_flag && vegaflow::session::ShouldOfferRestorePoint(journal)) {
