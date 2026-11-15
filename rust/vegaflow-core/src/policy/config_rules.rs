@@ -11,8 +11,6 @@ pub struct NumberRule {
 }
 
 pub const POLL_INTERVAL_MS: NumberRule = NumberRule { key: "poll_interval_ms", in_memory: false, min: 250, max: 60_000, default: 1500 };
-pub const TIMER_RESOLUTION_NS100: NumberRule =
-    NumberRule { key: "timer_resolution_ns100", in_memory: false, min: 5000, max: 156_250, default: 5000 };
 pub const MIN_FREE_RAM_MB: NumberRule = NumberRule { key: "min_free_ram_mb", in_memory: true, min: 128, max: 1_048_576, default: 1200 };
 pub const MIN_STANDBY_MB: NumberRule = NumberRule { key: "min_standby_mb", in_memory: true, min: 128, max: 1_048_576, default: 1500 };
 pub const COOLDOWN_SECONDS: NumberRule = NumberRule { key: "cooldown_seconds", in_memory: true, min: 10, max: 3600, default: 90 };
@@ -22,8 +20,9 @@ pub const MAX_GAME_DISK_READ_MB_S: NumberRule =
 /// Most program names accepted in `custom_game_exes`.
 pub const MAX_GAME_EXES: usize = 1024;
 
-/// Windows programs that are never a game: treating one as a game would change how the system itself is scheduled.
+/// Windows and VegaFlow programs that are never a game or throttled target: treating one as a game would change how the system itself is scheduled.
 const WINDOWS_PROCESSES: &[&str] = &[
+    "system", "registry", "memory compression",
     "smss.exe", "csrss.exe", "wininit.exe", "services.exe", "lsass.exe", "lsaiso.exe", "svchost.exe",
     "fontdrvhost.exe", "winlogon.exe", "sihost.exe", "spoolsv.exe", "dwm.exe", "explorer.exe", "taskhostw.exe",
     "shellexperiencehost.exe", "startmenuexperiencehost.exe", "searchhost.exe", "searchindexer.exe", "searchapp.exe",
@@ -31,8 +30,12 @@ const WINDOWS_PROCESSES: &[&str] = &[
     "securityhealthservice.exe", "securityhealthsystray.exe", "smartscreen.exe", "msmpeng.exe", "audiodg.exe",
     "conhost.exe", "taskmgr.exe", "wlanext.exe", "dashost.exe", "dllhost.exe", "wudfhost.exe", "wmpnetwk.exe",
     "logonui.exe", "userinit.exe", "consent.exe", "wmiprvse.exe", "trustedinstaller.exe", "tiworker.exe", "wermgr.exe",
-    "vegaflow_daemon.exe",
+    "vegaflow_daemon.exe", "vegaflow_daemon.old.exe", "vegaflow.exe",
 ];
+
+pub fn is_windows_process(lower_exe_name: &str) -> bool {
+    WINDOWS_PROCESSES.contains(&lower_exe_name)
+}
 
 /// Device names Windows reserves whatever the extension (`CON.exe` names the console, not a file).
 const DEVICE_NAMES: &[&str] = &[
@@ -65,7 +68,7 @@ pub fn is_allowed_game_exe(name: &str) -> bool {
     let chars_ok = !name.chars().any(|c| (c as u32) < 0x20 || "\\/:*?\"<>|".contains(c));
     let ends_ok = !name.starts_with(' ') && !name.ends_with(' ') && !name.ends_with('.');
     let len_ok = name.encode_utf16().count() <= MAX_FILE_NAME_UNITS;
-    stem_ok && chars_ok && ends_ok && len_ok && !is_device_name(&lower) && !WINDOWS_PROCESSES.contains(&lower.as_str())
+    stem_ok && chars_ok && ends_ok && len_ok && !is_device_name(&lower) && !is_windows_process(&lower)
 }
 
 #[cfg(test)]
@@ -83,7 +86,7 @@ mod tests {
 
     #[test]
     fn every_factory_value_is_inside_its_own_range() {
-        for r in [&POLL_INTERVAL_MS, &TIMER_RESOLUTION_NS100, &MIN_FREE_RAM_MB, &MIN_STANDBY_MB, &COOLDOWN_SECONDS,
+        for r in [&POLL_INTERVAL_MS, &MIN_FREE_RAM_MB, &MIN_STANDBY_MB, &COOLDOWN_SECONDS,
             &MAX_GAME_DISK_READ_MB_S]
         {
             assert!(r.min > 0 && r.min <= r.default && r.default <= r.max, "{}", r.key);

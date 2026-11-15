@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Puente C++20 ↔ Rust · Capas del daemon</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper: #f5f5f5; --color-ink: #2d3142; --color-muted: #4f5d75; --color-accent: #bf4520;
+      --font-sans: 'Geist', system-ui, sans-serif; --font-serif: 'Instrument Serif', serif; --font-mono: 'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400; letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    .scroll { overflow-x: auto; }
+    svg { width: 100%; min-width: 1000px; display: block; }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Capas · VegaFlow Universal</p>
+    <h1>Puente C++20 ↔ Rust · Quién decide y quién actúa</h1>
+    <div class="scroll">
+    <svg viewBox="0 0 1000 560" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="puente-cpp-rust-title puente-cpp-rust-desc">
+      <title id="puente-cpp-rust-title">Puente C++20 ↔ Rust · Quién decide y quién actúa</title>
+      <desc id="puente-cpp-rust-desc">Cuatro capas: el sistema en C++20 llama al núcleo Rust a través del puente C rust_bridge.h; el núcleo consulta la memoria al kernel NT, y C++ aplica directamente los CPU Sets, EcoQoS y la prioridad de E/S.</desc>
+      <defs>
+        <pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="0.9" fill="rgba(45,49,66,0.10)"/></pattern>
+        <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#4f5d75"/></marker>
+      </defs>
+      <rect width="100%" height="100%" fill="#f5f5f5"/>
+      <rect width="100%" height="100%" fill="url(#dots)" opacity="0.55"/>
+
+      <!-- Dirección (margen izquierdo) -->
+      <text x="48" y="68" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">PROGRAMA</text>
+      <line x1="80" y1="80" x2="80" y2="456" stroke="rgba(45,49,66,0.30)" stroke-width="1"/>
+      <polygon points="76,456 84,456 80,464" fill="#4f5d75"/>
+      <text x="56" y="480" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">KERNEL</text>
+
+      <!-- Conector: C++ llama directo al kernel (fuera de la pila, por la derecha) -->
+      <path d="M880,128 L912,128 Q920,128 920,136 L920,400 Q920,408 912,408 L884,408" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <rect x="928" y="258" width="64" height="16" fill="#f5f5f5"/>
+      <text x="932" y="270" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.12em">DIRECTO</text>
+
+      <!-- Bordes de la pila -->
+      <line x1="120" y1="80" x2="880" y2="80" stroke="rgba(45,49,66,0.12)" stroke-width="1"/>
+      <line x1="120" y1="456" x2="880" y2="456" stroke="rgba(45,49,66,0.12)" stroke-width="1"/>
+
+      <!-- L4 · C++20 -->
+      <rect x="120" y="80" width="760" height="96" fill="#ffffff"/>
+      <line x1="120" y1="176" x2="880" y2="176" stroke="rgba(45,49,66,0.12)" stroke-width="1"/>
+      <text x="140" y="112" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">C++20</text>
+      <text x="220" y="114" fill="#2d3142" font-size="16" font-weight="600" font-family="'Geist', sans-serif">Sistema: actúa sobre Windows</text>
+      <text x="860" y="114" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end" letter-spacing="0.08em">Win32 · DXGI · GUI</text>
+      <text x="220" y="140" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace">main.cpp · hardware_profiler.cpp · cpu_orchestrator.cpp</text>
+      <text x="220" y="156" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace">memory_manager.cpp · sandbox_guard.cpp</text>
+
+      <!-- L3 · Puente C (FOCAL) -->
+      <rect x="120" y="176" width="760" height="64" fill="rgba(191,69,32,0.08)"/>
+      <rect x="120" y="176" width="760" height="64" fill="none" stroke="#bf4520" stroke-width="1"/>
+      <text x="140" y="212" fill="#bf4520" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em" font-weight="600">C ABI</text>
+      <text x="220" y="214" fill="#2d3142" font-size="16" font-weight="600" font-family="'Geist', sans-serif">Puente rust_bridge.h</text>
+      <text x="860" y="214" fill="#bf4520" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end" letter-spacing="0.08em">structs POD #[repr(C)], tamaño fijo</text>
+
+      <!-- L2 · Rust -->
+      <rect x="120" y="240" width="760" height="112" fill="#f5f5f5"/>
+      <line x1="120" y1="352" x2="880" y2="352" stroke="rgba(45,49,66,0.12)" stroke-width="1"/>
+      <text x="140" y="272" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">RUST</text>
+      <text x="220" y="274" fill="#2d3142" font-size="16" font-weight="600" font-family="'Geist', sans-serif">Núcleo: decide con reglas puras</text>
+      <text x="860" y="274" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end" letter-spacing="0.08em">rust/vegaflow-core</text>
+      <text x="220" y="300" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace">ffi.rs: todas las vf_rust_*</text>
+      <text x="220" y="318" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace">policy/: cpu_governor · uma_memory · sandbox_core · apu_tier · path_policy</text>
+      <text x="220" y="336" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace">nt_memory.rs: lee y purga las listas de memoria</text>
+
+      <!-- L1 · Kernel NT -->
+      <rect x="120" y="352" width="760" height="104" fill="#ececec"/>
+      <text x="140" y="384" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">NT</text>
+      <text x="220" y="386" fill="#2d3142" font-size="16" font-weight="600" font-family="'Geist', sans-serif">Kernel de Windows</text>
+      <text x="860" y="386" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="end" letter-spacing="0.08em">ntdll.dll · kernel32.dll</text>
+      <text x="220" y="412" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace">desde Rust: NtQuerySystemInformation(80) · NtSetSystemInformation(purga)</text>
+      <text x="220" y="430" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace">desde C++: SetProcessDefaultCpuSets · EcoQoS · E/S VeryLow</text>
+
+      <!-- Pie -->
+      <text x="120" y="512" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">CAPA FOCAL</text>
+      <text x="216" y="512" fill="#4f5d75" font-size="9" font-family="'Geist', sans-serif" font-style="italic">Las decisiones cruzan el puente C: C++ pregunta, Rust responde con números y C++ aplica la respuesta.</text>
+    </svg>
+    </div>
+  </div>
+</body>
+</html>

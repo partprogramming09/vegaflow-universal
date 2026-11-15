@@ -1,9 +1,11 @@
 #include "session/reports.hpp"
 
-#include <windows.h>
-
 #include <cstdint>
+#include <cstdio>
 #include <cstdlib>
+#include <ctime>
+#include <filesystem>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
@@ -18,8 +20,10 @@
 #include "optimize/cpu_orchestrator.hpp"
 #include "optimize/steam/steam_engine_optimizer.hpp"
 #include "optimize/dxvk_manager.hpp"
-#include <tlhelp32.h>
-#include "session/text_convert.hpp"
+#include "windows/power.hpp"
+#include "windows/registry.hpp"
+#include "windows/system_counters.hpp"
+#include "windows/text_convert.hpp"
 
 namespace vegaflow::app {
 
@@ -41,57 +45,42 @@ std::string FormatBytes(uint64_t bytes) {
 
 } // namespace
 
-uint32_t CountEcoQoSProcesses() {
-    uint32_t count = 0;
-    HANDLE hSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-    if (hSnap != INVALID_HANDLE_VALUE) {
-        PROCESSENTRY32W pe{};
-        pe.dwSize = sizeof(pe);
-        if (Process32FirstW(hSnap, &pe)) {
-            do {
-                if (pe.th32ProcessID <= 4) continue;
-                HANDLE hProc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pe.th32ProcessID);
-                if (hProc) {
-                    PROCESS_POWER_THROTTLING_STATE throttling{};
-                    throttling.Version = PROCESS_POWER_THROTTLING_CURRENT_VERSION;
-                    if (GetProcessInformation(hProc, ProcessPowerThrottling, &throttling, sizeof(throttling))) {
-                        if (throttling.StateMask & PROCESS_POWER_THROTTLING_EXECUTION_SPEED) {
-                            count++;
-                        }
-                    }
-                    CloseHandle(hProc);
-                }
-            } while (Process32NextW(hSnap, &pe));
+bool SaveSessionReportToFile(
+    const std::string& game_name,
+    const std::string& api_name,
+    uint32_t pid,
+    const std::string& file_path) {
+    try {
+        std::filesystem::path p(file_path);
+        std::ofstream out(p, std::ios::app);
+        if (!out.is_open() && p.has_parent_path()) {
+            std::error_code ec;
+            std::filesystem::create_directories(p.parent_path(), ec);
+            out.clear();
+            out.open(p, std::ios::app);
         }
-        CloseHandle(hSnap);
-    }
-    return count;
-}
+        if (!out.is_open()) {
+            return false;
+        }
 
-uint32_t CountDirectFlipConfiguredGames() {
-    uint32_t count = 0;
-    HKEY hPref = nullptr;
-    if (RegOpenKeyExW(HKEY_CURRENT_USER, L"Software\\Microsoft\\DirectX\\UserGpuPreferences", 0, KEY_READ, &hPref) == ERROR_SUCCESS) {
-        DWORD index = 0;
-        wchar_t val_name[MAX_PATH];
-        DWORD val_name_len = MAX_PATH;
-        DWORD val_type = 0;
-        wchar_t val_data[512];
-        DWORD val_data_len = sizeof(val_data);
-        while (RegEnumValueW(hPref, index++, val_name, &val_name_len, nullptr, &val_type, reinterpret_cast<LPBYTE>(val_data), &val_data_len) == ERROR_SUCCESS) {
-            if (val_type == REG_SZ) {
-                std::wstring data_str(val_data);
-                for (auto& c : data_str) c = static_cast<wchar_t>(std::towlower(c));
-                if (data_str.find(L"autoflipmodel=1") != std::wstring::npos && data_str.find(L"directflip=1") != std::wstring::npos) {
-                    count++;
-                }
-            }
-            val_name_len = MAX_PATH;
-            val_data_len = sizeof(val_data);
-        }
-        RegCloseKey(hPref);
+        const std::time_t now = std::time(nullptr);
+        std::tm tm_local{};
+        localtime_s(&tm_local, &now);
+        char time_buf[64] = {0};
+        std::strftime(time_buf, sizeof(time_buf), "[%Y-%m-%d %H:%M:%S] ", &tm_local);
+
+        out << time_buf << "Session Report: " << game_name << "\n"
+            << "========================================================\n"
+            << " VEGAFLOW SESSION REPORT: " << game_name << "\n"
+            << "========================================================\n"
+            << " Target PID            : " << pid << "\n"
+            << " Render API            : " << (api_name.empty() ? "N/A" : api_name) << "\n"
+            << "========================================================\n\n";
+        out.flush();
+        return !out.fail();
+    } catch (...) {
+        return false;
     }
-    return count;
 }
 
 void PrintStatusReport() {
@@ -105,9 +94,13 @@ void PrintStatusReport() {
     MemoryManager mem_mgr(mem_cfg);
     SystemMemoryTelemetry mem = mem_mgr.SampleTelemetry();
 
-    TimerResolutionState timer = GraphicsOptimizer::QueryTimerResolution();
-    SystemGraphicsTweaksState tweaks = GraphicsOptimizer::QuerySystemGraphicsTweaks();
-    std::vector<ShaderCacheReport> shader_caches = GraphicsOptimizer::InspectShaderCaches();
+    WindowsRegistryPort reg;
+    WindowsPowerPort power;
+    ApuOptimizationPolicy policy = HardwareProfiler::BuildOptimizationPolicy(hw, mem.vram.local_budget_bytes);
+    GraphicsOptimizer gfx(hw, policy, reg, &power);
+
+    SystemGraphicsTweaksState tweaks = gfx.QuerySystemGraphicsTweaks();
+    std::vector<ShaderCacheReport> shader_caches = gfx.Display().InspectShaderCaches();
     std::vector<uint32_t> noisy_pids = ProcessDetector::FindBackgroundNoisyProcesses();
     uint64_t daemon_ram_bytes = MemoryManager::GetCurrentProcessPrivateWorkingSetBytes();
 
@@ -147,47 +140,58 @@ void PrintStatusReport() {
     std::cout << "  EcoQoS Throttled Processes : " << ecoqos_count << " processes in Efficiency Mode (Thermal Headroom for APU)\n\n";
 
     std::cout << "[GPU & GRAPHICS ARCHITECTURE]\n";
-    std::cout << "  Primary Adapter Description: " << (hw.primary_gpu.description.empty() ? "Standard Display Adapter" : WideToUtf8(hw.primary_gpu.description)) << "\n";
+    std::cout << "  Primary Adapter Description: " << (hw.primary_gpu.description.empty() ? "No se pudo leer" : WideToUtf8(hw.primary_gpu.description)) << "\n";
+    std::cout << "  GPU Connection             : " << HardwareProfiler::ConnectionToString(hw.primary_gpu.connection)
+              << " (DXCore: " << (hw.dxcore_available ? "YES" : "NO") << ")\n";
     std::cout << "  Vendor                     : " << HardwareProfiler::VendorToString(hw.primary_gpu.vendor)
               << " (PCI ID: 0x" << std::hex << hw.primary_gpu.vendor_id << ":0x" << hw.primary_gpu.device_id << std::dec << ")\n";
     std::cout << "  Memory Architecture        : " << HardwareProfiler::MemArchToString(hw.primary_gpu.mem_arch) << "\n";
+    std::cout << "  System Arch / Power        : " << HardwareProfiler::SystemArchToString(hw.system_arch) << " / "
+              << (!hw.power_status.known ? "No se pudo leer" : (hw.power_status.ac_online ? "Enchufado" : "Con bateria"))
+              << (hw.power_status.battery_saver ? " [Ahorro de bateria]" : "") << "\n";
     std::cout << "  Dedicated Video Memory     : " << FormatBytes(hw.primary_gpu.dedicated_vram_bytes) << "\n";
     std::cout << "  Shared System Memory       : " << FormatBytes(hw.primary_gpu.shared_system_bytes) << "\n\n";
 
-    ApuOptimizationPolicy policy = HardwareProfiler::BuildOptimizationPolicy(hw, mem.vram.local_budget_bytes);
     UmaGuardStatus uma_guard = mem_mgr.EvaluateUmaPressureGuard(mem, policy, {}, true);
 
     std::cout << "[APU CAPABILITY GUARD & DX11/DX12 POLICY]\n";
     std::cout << "  Detected APU Tier & Guard  : " << policy.tier_label << "\n";
     std::cout << "  GPU Architecture Gen       : " << HardwareProfiler::ArchGenToString(policy.arch_gen) << "\n";
+    std::cout << "  Visual Cuts / UMA Guard    : " << (policy.apply_visual_cuts ? "YES (UMA)" : "NO (ShaderCache only)")
+              << " / " << (policy.apply_uma_memory_guard ? "ENABLED" : "DISABLED") << "\n";
     std::cout << "  Safe UMA VRAM / Shared Pool: " << policy.safe_vram_pool_mb << " MB / " << policy.safe_shared_pool_mb << " MB (OS Floor: " << policy.os_reserve_floor_mb << " MB)\n";
     std::cout << "  DX11 Specialization        : DXVK Compiler Threads=" << policy.dxvk_compiler_threads << ", AMD Tessellation Cap=" << policy.amd_tessellation_cap << "x, Max Anisotropy=" << policy.max_anisotropy << "x\n";
     std::cout << "  DX12 Specialization        : AsyncCompute=" << (policy.disable_dx12_async_compute ? "DISABLED (UMA Contention Guard)" : "ENABLED (Do-No-Harm Guard)")
               << ", UE CSM=" << policy.ue_max_csm_resolution << "px (" << policy.ue_max_shadow_cascades << " cascades)\n";
     std::cout << "  CPU STAPM Thermal Ceiling  : " << (policy.cpu_stapm_cap_mhz == 0 ? "UNCAPPED 100% CPU+GPU (Smart Efficient-Aggressive + EPP 25)" : (std::to_string(policy.cpu_stapm_cap_mhz) + " MHz (Sustained GPU Priority)")) << "\n";
-    std::cout << "  Live DXGI Budget Pressure  : " << static_cast<int>(uma_guard.dxgi_budget_utilization * 100.0) << "% (Threshold: 85% -> " << (uma_guard.guard_triggered ? "PRESSURE GUARD ACTIVE" : "HEALTHY") << ")\n\n";
+    const int uma_thresh_pct = static_cast<int>(policy.runtime_pressure_threshold * 100.0 + 0.5);
+    std::cout << "  Live DXGI Budget Pressure  : " << static_cast<int>(uma_guard.dxgi_budget_utilization * 100.0) << "% (Threshold: " << uma_thresh_pct << "% -> " << (uma_guard.guard_triggered ? "PRESSURE GUARD ACTIVE" : "HEALTHY") << ")\n\n";
 
     std::cout << "[SYSTEM GRAPHICS TWEAKS]\n";
-    std::cout << "  Multi-Plane Overlay (MPO)  : " << (tweaks.mpo_disabled ? "DISABLED (OverlayTestMode=5, Stutter-Free)" : "ENABLED (Windows Default)") << "\n";
-    std::cout << "  AMD ShaderCache Mode       : " << (tweaks.amd_shader_cache_forced ? "FORCED ON (0x3200, Stutter Elimination)" : "Driver Default (AMD Optimized)") << "\n";
-    std::cout << "  AMD DX11/UMA Driver Boost  : " << (tweaks.amd_dx11_uma_boost ? "ACTIVE (SurfaceFormat FP16 + FlipQueue=1)" : "Driver Default") << "\n";
-    std::cout << "  AMD VRAM Reporting Pool    : " << (tweaks.amd_vram_override_active ? ("FORCED (" + std::to_string(tweaks.amd_vram_reported_mb > 0 ? tweaks.amd_vram_reported_mb : 4096) + " MB DXGI/AMD)") : ("Driver Default (" + std::to_string(tweaks.amd_vram_reported_mb > 0 ? tweaks.amd_vram_reported_mb : 512) + " MB)")) << "\n";
-    std::cout << "  MMCSS WDDM Gaming Profile  : " << (tweaks.mmcss_gaming_optimized ? "OPTIMIZED (GPU Priority=8, SystemResponsiveness=10%)" : "Windows Default (GPU Priority=2)") << "\n";
+    std::cout << "  Multi-Plane Overlay (MPO)  : " << (tweaks.mpo_disabled ? "DISABLED (OverlayTestMode=5, undocumented)" : "ENABLED (Windows Default)") << "\n";
+    if (gfx.AmdDriver()) {
+        std::cout << "  AMD ShaderCache Mode       : " << (tweaks.amd_shader_cache_forced ? "FORCED ON (0x3200, Stutter Elimination)" : "Driver Default (AMD Optimized)") << "\n";
+        std::cout << "  AMD DX11/UMA Driver Boost  : " << (tweaks.amd_dx11_uma_boost ? "ACTIVE (SurfaceFormat FP16 + FlipQueue=1)" : "Driver Default") << "\n";
+        std::cout << "  AMD VRAM Reporting Pool    : " << (tweaks.amd_vram_override_active ? ("FORCED (" + std::to_string(tweaks.amd_vram_reported_mb > 0 ? tweaks.amd_vram_reported_mb : 4096) + " MB DXGI/AMD)") : ("Driver Default (" + std::to_string(tweaks.amd_vram_reported_mb > 0 ? tweaks.amd_vram_reported_mb : 512) + " MB)")) << "\n";
+        std::cout << "  AMD Tessellation Limiter   : " << ((tweaks.amd_tessellation_max > 0 && tweaks.amd_tessellation_max <= 16) ? (std::to_string(tweaks.amd_tessellation_max) + "x (Over-Geometry Capped)") : (tweaks.amd_dx11_uma_boost ? "16x (Over-Geometry Capped)" : (tweaks.amd_tessellation_max > 0 ? (std::to_string(tweaks.amd_tessellation_max) + "x (Driver Setting)") : "16x (Over-Geometry Capped)"))) << "\n";
+    } else {
+        std::cout << "  AMD Driver Tweaks          : N/A (GPU no AMD o driver tweaks bloqueados)\n";
+    }
+    std::cout << "  MMCSS WDDM Gaming Profile  : " << (tweaks.mmcss_gaming_optimized ? "OPTIMIZED (SystemResponsiveness=10%, High Priority)" : "Windows Default") << "\n";
     std::cout << "  GameDVR & FSE Bypass       : " << (tweaks.gamedvr_disabled ? "OPTIMIZED (Background Capture Off + FSE Mode 2)" : "DEFAULT (Windows DVR Active)") << "\n";
     std::cout << "  APU Laptop Power & Bus     : " << (tweaks.apu_power_optimized ? "ACTIVE (Boost Efficient-Aggressive + PCIe ASPM Off)" : "STANDARD (Windows Default)") << "\n";
     std::cout << "  CPU Quantum Separation     : 0x" << std::hex << tweaks.win32_priority_separation << std::dec << "\n";
-    std::cout << "  Windows Memory Compression : " << (tweaks.memory_compression_enabled ? "ACTIVE (MemCompression Process)" : "DISABLED (Zero CPU Spikes / Low Latency)") << "\n";
+    std::cout << "  Windows Memory Compression : " << (tweaks.memory_compression_enabled ? "ACTIVE (MemCompression Process)" : "DISABLED") << "\n";
     std::cout << "  Kernel Memory Paging Shield: " << (tweaks.kernel_paging_shield_active ? "ACTIVE (DisablePagingExecutive=1, RAM Lock)" : "DEFAULT (Paging Allowed)") << "\n";
-    std::cout << "  AMD Tessellation Limiter   : " << ((tweaks.amd_tessellation_max > 0 && tweaks.amd_tessellation_max <= 16) ? (std::to_string(tweaks.amd_tessellation_max) + "x (Over-Geometry Capped)") : (tweaks.amd_dx11_uma_boost ? "16x (Over-Geometry Capped)" : (tweaks.amd_tessellation_max > 0 ? (std::to_string(tweaks.amd_tessellation_max) + "x (Driver Setting)") : "16x (Over-Geometry Capped)"))) << "\n";
 
     uint32_t df_count = CountDirectFlipConfiguredGames();
     auto active_game = ProcessDetector::DetectActiveGame();
-    bool directflip_live = active_game.has_value() && GraphicsOptimizer::HasDirectFlipUpgrade(active_game->full_path);
+    bool directflip_live = active_game.has_value() && gfx.DxgiFlip().HasDirectFlipUpgrade(active_game->full_path);
     std::string df_status;
     if (directflip_live) {
-        df_status = "ACTIVE (" + WideToUtf8(active_game->exe_name) + " - Latency 0ms / Zero-Copy Bypass)";
+        df_status = "ACTIVE (" + WideToUtf8(active_game->exe_name) + ")";
     } else if (df_count > 0) {
-        df_status = "CONFIGURED (" + std::to_string(df_count) + " Games with AutoFlip/DirectFlip, Latency 0ms)";
+        df_status = "CONFIGURED (" + std::to_string(df_count) + " Games with AutoFlip/DirectFlip)";
     } else {
         df_status = "READY (AutoFlipModel=1 & DirectFlip=1 Injection on Launch)";
     }
@@ -209,12 +213,6 @@ void PrintStatusReport() {
         std::cout << "  Local VRAM Usage / Budget  : N/A (Standard DXGI query unavailable)\n";
     }
     std::cout << "\n";
-
-    std::cout << "[WINDOWS TIMER RESOLUTION]\n";
-    std::cout << "  Current Resolution         : " << (static_cast<double>(timer.current_ns100) / 10000.0) << " ms (" << timer.current_ns100 << " in 100ns units)\n";
-    std::cout << "  Minimum (Default) Res      : " << (static_cast<double>(timer.minimum_ns100) / 10000.0) << " ms (" << timer.minimum_ns100 << " in 100ns units)\n";
-    std::cout << "  Maximum (High-Precision)   : " << (static_cast<double>(timer.maximum_ns100) / 10000.0) << " ms (" << timer.maximum_ns100 << " in 100ns units)\n";
-    std::cout << "  High-Precision Active      : " << (timer.active_high_res ? "YES" : "NO") << "\n\n";
 
     std::cout << "[SHADER CACHES DETECTED]\n";
     if (shader_caches.empty()) {
@@ -256,7 +254,7 @@ void PrintStatusReport() {
     std::cout << "  Background Noisy PIDs Found: " << noisy_pids.size() << " processes\n";
     std::cout << "  Daemon Private Working Set : " << (static_cast<double>(daemon_ram_bytes) / (1024.0 * 1024.0)) << " MB ("
               << (daemon_ram_bytes / 1024) << " KB)\n";
-    std::cout << "  Zero-Overhead KPI Target   : < 15.00 MB -> "
+    std::cout << "  Idle RAM target (daemon)  : < 15.00 MB -> "
               << (daemon_ram_bytes < 15ULL * 1024 * 1024 ? "PASSED (Optimal)" : "WARNING") << "\n";
     std::cout << "================================================================================\n";
 }
@@ -305,7 +303,7 @@ void ExecuteDryRun(const AppConfig& config) {
     CpuOrchestrator cpu_orchestrator;
 
     std::cout << "[1/4] Scanning foreground processes for 3D Game / Graphics API...\n";
-    auto game_opt = ProcessDetector::DetectActiveGame(config.custom_game_exes);
+    auto game_opt = ProcessDetector::DetectActiveGame(config.process_policy);
 
     if (game_opt.has_value()) {
         const auto& game = *game_opt;
@@ -316,24 +314,31 @@ void ExecuteDryRun(const AppConfig& config) {
         std::cout << "  -> Presenter Thread ID: " << game.presenter_thread_id << "\n\n";
 
         std::cout << "[2/4] [DRY-RUN] Graphics Optimizations Evaluation:\n";
-        std::cout << "  -> High-Precision Timer: Would call NtSetTimerResolution(" << config.timer_resolution_ns100 << ", TRUE) [0.5 ms target]\n";
-        bool flip_already = GraphicsOptimizer::HasDxgiFlipModelUpgrade(game.full_path);
+        WindowsRegistryPort reg;
+        DxgiFlipTweaks flip(reg);
+        bool flip_already = flip.HasFlipModelUpgrade(game.full_path);
         std::cout << "  -> DXGI Flip Model Upgrade: " << (flip_already ? "Already enabled in registry" : "Would set SwapEffectUpgradeEnable=1 in HKCU UserGpuPreferences") << "\n";
-        GraphicsOptimizer::ApplyDxgiFlipModelUpgrade(game.full_path, true /* dry_run */);
+        flip.ApplyFlipModelUpgrade(game.full_path, true /* dry_run */);
         std::cout << "\n";
 
         std::cout << "[3/4] [DRY-RUN] CPU Orchestrator Evaluation:\n";
-        auto bg_pids = ProcessDetector::FindBackgroundNoisyProcesses(game.pid);
-        std::cout << "  -> Background Noisy Processes to Isolate: " << bg_pids.size() << " PIDs\n";
+        auto bg_targets = ProcessDetector::ClassifyBackgroundProcesses(game.pid, config.process_policy);
+        std::vector<uint32_t> bg_pids;
+        bg_pids.reserve(bg_targets.size());
+        for (const auto& t : bg_targets) {
+            if (t.action == ProcessAction::Throttle) bg_pids.push_back(t.pid);
+        }
+        std::cout << "  -> Background Processes Classified : " << bg_targets.size() << " PIDs\n";
         bool is_dx12 = (game.api == RenderApi::DirectX12 || game.api == RenderApi::Vulkan);
         const std::vector<ULONG> no_sets;
         auto cpu_res = cpu_orchestrator.ApplyOptimizations(
             game.pid,
+            game.creation_time,
             game.presenter_thread_id,
             is_dx12,
             config.restrict_game_cpu_sets ? hw.cpu_topology.game_optimal_cpu_set_ids : no_sets,
             hw.cpu_topology.background_cpu_set_ids,
-            bg_pids,
+            bg_targets,
             true /* dry_run */);
 
         std::cout << "  -> Game Handle Access Level: " << (cpu_res.game_handle_full_access ? "Full (PROCESS_SET_INFORMATION)" : "Degraded Read-Only (Anti-Cheat safe)") << "\n";
@@ -341,7 +346,7 @@ void ExecuteDryRun(const AppConfig& config) {
         std::cout << "  -> Game CPU Sets Targeted  : " << hw.cpu_topology.game_optimal_cpu_set_ids.size() << " cores\n";
         std::cout << "  -> Background Isolated Sets: " << hw.cpu_topology.background_cpu_set_ids.size() << " cores\n\n";
 
-        std::cout << "[4/4] [DRY-RUN] Memory Manager Evaluation (Zero-Stutter Hysteresis):\n";
+        std::cout << "[4/4] [DRY-RUN] Memory Manager Evaluation (hysteresis):\n";
         auto mem_res = mem_mgr.EvaluateAndOptimize(game.pid, bg_pids, true /* dry_run */);
         std::cout << "  -> Standby Purge Triggered : " << (mem_res.standby_purged ? "YES" : "NO") << "\n";
         std::cout << "  -> Background Trim Triggered: " << (mem_res.background_processes_trimmed > 0 ? "YES" : "NO") << " (" << mem_res.background_processes_trimmed << " processes)\n";
@@ -354,18 +359,24 @@ void ExecuteDryRun(const AppConfig& config) {
         std::cout << "  -> No foreground 3D game currently detected.\n";
         std::cout << "  -> Demonstrating evaluation on background processes under simulated game conditions:\n\n";
 
-        auto bg_pids = ProcessDetector::FindBackgroundNoisyProcesses(0);
-        std::cout << "[2/4] [DRY-RUN] High-Precision Timer: Would set timer resolution to " << config.timer_resolution_ns100 << " (0.5 ms)\n\n";
+        auto bg_targets = ProcessDetector::ClassifyBackgroundProcesses(0, config.process_policy);
+        std::vector<uint32_t> bg_pids;
+        bg_pids.reserve(bg_targets.size());
+        for (const auto& t : bg_targets) {
+            if (t.action == ProcessAction::Throttle) bg_pids.push_back(t.pid);
+        }
+        std::cout << "[2/4] [DRY-RUN] Graphics / Registry Tweaks: Idle (applied on game launch)\n\n";
 
         std::cout << "[3/4] [DRY-RUN] CPU Orchestrator Evaluation:\n";
-        std::cout << "  -> Background Processes Found: " << bg_pids.size() << " PIDs\n";
+        std::cout << "  -> Background Processes Found: " << bg_targets.size() << " PIDs\n";
         auto cpu_res = cpu_orchestrator.ApplyOptimizations(
+            0,
             0,
             0,
             false,
             hw.cpu_topology.game_optimal_cpu_set_ids,
             hw.cpu_topology.background_cpu_set_ids,
-            bg_pids,
+            bg_targets,
             true /* dry_run */);
         std::cout << "  -> Background Sets to confine: " << hw.cpu_topology.background_cpu_set_ids.size() << " core IDs (Isolated in dry-run: " << cpu_res.background_processes_isolated << " targets)\n\n";
 

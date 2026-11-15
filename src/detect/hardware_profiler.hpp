@@ -11,9 +11,12 @@ namespace vegaflow {
 
 class HardwareProfiler {
 public:
-    static SystemHardwareProfile DetectHardware();
+    static SystemHardwareProfile DetectHardware(bool include_displays = false);
     static const char* VendorToString(GpuVendor v);
     static const char* MemArchToString(MemoryArchitecture m);
+    static const char* ConnectionToString(GpuConnection c);
+    static const char* DiskTypeToString(GameDiskType d);
+    static const char* SystemArchToString(SystemArch a);
     static ApuOptimizationPolicy BuildOptimizationPolicy(const SystemHardwareProfile& profile, uint64_t live_dxgi_local_budget_bytes = 0);
     static const char* ApuTierToString(ApuTier tier);
     static const char* ArchGenToString(GpuArchitectureGen gen);

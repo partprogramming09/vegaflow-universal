@@ -21,7 +21,7 @@ RUST_LIB="rust/vegaflow-core/target/$TARGET/release/libvegaflow_core.a"
 
 COMPILE_FLAGS=(-std=c++20 -O2 -Wall -Wextra -Isrc)
 LINK_FLAGS=(-static -static-libgcc -static-libstdc++)
-LIBS=(-lntdll -ldxgi -ladvapi32 -lpsapi -luser32 -lole32 -lgdi32 -lshell32 -ldwmapi -ltdh -lws2_32 -luserenv -lbcrypt)
+LIBS=(-lntdll -ldxgi -ladvapi32 -lpsapi -luser32 -lole32 -lgdi32 -lshell32 -ldwmapi -lws2_32 -luserenv -lbcrypt)
 
 OBJ_DIR="build/obj"
 rm -rf "$OBJ_DIR"

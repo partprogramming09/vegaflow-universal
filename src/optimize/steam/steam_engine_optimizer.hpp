@@ -2,6 +2,7 @@
 
 #include "model/hardware.hpp"
 #include "ports/file_system.hpp"
+#include "ports/registry.hpp"
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -58,7 +59,8 @@ struct ApuShadowConfig {
 // through the FileSystem port given to the constructor (the real one is windows/SafeFileSystem, i.e. SandboxGuard).
 class SteamEngineOptimizer {
 public:
-    explicit SteamEngineOptimizer(FileSystem& fs) : fs_(fs) {}
+    explicit SteamEngineOptimizer(FileSystem& fs, RegistryPort* reg = nullptr)
+        : fs_(fs), reg_(reg) {}
 
     // Reads HKCU\Software\Valve\Steam -> RunningAppID (0 if no Steam game is running)
     static uint32_t GetRunningSteamAppId();
@@ -70,7 +72,11 @@ public:
     static std::vector<SteamGameEntry> ScanSteamLibrary();
 
     // Inspects an arbitrary game install folder to determine its main executable, graphics engine and Anti-Cheat presence
-    static SteamGameEntry InspectGameDirectory(const std::wstring& install_dir, uint32_t app_id = 0, const std::string& name = "");
+    static SteamGameEntry InspectGameDirectory(
+        const std::wstring& install_dir,
+        uint32_t app_id = 0,
+        const std::string& name = "",
+        RegistryPort* reg = nullptr);
 
     // Generates the UMA configuration block for Engine.ini according to the hardware policy and VRAM pool
     static std::string GenerateUnrealUmaBlock(const ApuOptimizationPolicy& policy, uint32_t vram_pool_mb_override = 0);
@@ -105,6 +111,7 @@ public:
 
 private:
     FileSystem& fs_;
+    RegistryPort* reg_ = nullptr;
 };
 
 } // namespace vegaflow

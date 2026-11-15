@@ -1,5 +1,7 @@
 # PARTE II: Caso de Estudio Real en Motor Comercial (*Octopath Traveler II* — Unreal Engine 4 HD-2D)
 
+**Lector:** personas
+
 ## 2.1 Contexto de Prueba y Protocolo en Escena Real
 
 Para validar el comportamiento en un escenario comercial complejo, se ejecutó una serie exhaustiva de mediciones sobre **Octopath Traveler II** (`Octopath_Traveler2-Win64-Shipping.exe`), un título desarrollado sobre **Unreal Engine 4** representativo de la arquitectura gráfica moderna de iluminación dinámica múltiple sobre geometría tridimensional estilizada (*HD-2D*).

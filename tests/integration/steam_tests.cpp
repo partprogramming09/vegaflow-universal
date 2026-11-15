@@ -24,9 +24,9 @@
 #include "detect/hardware_profiler.hpp"
 #include "detect/process_detector.hpp"
 #include "optimize/graphics/graphics_optimizer.hpp"
+#include "windows/registry.hpp"
 #include "optimize/memory_manager.hpp"
 #include "optimize/cpu_orchestrator.hpp"
-#include "safety/frame_telemetry.hpp"
 #include "optimize/steam/steam_engine_optimizer.hpp"
 #include "optimize/dxvk_manager.hpp"
 #include "windows/sandbox_guard.hpp"
@@ -38,7 +38,7 @@
 #include "../test_support.hpp"
 #include "windows/safe_file_system.hpp"
 #include "windows/steam_paths.hpp"
-#include "session/text_convert.hpp"
+#include "windows/text_convert.hpp"
 
 namespace vftest {
 
@@ -172,7 +172,9 @@ void Test14() {
         if (hMutex1) CloseHandle(hMutex1);
 
         // 2. Non-blocking MMAgent dry-run check
-        bool mem_comp_dry_ok = vegaflow::GraphicsOptimizer::SetMemoryCompressionEnabled(true, true /* dry_run */);
+        vegaflow::WindowsRegistryPort reg;
+        vegaflow::KernelSchedulerTweaks kernel_tweaks(reg);
+        bool mem_comp_dry_ok = kernel_tweaks.SetMemoryCompressionEnabled(true, true /* dry_run */);
 
         // 3. Safe Steam RunningAppID query
         uint32_t running_app_id = vegaflow::SteamEngineOptimizer::GetRunningSteamAppId();
@@ -206,7 +208,7 @@ void Test24() {
         std::filesystem::create_directories(test_dir, ec);
 
         std::filesystem::path ini_path = test_dir / "Engine.ini";
-        std::filesystem::path bak_path = test_dir / "Engine.ini.bak";
+        std::filesystem::path bak_path = test_dir / "Engine.ini.vegaflow.bak";
 
         // 1. Create an initial Engine.ini with other sections and keys
         std::string initial_ini = 

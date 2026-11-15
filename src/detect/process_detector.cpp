@@ -27,7 +27,192 @@ std::wstring ExtractFileName(const std::wstring& path) {
     return path;
 }
 
+std::string WideToUtf8Local(const std::wstring& w) {
+    if (w.empty()) return {};
+    int needed = WideCharToMultiByte(CP_UTF8, 0, w.data(), static_cast<int>(w.size()), nullptr, 0, nullptr, nullptr);
+    if (needed <= 0) return {};
+    std::string out(static_cast<size_t>(needed), '\0');
+    WideCharToMultiByte(CP_UTF8, 0, w.data(), static_cast<int>(w.size()), out.data(), needed, nullptr, nullptr);
+    return out;
+}
+
+uint64_t FileTimeToU64(const FILETIME& ft) {
+    ULARGE_INTEGER u{};
+    u.LowPart = ft.dwLowDateTime;
+    u.HighPart = ft.dwHighDateTime;
+    return u.QuadPart;
+}
+
+bool QueryProcessImageAndTime(uint32_t pid, std::wstring& out_full_path, uint64_t& out_creation_time) {
+    out_full_path.clear();
+    out_creation_time = 0;
+    if (pid == 0 || pid == 4) return false;
+    HANDLE hProcess = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+    if (!hProcess) return false;
+
+    wchar_t path_buffer[MAX_PATH * 4] = {0};
+    DWORD size = static_cast<DWORD>(std::size(path_buffer));
+    if (QueryFullProcessImageNameW(hProcess, 0, path_buffer, &size)) {
+        out_full_path.assign(path_buffer, size);
+    }
+
+    FILETIME created{}, exited{}, kernel{}, user{};
+    if (GetProcessTimes(hProcess, &created, &exited, &kernel, &user)) {
+        out_creation_time = FileTimeToU64(created);
+    }
+
+    CloseHandle(hProcess);
+    return true;
+}
+
+bool HasActiveAntiCheatService() {
+    static const wchar_t* const kAcServices[] = {
+        L"EasyAntiCheat",
+        L"EasyAntiCheat_EOS",
+        L"BEService",
+        L"BEDaisy",
+        L"vgc",
+        L"HoYoKProtect",
+        L"mhyprot2",
+        L"AntiCheatExpert",
+        L"SGuard64",
+        L"npggsvc",
+    };
+
+    SC_HANDLE scm = OpenSCManagerW(nullptr, nullptr, SC_MANAGER_CONNECT);
+    if (!scm) return false;
+
+    bool found = false;
+    for (const wchar_t* svc_name : kAcServices) {
+        SC_HANDLE svc = OpenServiceW(scm, svc_name, SERVICE_QUERY_STATUS);
+        if (svc) {
+            SERVICE_STATUS status{};
+            if (QueryServiceStatus(svc, &status) && status.dwCurrentState == SERVICE_RUNNING) {
+                found = true;
+            }
+            CloseServiceHandle(svc);
+            if (found) break;
+        }
+    }
+    CloseServiceHandle(scm);
+    return found;
+}
+
+HWND FindPrimaryGameWindow(uint32_t pid) {
+    struct WindowSearchContext {
+        DWORD target_pid;
+        HWND best_hwnd;
+    } ctx{ pid, nullptr };
+
+    EnumWindows([](HWND hwnd, LPARAM lParam) -> BOOL {
+        auto* c = reinterpret_cast<WindowSearchContext*>(lParam);
+        DWORD win_pid = 0;
+        GetWindowThreadProcessId(hwnd, &win_pid);
+        if (win_pid == c->target_pid && IsWindowVisible(hwnd)) {
+            RECT rc{};
+            if (GetWindowRect(hwnd, &rc)) {
+                int width = rc.right - rc.left;
+                int height = rc.bottom - rc.top;
+                if (width > 100 && height > 100) {
+                    c->best_hwnd = hwnd;
+                    return FALSE;
+                }
+            }
+            if (!c->best_hwnd) {
+                c->best_hwnd = hwnd;
+            }
+        }
+        return TRUE;
+    }, reinterpret_cast<LPARAM>(&ctx));
+
+    return ctx.best_hwnd;
+}
+
+struct PreparedPolicyBuffers {
+    std::string custom_nul;
+    std::string excluded_nul;
+    std::vector<std::string> ex_names;
+    std::vector<VfProcessExceptionEntry> ex_entries;
+    VfProcessCategoryActions categories{};
+    bool heavy_work_as_game = false;
+
+    explicit PreparedPolicyBuffers(const ProcessPolicyConfig& policy)
+        : heavy_work_as_game(policy.heavy_work_as_game) {
+        categories.recording_streaming = static_cast<uint8_t>(policy.category_actions.recording_streaming);
+        categories.calls_voice = static_cast<uint8_t>(policy.category_actions.calls_voice);
+        categories.messaging = static_cast<uint8_t>(policy.category_actions.messaging);
+        categories.browsers = static_cast<uint8_t>(policy.category_actions.browsers);
+        categories.stores_launchers = static_cast<uint8_t>(policy.category_actions.stores_launchers);
+        categories.music = static_cast<uint8_t>(policy.category_actions.music);
+        categories.cloud_sync = static_cast<uint8_t>(policy.category_actions.cloud_sync);
+
+        for (const auto& exe : policy.custom_game_exes) {
+            custom_nul += WideToUtf8Local(ExtractFileName(exe));
+            custom_nul.push_back('\0');
+        }
+        for (const auto& exe : policy.excluded_game_exes) {
+            excluded_nul += WideToUtf8Local(ExtractFileName(exe));
+            excluded_nul.push_back('\0');
+        }
+        ex_names.reserve(policy.exceptions.size());
+        ex_entries.reserve(policy.exceptions.size());
+        for (const auto& ex : policy.exceptions) {
+            ex_names.push_back(WideToUtf8Local(ExtractFileName(ex.exe_name)));
+        }
+        for (size_t i = 0; i < policy.exceptions.size(); ++i) {
+            VfProcessExceptionEntry e{};
+            e.exe_ptr = ex_names[i].empty() ? nullptr : reinterpret_cast<const uint8_t*>(ex_names[i].data());
+            e.exe_len = ex_names[i].size();
+            e.action = static_cast<uint8_t>(policy.exceptions[i].action);
+            ex_entries.push_back(e);
+        }
+    }
+
+    VfProcessDecision Classify(
+        const std::wstring& full_path,
+        const std::wstring& exe_name,
+        bool is_foreground_3d,
+        bool has_anticheat_signal) const {
+
+        const std::string fp_utf8 = WideToUtf8Local(full_path);
+        const std::string exe_utf8 = WideToUtf8Local(exe_name);
+        VfProcessClassifyInput inp{};
+        inp.full_path_ptr = fp_utf8.empty() ? nullptr : reinterpret_cast<const uint8_t*>(fp_utf8.data());
+        inp.full_path_len = fp_utf8.size();
+        inp.exe_name_ptr = exe_utf8.empty() ? nullptr : reinterpret_cast<const uint8_t*>(exe_utf8.data());
+        inp.exe_name_len = exe_utf8.size();
+        inp.category_actions = categories;
+        inp.exceptions_ptr = ex_entries.empty() ? nullptr : ex_entries.data();
+        inp.exceptions_count = ex_entries.size();
+        inp.custom_games_nul_ptr = custom_nul.empty() ? nullptr : reinterpret_cast<const uint8_t*>(custom_nul.data());
+        inp.custom_games_nul_len = custom_nul.size();
+        inp.excluded_games_nul_ptr = excluded_nul.empty() ? nullptr : reinterpret_cast<const uint8_t*>(excluded_nul.data());
+        inp.excluded_games_nul_len = excluded_nul.size();
+        inp.heavy_work_as_game = heavy_work_as_game;
+        inp.is_foreground_3d = is_foreground_3d;
+        inp.has_anticheat_signal = has_anticheat_signal;
+
+        VfProcessDecision dec{};
+        if (!vf_rust_classify_process(&inp, &dec)) {
+            dec.process_class = VF_PROC_CLASS_UNKNOWN;
+            dec.action = VF_PROC_ACTION_DO_NOT_TOUCH;
+        }
+        return dec;
+    }
+};
+
 } // anonymous namespace
+
+VfProcessDecision ProcessDetector::ClassifyProcess(
+    const std::wstring& full_path,
+    const std::wstring& exe_name,
+    const ProcessPolicyConfig& policy,
+    bool is_foreground_3d,
+    bool has_anticheat_signal) {
+
+    PreparedPolicyBuffers prep(policy);
+    return prep.Classify(full_path, exe_name, is_foreground_3d, has_anticheat_signal);
+}
 
 const char* ProcessDetector::RenderApiToString(RenderApi api) {
     switch (api) {
@@ -41,140 +226,78 @@ const char* ProcessDetector::RenderApiToString(RenderApi api) {
 }
 
 bool ProcessDetector::IsSystemOrExcludedProcess(const std::wstring& exe_name) {
-    std::wstring name = ToLower(ExtractFileName(exe_name));
+    const std::wstring name = ExtractFileName(exe_name);
     if (name.empty()) {
         return true;
     }
-
-    static const wchar_t* const kExcludedProcesses[] = {
-        // System and core OS processes
-        L"system",
-        L"registry",
-        L"smss.exe",
-        L"csrss.exe",
-        L"wininit.exe",
-        L"services.exe",
-        L"lsass.exe",
-        L"svchost.exe",
-        L"fontdrvhost.exe",
-        L"winlogon.exe",
-        L"sihost.exe",
-        L"spoolsv.exe",
-        L"dwm.exe",
-        L"explorer.exe",
-        L"taskhostw.exe",
-        L"shellexperiencehost.exe",
-        L"startmenuexperiencehost.exe",
-        L"searchhost.exe",
-        L"searchindexer.exe",
-        L"searchapp.exe",
-        L"systemsettings.exe",
-        L"applicationframehost.exe",
-        L"textinputhost.exe",
-        L"runtimebroker.exe",
-        L"ctfmon.exe",
-        L"securityhealthservice.exe",
-        L"securityhealthsystray.exe",
-        L"smartscreen.exe",
-        L"audiodg.exe",
-        L"conhost.exe",
-        L"taskmgr.exe",
-        L"wlanext.exe",
-        L"dashost.exe",
-        L"dllhost.exe",
-        L"wmpnetwk.exe",
-
-        // Web browsers that utilize D3D11/D3D12 hardware acceleration
-        L"chrome.exe",
-        L"msedge.exe",
-        L"firefox.exe",
-        L"brave.exe",
-        L"opera.exe",
-        L"operagx.exe",
-        L"vivaldi.exe",
-
-        // Chat & Store helpers that render with embedded Chromium / Direct3D
-        L"discord.exe",
-        L"discordcanary.exe",
-        L"discordptb.exe",
-        L"steamwebhelper.exe",
-
-        // IDEs, Terminals and Developer tools
-        L"devenv.exe",
-        L"code.exe",
-        L"trae.exe",
-        L"powershell.exe",
-        L"pwsh.exe",
-        L"cmd.exe",
-        L"windowsterminal.exe",
-        L"openconsole.exe",
-
-        // VegaFlow daemon and tools
-        L"vegaflow_daemon.exe",
-        L"vegaflow_daemon.old.exe",
-        L"vegaflow.exe"
-    };
-
-    for (const auto* excluded : kExcludedProcesses) {
-        if (name == excluded) {
-            return true;
-        }
-    }
-
-    return false;
+    const ProcessPolicyConfig default_policy{};
+    const VfProcessDecision dec = ClassifyProcess(L"", name, default_policy, true, false);
+    return dec.process_class == VF_PROC_CLASS_WINDOWS_SYSTEM || dec.action != VF_PROC_ACTION_BOOST_AS_GAME;
 }
 
-std::optional<DetectedGameProcess> ProcessDetector::InspectProcess(uint32_t pid, HWND hwnd_hint) {
+std::optional<DetectedGameProcess> ProcessDetector::InspectProcess(
+    uint32_t pid,
+    HWND hwnd_hint,
+    const ProcessPolicyConfig& policy) {
+
     if (pid == 0 || pid == 4) {
         return std::nullopt;
     }
 
-    // Anti-Cheat safety rule: ONLY PROCESS_QUERY_LIMITED_INFORMATION
-    HANDLE hProcess = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
-    if (!hProcess) {
+    std::wstring full_path;
+    uint64_t creation_time = 0;
+    if (!QueryProcessImageAndTime(pid, full_path, creation_time)) {
         return std::nullopt;
     }
-
-    wchar_t path_buffer[MAX_PATH * 4] = {0};
-    DWORD size = static_cast<DWORD>(std::size(path_buffer));
-    std::wstring full_path;
-    if (QueryFullProcessImageNameW(hProcess, 0, path_buffer, &size)) {
-        full_path.assign(path_buffer, size);
-    }
-    CloseHandle(hProcess);
 
     std::wstring exe_name = ExtractFileName(full_path);
-    if (!exe_name.empty() && IsSystemOrExcludedProcess(exe_name)) {
-        return std::nullopt;
-    }
 
-    // Inspect modules safely
+    // Inspect modules safely (only TH32CS_SNAPMODULE)
     HANDLE hSnap = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE | TH32CS_SNAPMODULE32, pid);
     if (hSnap == INVALID_HANDLE_VALUE) {
-        // Protected process or Anti-Cheat preventing module snapshot
-        return std::nullopt;
+        // Protected process (e.g. anti-cheat) blocking module enumeration: only boost if explicitly in custom games and permitted by Rust.
+        const bool ac_signal = (GetLastError() == ERROR_ACCESS_DENIED) || HasActiveAntiCheatService();
+        const VfProcessDecision dec = ClassifyProcess(full_path, exe_name, policy, false, ac_signal);
+        if (dec.action != VF_PROC_ACTION_BOOST_AS_GAME) {
+            return std::nullopt;
+        }
+        HWND target_hwnd = hwnd_hint ? hwnd_hint : FindPrimaryGameWindow(pid);
+        DetectedGameProcess result{};
+        result.pid = pid;
+        result.creation_time = creation_time;
+        result.exe_name = exe_name;
+        result.full_path = full_path;
+        result.api = RenderApi::Unknown;
+        result.main_window = target_hwnd;
+        result.presenter_thread_id = target_hwnd ? static_cast<uint32_t>(GetWindowThreadProcessId(target_hwnd, nullptr)) : 0;
+        result.generic_anticheat_detected = dec.protected_by_anticheat || ac_signal;
+        return result;
     }
 
-    MODULEENTRY32W me;
+    MODULEENTRY32W me{};
     me.dwSize = sizeof(MODULEENTRY32W);
 
     bool has_d3d12 = false;
     bool has_vulkan = false;
     bool has_d3d11 = false;
     bool has_d3d9_10 = false;
+    bool module_ac_signal = false;
     std::wstring driver_dll;
 
     if (Module32FirstW(hSnap, &me)) {
         do {
             if (exe_name.empty()) {
                 exe_name = me.szModule;
-                if (IsSystemOrExcludedProcess(exe_name)) {
-                    CloseHandle(hSnap);
-                    return std::nullopt;
-                }
             }
 
             std::wstring mod_lower = ToLower(me.szModule);
+
+            if (!module_ac_signal) {
+                const std::string mod_utf8 = WideToUtf8Local(mod_lower);
+                if (!mod_utf8.empty() && vf_rust_has_anticheat_signature(mod_utf8.data(), mod_utf8.size())) {
+                    module_ac_signal = true;
+                }
+            }
 
             // API detection
             if (mod_lower == L"d3d12.dll" || mod_lower == L"d3d12core.dll") {
@@ -216,54 +339,46 @@ std::optional<DetectedGameProcess> ProcessDetector::InspectProcess(uint32_t pid,
         api = RenderApi::DirectX9_10;
     }
 
-    if (api == RenderApi::Unknown) {
+    const bool has_3d_api = (api != RenderApi::Unknown);
+    const bool ac_signal = module_ac_signal || HasActiveAntiCheatService();
+    const VfProcessDecision dec = ClassifyProcess(full_path, exe_name, policy, has_3d_api, ac_signal);
+
+    // Reject Windows system processes, browsers, Slack/Teams/Discord/Spotify/OBS/IDEs, excluded games, etc.
+    if (dec.action != VF_PROC_ACTION_BOOST_AS_GAME) {
         return std::nullopt;
     }
 
-    HWND target_hwnd = hwnd_hint;
-    if (!target_hwnd) {
-        struct WindowSearchContext {
-            DWORD target_pid;
-            HWND best_hwnd;
-        } ctx{ pid, nullptr };
-
-        EnumWindows([](HWND hwnd, LPARAM lParam) -> BOOL {
-            auto* c = reinterpret_cast<WindowSearchContext*>(lParam);
-            DWORD win_pid = 0;
-            GetWindowThreadProcessId(hwnd, &win_pid);
-            if (win_pid == c->target_pid && IsWindowVisible(hwnd)) {
-                RECT rc;
-                if (GetWindowRect(hwnd, &rc)) {
-                    int width = rc.right - rc.left;
-                    int height = rc.bottom - rc.top;
-                    if (width > 100 && height > 100) {
-                        c->best_hwnd = hwnd;
-                        return FALSE; // Found primary game window
-                    }
-                }
-                if (!c->best_hwnd) {
-                    c->best_hwnd = hwnd;
-                }
+    if (!has_3d_api && dec.process_class != VF_PROC_CLASS_HEAVY_WORK) {
+        // Non-heavy-work process only qualifies without loaded 3D DLLs if explicitly requested in custom_game_exes
+        bool in_custom = false;
+        const std::wstring exe_lower = ToLower(exe_name);
+        for (const auto& ce : policy.custom_game_exes) {
+            if (exe_lower == ToLower(ExtractFileName(ce))) {
+                in_custom = true;
+                break;
             }
-            return TRUE;
-        }, reinterpret_cast<LPARAM>(&ctx));
-
-        target_hwnd = ctx.best_hwnd;
+        }
+        if (!in_custom) {
+            return std::nullopt;
+        }
     }
 
+    HWND target_hwnd = hwnd_hint ? hwnd_hint : FindPrimaryGameWindow(pid);
     uint32_t presenter_tid = 0;
     if (target_hwnd) {
         presenter_tid = static_cast<uint32_t>(GetWindowThreadProcessId(target_hwnd, nullptr));
     }
 
-    DetectedGameProcess result;
+    DetectedGameProcess result{};
     result.pid = pid;
+    result.creation_time = creation_time;
     result.exe_name = exe_name;
     result.full_path = full_path;
     result.api = api;
     result.driver_dll_loaded = driver_dll;
     result.main_window = target_hwnd;
     result.presenter_thread_id = presenter_tid;
+    result.generic_anticheat_detected = dec.protected_by_anticheat || ac_signal;
 
     return result;
 }
@@ -285,7 +400,7 @@ bool ProcessDetector::IsProcessAlive(uint32_t pid) {
     return (ok && exit_code == STILL_ACTIVE);
 }
 
-std::optional<DetectedGameProcess> ProcessDetector::DetectActiveGame(const std::vector<std::wstring>& custom_game_exes) {
+std::optional<DetectedGameProcess> ProcessDetector::DetectActiveGame(const ProcessPolicyConfig& policy) {
     std::set<DWORD> inspected_pids;
     const DWORD my_pid = GetCurrentProcessId();
 
@@ -296,33 +411,28 @@ std::optional<DetectedGameProcess> ProcessDetector::DetectActiveGame(const std::
         GetWindowThreadProcessId(fg, &pid);
         if (pid != 0 && pid != 4 && pid != my_pid) {
             inspected_pids.insert(pid);
-            auto result = InspectProcess(pid, fg);
+            auto result = InspectProcess(pid, fg, policy);
             if (result.has_value()) {
                 return result;
             }
         }
     }
 
-    // 2. Alt+Tab resilience: if the foreground window is NOT a game,
-    // enumerate visible windows with EnumWindows
+    // 2. Alt+Tab resilience: inspect visible top-level windows >= 640x480
     struct BackgroundSearchContext {
-        const std::vector<std::wstring>* custom_game_exes = nullptr;
+        const ProcessPolicyConfig* policy = nullptr;
         std::set<DWORD>* inspected_pids = nullptr;
         std::optional<DetectedGameProcess> found_game;
         DWORD self_pid = 0;
     } ctx;
-    ctx.custom_game_exes = &custom_game_exes;
+    ctx.policy = &policy;
     ctx.inspected_pids = &inspected_pids;
     ctx.self_pid = my_pid;
 
     EnumWindows([](HWND hwnd, LPARAM lParam) -> BOOL {
         auto* c = reinterpret_cast<BackgroundSearchContext*>(lParam);
 
-        if (!IsWindowVisible(hwnd)) {
-            return TRUE;
-        }
-
-        if (GetWindow(hwnd, GW_OWNER) != nullptr) {
+        if (!IsWindowVisible(hwnd) || GetWindow(hwnd, GW_OWNER) != nullptr) {
             return TRUE;
         }
 
@@ -331,56 +441,38 @@ std::optional<DetectedGameProcess> ProcessDetector::DetectActiveGame(const std::
             valid_size = true;
         } else {
             RECT rc{};
-            if (GetClientRect(hwnd, &rc)) {
-                int width = rc.right - rc.left;
-                int height = rc.bottom - rc.top;
-                if (width >= 640 && height >= 480) {
-                    valid_size = true;
-                }
-            }
-            if (!valid_size && GetWindowRect(hwnd, &rc)) {
-                int width = rc.right - rc.left;
-                int height = rc.bottom - rc.top;
-                if (width >= 640 && height >= 480) {
-                    valid_size = true;
-                }
+            if (GetClientRect(hwnd, &rc) && (rc.right - rc.left) >= 640 && (rc.bottom - rc.top) >= 480) {
+                valid_size = true;
+            } else if (GetWindowRect(hwnd, &rc) && (rc.right - rc.left) >= 640 && (rc.bottom - rc.top) >= 480) {
+                valid_size = true;
             }
         }
-
         if (!valid_size) {
             return TRUE;
         }
 
         DWORD pid = 0;
         GetWindowThreadProcessId(hwnd, &pid);
-        if (pid == 0 || pid == 4 || pid == c->self_pid) {
-            return TRUE;
-        }
-
-        if (c->inspected_pids->find(pid) != c->inspected_pids->end()) {
+        if (pid == 0 || pid == 4 || pid == c->self_pid || c->inspected_pids->count(pid)) {
             return TRUE;
         }
         c->inspected_pids->insert(pid);
 
-        auto inspected = InspectProcess(pid, hwnd);
+        auto inspected = InspectProcess(pid, hwnd, *(c->policy));
         if (inspected.has_value()) {
             bool in_custom = false;
-            if (c->custom_game_exes) {
-                std::wstring proc_name = ToLower(inspected->exe_name);
-                for (const auto& custom_exe : *(c->custom_game_exes)) {
-                    if (proc_name == ToLower(ExtractFileName(custom_exe))) {
-                        in_custom = true;
-                        break;
-                    }
+            const std::wstring proc_name = ToLower(inspected->exe_name);
+            for (const auto& custom_exe : c->policy->custom_game_exes) {
+                if (proc_name == ToLower(ExtractFileName(custom_exe))) {
+                    in_custom = true;
+                    break;
                 }
             }
-
             if (inspected->api != RenderApi::Unknown && (!inspected->driver_dll_loaded.empty() || in_custom)) {
                 c->found_game = inspected;
-                return FALSE; // Stop enumeration, game found
+                return FALSE;
             }
         }
-
         return TRUE;
     }, reinterpret_cast<LPARAM>(&ctx));
 
@@ -388,47 +480,50 @@ std::optional<DetectedGameProcess> ProcessDetector::DetectActiveGame(const std::
         return ctx.found_game;
     }
 
-    // 3. If custom_game_exes is provided, search running processes via snapshot
-    if (!custom_game_exes.empty()) {
+    // 3. Fallback scan for custom_game_exes through Rust classification (never bypasses exclusions!)
+    if (!policy.custom_game_exes.empty()) {
         HANDLE hSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
         if (hSnap != INVALID_HANDLE_VALUE) {
-            PROCESSENTRY32W pe;
+            PROCESSENTRY32W pe{};
             pe.dwSize = sizeof(PROCESSENTRY32W);
+            PreparedPolicyBuffers prep(policy);
+            const bool service_ac = HasActiveAntiCheatService();
 
             if (Process32FirstW(hSnap, &pe)) {
                 do {
-                    if (pe.th32ProcessID == 0 || pe.th32ProcessID == 4) {
+                    if (pe.th32ProcessID == 0 || pe.th32ProcessID == 4 || pe.th32ProcessID == my_pid) {
                         continue;
                     }
 
-                    std::wstring proc_name = ToLower(pe.szExeFile);
-                    for (const auto& custom_exe : custom_game_exes) {
+                    const std::wstring proc_name = ToLower(pe.szExeFile);
+                    bool listed_custom = false;
+                    for (const auto& custom_exe : policy.custom_game_exes) {
                         if (proc_name == ToLower(ExtractFileName(custom_exe))) {
-                            auto inspected = InspectProcess(pe.th32ProcessID, nullptr);
-                            if (inspected.has_value()) {
-                                CloseHandle(hSnap);
-                                return inspected;
-                            }
-
-                            // If InspectProcess returned nullopt (e.g. anti-cheat protected modules or still initializing),
-                            // construct a DetectedGameProcess based on explicit custom match
-                            DetectedGameProcess custom_match;
-                            custom_match.pid = pe.th32ProcessID;
-                            custom_match.exe_name = pe.szExeFile;
-
-                            HANDLE hProc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pe.th32ProcessID);
-                            if (hProc) {
-                                wchar_t path_buffer[MAX_PATH * 4] = {0};
-                                DWORD size = static_cast<DWORD>(std::size(path_buffer));
-                                if (QueryFullProcessImageNameW(hProc, 0, path_buffer, &size)) {
-                                    custom_match.full_path.assign(path_buffer, size);
-                                }
-                                CloseHandle(hProc);
-                            }
-
-                            CloseHandle(hSnap);
-                            return custom_match;
+                            listed_custom = true;
+                            break;
                         }
+                    }
+                    if (!listed_custom) continue;
+
+                    auto inspected = InspectProcess(pe.th32ProcessID, nullptr, policy);
+                    if (inspected.has_value()) {
+                        CloseHandle(hSnap);
+                        return inspected;
+                    }
+
+                    std::wstring full_path;
+                    uint64_t creation_time = 0;
+                    QueryProcessImageAndTime(pe.th32ProcessID, full_path, creation_time);
+                    const VfProcessDecision dec = prep.Classify(full_path, pe.szExeFile, false, service_ac);
+                    if (dec.action == VF_PROC_ACTION_BOOST_AS_GAME) {
+                        DetectedGameProcess custom_match{};
+                        custom_match.pid = pe.th32ProcessID;
+                        custom_match.creation_time = creation_time;
+                        custom_match.exe_name = pe.szExeFile;
+                        custom_match.full_path = full_path;
+                        custom_match.generic_anticheat_detected = dec.protected_by_anticheat || service_ac;
+                        CloseHandle(hSnap);
+                        return custom_match;
                     }
                 } while (Process32NextW(hSnap, &pe));
             }
@@ -439,82 +534,67 @@ std::optional<DetectedGameProcess> ProcessDetector::DetectActiveGame(const std::
     return std::nullopt;
 }
 
-std::vector<uint32_t> ProcessDetector::FindBackgroundNoisyProcesses(uint32_t active_game_pid) {
-    std::vector<uint32_t> noisy_pids;
+std::optional<DetectedGameProcess> ProcessDetector::DetectActiveGame(const std::vector<std::wstring>& custom_game_exes) {
+    ProcessPolicyConfig policy{};
+    policy.custom_game_exes = custom_game_exes;
+    return DetectActiveGame(policy);
+}
 
-    static const wchar_t* const kNoisyExes[] = {
-        // Browsers
-        L"chrome.exe",
-        L"msedge.exe",
-        L"firefox.exe",
-        L"brave.exe",
-        L"opera.exe",
-        L"operagx.exe",
-        L"vivaldi.exe",
-        L"chromium.exe",
+std::vector<BackgroundProcessTarget> ProcessDetector::ClassifyBackgroundProcesses(
+    uint32_t active_game_pid,
+    const ProcessPolicyConfig& policy) {
 
-        // Communication / Chat
-        L"discord.exe",
-        L"discordcanary.exe",
-        L"discordptb.exe",
-        L"slack.exe",
-        L"teams.exe",
-        L"ms-teams.exe",
-        L"skype.exe",
-        L"telegram.exe",
-        L"whatsapp.exe",
-
-        // Game Launchers and store helpers
-        L"steamwebhelper.exe",
-        L"epicgameslauncher.exe",
-        L"battlenet.exe",
-        L"origin.exe",
-        L"eadesktop.exe",
-        L"ubisoftconnect.exe",
-        L"upc.exe",
-        L"galaxyclient.exe",
-        L"riotclientservices.exe",
-
-        // Streaming / Overlays / Media
-        L"obs64.exe",
-        L"obs32.exe",
-        L"streamlabs obs.exe",
-        L"overwolf.exe",
-        L"overwolfbrowser.exe",
-        L"spotify.exe",
-
-        // Cloud Sync
-        L"onedrive.exe",
-        L"googledrivefs.exe",
-        L"dropbox.exe"
-    };
-
+    std::vector<BackgroundProcessTarget> targets;
     HANDLE hSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
     if (hSnap == INVALID_HANDLE_VALUE) {
-        return noisy_pids;
+        return targets;
     }
 
-    PROCESSENTRY32W pe;
+    const DWORD my_pid = GetCurrentProcessId();
+    PreparedPolicyBuffers prep(policy);
+    PROCESSENTRY32W pe{};
     pe.dwSize = sizeof(PROCESSENTRY32W);
 
     if (Process32FirstW(hSnap, &pe)) {
         do {
-            if (pe.th32ProcessID == 0 || pe.th32ProcessID == 4 || pe.th32ProcessID == active_game_pid) {
+            if (pe.th32ProcessID == 0 || pe.th32ProcessID == 4 ||
+                pe.th32ProcessID == active_game_pid || pe.th32ProcessID == my_pid) {
                 continue;
             }
 
-            std::wstring exe_lower = ToLower(pe.szExeFile);
-            for (const auto* noisy : kNoisyExes) {
-                if (exe_lower == noisy) {
-                    noisy_pids.push_back(pe.th32ProcessID);
-                    break;
-                }
+            std::wstring full_path;
+            uint64_t creation_time = 0;
+            QueryProcessImageAndTime(pe.th32ProcessID, full_path, creation_time);
+
+            const VfProcessDecision dec = prep.Classify(full_path, pe.szExeFile, false, false);
+            if (dec.action == VF_PROC_ACTION_ECO_ONLY || dec.action == VF_PROC_ACTION_THROTTLE) {
+                BackgroundProcessTarget t{};
+                t.pid = pe.th32ProcessID;
+                t.creation_time = creation_time;
+                t.exe_name = pe.szExeFile;
+                t.full_path = std::move(full_path);
+                t.process_class = static_cast<ProcessClass>(dec.process_class);
+                t.action = static_cast<ProcessAction>(dec.action);
+                targets.push_back(std::move(t));
             }
         } while (Process32NextW(hSnap, &pe));
     }
 
     CloseHandle(hSnap);
-    return noisy_pids;
+    return targets;
+}
+
+std::vector<uint32_t> ProcessDetector::FindBackgroundNoisyProcesses(
+    uint32_t active_game_pid,
+    const ProcessPolicyConfig& policy) {
+
+    auto targets = ClassifyBackgroundProcesses(active_game_pid, policy);
+    std::vector<uint32_t> pids;
+    pids.reserve(targets.size());
+    for (const auto& t : targets) {
+        pids.push_back(t.pid);
+    }
+    return pids;
 }
 
 } // namespace vegaflow

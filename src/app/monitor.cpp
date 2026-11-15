@@ -12,11 +12,11 @@
 #include "optimize/graphics/graphics_optimizer.hpp"
 #include "optimize/memory_manager.hpp"
 #include "optimize/cpu_orchestrator.hpp"
-#include "safety/frame_telemetry.hpp"
 #include "app/app_state.hpp"
 #include "windows/safe_file_system.hpp"
+#include "session/reports.hpp"
 #include "session/run_cycle.hpp"
-#include "session/text_convert.hpp"
+#include "windows/text_convert.hpp"
 
 namespace vegaflow::app {
 
@@ -25,7 +25,6 @@ void RunMonitorDashboard(
     vegaflow::SystemHardwareProfile& hw,
     vegaflow::CpuOrchestrator& cpu_orchestrator,
     vegaflow::MemoryManager& mem_mgr,
-    vegaflow::FrameTelemetryMonitor& telemetry_monitor,
     bool once_mode) {
 
     using namespace vegaflow;
@@ -35,28 +34,24 @@ void RunMonitorDashboard(
     std::wstring active_game_exe;
     std::string active_game_api;
     HWND active_game_hwnd = nullptr;
-    bool timer_boosted = false;
 
     std::cout << "====================================================================================================\n";
     std::cout << "                               VEGAFLOW LIVE TELEMETRY DASHBOARD\n";
     std::cout << "====================================================================================================\n";
-    std::cout << "[RAM Libre | Standby List | VRAM Local | Timer | Juego Activo + API | Avg FPS | 1% Low | 0.1% Low | StdDev ms]\n";
+    std::cout << "[RAM Libre | Standby List | VRAM Local | Juego Activo + API]\n";
     std::cout << "----------------------------------------------------------------------------------------------------\n";
 
     auto print_line = [&]() {
         RunSingleIteration(
-            config, file_system, hw, cpu_orchestrator, mem_mgr, telemetry_monitor,
-            game_active, active_game_pid, active_game_exe, active_game_api, active_game_hwnd, timer_boosted);
+            config, file_system, hw, cpu_orchestrator, mem_mgr,
+            game_active, active_game_pid, active_game_exe, active_game_api, active_game_hwnd);
 
         auto mem = mem_mgr.SampleTelemetry();
-        auto timer = GraphicsOptimizer::QueryTimerResolution();
-        auto snap = telemetry_monitor.GetSnapshot();
 
         uint64_t free_mb = mem.free_and_zero_bytes / (1024 * 1024);
         uint64_t standby_mb = mem.standby_bytes / (1024 * 1024);
         uint64_t vram_used_mb = mem.vram.local_usage_bytes / (1024 * 1024);
         uint64_t vram_budget_mb = mem.vram.local_budget_bytes / (1024 * 1024);
-        double timer_ms = static_cast<double>(timer.current_ns100) / 10000.0;
 
         std::string game_info = game_active ? (WideToUtf8(active_game_exe) + " (" + active_game_api + ")") : "Ninguno";
 
@@ -65,12 +60,7 @@ void RunMonitorDashboard(
            << "RAM Lib: " << free_mb << " MB | "
            << "Standby: " << standby_mb << " MB | "
            << "VRAM: " << vram_used_mb << "/" << vram_budget_mb << " MB | "
-           << "Timer: " << std::fixed << std::setprecision(1) << timer_ms << "ms | "
-           << "Juego: " << game_info << " | "
-           << "Avg: " << std::setprecision(1) << snap.avg_fps << " FPS | "
-           << "1% Low: " << std::setprecision(1) << snap.fps_1_percent_low << " | "
-           << "0.1% Low: " << std::setprecision(1) << snap.fps_0_1_percent_low << " | "
-           << "StdDev: " << std::setprecision(2) << snap.frametime_stddev_ms << "ms"
+           << "Juego: " << game_info
            << "]";
         std::cout << ss.str() << "\n";
     };
@@ -78,10 +68,8 @@ void RunMonitorDashboard(
     if (once_mode) {
         print_line();
         if (game_active) {
-            telemetry_monitor.SaveSessionReportToFile(WideToUtf8(active_game_exe), "logs/session_reports.log");
+            SaveSessionReportToFile(WideToUtf8(active_game_exe), active_game_api, active_game_pid, "logs/session_reports.log");
             cpu_orchestrator.RestoreAll(false);
-            if (timer_boosted) GraphicsOptimizer::RestoreDefaultTimer();
-            telemetry_monitor.StopMonitoring();
         }
         return;
     }
@@ -98,10 +86,8 @@ void RunMonitorDashboard(
     }
 
     if (game_active) {
-        telemetry_monitor.SaveSessionReportToFile(WideToUtf8(active_game_exe), "logs/session_reports.log");
+        SaveSessionReportToFile(WideToUtf8(active_game_exe), active_game_api, active_game_pid, "logs/session_reports.log");
         cpu_orchestrator.RestoreAll(false);
-        if (timer_boosted) GraphicsOptimizer::RestoreDefaultTimer();
-        telemetry_monitor.StopMonitoring();
     }
     if (g_stop_event) {
         CloseHandle(g_stop_event);

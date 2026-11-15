@@ -1,6 +1,6 @@
 # Paquete de VegaFlow para el ejecutor de WinBridge
 
-Los 10 trabajos de `vfjob` (`state`, `doctor`, `restore`, `daemon-start`, `daemon-stop`, `game`, `kill-game`, `bench`, `ab`, `bg-factors`) como paquete del ejecutor de WinBridge (`/Volumes/dev/winbridge/docs/JOBS.md`). `manifest.json` tiene los mismos parámetros, regex y límites que `install_runner.ps1`, más `env.PRESENTMON_EXE`. Los scripts son los mismos archivos de este repositorio, sin cambios:
+Los 10 trabajos de `vfjob` (`state`, `doctor`, `restore`, `daemon-start`, `daemon-stop`, `game`, `kill-game`, `bench`, `ab`, `bg-factors`) como paquete del ejecutor de WinBridge (`docs/JOBS.md` del repositorio de WinBridge). `manifest.json` tiene los mismos parámetros, regex y límites que `install_runner.ps1`, más `env.PRESENTMON_EXE`. Los scripts son los mismos archivos de este repositorio, sin cambios:
 
 | Trabajo | Script |
 | --- | --- |

@@ -1,36 +1,14 @@
 # Seguridad: anti-cheat y SandboxGuard
 
+**Lector:** personas
+
 ## 3. Seguridad Absoluta Frente a Sistemas Anti-Cheat y Subsistema SandboxGuard
 
 VegaFlow Universal implementa una política de seguridad estricta e inviolable: **bajo ninguna circunstancia se inyectarán DLLs ni se modificarán archivos de juegos protegidos por sistemas Anti-Cheat.** Toda operación sobre el disco y los procesos se rige por un modelo de aislamiento y contención formalizado en el módulo [`SandboxGuard`](../../src/windows/sandbox_guard.hpp).
 
-```
-+------------------------------------------------------------------------------------+
-|                         MATRIZ DE DECISIÓN DE SEGURIDAD                            |
-+------------------------------------------------------------------------------------+
-|                                                                                    |
-|                     ¿Se detecta tecnología Anti-Cheat?                             |
-|       (HoYoKProtect, Vanguard, EAC, BattlEye, ACE, mhypbase, etc.)                 |
-|                                                                                    |
-|                   /                                   \                            |
-|                 SÍ                                     NO                          |
-|                /                                         \                         |
-|   +-----------------------------+        +-----------------------------------+     |
-|   |   RUTA DE OPTIMIZACIÓN      |        |   RUTA DE OPTIMIZACIÓN COMPLETA   |     |
-|   |         NO INVASIVA         |        |         (NATIVA + MOTOR)          |     |
-|   +-----------------------------+        +-----------------------------------+     |
-|   | 1. DXGI Flip Model vía      |        | 1. DXGI Flip Model (Registro).    |     |
-|   |    registro de Windows.     |        | 2. CPU Sets cooperativos.         |     |
-|   | 2. CPU Sets cooperativos.   |        | 3. DXVK-GPLAsync en carpeta.      |     |
-|   | 3. Temporizador NT a 0.5 ms |        | 4. Presets UMA Engine.ini /       |     |
-|   | 4. MMCSS Gaming GPU Prio 8. |        |    boot.config con .vegaflow.bak  |     |
-|   | 5. PROHIBIDO MODIFICAR O    |        | 5. Purga de memoria inteligente.  |     |
-|   |    INYECTAR ARCHIVOS        |        |                                   |     |
-|   |    (LOCKDOWN TOTAL SANDBOX) |        |                                   |     |
-|   +-----------------------------+        +-----------------------------------+     |
-|                                                                                    |
-+------------------------------------------------------------------------------------+
-```
+![Matriz de decisión: con anti-cheat, ruta no invasiva que solo cambia ajustes de Windows y prohíbe modificar o inyectar archivos; sin anti-cheat, ruta completa con DXVK, presets del motor y purga de memoria](../diagrams/matriz-seguridad-anticheat.png)
+
+[Ver el diagrama a pantalla completa](../diagrams/matriz-seguridad-anticheat.html)
 
 ### Firmas Monitoreadas en Tiempo Real:
 - **EasyAntiCheat**: `easyanticheat`, `EasyAntiCheat_EOS.dll`
@@ -93,4 +71,18 @@ Implementado en [`src/windows/sandbox_guard.hpp`](../../src/windows/sandbox_guar
 
 6. **Auditoría y Registro de Violaciones (`SandboxViolationRecord`)**:
    - Cada intento de acceso no autorizado registra un evento con marca de tiempo precisa en milisegundos (`timestamp_ms`), la acción solicitada (`SandboxAction`), el motivo técnico (`SandboxDenialReason`) y un mensaje explicativo para trazabilidad forense.
+
+7. **Editor seguro de `.ini` y `boot.config` de juegos** (fase 2, 2026-11-12):
+   - Toda modificación pasa por [`ini_merge.rs`](../../rust/vegaflow-core/src/policy/ini_merge.rs) en Rust y por [`FileSystem`](../../src/ports/file_system.hpp) en C++ ([`engine_presets.cpp`](../../src/optimize/steam/engine_presets.cpp), [`apu_shadow_config.cpp`](../../src/optimize/steam/apu_shadow_config.cpp)).
+   - Copia de seguridad única `.vegaflow.bak` (la restauración acepta `.bak` heredada si no existe `.vegaflow.bak`). Si la copia falla antes de editar, la operación se detiene y el archivo original queda intacto.
+   - Al restaurar se copia el respaldo y se comprueba igualdad **byte a byte** antes de borrar `.vegaflow.bak`.
+   - Conserva UTF-8, UTF-8 con BOM, UTF-16 LE/BE con BOM y finales de línea originales (CRLF, LF o mezclados), solo modifica su bloque (`; [VegaFlowUMA_Start]`..`; [VegaFlowUMA_End]`) o las claves indicadas, colapsa claves repetidas en `boot.config` de Unity y falla sin borrar texto si falta un marcador de cierre. Casos compartidos en [`tests/vectors/ini/`](../../tests/vectors/ini/) y Prueba 48.
+
+8. **Diario de cambios y recuperación ante cierres anormales** (fase 2b, 2026-11-12):
+   - Definido en los puertos [`ChangeJournal` y `SystemUndoPort`](../../src/ports/change_journal.hpp), implementado en [`windows/change_journal.*`](../../src/windows/change_journal.cpp) y orquestado en [`session/restore.*`](../../src/session/restore.cpp).
+   - Se guarda en `<carpeta del .exe>\config\change_journal.vfj` mediante reemplazo atómico (`FileSystem::Replace`, formato TSV con escapado estricto y respaldo completo de los últimos 200 eventos).
+   - **Antes** de modificar un valor (registro, plan de energía, compresión de memoria, DXGI por juego, archivo de configuración de juego o prioridad/afinidad de un proceso comprobando su hora de creación `GetProcessTimes` para evitar reutilización de PID), se escribe una entrada `PENDING` con su estado original; **después** pasa a `COMMITTED`.
+   - Si al arrancar el cierre anterior no fue limpio o quedan cambios pendientes, ofrece devolverlos e informa exactamente cuántos se devolvieron (`"Se devolvieron X de Y"`) y los pasos manuales de los que fallen.
+   - **Modo seguro:** tras dos cierres anormales seguidos (`consecutive_unclean_exits >= 2`), VegaFlow arranca sin aplicar ajustes nuevos y avisa. `--once` también restaura sus ajustes temporales al salir.
+   - Un diario corrupto avisa sin bloquear el arranque y permite usar `--restore-registry` sobre los respaldos directos. Antes del primer cambio de registro ofrece una sola vez crear un punto de restauración de Windows (`SRSetRestorePointW` en `srclient.dll`). Pruebas: 49 (puerto falso) y 50 (disco y registro real en `HKCU` + `Engine.ini`).
 

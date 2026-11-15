@@ -1,0 +1,36 @@
+# Memory purge & UMA pressure guard decision vectors, shared by Rust tests and C++ unit tests.
+# Section 1: Purge/guard decisions (tab-separated, 16 columns)
+# 0: name
+# 1: ram_mb
+# 2: free_mb
+# 3: standby_mb
+# 4: vram_budget_mb
+# 5: vram_usage_mb
+# 6: vram_valid (0|1)
+# 7: memory_lists_valid (0|1)
+# 8: is_uma_gpu (0|1)
+# 9: min_free_mb
+# 10: min_standby_mb
+# 11: disk_read_mb_s
+# 12: max_disk_mb_s
+# 13: elapsed_since_purge_s (-1 = never purged)
+# 14: cooldown_s
+# 15: expected_outcome (NONE|PURGE_AND_TRIM|UMA_TRIM_ONLY|COOLDOWN|DISK_IO|INVALID)
+healthy_uma_idle	16384	8192	512	4096	1800	1	1	1	1200	1500	0	15	-1	90	NONE
+vram_84_percent_below_threshold	16384	4000	2048	4096	3481	1	1	1	1200	1500	0	15	-1	90	NONE
+vram_exactly_85_percent_with_standby_purges	16384	4000	2048	4000	3400	1	1	1	1200	1500	0	15	-1	90	PURGE_AND_TRIM
+vram_90_percent_low_standby_trims_uma_only	16384	4000	512	4096	3686	1	1	1	1200	1500	0	15	-1	90	UMA_TRIM_ONLY
+low_free_ram_and_high_standby_purges	16384	900	2000	4096	1000	1	1	1	1200	1500	0	15	-1	90	PURGE_AND_TRIM
+low_free_ram_critical_1024_low_standby_uma_trims	16384	1024	512	4096	800	1	1	1	1200	1500	0	15	-1	90	UMA_TRIM_ONLY
+low_free_ram_1100_low_standby_discrete_none	16384	1100	512	8192	7500	1	1	0	1200	1500	0	15	-1	90	NONE
+discrete_gpu_high_vram_does_not_trigger_uma_guard	16384	4000	2500	8192	7800	1	1	0	1200	1500	0	15	-1	90	NONE
+discrete_gpu_low_free_ram_and_high_standby_purges	16384	900	2000	8192	7800	1	1	0	1200	1500	0	15	-1	90	PURGE_AND_TRIM
+cooldown_blocks_within_10s	16384	900	2000	4096	3686	1	1	1	1200	1500	0	15	10	90	COOLDOWN
+cooldown_blocks_at_89s	16384	4000	2048	4096	3686	1	1	1	1200	1500	0	15	89	90	COOLDOWN
+cooldown_allows_at_90s	16384	4000	2048	4096	3686	1	1	1	1200	1500	0	15	90	90	PURGE_AND_TRIM
+disk_io_exactly_at_15_mb_s_allows	16384	900	2000	4096	3686	1	1	1	1200	1500	15	15	-1	90	PURGE_AND_TRIM
+disk_io_above_15_mb_s_blocks	16384	900	2000	4096	3686	1	1	1	1200	1500	16	15	-1	90	DISK_IO
+disk_io_blocks_uma_guard_trim_too	16384	4000	512	4096	3686	1	1	1	1200	1500	20	15	-1	90	DISK_IO
+cooldown_blocks_uma_guard_trim_too	16384	4000	512	4096	3686	1	1	1	1200	1500	0	15	5	90	COOLDOWN
+invalid_nt_memory_lists_blocks_all	16384	900	2000	4096	3686	1	0	1	1200	1500	0	15	-1	90	INVALID
+zero_total_ram_blocks_all	0	900	2000	4096	3686	1	1	1	1200	1500	0	15	-1	90	INVALID

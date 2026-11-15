@@ -1,16 +1,9 @@
 #include "optimize/memory_manager.hpp"
+
 #include "bridge/rust_bridge.h"
+#include "windows/memory.hpp"
 
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <windows.h>
-#include <psapi.h>
-#include <dxgi1_4.h>
-
+#include <algorithm>
 #include <chrono>
 #include <cstdint>
 #include <string>
@@ -18,146 +11,84 @@
 
 namespace vegaflow {
 
-namespace {
-
-typedef LONG NTSTATUS;
-#ifndef NT_SUCCESS
-#define NT_SUCCESS(Status) (((NTSTATUS)(Status)) >= 0)
-#endif
-
-constexpr ULONG SystemMemoryListInformationClass = 80;
-constexpr ULONG MemoryPurgeStandbyListCommand = 4;
-constexpr const wchar_t* SE_PROFILE_SINGLE_PROCESS = L"SeProfileSingleProcessPrivilege";
-constexpr const wchar_t* SE_INCREASE_QUOTA = L"SeIncreaseQuotaPrivilege";
-
-typedef NTSTATUS(NTAPI* PFN_NtQuerySystemInformation)(
-    ULONG SystemInformationClass,
-    PVOID SystemInformation,
-    ULONG SystemInformationLength,
-    PULONG ReturnLength
-);
-
-typedef NTSTATUS(NTAPI* PFN_NtSetSystemInformation)(
-    ULONG SystemInformationClass,
-    PVOID SystemInformation,
-    ULONG SystemInformationLength
-);
-
-typedef HRESULT(WINAPI* PFN_CreateDXGIFactory1)(REFIID riid, void** ppFactory);
-
-bool EnablePrivilege(LPCWSTR privilegeName) {
-    HANDLE hToken = nullptr;
-    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken)) {
-        return false;
-    }
-
-    LUID luid{};
-    if (!LookupPrivilegeValueW(nullptr, privilegeName, &luid)) {
-        CloseHandle(hToken);
-        return false;
-    }
-
-    TOKEN_PRIVILEGES tp{};
-    tp.PrivilegeCount = 1;
-    tp.Privileges[0].Luid = luid;
-    tp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
-
-    BOOL ok = AdjustTokenPrivileges(hToken, FALSE, &tp, sizeof(tp), nullptr, nullptr);
-    DWORD err = GetLastError();
-    CloseHandle(hToken);
-
-    return (ok && err != ERROR_NOT_ALL_ASSIGNED);
-}
-
-} // anonymous namespace
-
 MemoryManager::MemoryManager(const MemoryPurgeConfig& config, Clock& clock)
-    : config_(config), clock_(clock) {
-    // Acquire privileges required for Standby List queries and purges
-    EnablePrivilege(SE_PROFILE_SINGLE_PROCESS);
-    EnablePrivilege(SE_INCREASE_QUOTA);
-}
+    : MemoryManager(config, clock, DefaultWindowsMemoryProbe(), DefaultWindowsMemoryControl()) {}
+
+MemoryManager::MemoryManager(
+    const MemoryPurgeConfig& config,
+    Clock& clock,
+    MemoryProbe& probe,
+    MemoryControl& control)
+    : config_(config), clock_(clock), probe_(probe), control_(control) {}
 
 SystemMemoryTelemetry MemoryManager::SampleTelemetry() const {
-    SystemMemoryTelemetry telemetry{};
+    return probe_.SampleSystemMemory();
+}
 
-    // 1. Physical RAM via GlobalMemoryStatusEx
-    MEMORYSTATUSEX memStatus{};
-    memStatus.dwLength = sizeof(memStatus);
-    if (GlobalMemoryStatusEx(&memStatus)) {
-        telemetry.total_physical_bytes = memStatus.ullTotalPhys;
+int64_t MemoryManager::ElapsedSinceLastPurgeMs(std::chrono::steady_clock::time_point now) const {
+    if (last_purge_time_.time_since_epoch().count() == 0) {
+        return -1;
+    }
+    const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_purge_time_).count();
+    return elapsed >= 0 ? elapsed : 0;
+}
+
+uint64_t MemoryManager::SampleDiskReadRateBytesPerSec(
+    uint32_t active_game_pid,
+    std::chrono::steady_clock::time_point now) {
+
+    if (active_game_pid == 0) {
+        last_io_pid_ = 0;
+        last_game_read_bytes_ = 0;
+        last_io_sample_time_ = {};
+        last_disk_read_rate_bytes_per_sec_ = 0;
+        return 0;
     }
 
-    // 2. Exact memory list information via Rust Core (NtQuerySystemInformation)
-    bool queriedNt = false;
-    VfNtMemoryListSample ntSample = vf_rust_query_nt_memory_lists();
-    if (ntSample.valid) {
-        telemetry.free_and_zero_bytes = ntSample.free_and_zero_bytes;
-        telemetry.standby_bytes = ntSample.standby_bytes;
-        telemetry.modified_bytes = ntSample.modified_bytes;
-        queriedNt = true;
+    uint64_t current_read_bytes = 0;
+    if (!probe_.SampleProcessDiskReadBytes(active_game_pid, current_read_bytes)) {
+        last_disk_read_rate_bytes_per_sec_ = 0;
+        return 0;
     }
 
-    if (!queriedNt) {
-        // Fallback if NtQuerySystemInformation fails or privileges are denied
-        telemetry.free_and_zero_bytes = memStatus.ullAvailPhys;
-        telemetry.standby_bytes = 0;
-        telemetry.modified_bytes = 0;
-    }
-
-    // 3. VRAM Telemetry via DXGI
-    static HMODULE s_hDxgi = LoadLibraryW(L"dxgi.dll");
-    if (s_hDxgi) {
-#if defined(__GNUC__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wcast-function-type"
-#endif
-        static auto s_pfnCreateDXGIFactory1 = reinterpret_cast<PFN_CreateDXGIFactory1>(
-            GetProcAddress(s_hDxgi, "CreateDXGIFactory1"));
-#if defined(__GNUC__)
-#pragma GCC diagnostic pop
-#endif
-
-        if (s_pfnCreateDXGIFactory1) {
-            IDXGIFactory1* factory = nullptr;
-            if (SUCCEEDED(s_pfnCreateDXGIFactory1(__uuidof(IDXGIFactory1), reinterpret_cast<void**>(&factory))) && factory) {
-                UINT adapterIndex = 0;
-                IDXGIAdapter1* adapter = nullptr;
-                while (factory->EnumAdapters1(adapterIndex, &adapter) != DXGI_ERROR_NOT_FOUND) {
-                    DXGI_ADAPTER_DESC1 desc{};
-                    if (SUCCEEDED(adapter->GetDesc1(&desc))) {
-                        // Skip software renderers (like Microsoft Basic Render Driver)
-                        if (!(desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE)) {
-                            IDXGIAdapter3* adapter3 = nullptr;
-                            if (SUCCEEDED(adapter->QueryInterface(__uuidof(IDXGIAdapter3), reinterpret_cast<void**>(&adapter3))) && adapter3) {
-                                DXGI_QUERY_VIDEO_MEMORY_INFO localInfo{};
-                                if (SUCCEEDED(adapter3->QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &localInfo))) {
-                                    telemetry.vram.local_budget_bytes = localInfo.Budget;
-                                    telemetry.vram.local_usage_bytes = localInfo.CurrentUsage;
-                                    telemetry.vram.valid = true;
-                                }
-
-                                DXGI_QUERY_VIDEO_MEMORY_INFO nonLocalInfo{};
-                                if (SUCCEEDED(adapter3->QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_NON_LOCAL, &nonLocalInfo))) {
-                                    telemetry.vram.non_local_budget_bytes = nonLocalInfo.Budget;
-                                    telemetry.vram.non_local_usage_bytes = nonLocalInfo.CurrentUsage;
-                                }
-
-                                adapter3->Release();
-                                adapter->Release();
-                                break; // Found primary hardware adapter
-                            }
-                        }
-                    }
-                    adapter->Release();
-                    ++adapterIndex;
-                }
-                factory->Release();
-            }
+    uint64_t rate = 0;
+    if (active_game_pid == last_io_pid_ &&
+        last_io_sample_time_.time_since_epoch().count() > 0 &&
+        now > last_io_sample_time_) {
+        const double elapsed_s = std::chrono::duration<double>(now - last_io_sample_time_).count();
+        if (elapsed_s > 0.001) {
+            const uint64_t delta = (current_read_bytes >= last_game_read_bytes_)
+                ? (current_read_bytes - last_game_read_bytes_)
+                : 0;
+            rate = static_cast<uint64_t>(delta / elapsed_s);
         }
     }
 
-    return telemetry;
+    last_io_pid_ = active_game_pid;
+    last_game_read_bytes_ = current_read_bytes;
+    last_io_sample_time_ = now;
+    last_disk_read_rate_bytes_per_sec_ = rate;
+    return rate;
+}
+
+std::vector<uint32_t> MemoryManager::FilterTrimmableBackgroundPids(
+    uint32_t active_game_pid,
+    const std::vector<uint32_t>& background_pids) const {
+
+    std::vector<uint32_t> allowed;
+    allowed.reserve(background_pids.size());
+    const uint32_t self_pid = probe_.CurrentProcessId();
+    for (uint32_t pid : background_pids) {
+        if (pid == 0 || pid == 4 || pid == self_pid || (active_game_pid != 0 && pid == active_game_pid)) {
+            continue;
+        }
+        const std::string image = probe_.QueryProcessImageName(pid);
+        if (image.empty() || vf_rust_is_factory_memory_protected_exe(image.data(), image.size())) {
+            continue;
+        }
+        allowed.push_back(pid);
+    }
+    return allowed;
 }
 
 MemoryActionReport MemoryManager::EvaluateAndOptimize(
@@ -166,121 +97,87 @@ MemoryActionReport MemoryManager::EvaluateAndOptimize(
     bool dry_run) {
 
     MemoryActionReport report{};
-    SystemMemoryTelemetry telemetry = SampleTelemetry();
+    const auto now = clock_.Now();
 
-    // 1. Evaluate trigger conditions
-    const uint64_t min_free_bytes = config_.min_free_ram_mb * 1024ULL * 1024ULL;
-    const uint64_t min_standby_bytes = config_.min_standby_mb * 1024ULL * 1024ULL;
+    // Sample game disk I/O rate on EVERY cycle before early exits so short bursts are never diluted.
+    const uint64_t disk_read_rate = SampleDiskReadRateBytesPerSec(active_game_pid, now);
+    const SystemMemoryTelemetry telemetry = probe_.SampleSystemMemory();
 
-    const bool low_free_ram = telemetry.free_and_zero_bytes < min_free_bytes;
-    const bool high_vram_pressure = config_.is_uma_architecture &&
-        telemetry.vram.valid &&
-        (telemetry.vram.local_budget_bytes > 0) &&
-        ((telemetry.vram.local_usage_bytes * 100 / telemetry.vram.local_budget_bytes) >= 85);
+    VfMemoryPurgeInput input{};
+    input.total_physical_bytes = telemetry.total_physical_bytes;
+    input.free_and_zero_bytes = telemetry.free_and_zero_bytes;
+    input.standby_bytes = telemetry.standby_bytes;
+    input.local_budget_bytes = telemetry.vram.local_budget_bytes;
+    input.local_usage_bytes = telemetry.vram.local_usage_bytes;
+    input.vram_valid = telemetry.vram.valid;
+    input.memory_lists_valid = telemetry.memory_lists_valid;
+    input.is_uma_gpu = config_.is_uma_architecture;
+    input.allow_ram_purge = true;
+    input.min_free_ram_mb = config_.min_free_ram_mb;
+    input.min_standby_mb = config_.min_standby_mb;
+    input.cooldown_seconds = config_.cooldown_seconds;
+    input.elapsed_since_last_purge_ms = ElapsedSinceLastPurgeMs(now);
+    input.game_disk_read_bytes_per_sec = disk_read_rate;
+    input.max_game_disk_read_bytes_per_sec = config_.max_game_disk_read_bytes_per_sec;
+    input.pressure_threshold_override = 0.0; // Single source of truth in Rust memory_purge.rs
+    input.prev_interventions = guard_interventions_count_;
+    input.dry_run = dry_run;
 
-    const bool condition_1 = low_free_ram || high_vram_pressure;
-    const bool condition_2 = telemetry.standby_bytes >= min_standby_bytes;
+    const VfMemoryPurgeDecision dec = vf_rust_evaluate_memory_purge(&input);
 
-    if (!condition_1 || !condition_2) {
-        report.reason = "Thresholds not met: Free/Zero=" +
-            std::to_string(telemetry.free_and_zero_bytes / (1024 * 1024)) + "MB (min " +
-            std::to_string(config_.min_free_ram_mb) + "MB), Standby=" +
-            std::to_string(telemetry.standby_bytes / (1024 * 1024)) + "MB (min " +
-            std::to_string(config_.min_standby_mb) + "MB)";
+    if (dec.skipped_due_to_cooldown) {
+        report.skipped_due_to_cooldown = true;
+        report.reason = "Skipped due to cooldown (" + std::to_string(dec.cooldown_remaining_seconds) + "s remaining)";
         return report;
     }
 
-    // 2. Cooldown check
-    auto now = clock_.Now();
-    if (last_purge_time_.time_since_epoch().count() > 0) {
-        auto elapsed_sec = std::chrono::duration_cast<std::chrono::seconds>(now - last_purge_time_).count();
-        if (elapsed_sec < static_cast<int64_t>(config_.cooldown_seconds)) {
-            report.skipped_due_to_cooldown = true;
-            report.reason = "Skipped due to cooldown (" +
-                std::to_string(config_.cooldown_seconds - elapsed_sec) + "s remaining)";
-            return report;
-        }
+    if (dec.skipped_due_to_disk_io) {
+        report.skipped_due_to_disk_io = true;
+        report.reason = "Skipped due to game disk I/O read peak: " +
+            std::to_string(disk_read_rate / (1024ULL * 1024ULL)) + " MB/s (max " +
+            std::to_string(config_.max_game_disk_read_bytes_per_sec / (1024ULL * 1024ULL)) + " MB/s)";
+        return report;
     }
 
-    // 3. Game disk read peak check
-    if (active_game_pid != 0) {
-        HANDLE hGame = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, active_game_pid);
-        if (hGame) {
-            IO_COUNTERS ioCounters{};
-            if (GetProcessIoCounters(hGame, &ioCounters)) {
-                uint64_t current_read_bytes = ioCounters.ReadTransferCount;
-                if (last_io_sample_time_.time_since_epoch().count() > 0 && now > last_io_sample_time_) {
-                    double elapsed_s = std::chrono::duration<double>(now - last_io_sample_time_).count();
-                    if (elapsed_s > 0.001) {
-                        uint64_t bytes_read = (current_read_bytes >= last_game_read_bytes_)
-                            ? (current_read_bytes - last_game_read_bytes_) : 0;
-                        uint64_t rate = static_cast<uint64_t>(bytes_read / elapsed_s);
-                        if (rate > config_.max_game_disk_read_bytes_per_sec) {
-                            last_game_read_bytes_ = current_read_bytes;
-                            last_io_sample_time_ = now;
-                            CloseHandle(hGame);
-                            report.skipped_due_to_disk_io = true;
-                            report.reason = "Skipped due to game disk I/O read peak: " +
-                                std::to_string(rate / (1024 * 1024)) + " MB/s (max " +
-                                std::to_string(config_.max_game_disk_read_bytes_per_sec / (1024 * 1024)) + " MB/s)";
-                            return report;
-                        }
-                    }
-                }
-                last_game_read_bytes_ = current_read_bytes;
-                last_io_sample_time_ = now;
-            }
-            CloseHandle(hGame);
+    if (!dec.should_purge_standby && !dec.should_trim_background) {
+        if (!telemetry.memory_lists_valid || telemetry.total_physical_bytes == 0) {
+            report.reason = "System memory list telemetry unavailable; purge skipped";
+        } else {
+            report.reason = "Thresholds not met: Free/Zero=" +
+                std::to_string(telemetry.free_and_zero_bytes / (1024ULL * 1024ULL)) + "MB (min " +
+                std::to_string(config_.min_free_ram_mb) + "MB), Standby=" +
+                std::to_string(telemetry.standby_bytes / (1024ULL * 1024ULL)) + "MB (min " +
+                std::to_string(config_.min_standby_mb) + "MB)";
         }
+        return report;
     }
 
-    // 4. In dry-run mode, report conditions met without applying system state changes
     if (dry_run) {
         report.reason = "Dry run: purge condition met, no action taken";
         return report;
     }
 
-    // 5. Trim working set of background processes (never the game, nor VegaFlow itself)
-    uint32_t current_pid = GetCurrentProcessId();
-    for (uint32_t pid : background_pids) {
-        if (pid == 0 || pid == active_game_pid || pid == current_pid) {
-            continue;
-        }
-        HANDLE hProc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_SET_QUOTA, FALSE, pid);
-        if (hProc) {
-            if (K32EmptyWorkingSet(hProc)) {
-                report.background_processes_trimmed++;
-            }
-            CloseHandle(hProc);
-        }
-    }
+    const std::vector<uint32_t> trimmable = FilterTrimmableBackgroundPids(active_game_pid, background_pids);
+    report.background_processes_trimmed = control_.TrimProcessWorkingSets(trimmable);
 
-    // 6. Purge Standby List via NtSetSystemInformation
+    // Record purge/trim timestamp for shared cooldown across both EvaluateAndOptimize and EvaluateUmaPressureGuard.
     last_purge_time_ = clock_.Now();
 
-    static auto pfnNtSetSystemInformation = reinterpret_cast<PFN_NtSetSystemInformation>(
-        reinterpret_cast<void*>(GetProcAddress(GetModuleHandleW(L"ntdll.dll"), "NtSetSystemInformation")));
-
-    if (pfnNtSetSystemInformation) {
-        EnablePrivilege(SE_PROFILE_SINGLE_PROCESS);
-        ULONG cmd = MemoryPurgeStandbyListCommand;
-        NTSTATUS status = pfnNtSetSystemInformation(
-            SystemMemoryListInformationClass,
-            &cmd,
-            sizeof(cmd));
-
-        if (NT_SUCCESS(status)) {
-            report.standby_purged = true;
+    if (dec.should_purge_standby) {
+        const StandbyPurgeOutcome outcome = control_.PurgeStandbyList(false);
+        report.standby_purged = outcome.succeeded;
+        if (outcome.succeeded) {
             report.reason = "Standby list purged successfully and background processes trimmed";
-        } else if (status == static_cast<NTSTATUS>(0xC0000061L)) {
+        } else if (outcome.privilege_missing) {
             report.reason = "Background Working Sets trimmed (" +
                 std::to_string(report.background_processes_trimmed) +
                 " processes); Standby List purge skipped (requires Administrator / --elevate)";
         } else {
-            report.reason = "NtSetSystemInformation failed with NTSTATUS: " + std::to_string(status);
+            report.reason = outcome.detail;
         }
     } else {
-        report.reason = "NtSetSystemInformation not available in ntdll.dll";
+        report.reason = "Background Working Sets trimmed (" +
+            std::to_string(report.background_processes_trimmed) + " processes)";
     }
 
     return report;
@@ -289,12 +186,10 @@ MemoryActionReport MemoryManager::EvaluateAndOptimize(
 ManualPurgeReport MemoryManager::ForcePurgeNow(const std::vector<uint32_t>& background_pids, bool dry_run) {
     ManualPurgeReport report{};
 
-    // 1. Take SampleTelemetry() before
-    SystemMemoryTelemetry before = SampleTelemetry();
+    const SystemMemoryTelemetry before = probe_.SampleSystemMemory();
     report.free_bytes_before = before.free_and_zero_bytes;
     report.standby_bytes_before = before.standby_bytes;
 
-    // 2. If dry_run == true, return a simulated report
     if (dry_run) {
         report.free_bytes_after = before.free_and_zero_bytes;
         report.standby_bytes_after = before.standby_bytes;
@@ -303,49 +198,22 @@ ManualPurgeReport MemoryManager::ForcePurgeNow(const std::vector<uint32_t>& back
         return report;
     }
 
-    // 3. Trim the Working Set of background_pids
-    uint32_t current_pid = GetCurrentProcessId();
-    for (uint32_t pid : background_pids) {
-        if (pid == 0 || pid == 4 || pid == current_pid) {
-            continue;
-        }
-        HANDLE hProc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_SET_QUOTA, FALSE, pid);
-        if (hProc) {
-            if (K32EmptyWorkingSet(hProc)) {
-                report.trimmed_processes++;
-            }
-            CloseHandle(hProc);
-        }
-    }
+    const std::vector<uint32_t> trimmable = FilterTrimmableBackgroundPids(0, background_pids);
+    report.trimmed_processes = control_.TrimProcessWorkingSets(trimmable);
 
-    // 4. Enable SeProfileSingleProcessPrivilege and empty the Standby List
-    static auto pfnNtSetSystemInformation = reinterpret_cast<PFN_NtSetSystemInformation>(
-        reinterpret_cast<void*>(GetProcAddress(GetModuleHandleW(L"ntdll.dll"), "NtSetSystemInformation")));
-
-    if (pfnNtSetSystemInformation) {
-        EnablePrivilege(SE_PROFILE_SINGLE_PROCESS);
-        ULONG cmd = MemoryPurgeStandbyListCommand;
-        NTSTATUS status = pfnNtSetSystemInformation(
-            SystemMemoryListInformationClass,
-            &cmd,
-            sizeof(cmd));
-
-        if (NT_SUCCESS(status)) {
-            report.standby_purge_succeeded = true;
-            last_purge_time_ = clock_.Now();
-            report.status_message = "Standby list purged successfully";
-        } else {
-            report.standby_purge_succeeded = false;
-            report.status_message = "Failed to purge standby list (NTSTATUS " + std::to_string(status) +
-                "). Administrator privileges required (--elevate) to purge standby list";
-        }
+    const StandbyPurgeOutcome outcome = control_.PurgeStandbyList(false);
+    report.standby_purge_succeeded = outcome.succeeded;
+    if (outcome.succeeded) {
+        last_purge_time_ = clock_.Now();
+        report.status_message = outcome.detail;
+    } else if (outcome.privilege_missing) {
+        report.status_message = "Failed to purge standby list (NTSTATUS " + std::to_string(outcome.nt_status) +
+            "). Administrator privileges required (--elevate) to purge standby list";
     } else {
-        report.standby_purge_succeeded = false;
-        report.status_message = "NtSetSystemInformation not available in ntdll.dll. Administrator privileges required (--elevate)";
+        report.status_message = outcome.detail;
     }
 
-    // 5. Take SampleTelemetry() after
-    SystemMemoryTelemetry after = SampleTelemetry();
+    const SystemMemoryTelemetry after = probe_.SampleSystemMemory();
     report.free_bytes_after = after.free_and_zero_bytes;
     report.standby_bytes_after = after.standby_bytes;
 
@@ -353,56 +221,28 @@ ManualPurgeReport MemoryManager::ForcePurgeNow(const std::vector<uint32_t>& back
 }
 
 uint64_t MemoryManager::GetCurrentProcessPrivateWorkingSetBytes() {
-    PROCESS_MEMORY_COUNTERS_EX pmc{};
-    if (K32GetProcessMemoryInfo(
-            GetCurrentProcess(),
-            reinterpret_cast<PROCESS_MEMORY_COUNTERS*>(&pmc),
-            sizeof(pmc))) {
-        return static_cast<uint64_t>(pmc.PrivateUsage);
-    }
-    return 0;
+    return QueryCurrentProcessPrivateWorkingSetBytes();
 }
 
 bool MemoryManager::PurgeStandbyList(bool dryRun) {
-    if (!dryRun) {
-        EnablePrivilege(SE_PROFILE_SINGLE_PROCESS);
-        EnablePrivilege(SE_INCREASE_QUOTA);
+    const StandbyPurgeOutcome outcome = DefaultWindowsMemoryControl().PurgeStandbyList(dryRun);
+    if (outcome.succeeded && !dryRun) {
+        DefaultWindowsMemoryControl().TrimProcessWorkingSets({DefaultWindowsMemoryProbe().CurrentProcessId()});
     }
-
-    bool success = vf_rust_purge_nt_standby_list(dryRun);
-    if (success && !dryRun) {
-        K32EmptyWorkingSet(GetCurrentProcess());
-    }
-    return success;
+    return outcome.succeeded;
 }
 
 bool MemoryManager::QueryStandbyMemoryMib(uint64_t& standbyMib, uint64_t& freeMib) {
     standbyMib = 0;
     freeMib = 0;
 
-    VfNtMemoryListSample ntSample = vf_rust_query_nt_memory_lists();
-    if (ntSample.valid) {
-        standbyMib = ntSample.standby_bytes / (1024ULL * 1024ULL);
-        freeMib = ntSample.free_and_zero_bytes / (1024ULL * 1024ULL);
-        return true;
+    const SystemMemoryTelemetry sample = DefaultWindowsMemoryProbe().SampleSystemMemory();
+    if (!sample.memory_lists_valid) {
+        return false;
     }
-
-    // Fallback: GetPerformanceInfo & GlobalMemoryStatusEx
-    PERFORMANCE_INFORMATION pi{};
-    pi.cb = sizeof(pi);
-    if (GetPerformanceInfo(&pi, sizeof(pi))) {
-        MEMORYSTATUSEX memStatus{};
-        memStatus.dwLength = sizeof(memStatus);
-        if (GlobalMemoryStatusEx(&memStatus)) {
-            freeMib = memStatus.ullAvailPhys / (1024ULL * 1024ULL);
-        } else {
-            freeMib = (static_cast<uint64_t>(pi.PhysicalAvailable) * pi.PageSize) / (1024ULL * 1024ULL);
-        }
-        standbyMib = 0;
-        return true;
-    }
-
-    return false;
+    standbyMib = sample.standby_bytes / (1024ULL * 1024ULL);
+    freeMib = sample.free_and_zero_bytes / (1024ULL * 1024ULL);
+    return true;
 }
 
 UmaGuardStatus MemoryManager::EvaluateUmaPressureGuard(
@@ -411,22 +251,52 @@ UmaGuardStatus MemoryManager::EvaluateUmaPressureGuard(
     const std::vector<uint32_t>& background_pids,
     bool dry_run) {
 
-    VfUmaTelemetryInput input{};
+    const auto now = clock_.Now();
+    // Phase 4: UMA pressure guard only acts when the game's GPU is integrated.
+    const bool is_uma_gpu = policy.apply_uma_memory_guard &&
+                            (policy.tier != ApuTier::Tier4_DiscreteOrCustom) &&
+                            (policy.gpu_connection == GpuConnection::Integrated);
+
+    VfMemoryPurgeInput input{};
     input.total_physical_bytes = telem.total_physical_bytes;
     input.free_and_zero_bytes = telem.free_and_zero_bytes;
     input.standby_bytes = telem.standby_bytes;
     input.local_budget_bytes = telem.vram.local_budget_bytes;
     input.local_usage_bytes = telem.vram.local_usage_bytes;
-    input.runtime_pressure_threshold = policy.runtime_pressure_threshold;
     input.vram_valid = telem.vram.valid;
-    input.is_discrete_tier = (policy.tier == ApuTier::Tier4_DiscreteOrCustom);
+    input.memory_lists_valid = telem.memory_lists_valid;
+    input.is_uma_gpu = is_uma_gpu;
+    input.allow_ram_purge = policy.allow_ram_purge;
+    input.min_free_ram_mb = config_.min_free_ram_mb;
+    input.min_standby_mb = config_.min_standby_mb;
+    input.cooldown_seconds = config_.cooldown_seconds;
+    // Dry-run reads pressure for reporting/UI without being masked by cooldown; live actions share the 90s cooldown.
+    input.elapsed_since_last_purge_ms = dry_run ? -1 : ElapsedSinceLastPurgeMs(now);
+    input.game_disk_read_bytes_per_sec = dry_run ? 0 : last_disk_read_rate_bytes_per_sec_;
+    input.max_game_disk_read_bytes_per_sec = config_.max_game_disk_read_bytes_per_sec;
+    input.pressure_threshold_override = policy.runtime_pressure_threshold;
+    input.prev_interventions = guard_interventions_count_;
+    input.dry_run = dry_run;
 
-    VfUmaGuardDecision dec = vf_rust_evaluate_uma_pressure(&input, guard_interventions_count_);
-    guard_interventions_count_ = dec.total_interventions;
+    const VfMemoryPurgeDecision dec = vf_rust_evaluate_memory_purge(&input);
 
     UmaGuardStatus status{};
     status.available_os_headroom_mb = dec.available_os_headroom_mb;
     status.dxgi_budget_utilization = dec.dxgi_budget_utilization;
+
+    if (!dry_run && (dec.skipped_due_to_cooldown || dec.skipped_due_to_disk_io)) {
+        // Suppressed by shared cooldown or disk I/O burst: do not trim, bump interventions, or spam logs.
+        status.guard_triggered = false;
+        status.total_interventions = guard_interventions_count_;
+        status.active_reason = dec.skipped_due_to_cooldown
+            ? ("UMA Guard Cooldown (" + std::to_string(dec.cooldown_remaining_seconds) + "s remaining)")
+            : "UMA Guard Passive: Disk I/O burst";
+        last_dxgi_pressure_ratio_ = status.dxgi_budget_utilization;
+        last_guard_triggered_ = false;
+        return status;
+    }
+
+    guard_interventions_count_ = dec.total_interventions;
     status.guard_triggered = dec.guard_triggered;
     status.total_interventions = dec.total_interventions;
 
@@ -443,18 +313,10 @@ UmaGuardStatus MemoryManager::EvaluateUmaPressureGuard(
                 std::to_string(telem.free_and_zero_bytes / (1024ULL * 1024ULL)) + " MB < 1536 MB)";
         }
 
-        if (!dry_run) {
-            uint32_t current_pid = GetCurrentProcessId();
-            for (uint32_t pid : background_pids) {
-                if (pid == 0 || pid == 4 || pid == current_pid) {
-                    continue;
-                }
-                HANDLE hProc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_SET_QUOTA, FALSE, pid);
-                if (hProc) {
-                    K32EmptyWorkingSet(hProc);
-                    CloseHandle(hProc);
-                }
-            }
+        if (!dry_run && dec.should_trim_background) {
+            const std::vector<uint32_t> trimmable = FilterTrimmableBackgroundPids(0, background_pids);
+            control_.TrimProcessWorkingSets(trimmable);
+            last_purge_time_ = clock_.Now();
         }
     } else {
         status.active_reason = "UMA Guard Passive: Memory pressure within safe bounds";

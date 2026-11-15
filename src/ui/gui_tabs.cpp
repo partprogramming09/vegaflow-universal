@@ -1,3 +1,4 @@
+#include "ui/app_identity.hpp"
 #include "ui/gui_components.hpp"
 
 #include <algorithm>
@@ -16,17 +17,10 @@ void RenderTabDashboard(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* st
     if (!state) return;
 
     // 1. Clean top header
-    DrawTextAt(hdcMem, contentLeft, contentTop, L"VEGAFLOW APU TUNER v1.2", CLR_ACCENT_CYAN, state->hFontHeader);
+    DrawTextAt(hdcMem, contentLeft, contentTop, L"VEGAFLOW", CLR_ACCENT_CYAN, state->hFontHeader);
 
-    std::wstring hwLine = L"AMD Ryzen 5 4600H  |  Radeon Vega 6 (UMA)";
-    if (!state->data.system_info.cpu.brand_string.empty()) {
-        std::string cpuShort = state->data.system_info.cpu.brand_string;
-        std::string gpuShort = state->data.gpu_summary.empty() ? "Radeon Vega 6 (UMA)" : state->data.gpu_summary;
-        hwLine = Utf8ToWide(cpuShort) + L"  |  " + Utf8ToWide(gpuShort);
-        if (hwLine.length() > 65) {
-            hwLine = L"AMD Ryzen 5 4600H  |  Radeon Vega 6 (UMA)";
-        }
-    }
+    const std::wstring hwLine = Utf8ToWide(ui::FormatHardwareLine(
+        state->data.system_info.cpu.brand_string, state->data.gpu_summary));
     DrawTextAt(hdcMem, contentLeft, contentTop + 22, hwLine, CLR_TEXT_MUTED, state->hFontSmall);
 
     // APU Guard badge (active) to the left of the UAC badge
@@ -68,43 +62,29 @@ void RenderTabDashboard(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* st
     int kpiGutter = 10;
     int kpiW = (contentW - 3 * kpiGutter) / 4;
 
-    // KPI 1: AVG FPS
+    // KPI 1: VRAM LOCAL
     RECT rcK1 = { contentLeft, kpiY, contentLeft + kpiW, kpiY + kpiH };
     DrawRoundedCard(hdcMem, rcK1, CLR_CARD_BG, CLR_CARD_BORDER, 6);
-    DrawTextAt(hdcMem, rcK1.left + 12, rcK1.top + 8, L"AVG FPS", CLR_TEXT_MUTED, state->hFontSmall);
-    if (state->data.game_active && state->data.avg_fps > 0.0) {
-        wchar_t fpsBuf[32];
-        swprintf_s(fpsBuf, L"%.1f", state->data.avg_fps);
-        DrawTextAt(hdcMem, rcK1.left + 12, rcK1.top + 28, fpsBuf, CLR_ACCENT_GREEN, state->hFontMetric);
-    } else {
-        DrawTextAt(hdcMem, rcK1.left + 12, rcK1.top + 28, L"--.-", CLR_TEXT_DIM, state->hFontMetric);
-    }
+    DrawTextAt(hdcMem, rcK1.left + 12, rcK1.top + 8, L"VRAM LOCAL", CLR_TEXT_MUTED, state->hFontSmall);
+    wchar_t vramBuf[32];
+    swprintf_s(vramBuf, L"%llu MB", static_cast<unsigned long long>(state->data.vram_local_used_mb));
+    DrawTextAt(hdcMem, rcK1.left + 12, rcK1.top + 28, vramBuf, CLR_ACCENT_GREEN, state->hFontMetric);
 
-    // KPI 2: 1% LOW
+    // KPI 2: ECOQOS PROCESOS
     RECT rcK2 = { rcK1.right + kpiGutter, kpiY, rcK1.right + kpiGutter + kpiW, kpiY + kpiH };
     DrawRoundedCard(hdcMem, rcK2, CLR_CARD_BG, CLR_CARD_BORDER, 6);
-    DrawTextAt(hdcMem, rcK2.left + 12, rcK2.top + 8, L"1% LOW", CLR_TEXT_MUTED, state->hFontSmall);
-    if (state->data.game_active && state->data.fps_1_low > 0.0) {
-        wchar_t lowBuf[32];
-        swprintf_s(lowBuf, L"%.1f", state->data.fps_1_low);
-        DrawTextAt(hdcMem, rcK2.left + 12, rcK2.top + 28, lowBuf, CLR_ACCENT_CYAN, state->hFontMetric);
-    } else {
-        DrawTextAt(hdcMem, rcK2.left + 12, rcK2.top + 28, L"--.-", CLR_TEXT_DIM, state->hFontMetric);
-    }
+    DrawTextAt(hdcMem, rcK2.left + 12, rcK2.top + 8, L"PROCESOS ECO", CLR_TEXT_MUTED, state->hFontSmall);
+    wchar_t ecoBuf[32];
+    swprintf_s(ecoBuf, L"%u activos", state->data.ecoqos_processes_count);
+    DrawTextAt(hdcMem, rcK2.left + 12, rcK2.top + 28, ecoBuf, CLR_ACCENT_CYAN, state->hFontMetric);
 
-    // KPI 3: TIMER KERNEL
+    // KPI 3: RAM LIBRE
     RECT rcK3 = { rcK2.right + kpiGutter, kpiY, rcK2.right + kpiGutter + kpiW, kpiY + kpiH };
     DrawRoundedCard(hdcMem, rcK3, CLR_CARD_BG, CLR_CARD_BORDER, 6);
-    DrawTextAt(hdcMem, rcK3.left + 12, rcK3.top + 8, L"TIMER KERNEL", CLR_TEXT_MUTED, state->hFontSmall);
-    bool timerActive = (state->data.timer_resolution_ms <= 0.55 || state->data.timer_forced_manual || state->data.game_active);
-    wchar_t timerBuf[32];
-    if (timerActive) {
-        wcscpy_s(timerBuf, L"0.500 ms");
-        DrawTextAt(hdcMem, rcK3.left + 12, rcK3.top + 28, timerBuf, CLR_ACCENT_GREEN, state->hFontMetric);
-    } else {
-        swprintf_s(timerBuf, L"%.3f ms", state->data.timer_resolution_ms);
-        DrawTextAt(hdcMem, rcK3.left + 12, rcK3.top + 28, timerBuf, CLR_TEXT_TITLE, state->hFontMetric);
-    }
+    DrawTextAt(hdcMem, rcK3.left + 12, rcK3.top + 8, L"RAM LIBRE", CLR_TEXT_MUTED, state->hFontSmall);
+    wchar_t freeBuf[32];
+    swprintf_s(freeBuf, L"%llu MB", static_cast<unsigned long long>(state->data.free_ram_mb));
+    DrawTextAt(hdcMem, rcK3.left + 12, rcK3.top + 28, freeBuf, CLR_ACCENT_GREEN, state->hFontMetric);
 
     // KPI 4: STANDBY RAM
     RECT rcK4 = { rcK3.right + kpiGutter, kpiY, contentRight, kpiY + kpiH };
@@ -134,8 +114,8 @@ void RenderTabDashboard(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* st
         std::wstring(state->data.system_info.apu_guard.dx12_async_compute_allowed ? L"ON" : L"OFF");
 
     const OptCardDef optCards[4] = {
-        { L"MMCSS Prioridad GPU=8", L"Máxima prioridad en cola WDDM para el juego", (state->data.mmcss_task_active || state->data.mmcss_gaming_optimized), !state->data.is_elevated },
-        { L"Temporizador 0.500 ms", L"Quantum de kernel a 0.5ms para latencia mínima", timerActive, false },
+        { L"MMCSS Perfil Gaming", L"Sube la prioridad multimedia (MMCSS) del juego", (state->data.mmcss_task_active || state->data.mmcss_gaming_optimized), !state->data.is_elevated },
+        { L"Presentación DXGI", L"Presenta los fotogramas con Flip Model / DirectFlip", state->data.directflip_active, false },
         { L"Perfil Sombras APU", csmSubtitle.c_str(), state->data.apu_shadows_active, false },
         { L"Blindaje Kernel NT", L"DisablePagingExecutive activo en memoria física", state->data.kernel_paging_shield_active, !state->data.is_elevated }
     };
@@ -229,7 +209,7 @@ void RenderTabDashboard(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* st
         RECT rcCh3 = { rcCh2.right + btnGutter, rcBotCard.top + 54, rcBotCard.right - 16, rcBotCard.top + 94 };
         DrawRoundedCard(hdcMem, rcCh3, RGB(22, 25, 30), CLR_CARD_BORDER, 6);
         DrawTextAt(hdcMem, rcCh3.left + 10, rcCh3.top + 5, L"Presentación DXGI", CLR_TEXT_MUTED, state->hFontSmall);
-        DrawTextAt(hdcMem, rcCh3.left + 10, rcCh3.top + 20, state->data.directflip_active ? L"DirectFlip 0ms (Zero-Copy)" : L"Flip Model Estándar", state->data.directflip_active ? CLR_ACCENT_GREEN : CLR_TEXT_MUTED, state->hFontSmallBold);
+        DrawTextAt(hdcMem, rcCh3.left + 10, rcCh3.top + 20, state->data.directflip_active ? L"DirectFlip activo" : L"Flip Model Estándar", state->data.directflip_active ? CLR_ACCENT_GREEN : CLR_TEXT_MUTED, state->hFontSmallBold);
 
         std::wstring stLine = L"Estado: " + (state->data.last_action_status.empty() ? L"Telemetría en vivo activa" : Utf8ToWide(state->data.last_action_status));
         DrawTextAt(hdcMem, rcBotCard.left + 16, rcBotCard.top + 102, stLine, CLR_TEXT_MUTED, state->hFontSmall);
@@ -237,7 +217,7 @@ void RenderTabDashboard(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* st
         DrawTextAt(hdcMem, rcBotCard.left + 16, rcBotCard.top + 10, L"MONITOR DE SISTEMA EN ESPERA", CLR_ACCENT_CYAN, state->hFontBold);
 
         RECT rcWaitBadge = { rcBotCard.right - 160, rcBotCard.top + 8, rcBotCard.right - 16, rcBotCard.top + 28 };
-        DrawBadge(hdcMem, rcWaitBadge, L"0% OVERHEAD", CLR_ACCENT_CYAN, RGB(20, 36, 44), CLR_CARD_BORDER, state->hFontSmallBold);
+        DrawBadge(hdcMem, rcWaitBadge, L"EN ESPERA", CLR_ACCENT_CYAN, RGB(20, 36, 44), CLR_CARD_BORDER, state->hFontSmallBold);
 
         DrawTextAt(hdcMem, rcBotCard.left + 16, rcBotCard.top + 32, L"Listo para detección automática en DirectX 11/12, Vulkan y títulos de Steam.", CLR_TEXT_TITLE, state->hFontSmallBold);
 
@@ -254,8 +234,8 @@ void RenderTabDashboard(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* st
 
         RECT rcCh3 = { rcCh2.right + btnGutter, rcBotCard.top + 54, rcBotCard.right - 16, rcBotCard.top + 94 };
         DrawRoundedCard(hdcMem, rcCh3, RGB(22, 25, 30), CLR_CARD_BORDER, 6);
-        DrawTextAt(hdcMem, rcCh3.left + 10, rcCh3.top + 5, L"Consumo en Reposo", CLR_TEXT_MUTED, state->hFontSmall);
-        DrawTextAt(hdcMem, rcCh3.left + 10, rcCh3.top + 20, L"0% CPU | Cero VRAM", CLR_ACCENT_GREEN, state->hFontSmallBold);
+        DrawTextAt(hdcMem, rcCh3.left + 10, rcCh3.top + 5, L"Estado", CLR_TEXT_MUTED, state->hFontSmall);
+        DrawTextAt(hdcMem, rcCh3.left + 10, rcCh3.top + 20, L"Sin juego activo", CLR_ACCENT_GREEN, state->hFontSmallBold);
 
         std::wstring stLine = L"Última acción: " + (state->data.last_action_status.empty() ? L"Sistema sincronizado y listo para jugar." : Utf8ToWide(state->data.last_action_status));
         DrawTextAt(hdcMem, rcBotCard.left + 16, rcBotCard.top + 102, stLine, CLR_TEXT_MUTED, state->hFontSmall);
@@ -263,7 +243,7 @@ void RenderTabDashboard(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* st
 }
 
 // =============================================================================
-// TAB 1: KERNEL & SYSTEM TWEAKS (MINIMALIST - 6 COMPACT CARDS WITH SWITCH)
+// TAB 1: KERNEL & SYSTEM TWEAKS (DYNAMICALLY GATED FAMILIES)
 // =============================================================================
 void RenderTabKernel(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* state,
                      int contentLeft, int contentRight, int contentTop, int /*contentBottom*/, int /*contentW*/) {
@@ -271,19 +251,18 @@ void RenderTabKernel(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* state
 
     // Clean top header
     DrawTextAt(hdcMem, contentLeft, contentTop, L"AJUSTES DE KERNEL & SISTEMA", CLR_ACCENT_CYAN, state->hFontHeader);
-    DrawTextAt(hdcMem, contentLeft, contentTop + 20, L"Optimización de baja latencia con conmutación dinámica instantánea", CLR_TEXT_MUTED, state->hFontSmall);
+    DrawTextAt(hdcMem, contentLeft, contentTop + 20, L"Cambios de Windows que VegaFlow aplica mientras juegas y devuelve al salir", CLR_TEXT_MUTED, state->hFontSmall);
 
     struct KernelTweakDef {
         int id;
-        const wchar_t* title;
+        std::wstring title;
         const wchar_t* purpose;
-        const wchar_t* activeBadge;
+        std::wstring activeBadge;
         const wchar_t* inactiveBadge;
         bool isActive;
         COLORREF activeColor;
     };
 
-    bool swTimer = state->data.timer_forced_manual || state->data.game_active || (state->data.timer_resolution_ms <= 0.55);
     bool swMpo = state->data.mpo_disabled;
     bool swShader = state->data.amd_shader_cache_forced;
     bool swVramOverride = state->data.amd_vram_override_active || state->data.amd_vram_reported_mb >= 2048;
@@ -294,101 +273,95 @@ void RenderTabKernel(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* state
     uint32_t vramPoolMb = (state->data.system_info.apu_guard.safe_vram_pool_mb > 0)
         ? state->data.system_info.apu_guard.safe_vram_pool_mb
         : (state->data.amd_vram_reported_mb > 0 ? state->data.amd_vram_reported_mb : 4096);
-    std::wstring vramTitle = L"4. VRAM Pool Override (" + std::to_wstring(vramPoolMb) + L" MB DXGI/AMD)";
+    std::wstring vramTitle = L"VRAM Pool Override (" + std::to_wstring(vramPoolMb) + L" MB DXGI/AMD)";
     std::wstring vramActiveBadge = std::to_wstring(vramPoolMb) + L" MB UMA POOL";
 
     uint32_t stapmMhz = state->data.system_info.apu_guard.cpu_stapm_cap_mhz;
     std::wstring apuTitle;
-    std::wstring apuPurpose;
+    const wchar_t* apuPurpose = L"";
     std::wstring apuActiveBadge;
     if (stapmMhz == 0) {
-        apuTitle = L"7. Potencia APU Smart Boost (100% CPU + 100% GPU)";
-        apuPurpose = L"4.0 GHz sin tope + EPP 25 + Ahorro en 2º plano (EcoQoS)";
-        apuActiveBadge = L"100% SMART BOOST";
+        apuTitle = L"Perfil de energía de la APU: sin tope";
+        apuPurpose = L"Sin tope de potencia sostenida, EPP 25 y ahorro en segundo plano (EcoQoS)";
+        apuActiveBadge = L"SIN TOPE";
     } else {
-        apuTitle = L"7. Control Térmico APU (" + std::to_wstring(stapmMhz) + L" MHz Sustained)";
+        apuTitle = L"Control Térmico APU (" + std::to_wstring(stapmMhz) + L" MHz Sustained)";
         apuPurpose = L"Prioriza TDP continuo para gráficos integrados";
         apuActiveBadge = L"GPU-PRIORITY (" + std::to_wstring(stapmMhz) + L"M)";
     }
 
-    const KernelTweakDef tweaks[7] = {
-        {
-            ID_ACT_TOGGLE_TIMER,
-            L"1. Temporizador del Kernel (0.50 ms)",
-            L"Tick submilisegundo para latencia ultra-baja",
-            L"0.50 ms (ACTIVO)",
-            L"15.62 ms (STOCK)",
-            swTimer,
-            CLR_ACCENT_GREEN
-        },
-        {
-            ID_ACT_TOGGLE_MPO,
-            L"2. Multi-Plane Overlay (MPO Anti-Flicker)",
-            L"Elimina stuttering y parpadeos en pantalla",
-            L"MPO DESACTIVADO",
-            L"MPO ACTIVO (STOCK)",
-            swMpo,
-            CLR_ACCENT_GREEN
-        },
-        {
+    std::vector<KernelTweakDef> tweaks;
+    tweaks.push_back({
+        ID_ACT_TOGGLE_MPO,
+        L"Multi-Plane Overlay (MPO / OverlayTestMode)",
+        L"Sin documentar por Microsoft; apagado por defecto",
+        L"MPO DESACTIVADO",
+        L"MPO ACTIVO (STOCK)",
+        swMpo,
+        CLR_ACCENT_GREEN
+    });
+    if (state->data.has_amd_driver) {
+        tweaks.push_back({
             ID_ACT_TOGGLE_SHADERCACHE,
-            L"3. Boost Driver AMD (Shader Cache On)",
-            L"Compilación continua y cola baja latencia",
+            L"Caché de sombras del driver AMD",
+            L"Fuerza al driver a guardar la caché de sombras en disco",
             L"CACHE FORZADA",
             L"CACHE STOCK",
             swShader,
             CLR_ACCENT_GREEN
-        },
-        {
+        });
+        tweaks.push_back({
             ID_ACT_TOGGLE_VRAM_OVERRIDE,
-            vramTitle.c_str(),
-            L"Elimina pop-in de texturas y límite de 512 MB",
-            vramActiveBadge.c_str(),
+            vramTitle,
+            L"Cambia el límite de memoria de vídeo que el driver informa (512 MB de fábrica)",
+            vramActiveBadge,
             L"512 MB STOCK",
             swVramOverride,
             CLR_ACCENT_GREEN
-        },
-        {
-            ID_ACT_TOGGLE_MMCSS,
-            L"5. MMCSS Prioridad GPU 8",
-            L"Máxima prioridad en cola WDDM para juegos",
-            L"GPU PRIO: 8",
-            L"PRIO: STOCK (2)",
-            swMmcss,
-            CLR_ACCENT_GREEN
-        },
-        {
-            ID_ACT_TOGGLE_MEMCOMP,
-            L"6. RAM Lock (DisablePagingExecutive)",
-            L"Bloquea el kernel en RAM física",
-            L"RAM LOCK: ACTIVO",
-            L"PAGING: STOCK",
-            swRamLock,
-            CLR_ACCENT_GREEN
-        },
-        {
+        });
+    }
+    tweaks.push_back({
+        ID_ACT_TOGGLE_MMCSS,
+        L"MMCSS Perfil Gaming (Audio & Juegos)",
+        L"Prioridad multimedia y planificador para juegos",
+        L"MMCSS GAMING",
+        L"MMCSS STOCK",
+        swMmcss,
+        CLR_ACCENT_GREEN
+    });
+    tweaks.push_back({
+        ID_ACT_TOGGLE_MEMCOMP,
+        L"RAM Lock (DisablePagingExecutive)",
+        L"Bloquea el kernel en RAM física",
+        L"RAM LOCK: ACTIVO",
+        L"PAGING: STOCK",
+        swRamLock,
+        CLR_ACCENT_GREEN
+    });
+    if (state->data.has_power_mode) {
+        tweaks.push_back({
             ID_ACT_TOGGLE_APU_POWER,
-            apuTitle.c_str(),
-            apuPurpose.c_str(),
-            apuActiveBadge.c_str(),
+            apuTitle,
+            apuPurpose,
+            apuActiveBadge,
             L"STOCK (4.0G)",
             swApuPower,
             CLR_ACCENT_GREEN
-        }
-    };
+        });
+    }
 
     int startY = contentTop + 44;
     int cardH = 58;
     int cardSpacing = 8;
 
-    for (int i = 0; i < 7; ++i) {
-        int cY = startY + i * (cardH + cardSpacing);
+    for (size_t i = 0; i < tweaks.size(); ++i) {
+        int cY = startY + static_cast<int>(i) * (cardH + cardSpacing);
         RECT rcCard = { contentLeft, cY, contentRight, cY + cardH };
 
         DrawRoundedCard(hdcMem, rcCard, CLR_CARD_BG, CLR_CARD_BORDER, 8);
 
-        // Tweak title
-        DrawTextAt(hdcMem, rcCard.left + 16, rcCard.top + 10, tweaks[i].title, CLR_TEXT_TITLE, state->hFontBold);
+        std::wstring numberedTitle = std::to_wstring(i + 1) + L". " + tweaks[i].title;
+        DrawTextAt(hdcMem, rcCard.left + 16, rcCard.top + 10, numberedTitle, CLR_TEXT_TITLE, state->hFontBold);
 
         // Concise purpose (4-6 words)
         DrawTextAt(hdcMem, rcCard.left + 16, rcCard.top + 32, tweaks[i].purpose, CLR_TEXT_MUTED, state->hFontSmall);
@@ -396,7 +369,7 @@ void RenderTabKernel(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* state
         // Status badge to the left of the switch
         RECT rcBadge = { rcCard.right - 265, rcCard.top + (cardH - 24) / 2, rcCard.right - 105, rcCard.top + (cardH - 24) / 2 + 24 };
         if (tweaks[i].isActive) {
-            DrawBadge(hdcMem, rcBadge, tweaks[i].activeBadge, tweaks[i].activeColor, RGB(20, 36, 28), tweaks[i].activeColor, state->hFontSmallBold);
+            DrawBadge(hdcMem, rcBadge, tweaks[i].activeBadge.c_str(), tweaks[i].activeColor, RGB(20, 36, 28), tweaks[i].activeColor, state->hFontSmallBold);
         } else {
             DrawBadge(hdcMem, rcBadge, tweaks[i].inactiveBadge, CLR_TEXT_MUTED, RGB(33, 38, 48), CLR_CARD_BORDER, state->hFontSmallBold);
         }
@@ -431,34 +404,45 @@ void RenderTabMemory(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* state
 
     RECT rcDxgiBadge = { rcTopMem.right - 195, rcTopMem.top + 10, rcTopMem.right - 16, rcTopMem.top + 32 };
     wchar_t dxgiBadgeText[64];
-    bool highPressure = (state->data.dxgi_pressure_ratio >= 0.85 || state->data.uma_guard_triggered_live);
+    const double thresh = state->data.dxgi_pressure_threshold;
+    const int threshPct = static_cast<int>(thresh * 100.0 + 0.5);
+    bool highPressure = (thresh > 0.0 && state->data.dxgi_pressure_ratio >= thresh) || state->data.uma_guard_triggered_live;
     if (highPressure) {
-        swprintf_s(dxgiBadgeText, L"ALERTA UMA: %.0f%% (>85%%)", state->data.dxgi_pressure_ratio * 100.0);
+        swprintf_s(dxgiBadgeText, L"ALERTA UMA: %.0f%% (>%d%%)", state->data.dxgi_pressure_ratio * 100.0, threshPct);
         DrawBadge(hdcMem, rcDxgiBadge, dxgiBadgeText, CLR_ACCENT_AMBER, RGB(36, 26, 20), CLR_ACCENT_AMBER, state->hFontSmallBold);
     } else {
         swprintf_s(dxgiBadgeText, L"PRESIÓN DXGI: %.0f%% [OK]", state->data.dxgi_pressure_ratio * 100.0);
         DrawBadge(hdcMem, rcDxgiBadge, dxgiBadgeText, CLR_ACCENT_CYAN, RGB(20, 36, 44), CLR_ACCENT_CYAN, state->hFontSmallBold);
     }
 
-    bool vramPoolActive = state->data.amd_vram_override_active || state->data.amd_vram_reported_mb >= 2048;
-    uint32_t activePoolMb = state->data.amd_vram_reported_mb > 0 ? state->data.amd_vram_reported_mb : (vramPoolActive ? 4096 : 512);
-    wchar_t poolBadgeText[64];
-    swprintf_s(poolBadgeText, L"POOL TEXTURAS: %u MB", activePoolMb);
-    RECT rcPoolBadge = { rcTopMem.right - 390, rcTopMem.top + 10, rcTopMem.right - 203, rcTopMem.top + 32 };
-    if (vramPoolActive) {
-        DrawBadge(hdcMem, rcPoolBadge, poolBadgeText, CLR_ACCENT_GREEN, RGB(20, 36, 28), CLR_ACCENT_GREEN, state->hFontSmallBold);
-    } else {
-        DrawBadge(hdcMem, rcPoolBadge, poolBadgeText, CLR_TEXT_MUTED, RGB(33, 38, 48), CLR_CARD_BORDER, state->hFontSmallBold);
-    }
-
     wchar_t mLine[256];
-    swprintf_s(mLine, L"Total: %llu MB   |   Libre: %llu MB   |   Standby: %llu MB   |   VRAM Local: %llu / %llu MB   |   Pool: %u MB",
-               static_cast<unsigned long long>(state->data.total_ram_mb),
-               static_cast<unsigned long long>(state->data.free_ram_mb),
-               static_cast<unsigned long long>(state->data.standby_ram_mb),
-               static_cast<unsigned long long>(state->data.vram_local_used_mb),
-               static_cast<unsigned long long>(state->data.vram_local_budget_mb),
-               activePoolMb);
+    if (state->data.has_amd_driver) {
+        bool vramPoolActive = state->data.amd_vram_override_active || state->data.amd_vram_reported_mb >= 2048;
+        uint32_t activePoolMb = state->data.amd_vram_reported_mb > 0 ? state->data.amd_vram_reported_mb : (vramPoolActive ? 4096 : 512);
+        wchar_t poolBadgeText[64];
+        swprintf_s(poolBadgeText, L"POOL TEXTURAS: %u MB", activePoolMb);
+        RECT rcPoolBadge = { rcTopMem.right - 390, rcTopMem.top + 10, rcTopMem.right - 203, rcTopMem.top + 32 };
+        if (vramPoolActive) {
+            DrawBadge(hdcMem, rcPoolBadge, poolBadgeText, CLR_ACCENT_GREEN, RGB(20, 36, 28), CLR_ACCENT_GREEN, state->hFontSmallBold);
+        } else {
+            DrawBadge(hdcMem, rcPoolBadge, poolBadgeText, CLR_TEXT_MUTED, RGB(33, 38, 48), CLR_CARD_BORDER, state->hFontSmallBold);
+        }
+
+        swprintf_s(mLine, L"Total: %llu MB   |   Libre: %llu MB   |   Standby: %llu MB   |   VRAM Local: %llu / %llu MB   |   Pool: %u MB",
+                   static_cast<unsigned long long>(state->data.total_ram_mb),
+                   static_cast<unsigned long long>(state->data.free_ram_mb),
+                   static_cast<unsigned long long>(state->data.standby_ram_mb),
+                   static_cast<unsigned long long>(state->data.vram_local_used_mb),
+                   static_cast<unsigned long long>(state->data.vram_local_budget_mb),
+                   activePoolMb);
+    } else {
+        swprintf_s(mLine, L"Total: %llu MB   |   Libre: %llu MB   |   Standby: %llu MB   |   VRAM Local: %llu / %llu MB",
+                   static_cast<unsigned long long>(state->data.total_ram_mb),
+                   static_cast<unsigned long long>(state->data.free_ram_mb),
+                   static_cast<unsigned long long>(state->data.standby_ram_mb),
+                   static_cast<unsigned long long>(state->data.vram_local_used_mb),
+                   static_cast<unsigned long long>(state->data.vram_local_budget_mb));
+    }
     DrawTextAt(hdcMem, rcTopMem.left + 16, rcTopMem.top + 38, mLine, CLR_TEXT_TITLE, state->hFontRegular);
 
     // Styled multi-segment progress bar
@@ -481,16 +465,18 @@ void RenderTabMemory(HDC hdcMem, const RECT& /*rcClient*/, GuiWindowState* state
     int botRowY = rcTopMem.top + 88;
     if (state->data.last_purge_after_free_mb > 0) {
         wchar_t repBuf[256];
-        swprintf_s(repBuf, L"Última purga: %llu MB libres  |  Mitigaciones UMA Guard: %u  |  Presión DXGI: %.1f%% (Umbral 85%%)",
+        swprintf_s(repBuf, L"Última purga: %llu MB libres  |  Mitigaciones UMA Guard: %u  |  Presión DXGI: %.1f%% (Umbral %d%%)",
                    static_cast<unsigned long long>(state->data.last_purge_after_free_mb),
                    state->data.uma_guard_interventions,
-                   state->data.dxgi_pressure_ratio * 100.0);
+                   state->data.dxgi_pressure_ratio * 100.0,
+                   threshPct);
         DrawTextAt(hdcMem, rcTopMem.left + 16, botRowY + 10, repBuf, CLR_ACCENT_GREEN, state->hFontSmallBold);
     } else {
         wchar_t repBuf[256];
-        swprintf_s(repBuf, L"Mitigaciones UMA Guard: %u  |  Presión DXGI: %.1f%% (Umbral 85%%)",
+        swprintf_s(repBuf, L"Mitigaciones UMA Guard: %u  |  Presión DXGI: %.1f%% (Umbral %d%%)",
                    state->data.uma_guard_interventions,
-                   state->data.dxgi_pressure_ratio * 100.0);
+                   state->data.dxgi_pressure_ratio * 100.0,
+                   threshPct);
         DrawTextAt(hdcMem, rcTopMem.left + 16, botRowY + 10, repBuf,
                    highPressure ? CLR_ACCENT_AMBER : CLR_TEXT_MUTED,
                    state->hFontSmall);

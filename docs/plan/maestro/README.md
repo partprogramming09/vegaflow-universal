@@ -1,6 +1,6 @@
 # Plan maestro: arquitectura nueva, Rust, seguridad y soporte universal
 
-**Lector:** personas. Fecha: 2026-11-08. Estado: **aprobado el 2026-11-09**. Hechas: fase 0, R1 y R2 (2026-11-09), fase 1 y fase 1b (2026-11-10). Siguiente: fase 2.
+**Lector:** personas. Fecha: 2026-11-08. Estado: **aprobado el 2026-11-09**. Hechas: fase 0, R1 y R2 (2026-11-09), fase 1 y fase 1b (2026-11-10), fase 2, fase 2b, fase 3, fase 4, fase 5 y fase 6 (2026-11-12), fase 7 y fase 8 (2026-11-13), fase R3 (2026-11-14). Siguiente: fase G (la versión 0.1.0 se empaqueta sin ella; sus siete pantallas pasan a la 0.2.0).
 
 Este es el único plan del proyecto. Junta tres cosas que antes iban por separado:
 - la **arquitectura nueva** y la modularización (decisión en el [ADR 0001](../../adr/0001-nucleo-que-decide-y-puertos.md));
@@ -22,16 +22,16 @@ Un archivo por fase, en el orden en que se hacen. Lo común va aparte:
 | ~~`02-fase-r2.md`~~ | Fase R2: **hecha el 2026-11-09** (política inyectada, `ports/file_system.hpp` y `ports/clock.hpp`, `windows/unique_handle.hpp`; partir `gui_mode` pasó a la fase G). Resultado en [`docs/arquitectura/modulos.md`](../../arquitectura/modulos.md) |
 | ~~`03-fase-1.md`~~ | Fase 1: **hecha el 2026-11-10** (decisión entera en Rust `policy/file_access.rs`, lector de `libraryfolders.vdf` en Rust, junctions y 8.3 resueltos, E/S comprobada por handle, carpetas permitidas sin enlaces; el archivo se borró, la historia queda en git). Resultado en [`docs/arquitectura/seguridad.md`](../../arquitectura/seguridad.md); pendientes en [`fuera-del-plan.md`](fuera-del-plan.md) |
 | ~~`04-fase-1b.md`~~ | Fase 1b: **hecha el 2026-11-10** (`da5b0ee`, `574324e`, `45326bf`, `03bf476`: una sola ruta junto al `.exe` que solo se lee si nadie más pudo escribirla, lector JSON propio en Rust, rangos y nombres de juego validados, guardado sin perder claves; el archivo se borró, la historia queda en git). Resultado en [`docs/arquitectura/seguridad.md`](../../arquitectura/seguridad.md), punto 5; pendientes en [`fuera-del-plan.md`](fuera-del-plan.md) |
-| [`05-fase-2.md`](05-fase-2.md) | Fase 2: editor de `.ini` de juegos (Unreal y Unity) |
-| [`06-fase-2b.md`](06-fase-2b.md) | Fase 2b: diario de cambios |
-| [`07-fase-3.md`](07-fase-3.md) | Fase 3: perfil del equipo (empieza por la GPU) |
-| [`08-fase-4.md`](08-fase-4.md) | Fase 4: decidir cuándo liberar memoria |
-| [`09-fase-5.md`](09-fase-5.md) | Fase 5: elegir qué procesos frenar |
-| [`10-fase-6.md`](10-fase-6.md) | Fase 6: quitar la medición de fotogramas del daemon |
-| [`11-fase-7.md`](11-fase-7.md) | Fase 7: núcleos de CPU universales |
-| [`12-fase-8.md`](12-fase-8.md) | Fase 8: ajustes de sistema por fabricante |
-| [`13-fase-r3.md`](13-fase-r3.md) | Fase R3: cierre |
-| [`14-fase-g.md`](14-fase-g.md) | Fase G: GUI nueva |
+| ~~`05-fase-2.md`~~ | Fase 2: **hecha el 2026-11-12** (editor `.ini` y `boot.config` en Rust `policy/ini_merge.rs`, BOM/UTF-16/CRLF preservados, copia `.vegaflow.bak` comprobada byte a byte, Prueba 48 y `tests/vectors/ini/`; el archivo se borró, la historia queda en git). Resultado en [`docs/arquitectura/seguridad.md`](../../arquitectura/seguridad.md), punto 7 |
+| ~~`06-fase-2b.md`~~ | Fase 2b: **hecha el 2026-11-12** (diario atómico `<exe>\config\change_journal.vfj`, modo seguro tras dos cierres anormales, limpieza de `--once`, historial en GUI, punto de restauración opcional, Pruebas 49 y 50; el archivo se borró, la historia queda en git). Resultado en [`docs/arquitectura/seguridad.md`](../../arquitectura/seguridad.md), punto 8; pendientes en [`fuera-del-plan.md`](fuera-del-plan.md) |
+| ~~`07-fase-3.md`~~ | Fase 3: **hecha el 2026-11-12** (perfil universal del equipo y GPU en Rust `policy/device_profile.rs`, puerto `ports/device_probe.hpp` con DXCore + SetupAPI + almacenamiento `dwDesiredAccess=0` + energía + ARM64, detección de hot-plug y paso estático/vivo en `session/game_session.cpp`, `Engine.ini` sin recortes para dGPU/eGPU, Pruebas 51 y 52 y `tests/vectors/device_profiles.tsv`; el archivo se borró, la historia queda en git) |
+| ~~`08-fase-4.md`~~ | Fase 4: **hecha el 2026-11-12** (regla única de purga y guardián UMA en Rust `policy/memory_purge.rs`, salida de `ntdll` de Rust a `windows/memory.*`, puertos `ports/memory_probe.hpp` y `ports/memory_control.hpp`, umbral único 0.85, pausa compartida de 90s, lectura de disco por vuelta sin dilución, eliminación del fallback `ullAvailPhys`, exclusiones de fábrica No tocar para OBS/Discord/llamadas, Prueba 53 y `tests/vectors/memory_purge.tsv`; el archivo se borró, la historia queda en git) |
+| ~~`09-fase-5.md`~~ | Fase 5: **hecha el 2026-11-12** (clasificación de procesos y acciones en Rust `policy/process_class.rs`, verificación de ruta completa + DLL 3D + señales genéricas anti-cheat, puerto `ports/process_control.hpp` + `windows/process_control.*` con verificación PID+`creation_time`, devolución del juego anterior al cambiar de juego, exclusión "Me fue mal en este juego" en `ExcludeGameAndRevert`, Pruebas 54 y 55 y `tests/vectors/process_class.tsv`; el archivo se borró, la historia queda en git) |
+| ~~`10-fase-6.md`~~ | Fase 6: **hecha el 2026-11-12** (eliminada la captura ETW de fotogramas `src/safety/frame_telemetry.*`, `-ltdh`, Test 7 y los campos de FPS en `--monitor`, GUI y `session_reports.log`; `--monitor` conserva RAM y VRAM; el archivo se borró, la historia queda en git) |
+| ~~`11-fase-7.md`~~ | Fase 7: **hecha el 2026-11-13** (eliminada la copia C++ de reparto de CPU Sets; reparto dentro del grupo del proceso vía `group` en `VfCpuCoreEntry` y `vf_rust_partition_cpu_topology_group`; exclusión de LP E-cores en Core Ultra y soporte multi-grupo/Strix Point; Prueba 56 y `tests/vectors/cpu_topology.tsv`; el archivo se borró, la historia queda en git) |
+| ~~`12-fase-8.md`~~ | Fase 8: **hecha el 2026-11-13** (6 familias inyectables en `GraphicsOptimizer` sin métodos estáticos detrás de `RegistryPort` y `PowerPort`, proveedor AMD y plan de energía centralizados, retirados el temporizador NT de 0,5 ms y MMCSS `GPU Priority` conservando limpieza de copias legadas, `OverlayTestMode` apagado por defecto y documentado, Prueba 57; el archivo se borró, la historia queda en git) |
+| ~~`13-fase-r3.md`~~ | Fase R3: **hecha el 2026-11-14** (ningún caso de uso de `session/` llama a Win32: las lecturas de Windows están en `windows/system_counters.*`, `text_convert` pasó a `windows/` y `ui/app_identity.hpp` guarda versión y nombre de la ventana; `scripts/check_layers.sh` pasa; ADR 0001 aceptado; el archivo se borró, la historia queda en git). Resultado en [`docs/arquitectura/modulos.md`](../../arquitectura/modulos.md) y [`docs/arquitectura/patron-universal.md`](../../arquitectura/patron-universal.md). La medición del consumo en reposo se hace aparte, en [`docs/mediciones/`](../../mediciones/) |
+| [`14-fase-g.md`](14-fase-g.md) | Fase G: GUI nueva (las correcciones de nombre del laptop, «UXTU» y textos que prometen mejoras ya están hechas; quedan las 7 pantallas, para la 0.2.0) |
 | [`fuera-del-plan.md`](fuera-del-plan.md) | Secciones 6, 9 y 10: lo descartado, las ideas sin fase y lo que viene después del plan |
 
 Las fuentes externas están en [`docs/investigacion/`](../../investigacion/README.md). Cuando una fase termina, lo que implementó pasa a `docs/arquitectura/` o `docs/guias/` y su archivo se borra (la historia queda en git); cuando terminan todas, se borra la carpeta.
@@ -45,16 +45,16 @@ Las fuentes externas están en [`docs/investigacion/`](../../investigacion/READM
 | R2 | Puerto de archivos, puerto de reloj y RAII de Windows. **Hecha** | Las fases 1 y 2 los necesitan | — |
 | 1 | Seguridad de archivos (lista blanca). **Hecha** | Hoy el daemon, como administrador, puede escribir en todo `C:\ProgramData` | **Alta** |
 | 1b | Configuración segura (`config.json`). **Hecha** | Hoy se lee con una ruta relativa a la carpeta de trabajo, se guarda borrando lo que no conoce y no se valida; las fases 5 y G dependen de ella | **Alta** |
-| 2 | Editor de `.ini` de juegos | Puede perder la configuración original del juego | **Alta** |
-| 2b | Diario de cambios | Si el daemon se cierra a la fuerza, los cambios se quedan aplicados y nadie lo sabe | **Alta** |
-| 3 | Perfil del equipo: CPU, GPU (con su **tipo de conexión**), RAM, disco, energía, pantalla, Windows y arquitectura | Clasifica mal varias APU modernas y no distingue una eGPU | Media |
+| 2 | Editor de `.ini` de juegos. **Hecha** | Puede perder la configuración original del juego | **Alta** |
+| 2b | Diario de cambios. **Hecha** | Si el daemon se cierra a la fuerza, los cambios se quedan aplicados y nadie lo sabe | **Alta** |
+| 3 | Perfil del equipo: CPU, GPU (con su **tipo de conexión**), RAM, disco, energía, pantalla, Windows y arquitectura. **Hecha** | Clasifica mal varias APU modernas y no distingue una eGPU | Media |
 | 4 | Decidir cuándo liberar memoria | Reglas repetidas en dos lenguajes y una purga sin pausa | Media |
 | 5 | Elegir qué procesos frenar | Puede dejar frenado un proceso que no toca | Media |
 | 6 | Quitar la medición de fotogramas del daemon | VegaFlow no es un medidor; la captura usa números de evento que no son los de un fotograma | Media |
-| 7 | Núcleos de CPU universales (Intel híbrido, multi-CCD, más de 64 hilos) | La regla está **copiada** en C++ para más de 64 hilos, y en Intel manda todo el fondo a todos los E-cores | Media |
-| 8 | Ajustes de sistema por fabricante, detrás de un puerto de registro | 36 funciones estáticas; varios ajustes de AMD se intentan sin mirar el fabricante | Baja |
-| R3 | Cierre: armar todo en `main`, documentación y medir el consumo | Cierra el refactor | — |
-| G | GUI nueva: 7 pantallas en lenguaje claro, con el estado de evidencia de cada ajuste | Necesita la configuración segura (1b), el diario de cambios (2b), los datos limpios de las fases 3 a 8 y la carpeta `session/` | Media: hoy muestra el nombre del laptop de pruebas en otros equipos |
+| 7 | Núcleos de CPU universales (Intel híbrido, multi-CCD, más de 64 hilos). **Hecha** | La regla está **copiada** en C++ para más de 64 hilos, y en Intel manda todo el fondo a todos los E-cores | Media |
+| 8 | Ajustes de sistema por fabricante, detrás de un puerto de registro. **Hecha** | 36 funciones estáticas; varios ajustes de AMD se intentan sin mirar el fabricante | Baja |
+| R3 | Cierre: `session/` sin llamadas a Win32, documentación y paquete 0.1.0. **Hecha** | Cierra el refactor | — |
+| G | GUI nueva: 7 pantallas en lenguaje claro, con el estado de evidencia de cada ajuste (versión 0.2.0) | Necesita la configuración segura (1b), el diario de cambios (2b), los datos limpios de las fases 3 a 8 y la carpeta `session/` | Media: la GUI actual ya no muestra el nombre del laptop de pruebas ni promete mejoras, pero sigue sin decir qué está medido |
 | — | Lector de cabecera `.exe` | **Se descarta**: no tiene fallo de memoria y hoy no se ejecuta | Baja |
 
 La GUI nueva es la fase G. Las ideas que todavía no tienen fase están en la [fuera del plan](fuera-del-plan.md).
@@ -85,7 +85,7 @@ El orden de las fases 1 a 8 va de lo que más daño puede hacer a lo que menos. 
                       |
                       v
 +---------------------------------------------+
-| R3: cierre (sin clases estáticas, docs)     |
+| R3: cierre (hecha el 2026-11-14)            |
 +---------------------------------------------+
                       |
                       v

@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Módulos principales</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper: #f5f5f5; --color-ink: #2d3142; --color-muted: #4f5d75; --color-accent: #bf4520;
+      --font-sans: 'Geist', system-ui, sans-serif; --font-serif: 'Instrument Serif', serif; --font-mono: 'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400; letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    .scroll { overflow-x: auto; }
+    svg { width: 100%; min-width: 1000px; display: block; }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Módulos · VegaFlow Universal</p>
+    <h1>Arquitectura de VegaFlow Universal · Módulos principales</h1>
+    <div class="scroll">
+    <svg viewBox="0 0 1000 760" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="modulos-principales-title modulos-principales-desc">
+      <title id="modulos-principales-title">Arquitectura de VegaFlow Universal · Módulos principales</title>
+      <desc id="modulos-principales-desc">La detección no invasiva pasa al Anti-Cheat Sentinel; según has_anticheat se aplican optimizaciones a nivel motor o no invasivas, y ambas ramas terminan en el subsistema central de rendimiento del kernel y el sistema operativo.</desc>
+      <defs>
+        <pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="0.9" fill="rgba(45,49,66,0.10)"/></pattern>
+        <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#4f5d75"/></marker>
+        <marker id="arrow-accent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#bf4520"/></marker>
+      </defs>
+      <rect width="100%" height="100%" fill="#f5f5f5"/>
+      <rect width="100%" height="100%" fill="url(#dots)" opacity="0.55"/>
+      <line x1="500" y1="128" x2="500" y2="160" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <path d="M380,216 H278 Q270,216 270,224 V304" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <path d="M620,216 H722 Q730,216 730,224 V304" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <rect x="296" y="192" width="64" height="16" fill="#f5f5f5"/>
+      <text x="328" y="204" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="middle">== false</text>
+      <rect x="644" y="192" width="56" height="16" fill="#f5f5f5"/>
+      <text x="672" y="204" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="middle">== true</text>
+      <path d="M270,440 V492 Q270,500 278,500 H496" fill="none" stroke="#4f5d75" stroke-width="1.2"/>
+      <path d="M730,440 V492 Q730,500 722,500 H504" fill="none" stroke="#4f5d75" stroke-width="1.2"/>
+      <line x1="500" y1="504" x2="500" y2="540" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <circle cx="500" cy="500" r="4" fill="#2d3142"/>
+      <rect x="388" y="80" width="224" height="48" rx="6" fill="#ffffff" stroke="rgba(45,49,66,0.30)" stroke-width="1"/>
+      <text x="500" y="109" fill="#2d3142" font-size="13" font-family="'Geist', sans-serif" font-weight="600" text-anchor="middle">Detección no invasiva</text>
+      <polygon points="380,216 500,160 620,216 500,272" fill="#f8ebe6" stroke="#bf4520" stroke-width="1.2"/>
+      <text x="500" y="212" fill="#2d3142" font-size="13" font-family="'Geist', sans-serif" font-weight="600" text-anchor="middle">Anti-Cheat Sentinel</text>
+      <text x="500" y="230" fill="#bf4520" font-size="10" font-family="'Geist Mono', monospace" text-anchor="middle">has_anticheat</text>
+      <rect x="120" y="304" width="300" height="136" rx="6" fill="#ffffff" stroke="rgba(45,49,66,0.30)" stroke-width="1"/>
+      <text x="136" y="332" fill="#2d3142" font-size="14" font-family="'Geist', sans-serif" font-weight="600">Optimizaciones a nivel motor</text>
+      <text x="136" y="358" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace">· DXVK-GPLAsync (6 hilos de trabajo)</text>
+      <text x="136" y="376" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace">· UMA Engine Streaming (Pool 3000)</text>
+      <text x="136" y="394" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace">· AsyncCompute deshabilitado</text>
+      <text x="136" y="412" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace">· Backups automáticos .bak</text>
+      <rect x="580" y="304" width="300" height="136" rx="6" fill="#ffffff" stroke="rgba(45,49,66,0.30)" stroke-width="1"/>
+      <text x="596" y="332" fill="#2d3142" font-size="14" font-family="'Geist', sans-serif" font-weight="600">Optimizaciones no invasivas</text>
+      <text x="596" y="358" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace">· DXGI Hardware Flip Model</text>
+      <text x="596" y="376" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace">· CPU Sets cooperativos de juego</text>
+      <text x="596" y="394" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace">· Temporizador NT a 0.5 ms exactos</text>
+      <rect x="120" y="540" width="760" height="148" fill="#ececec" stroke="rgba(45,49,66,0.12)" stroke-width="1"/>
+      <text x="140" y="572" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">KERNEL Y SO</text>
+      <text x="220" y="574" fill="#2d3142" font-size="16" font-family="'Geist', sans-serif" font-weight="600">Subsistema central de rendimiento</text>
+      <text x="220" y="600" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace">· MMCSS Gaming Profile (GPU Priority = 8)</text>
+      <text x="220" y="618" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace">· Win32PrioritySeparation dinámico (0x26 / 0x28)</text>
+      <text x="220" y="636" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace">· APU Power Profile (CPU limitada a 3.2GHz, ASPM desactivado, Vega @ 1500MHz)</text>
+      <text x="220" y="654" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace">· Purga inteligente de Standby List (con histéresis y check de I/O)</text>
+      <text x="220" y="672" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace">· Desactivación de MPO y Memory Compression</text>
+      <text x="120" y="728" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">FOCO</text>
+      <text x="216" y="728" fill="#4f5d75" font-size="9" font-family="'Geist', sans-serif" font-style="italic">El Anti-Cheat Sentinel decide la rama; las dos ramas terminan en el mismo subsistema central.</text>
+    </svg>
+    </div>
+  </div>
+</body>
+</html>

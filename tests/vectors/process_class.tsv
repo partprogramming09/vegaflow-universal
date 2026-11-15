@@ -1,0 +1,40 @@
+# Shared process classification vectors tested identically in Rust and C++.
+# Format (tab-separated, 13 columns):
+# id	full_path	category_override	exceptions	custom_games	excluded_games	heavy_work_as_game	is_fg_3d	has_ac_signal	expected_class	expected_action	expected_ac	expected_path_verified
+win_dwm	C:\Windows\System32\dwm.exe	default	none	none	none	0	1	0	windows_system	do_not_touch	0	1
+win_explorer_override	C:\Windows\explorer.exe	default	explorer.exe=throttle	explorer.exe	none	0	1	0	windows_system	do_not_touch	0	1
+win_svchost_bare	svchost.exe	default	none	none	none	0	0	0	windows_system	do_not_touch	0	0
+win_vegaflow	C:\ProgramData\VegaFlow\vegaflow_daemon.exe	default	none	none	none	0	0	0	windows_system	do_not_touch	0	1
+obs_factory_default	C:\Program Files\obs-studio\bin\64bit\obs64.exe	default	none	none	none	0	1	0	recording_streaming	do_not_touch	0	1
+obs_user_throttle	C:\Program Files\obs-studio\bin\64bit\obs64.exe	recording_streaming=throttle	none	none	none	0	0	0	recording_streaming	throttle	0	1
+obs_user_exception_keep	C:\Program Files\obs-studio\bin\64bit\obs64.exe	recording_streaming=throttle	obs64.exe=do_not_touch	none	none	0	0	0	recording_streaming	do_not_touch	0	1
+obs_fake_folder	C:\Temp\obs64.exe	default	none	none	none	0	0	0	unknown	do_not_touch	0	0
+discord_factory_default	C:\Users\alice\AppData\Local\Discord\app-1.0.9163\Discord.exe	default	none	none	none	0	1	0	calls_voice	do_not_touch	0	1
+discord_canary_real	C:\Users\alice\AppData\Local\DiscordCanary\app-1.0.500\DiscordCanary.exe	default	none	none	none	0	0	0	calls_voice	do_not_touch	0	1
+discord_fake_temp	C:\Temp\discord.exe	default	none	none	none	0	0	0	unknown	do_not_touch	0	0
+discord_fake_games_folder	D:\Games\FakeDiscord\Discord\discord.exe	default	none	none	none	0	0	0	unknown	do_not_touch	0	0
+discord_fake_3d_game	D:\Games\MyCustomTest\discord.exe	default	none	none	none	0	1	0	possible_game	boost_as_game	0	0
+discord_user_throttle	C:\Program Files\Discord\Discord.exe	calls_voice=throttle	none	none	none	0	0	0	calls_voice	throttle	0	1
+teams_fg_3d_not_game	C:\Users\alice\AppData\Local\Microsoft\Teams\current\Teams.exe	default	none	none	none	0	1	0	calls_voice	do_not_touch	0	1
+msteams_windowsapps	C:\Program Files\WindowsApps\MSTeams_24277.3507.3205.5228_x64__8wekyb3d8bbwe\ms-teams.exe	default	none	none	none	0	1	0	calls_voice	do_not_touch	0	1
+slack_fg_3d_not_game	C:\Users\alice\AppData\Local\slack\app-4.38.125\slack.exe	default	none	none	none	0	1	0	messaging	throttle	0	1
+telegram_default_throttle	C:\Users\alice\AppData\Roaming\Telegram Desktop\Telegram.exe	default	none	none	none	0	0	0	messaging	throttle	0	1
+telegram_exception_keep	C:\Users\alice\AppData\Roaming\Telegram Desktop\Telegram.exe	default	telegram.exe=do_not_touch	none	none	0	0	0	messaging	do_not_touch	0	1
+telegram_exception_eco	C:\Users\alice\AppData\Roaming\Telegram Desktop\Telegram.exe	default	telegram.exe=eco_only	none	none	0	0	0	messaging	eco_only	0	1
+chrome_fg_3d_not_game	C:\Program Files\Google\Chrome\Application\chrome.exe	default	none	none	none	0	1	0	browsers	throttle	0	1
+edge_bg_throttle	C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe	default	none	none	none	0	0	0	browsers	throttle	0	1
+firefox_override_eco	C:\Program Files\Mozilla Firefox\firefox.exe	browsers=eco_only	none	none	none	0	0	0	browsers	eco_only	0	1
+steamweb_throttle	C:\Program Files (x86)\Steam\bin\cef\cef.win7x64\steamwebhelper.exe	default	none	none	none	0	0	0	stores_launchers	throttle	0	1
+epic_throttle	D:\Epic Games\Launcher\Portal\Binaries\Win64\EpicGamesLauncher.exe	default	none	none	none	0	0	0	stores_launchers	throttle	0	1
+spotify_default_eco	C:\Users\alice\AppData\Roaming\Spotify\Spotify.exe	default	none	none	none	0	1	0	music	eco_only	0	1
+spotify_override_keep	C:\Users\alice\AppData\Roaming\Spotify\Spotify.exe	default	spotify.exe=do_not_touch	none	none	0	0	0	music	do_not_touch	0	1
+onedrive_throttle	C:\Program Files\Microsoft OneDrive\OneDrive.exe	default	none	none	none	0	0	0	cloud_sync	throttle	0	1
+vscode_never_game	C:\Users\alice\AppData\Local\Programs\Microsoft VS Code\Code.exe	default	none	none	none	0	1	0	developer_ide	do_not_touch	0	1
+blender_heavy_off	C:\Program Files\Blender Foundation\Blender 4.2\blender.exe	default	none	none	none	0	1	0	heavy_work	do_not_touch	0	1
+blender_heavy_on	C:\Program Files\Blender Foundation\Blender 4.2\blender.exe	default	none	none	none	1	1	0	heavy_work	boost_as_game	0	1
+resolve_heavy_on	C:\Program Files\Blackmagic Design\DaVinci Resolve\resolve.exe	default	none	none	none	1	0	0	heavy_work	boost_as_game	0	1
+game_fg_3d	D:\SteamLibrary\steamapps\common\OCTOPATH TRAVELER2\Octopath_Traveler2-Win64-Shipping.exe	default	none	none	none	0	1	0	possible_game	boost_as_game	0	0
+game_custom_list	C:\MyGames\IndiePixel.exe	default	none	IndiePixel.exe	none	0	0	0	possible_game	boost_as_game	0	0
+game_excluded_bad_exp	D:\SteamLibrary\steamapps\common\OCTOPATH TRAVELER2\Octopath_Traveler2-Win64-Shipping.exe	default	none	none	Octopath_Traveler2-Win64-Shipping.exe	0	1	0	possible_game	do_not_touch	0	0
+game_generic_ac_signal	D:\Games\Shooter\Shooter-Win64-Shipping.exe	default	none	none	none	0	1	1	possible_game	boost_as_game	1	0
+game_zzz_path_ac	D:\Games\ZenlessZoneZero\ZenlessZoneZero.exe	default	none	none	none	0	1	0	possible_game	boost_as_game	1	0

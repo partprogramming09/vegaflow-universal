@@ -21,12 +21,12 @@
 #include <vector>
 
 #include "windows/privileges.hpp"
+#include "windows/registry.hpp"
 #include "detect/hardware_profiler.hpp"
 #include "detect/process_detector.hpp"
 #include "optimize/graphics/graphics_optimizer.hpp"
 #include "optimize/memory_manager.hpp"
 #include "optimize/cpu_orchestrator.hpp"
-#include "safety/frame_telemetry.hpp"
 #include "optimize/steam/steam_engine_optimizer.hpp"
 #include "optimize/dxvk_manager.hpp"
 #include "windows/sandbox_guard.hpp"
@@ -45,13 +45,11 @@ using vftest::g_pass_count;
 
 namespace {
 
-/** On exit, restores the power plan to its previous state if any test really applied the APU profile. */
+/** On exit, restores any pending registry backups if any test left changes behind. */
 struct PowerPlanGuard {
     ~PowerPlanGuard() {
-        if (vegaflow::GraphicsOptimizer::IsApuPowerModeApplied()) {
-            vegaflow::GraphicsOptimizer::SetApuPowerMode(vegaflow::ApuPowerMode::Balanced, vftest::DetectedPolicy());
-        }
-        vegaflow::GraphicsOptimizer::RestoreAllRegistryBackups();
+        vegaflow::WindowsRegistryPort reg;
+        reg.RestoreAllBackups();
     }
 };
 
@@ -75,7 +73,7 @@ int main() {
         {4, vftest::Test04},
         {5, vftest::Test05},
         {6, vftest::Test06},
-        {7, vftest::Test07},
+        // Test 7 was removed along with ETW frame telemetry (Phase 6).
         {8, vftest::Test08},
         // Test 9 was removed along with the image scaling feature.
         {10, vftest::Test10},
@@ -116,6 +114,19 @@ int main() {
         {45, vftest::Test45},
         {46, vftest::Test46},
         {47, vftest::Test47},
+        {48, vftest::Test48},
+        {49, vftest::Test49},
+        {50, vftest::Test50},
+        {51, vftest::Test51},
+        {52, vftest::Test52},
+        {53, vftest::Test53},
+        {54, vftest::Test54},
+        {55, vftest::Test55},
+        {56, vftest::Test56},
+        {57, vftest::Test57},
+        {58, vftest::Test58},
+        {59, vftest::Test59},
+        {60, vftest::Test60},
     };
     for (const auto& [number, run] : tests) {
         try {

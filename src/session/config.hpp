@@ -13,6 +13,7 @@
 #include <string>
 #include <vector>
 
+#include "model/game.hpp"
 #include "optimize/memory_manager.hpp"
 #include "optimize/steam/steam_engine_optimizer.hpp"
 #include "ports/file_system.hpp"
@@ -21,10 +22,9 @@ namespace vegaflow::app {
 
 struct AppConfig {
     uint32_t poll_interval_ms = 1500;
-    ULONG timer_resolution_ns100 = 5000;
-    bool timer_forced_manual = false;
     bool restrict_game_cpu_sets = false; // false: the game uses all threads and only the background is confined
     vegaflow::MemoryPurgeConfig memory{};
+    vegaflow::ProcessPolicyConfig process_policy{};
     std::vector<std::wstring> custom_game_exes;
     std::vector<std::wstring> user_custom_game_exes; // Original exes from config.json
 };

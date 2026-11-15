@@ -1,127 +1,187 @@
 #pragma once
-
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-#include <windows.h>
+// System and graphics optimization families backed by RegistryPort and PowerPort (no <windows.h>).
 
 #include "model/hardware.hpp"
+#include "ports/power.hpp"
+#include "ports/registry.hpp"
 
+#include <cstddef>
 #include <cstdint>
+#include <mutex>
+#include <optional>
 #include <string>
 #include <vector>
 
 namespace vegaflow {
 
-struct TimerResolutionState {
-    ULONG minimum_ns100 = 0; // e.g. 156250 (15.625 ms)
-    ULONG maximum_ns100 = 0; // e.g. 5000 (0.5 ms)
-    ULONG current_ns100 = 0;
-    bool active_high_res = false;
-};
-
-struct ShaderCacheReport {
-    std::wstring path;
-    uint64_t total_size_bytes = 0;
-    uint32_t file_count = 0;
-    bool exists = false;
-};
-
 struct SystemGraphicsTweaksState {
-    bool mpo_disabled = false; // HKLM\SOFTWARE\Microsoft\Windows\Dwm -> OverlayTestMode == 5
+    bool mpo_disabled = false; // HKLM\SOFTWARE\Microsoft\Windows\Dwm -> OverlayTestMode == 5 (undocumented; off by default)
     uint32_t dwm_overlay_test_mode = 0;
     bool amd_shader_cache_forced = false; // ShaderCache == 32 00 in Class\{4d36e968-e325-11ce-bfc1-08002be10318}
     bool memory_compression_enabled = false; // "MemCompression" kernel process active
-    bool mmcss_gaming_optimized = false; // Tasks\Games -> GPU Priority == 8 && SystemResponsiveness <= 10
+    bool mmcss_gaming_optimized = false; // SystemProfile\SystemResponsiveness <= 10 && Tasks\Games\Priority == 6 && Scheduling Category == "High"
     bool amd_dx11_uma_boost = false;     // SurfaceFormatReplacements == 0x3100
-    bool gamedvr_disabled = false;       // GameDVR_Enabled == 0 && AppCaptureEnabled == 0
-    bool apu_power_optimized = false;    // APU power plan (Efficient Boost + PCIe ASPM Off)
+    bool gamedvr_disabled = false;       // GameDVR_Enabled == 0
+    bool apu_power_optimized = false;    // APU power plan (PCIe ASPM Off)
     uint32_t win32_priority_separation = 2; // HKLM\SYSTEM\CurrentControlSet\Control\PriorityControl -> Win32PrioritySeparation
     bool kernel_paging_shield_active = false; // HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management -> DisablePagingExecutive == 1
     uint32_t amd_tessellation_max = 0;       // Detected tessellation limit (e.g. 16, 8, 64)
-    std::string mmcss_scheduling_category = "";
-    std::string mmcss_sfio_priority = "";
+    std::string mmcss_scheduling_category;
+    std::string mmcss_sfio_priority;
     uint32_t mmcss_clock_rate = 10000;
     uint32_t amd_vram_reported_mb = 0;
     bool amd_vram_override_active = false;
 };
 
 enum class ApuPowerMode {
-    Balanced = 0,         // Default: standard aggressive Boost (4.0 GHz)
-    GpuPrioritySustained = 1 // Efficient boost (3.2-3.4 GHz ceiling / Mode 4) to yield ~15W continuously to the Vega 6 at 1500 MHz
+    Balanced = 0,            // Default: standard aggressive Boost (4.0 GHz)
+    GpuPrioritySustained = 1 // Efficient boost (3.2-3.4 GHz ceiling / Mode 4) to yield ~15W continuously to the iGPU
 };
 
-class GraphicsOptimizer {
+// AMD display driver & UMA VRAM reporting tweaks (instantiated only for AMD GPUs).
+class AmdDriverTweaks {
 public:
-    static TimerResolutionState QueryTimerResolution();
-    static bool EnableHighPrecisionTimer(ULONG desired_ns100 = 5000);
-    static bool SetHighResolutionTimer(ULONG desired_ns100 = 5000) { return EnableHighPrecisionTimer(desired_ns100); }
-    static bool RestoreDefaultTimer();
+    explicit AmdDriverTweaks(RegistryPort& reg) : reg_(reg) {}
 
-    // MPO state and inspection, and system tweaks
-    static SystemGraphicsTweaksState QuerySystemGraphicsTweaks();
-    static bool SetMpoDisabled(bool disable, bool dry_run = false);
-    static bool SetAmdShaderCacheForced(bool force_on, const ApuOptimizationPolicy& policy, bool dry_run = false);
-    static bool SetMemoryCompressionEnabled(bool enable, bool dry_run = false);
-    static bool SetMmcssGamingProfileOptimized(bool optimize, bool dry_run = false);
-    static bool SetAmdDx11UmaDriverBoost(bool enable, const ApuOptimizationPolicy& policy, bool dry_run = false);
-    static bool ApplyAmdDx11DriverBoost(bool enable, const ApuOptimizationPolicy& policy, bool dry_run = false);
-    static bool SetAmdTessellationCap(uint32_t max_tess = 16, bool dry_run = false);
-    static bool SetDynamicPrioritySeparation(uint32_t value, bool dry_run = false);
-    static bool SetKernelMemoryPagingShield(bool enable, bool dry_run = false);
-    static bool QueryKernelMemoryPagingShield();
-    static uint32_t QueryAmdTessellationCap();
+    bool SetShaderCacheForced(bool force_on, const ApuOptimizationPolicy& policy, bool dry_run = false);
+    bool SetDx11UmaDriverBoost(bool enable, const ApuOptimizationPolicy& policy, bool dry_run = false);
+    bool SetTessellationCap(uint32_t max_tess = 16, bool dry_run = false);
+    uint32_t QueryTessellationCap();
 
-    // UMA VRAM Budget Override (Windows & DirectX & AMD Driver)
-    static bool ApplyAmdVramReportingOverride(uint32_t target_mb = 4096, bool dry_run = false);
-    static bool RestoreAmdVramReporting(bool dry_run = false);
-    static bool QueryAmdVramReporting(uint32_t& out_driver_mb, uint64_t& out_dxgi_bytes);
+    bool ApplyVramReportingOverride(uint32_t target_mb = 4096, bool dry_run = false);
+    bool RestoreVramReporting(bool dry_run = false);
+    bool QueryVramReporting(uint32_t& out_driver_mb, uint64_t& out_dxgi_bytes);
 
-    // MMCSS Audio & Gaming Priority Shield (Round 2 - Risk 2)
-    static bool ApplyMmcssTaskTweaks(bool dryRun = false);
-    static bool ApplyMmcssTweaks(bool dryRun = false) { return ApplyMmcssTaskTweaks(dryRun); }
-    static bool RestoreMmcssTaskTweaks(bool dryRun = false);
-    static bool QueryMmcssTaskTweaks(std::string& schedulingCategory, std::string& sfioPriority, uint32_t& clockRate);
+    void QueryAdapterState(bool& out_shader_cache_forced, bool& out_dx11_uma_boost, uint32_t& out_tess_max);
 
-    // Disables GameDVR / AppCapture in the background (saves UMA bandwidth in all DX11/DX12 games)
-    // and forces zero-latency Fullscreen Optimizations (FSEBehaviorMode = 2)
-    static bool SetGameDvrAndFseOptimized(bool optimize, bool dry_run = false);
+private:
+    RegistryPort& reg_;
+};
 
-    // Changes to the GameDVR and AMD driver registry first save the original value; disabling the
-    // optimization returns it (or deletes the value if it did not exist). This function restores all pending backups
-    // and returns true if all of them could be restored.
-    static bool RestoreAllRegistryBackups();
+// Windows NT kernel scheduler & memory management tweaks.
+class KernelSchedulerTweaks {
+public:
+    explicit KernelSchedulerTweaks(RegistryPort& reg) : reg_(reg) {}
 
-    // APU thermal and power control (GPU-Priority Sustained vs Balanced mode):
-    // GpuPrioritySustained saves the power plan values before applying and Balanced returns them;
-    // if there are no saved values (another process applied it), Balanced writes the Windows default values.
-    static bool SetApuPowerMode(ApuPowerMode mode, const ApuOptimizationPolicy& policy, bool dry_run = false);
+    bool SetMemoryCompressionEnabled(bool enable, bool dry_run = false);
+    bool IsMemoryCompressionEnabled();
+    bool SetDynamicPrioritySeparation(uint32_t value, bool dry_run = false);
+    uint32_t QueryDynamicPrioritySeparation();
+    bool SetKernelMemoryPagingShield(bool enable, bool dry_run = false);
+    bool QueryKernelMemoryPagingShield();
 
-    // Whether this process left GpuPrioritySustained mode applied and it still needs to be restored.
-    static bool IsApuPowerModeApplied();
+private:
+    RegistryPort& reg_;
+};
 
-    // Optimizes the APU laptop power profile (Ryzen 4000/5000/6000/7000 + Radeon iGPU):
-    // - Kept for compatibility; invokes SetApuPowerMode(GpuPrioritySustained / Balanced)
-    static bool SetApuLaptopPowerProfile(bool optimize, const ApuOptimizationPolicy& policy, bool dry_run = false);
+// MMCSS Multimedia SystemProfile & Tasks\Games priority tweaks (without deprecated GPU Priority).
+class MmcssTweaks {
+public:
+    explicit MmcssTweaks(RegistryPort& reg) : reg_(reg) {}
 
-    // Writes to HKCU\Software\Microsoft\DirectX\UserGpuPreferences:
-    // [exe_full_path] = "SwapEffectUpgradeEnable=1;GpuPreference=2;AutoHDREnable=0;"
-    static bool ApplyDxgiFlipModelUpgrade(const std::wstring& exe_full_path, bool dry_run = false);
-    static bool ApplyDxgiFlipModelUpgrade(
-        const std::wstring& exe_full_path,
-        bool dry_run,
-        std::wstring* out_effective_preference);
-    static bool ApplyDxgiDirectFlipUpgrade(
+    bool SetGamingProfileOptimized(bool optimize, bool dry_run = false);
+    bool ApplyTaskTweaks(bool dry_run = false);
+    bool RestoreTaskTweaks(bool dry_run = false);
+    bool QueryTaskTweaks(std::string& scheduling_category, std::string& sfio_priority, uint32_t& clock_rate);
+    bool QueryGamingProfileOptimized();
+
+private:
+    RegistryPort& reg_;
+};
+
+// Display, DWM MPO (undocumented, off by default), GameDVR/FSE, and shader cache folder inspection.
+class DisplayTweaks {
+public:
+    explicit DisplayTweaks(RegistryPort& reg) : reg_(reg) {}
+
+    bool SetMpoDisabled(bool disable, bool dry_run = false);
+    void QueryMpoState(bool& out_disabled, uint32_t& out_overlay_test_mode);
+    bool SetGameDvrAndFseOptimized(bool optimize, bool dry_run = false);
+    bool QueryGameDvrDisabled();
+    std::vector<ShaderCacheReport> InspectShaderCaches();
+
+private:
+    RegistryPort& reg_;
+};
+
+// Per-game DXGI UserGpuPreferences and AppCompatFlags\Layers tweaks.
+class DxgiFlipTweaks {
+public:
+    explicit DxgiFlipTweaks(RegistryPort& reg) : reg_(reg) {}
+
+    bool ApplyFlipModelUpgrade(
         const std::wstring& exe_full_path,
         bool dry_run = false,
         std::wstring* out_effective_preference = nullptr);
-    static bool HasDxgiFlipModelUpgrade(const std::wstring& exe_full_path);
-    static bool HasDirectFlipUpgrade(const std::wstring& exe_full_path);
-    static bool QueryUserGpuPreferences(const std::wstring& exe_full_path, std::wstring& out_prefs);
-    static bool RemoveDxgiFlipModelUpgrade(const std::wstring& exe_full_path, bool dry_run = false);
+    bool ApplyDirectFlipUpgrade(
+        const std::wstring& exe_full_path,
+        bool dry_run = false,
+        std::wstring* out_effective_preference = nullptr);
+    bool QueryUserGpuPreferences(const std::wstring& exe_full_path, std::wstring& out_prefs);
+    bool RemoveFlipModelUpgrade(const std::wstring& exe_full_path, bool dry_run = false);
+    bool HasDirectFlipUpgrade(const std::wstring& exe_full_path);
+    bool HasFlipModelUpgrade(const std::wstring& exe_full_path);
 
-    // Inspects the shader cache folders (D3DSCache, AMD\DxCache, NVIDIA\DXCache)
-    static std::vector<ShaderCacheReport> InspectShaderCaches();
+private:
+    RegistryPort& reg_;
+};
+
+// Active Windows power plan tweaks (PCIe ASPM & CPU boost/EPP).
+class PowerModeTweaks {
+public:
+    explicit PowerModeTweaks(PowerPort& power) : power_(power) {}
+
+    bool SetApuPowerMode(ApuPowerMode mode, const ApuOptimizationPolicy& policy, bool dry_run = false);
+    bool IsApuPowerModeApplied() const;
+    bool SetApuLaptopPowerProfile(bool optimize, const ApuOptimizationPolicy& policy, bool dry_run = false);
+    bool QueryApuPowerOptimized();
+
+private:
+    PowerPort& power_;
+    mutable std::mutex mutex_;
+    bool applied_ = false;
+    bool saved_ = false;
+    ApuPowerPlanValues prev_values_{};
+};
+
+// Coordinator that decides vendor-gated and policy-gated tweak families in a single place.
+class GraphicsOptimizer {
+public:
+    GraphicsOptimizer(
+        const SystemHardwareProfile& hw,
+        const ApuOptimizationPolicy& policy,
+        RegistryPort& registry,
+        PowerPort* power = nullptr);
+
+    AmdDriverTweaks* AmdDriver() { return amd_driver_ ? &*amd_driver_ : nullptr; }
+    const AmdDriverTweaks* AmdDriver() const { return amd_driver_ ? &*amd_driver_ : nullptr; }
+
+    KernelSchedulerTweaks& KernelScheduler() { return kernel_; }
+    const KernelSchedulerTweaks& KernelScheduler() const { return kernel_; }
+
+    MmcssTweaks& Mmcss() { return mmcss_; }
+    const MmcssTweaks& Mmcss() const { return mmcss_; }
+
+    DisplayTweaks& Display() { return display_; }
+    const DisplayTweaks& Display() const { return display_; }
+
+    DxgiFlipTweaks& DxgiFlip() { return dxgi_; }
+    const DxgiFlipTweaks& DxgiFlip() const { return dxgi_; }
+
+    PowerModeTweaks* PowerMode() { return power_mode_ ? &*power_mode_ : nullptr; }
+    const PowerModeTweaks* PowerMode() const { return power_mode_ ? &*power_mode_ : nullptr; }
+
+    SystemGraphicsTweaksState QuerySystemGraphicsTweaks();
+    bool RestoreAllRegistryBackups(size_t* out_reverted = nullptr, size_t* out_total = nullptr);
+
+private:
+    RegistryPort& registry_;
+    std::optional<AmdDriverTweaks> amd_driver_;
+    KernelSchedulerTweaks kernel_;
+    MmcssTweaks mmcss_;
+    DisplayTweaks display_;
+    DxgiFlipTweaks dxgi_;
+    std::optional<PowerModeTweaks> power_mode_;
 };
 
 } // namespace vegaflow

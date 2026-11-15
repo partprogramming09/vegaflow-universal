@@ -26,7 +26,6 @@
 #include "optimize/graphics/graphics_optimizer.hpp"
 #include "optimize/memory_manager.hpp"
 #include "optimize/cpu_orchestrator.hpp"
-#include "safety/frame_telemetry.hpp"
 #include "optimize/steam/steam_engine_optimizer.hpp"
 #include "optimize/dxvk_manager.hpp"
 #include "windows/sandbox_guard.hpp"
@@ -44,38 +43,53 @@ void Test31() {
     // Test 31: Hybrid Rust FFI Core (Zero-Allocation UMA Guard, L3 Topology, Hysteresis & Anti-Cheat Scanner)
     // -------------------------------------------------------------------------
     {
-        // 1. vf_rust_evaluate_uma_pressure (normal case and critical case 90% DXGI)
-        VfUmaTelemetryInput normal_input{};
+        // 1. vf_rust_vram_pressure_threshold & vf_rust_evaluate_memory_purge
+        const double threshold = vf_rust_vram_pressure_threshold();
+        VfMemoryPurgeInput normal_input{};
         normal_input.total_physical_bytes = 16ULL * 1024 * 1024 * 1024;
         normal_input.free_and_zero_bytes = 4000ULL * 1024 * 1024;
         normal_input.standby_bytes = 2000ULL * 1024 * 1024;
         normal_input.local_budget_bytes = 2048ULL * 1024 * 1024;
         normal_input.local_usage_bytes = 1000ULL * 1024 * 1024; // ~48%
-        normal_input.runtime_pressure_threshold = 0.85;
         normal_input.vram_valid = true;
-        normal_input.is_discrete_tier = false;
+        normal_input.memory_lists_valid = true;
+        normal_input.is_uma_gpu = true;
+        normal_input.allow_ram_purge = true;
+        normal_input.min_free_ram_mb = 1200;
+        normal_input.min_standby_mb = 1500;
+        normal_input.cooldown_seconds = 90;
+        normal_input.elapsed_since_last_purge_ms = -1;
+        normal_input.max_game_disk_read_bytes_per_sec = 15ULL * 1024 * 1024;
+        normal_input.pressure_threshold_override = 0.0;
+        normal_input.prev_interventions = 10;
 
-        VfUmaGuardDecision dec_normal = vf_rust_evaluate_uma_pressure(&normal_input, 10);
-        bool normal_ok = (!dec_normal.guard_triggered &&
+        VfMemoryPurgeDecision dec_normal = vf_rust_evaluate_memory_purge(&normal_input);
+        bool normal_ok = (threshold > 0.80 && threshold < 0.90) &&
+                         (!dec_normal.guard_triggered &&
                           !dec_normal.dxgi_over_ceiling &&
                           !dec_normal.free_ram_critical &&
+                          !dec_normal.should_purge_standby &&
                           dec_normal.available_os_headroom_mb == 6000 &&
                           dec_normal.total_interventions == 10);
 
-        VfUmaTelemetryInput crit_input = normal_input;
+        VfMemoryPurgeInput crit_input = normal_input;
         crit_input.local_usage_bytes = static_cast<uint64_t>(2048ULL * 1024 * 1024 * 0.90); // 90% DXGI
-        VfUmaGuardDecision dec_crit = vf_rust_evaluate_uma_pressure(&crit_input, 10);
+        VfMemoryPurgeDecision dec_crit = vf_rust_evaluate_memory_purge(&crit_input);
         bool crit_ok = (dec_crit.guard_triggered &&
                         dec_crit.dxgi_over_ceiling &&
                         !dec_crit.free_ram_critical &&
+                        dec_crit.should_purge_standby &&
+                        dec_crit.should_trim_background &&
                         dec_crit.available_os_headroom_mb == 6000 &&
                         dec_crit.total_interventions == 11);
 
-        // 2. vf_rust_query_nt_memory_lists and vf_rust_purge_nt_standby_list(true) in dry-run
-        VfNtMemoryListSample nt_sample = vf_rust_query_nt_memory_lists();
-        bool nt_query_ok = (nt_sample.valid ? (nt_sample.free_and_zero_bytes > 0 || nt_sample.standby_bytes > 0) : true);
-        bool nt_purge_dry = vf_rust_purge_nt_standby_list(true);
-        bool part2_ok = nt_query_ok && nt_purge_dry;
+        // 2. Factory Do-Not-Trim protection via Rust FFI (OBS, Discord protected; browser allowed)
+        const char obs_name[] = "C:\\Program Files\\obs-studio\\bin\\64bit\\obs64.exe";
+        const char discord_name[] = "Discord.exe";
+        const char chrome_name[] = "chrome.exe";
+        bool part2_ok = vf_rust_is_factory_memory_protected_exe(obs_name, sizeof(obs_name) - 1) &&
+                        vf_rust_is_factory_memory_protected_exe(discord_name, sizeof(discord_name) - 1) &&
+                        !vf_rust_is_factory_memory_protected_exe(chrome_name, sizeof(chrome_name) - 1);
 
         // 3. vf_rust_partition_cpu_topology for Ryzen 5 4600H (12 threads, 2 CCX)
         VfCpuCoreEntry ryzen_entries[12]{};
@@ -125,7 +139,8 @@ void Test31() {
         // 6. Stress loop of 1,000 consecutive iterations over the Rust FFI functions
         bool stress_ok = true;
         for (int i = 0; i < 1000; ++i) {
-            VfUmaGuardDecision d = vf_rust_evaluate_uma_pressure(&normal_input, static_cast<uint32_t>(i));
+            normal_input.prev_interventions = static_cast<uint32_t>(i);
+            VfMemoryPurgeDecision d = vf_rust_evaluate_memory_purge(&normal_input);
             if (d.available_os_headroom_mb != 6000) { stress_ok = false; break; }
 
             VfTopologyPartitionOut t_out{};
@@ -136,7 +151,7 @@ void Test31() {
 
             if (!vf_rust_has_anticheat_signature(ac1, sizeof(ac1) - 1)) { stress_ok = false; break; }
             if (!vf_rust_is_critical_system_filename(crit1, sizeof(crit1) - 1)) { stress_ok = false; break; }
-            if (!vf_rust_purge_nt_standby_list(true)) { stress_ok = false; break; }
+            if (!vf_rust_is_factory_memory_protected_exe(obs_name, sizeof(obs_name) - 1)) { stress_ok = false; break; }
         }
 
         uint64_t final_ws_bytes = vegaflow::MemoryManager::GetCurrentProcessPrivateWorkingSetBytes();
@@ -144,9 +159,9 @@ void Test31() {
 
         bool t31_pass = normal_ok && crit_ok && part2_ok && ryzen_ok && hyst_ok && sec_ok && stress_ok && kpi_ws_ok;
         RecordResult(t31_pass,
-                     "Test 31: Hybrid Rust FFI Core (Zero-Allocation UMA Guard, L3 Topology, Hysteresis & Anti-Cheat Scanner)",
+                     "Test 31: Hybrid Rust FFI Core (Zero-Allocation Memory Purge, L3 Topology, Hysteresis & Anti-Cheat Scanner)",
                      "UMA: " + std::string(normal_ok && crit_ok ? "PASS" : "FAIL") +
-                     ", NT Lists/Purge: " + std::string(part2_ok ? "PASS" : "FAIL") +
+                     ", DoNotTrim: " + std::string(part2_ok ? "PASS" : "FAIL") +
                      ", L3 Ryzen 4600H: " + std::string(ryzen_ok ? "PASS" : "FAIL") +
                      ", Hysteresis: " + std::string(hyst_ok ? "PASS" : "FAIL") +
                      ", Security/Anti-Cheat: " + std::string(sec_ok ? "PASS" : "FAIL") +
@@ -165,22 +180,27 @@ void Test34() {
 #define VF_LAYOUT_BEGIN(T) expected.push_back(sizeof(T)); expected.push_back(alignof(T));
 #define VF_FIELD(T, f) expected.push_back(offsetof(T, f)); expected.push_back(sizeof(static_cast<T*>(nullptr)->f));
         std::vector<size_t> expected;
-        VF_LAYOUT_BEGIN(VfUmaTelemetryInput)
-        VF_FIELD(VfUmaTelemetryInput, total_physical_bytes) VF_FIELD(VfUmaTelemetryInput, free_and_zero_bytes)
-        VF_FIELD(VfUmaTelemetryInput, standby_bytes) VF_FIELD(VfUmaTelemetryInput, local_budget_bytes)
-        VF_FIELD(VfUmaTelemetryInput, local_usage_bytes) VF_FIELD(VfUmaTelemetryInput, runtime_pressure_threshold)
-        VF_FIELD(VfUmaTelemetryInput, vram_valid) VF_FIELD(VfUmaTelemetryInput, is_discrete_tier)
-        VF_LAYOUT_BEGIN(VfUmaGuardDecision)
-        VF_FIELD(VfUmaGuardDecision, available_os_headroom_mb) VF_FIELD(VfUmaGuardDecision, dxgi_budget_utilization)
-        VF_FIELD(VfUmaGuardDecision, guard_triggered) VF_FIELD(VfUmaGuardDecision, dxgi_over_ceiling)
-        VF_FIELD(VfUmaGuardDecision, free_ram_critical) VF_FIELD(VfUmaGuardDecision, total_interventions)
-        VF_LAYOUT_BEGIN(VfNtMemoryListSample)
-        VF_FIELD(VfNtMemoryListSample, free_and_zero_bytes) VF_FIELD(VfNtMemoryListSample, standby_bytes)
-        VF_FIELD(VfNtMemoryListSample, modified_bytes) VF_FIELD(VfNtMemoryListSample, valid)
+        VF_LAYOUT_BEGIN(VfMemoryPurgeInput)
+        VF_FIELD(VfMemoryPurgeInput, total_physical_bytes) VF_FIELD(VfMemoryPurgeInput, free_and_zero_bytes)
+        VF_FIELD(VfMemoryPurgeInput, standby_bytes) VF_FIELD(VfMemoryPurgeInput, local_budget_bytes)
+        VF_FIELD(VfMemoryPurgeInput, local_usage_bytes) VF_FIELD(VfMemoryPurgeInput, vram_valid)
+        VF_FIELD(VfMemoryPurgeInput, memory_lists_valid) VF_FIELD(VfMemoryPurgeInput, is_uma_gpu)
+        VF_FIELD(VfMemoryPurgeInput, allow_ram_purge) VF_FIELD(VfMemoryPurgeInput, min_free_ram_mb)
+        VF_FIELD(VfMemoryPurgeInput, min_standby_mb) VF_FIELD(VfMemoryPurgeInput, cooldown_seconds)
+        VF_FIELD(VfMemoryPurgeInput, elapsed_since_last_purge_ms) VF_FIELD(VfMemoryPurgeInput, game_disk_read_bytes_per_sec)
+        VF_FIELD(VfMemoryPurgeInput, max_game_disk_read_bytes_per_sec) VF_FIELD(VfMemoryPurgeInput, pressure_threshold_override)
+        VF_FIELD(VfMemoryPurgeInput, prev_interventions) VF_FIELD(VfMemoryPurgeInput, dry_run)
+        VF_LAYOUT_BEGIN(VfMemoryPurgeDecision)
+        VF_FIELD(VfMemoryPurgeDecision, should_purge_standby) VF_FIELD(VfMemoryPurgeDecision, should_trim_background)
+        VF_FIELD(VfMemoryPurgeDecision, skipped_due_to_cooldown) VF_FIELD(VfMemoryPurgeDecision, skipped_due_to_disk_io)
+        VF_FIELD(VfMemoryPurgeDecision, cooldown_remaining_seconds) VF_FIELD(VfMemoryPurgeDecision, guard_triggered)
+        VF_FIELD(VfMemoryPurgeDecision, dxgi_over_ceiling) VF_FIELD(VfMemoryPurgeDecision, free_ram_critical)
+        VF_FIELD(VfMemoryPurgeDecision, dxgi_budget_utilization) VF_FIELD(VfMemoryPurgeDecision, available_os_headroom_mb)
+        VF_FIELD(VfMemoryPurgeDecision, total_interventions)
         VF_LAYOUT_BEGIN(VfCpuCoreEntry)
         VF_FIELD(VfCpuCoreEntry, cpu_set_id) VF_FIELD(VfCpuCoreEntry, core_index)
-        VF_FIELD(VfCpuCoreEntry, logical_processor_index) VF_FIELD(VfCpuCoreEntry, last_level_cache_index)
-        VF_FIELD(VfCpuCoreEntry, efficiency_class)
+        VF_FIELD(VfCpuCoreEntry, logical_processor_index) VF_FIELD(VfCpuCoreEntry, group)
+        VF_FIELD(VfCpuCoreEntry, last_level_cache_index) VF_FIELD(VfCpuCoreEntry, efficiency_class)
         VF_LAYOUT_BEGIN(VfTopologyPartitionOut)
         VF_FIELD(VfTopologyPartitionOut, game_cpu_set_ids) VF_FIELD(VfTopologyPartitionOut, game_count)
         VF_FIELD(VfTopologyPartitionOut, background_cpu_set_ids) VF_FIELD(VfTopologyPartitionOut, background_count)
@@ -192,8 +212,7 @@ void Test34() {
         VF_LAYOUT_BEGIN(VfAllowedRoot)
         VF_FIELD(VfAllowedRoot, path) VF_FIELD(VfAllowedRoot, len) VF_FIELD(VfAllowedRoot, writable)
         VF_LAYOUT_BEGIN(VfConfigSettings)
-        VF_FIELD(VfConfigSettings, poll_interval_ms) VF_FIELD(VfConfigSettings, timer_resolution_ns100)
-        VF_FIELD(VfConfigSettings, cooldown_seconds) VF_FIELD(VfConfigSettings, timer_forced_manual)
+        VF_FIELD(VfConfigSettings, poll_interval_ms) VF_FIELD(VfConfigSettings, cooldown_seconds)
         VF_FIELD(VfConfigSettings, restrict_game_cpu_sets) VF_FIELD(VfConfigSettings, min_free_ram_mb)
         VF_FIELD(VfConfigSettings, min_standby_mb) VF_FIELD(VfConfigSettings, max_game_disk_read_mb_s)
         VF_LAYOUT_BEGIN(VfConfigLoad)
@@ -201,6 +220,53 @@ void Test34() {
         VF_LAYOUT_BEGIN(VfAceEntry)
         VF_FIELD(VfAceEntry, mask) VF_FIELD(VfAceEntry, sid_kind) VF_FIELD(VfAceEntry, allows)
         VF_FIELD(VfAceEntry, inherit_only)
+        VF_LAYOUT_BEGIN(VfIniKv)
+        VF_FIELD(VfIniKv, key) VF_FIELD(VfIniKv, key_len)
+        VF_FIELD(VfIniKv, value) VF_FIELD(VfIniKv, value_len)
+        VF_LAYOUT_BEGIN(VfGpuAdapterInput)
+        VF_FIELD(VfGpuAdapterInput, vendor_id) VF_FIELD(VfGpuAdapterInput, device_id)
+        VF_FIELD(VfGpuAdapterInput, dedicated_vram_mb) VF_FIELD(VfGpuAdapterInput, shared_sys_mb)
+        VF_FIELD(VfGpuAdapterInput, dxcore_available) VF_FIELD(VfGpuAdapterInput, dxcore_integrated)
+        VF_FIELD(VfGpuAdapterInput, dxcore_detachable) VF_FIELD(VfGpuAdapterInput, removal_detachable)
+        VF_FIELD(VfGpuAdapterInput, name_ptr) VF_FIELD(VfGpuAdapterInput, name_len)
+        VF_LAYOUT_BEGIN(VfDeviceProfileInput)
+        VF_FIELD(VfDeviceProfileInput, total_ram_mb) VF_FIELD(VfDeviceProfileInput, physical_cores)
+        VF_FIELD(VfDeviceProfileInput, cpu_family) VF_FIELD(VfDeviceProfileInput, cpu_model)
+        VF_FIELD(VfDeviceProfileInput, user_gpu_pref) VF_FIELD(VfDeviceProfileInput, system_arch)
+        VF_FIELD(VfDeviceProfileInput, power_known) VF_FIELD(VfDeviceProfileInput, has_battery)
+        VF_FIELD(VfDeviceProfileInput, ac_online) VF_FIELD(VfDeviceProfileInput, battery_saver)
+        VF_FIELD(VfDeviceProfileInput, dxcore_available) VF_FIELD(VfDeviceProfileInput, ram_probe_ok)
+        VF_FIELD(VfDeviceProfileInput, experimental_egpu_streaming) VF_FIELD(VfDeviceProfileInput, override_arch_gen)
+        VF_LAYOUT_BEGIN(VfDeviceProfileDecision)
+        VF_FIELD(VfDeviceProfileDecision, selected_gpu_index) VF_FIELD(VfDeviceProfileDecision, gpu_probe_ok)
+        VF_FIELD(VfDeviceProfileDecision, gpu_connection) VF_FIELD(VfDeviceProfileDecision, gpu_arch_gen)
+        VF_FIELD(VfDeviceProfileDecision, apu_tier) VF_FIELD(VfDeviceProfileDecision, apply_visual_cuts)
+        VF_FIELD(VfDeviceProfileDecision, apply_uma_memory_guard) VF_FIELD(VfDeviceProfileDecision, apply_uma_vram_reg_override)
+        VF_FIELD(VfDeviceProfileDecision, allow_ram_purge) VF_FIELD(VfDeviceProfileDecision, force_high_perf_power_plan)
+        VF_FIELD(VfDeviceProfileDecision, block_driver_tweaks) VF_FIELD(VfDeviceProfileDecision, apply_egpu_streaming_tweaks)
+        VF_FIELD(VfDeviceProfileDecision, safe_vram_pool_mb) VF_FIELD(VfDeviceProfileDecision, amd_tessellation_cap)
+        VF_FIELD(VfDeviceProfileDecision, dxvk_compiler_threads) VF_FIELD(VfDeviceProfileDecision, disable_dx12_async_compute)
+        VF_LAYOUT_BEGIN(VfProcessCategoryActions)
+        VF_FIELD(VfProcessCategoryActions, recording_streaming) VF_FIELD(VfProcessCategoryActions, calls_voice)
+        VF_FIELD(VfProcessCategoryActions, messaging) VF_FIELD(VfProcessCategoryActions, browsers)
+        VF_FIELD(VfProcessCategoryActions, stores_launchers) VF_FIELD(VfProcessCategoryActions, music)
+        VF_FIELD(VfProcessCategoryActions, cloud_sync)
+        VF_LAYOUT_BEGIN(VfProcessDecision)
+        VF_FIELD(VfProcessDecision, process_class) VF_FIELD(VfProcessDecision, action)
+        VF_FIELD(VfProcessDecision, protected_by_anticheat) VF_FIELD(VfProcessDecision, path_verified)
+        VF_LAYOUT_BEGIN(VfProcessPolicyConfig)
+        VF_FIELD(VfProcessPolicyConfig, category_actions) VF_FIELD(VfProcessPolicyConfig, heavy_work_as_game)
+        VF_LAYOUT_BEGIN(VfProcessExceptionEntry)
+        VF_FIELD(VfProcessExceptionEntry, exe_ptr) VF_FIELD(VfProcessExceptionEntry, exe_len)
+        VF_FIELD(VfProcessExceptionEntry, action)
+        VF_LAYOUT_BEGIN(VfProcessClassifyInput)
+        VF_FIELD(VfProcessClassifyInput, full_path_ptr) VF_FIELD(VfProcessClassifyInput, full_path_len)
+        VF_FIELD(VfProcessClassifyInput, exe_name_ptr) VF_FIELD(VfProcessClassifyInput, exe_name_len)
+        VF_FIELD(VfProcessClassifyInput, category_actions) VF_FIELD(VfProcessClassifyInput, exceptions_ptr)
+        VF_FIELD(VfProcessClassifyInput, exceptions_count) VF_FIELD(VfProcessClassifyInput, custom_games_nul_ptr)
+        VF_FIELD(VfProcessClassifyInput, custom_games_nul_len) VF_FIELD(VfProcessClassifyInput, excluded_games_nul_ptr)
+        VF_FIELD(VfProcessClassifyInput, excluded_games_nul_len) VF_FIELD(VfProcessClassifyInput, heavy_work_as_game)
+        VF_FIELD(VfProcessClassifyInput, is_foreground_3d) VF_FIELD(VfProcessClassifyInput, has_anticheat_signal)
 #undef VF_FIELD
 #undef VF_LAYOUT_BEGIN
 
@@ -217,11 +283,25 @@ void Test34() {
         const std::vector<uint32_t> expected_constants = {
             VF_CONFIG_CORRUPT, VF_CONFIG_KEY_REJECTED, VF_CONFIG_NEWER_VERSION, VF_CONFIG_OLD_VERSION, VF_CONFIG_EMPTY,
             VF_CONFIG_BLOCKS_SAVE, VF_CONFIG_KEY_VERSION, VF_CONFIG_KEY_POLL_INTERVAL_MS,
-            VF_CONFIG_KEY_TIMER_RESOLUTION_NS100, VF_CONFIG_KEY_TIMER_FORCED_MANUAL, VF_CONFIG_KEY_RESTRICT_GAME_CPU_SETS,
+            VF_CONFIG_KEY_RESTRICT_GAME_CPU_SETS,
             VF_CONFIG_KEY_MIN_FREE_RAM_MB, VF_CONFIG_KEY_MIN_STANDBY_MB, VF_CONFIG_KEY_COOLDOWN_SECONDS,
             VF_CONFIG_KEY_MAX_GAME_DISK_READ_MB_S, VF_CONFIG_KEY_CUSTOM_GAME_EXES, VF_CONFIG_KEY_MEMORY,
+            VF_CONFIG_KEY_HEAVY_WORK_AS_GAME, VF_CONFIG_KEY_PROCESS_CATEGORY_ACTIONS,
+            VF_CONFIG_KEY_PROCESS_EXCEPTIONS, VF_CONFIG_KEY_EXCLUDED_GAME_EXES,
             VF_CONFIG_SAVE_OK, VF_CONFIG_SAVE_BLOCKED, VF_CONFIG_SAVE_INVALID, VF_SID_OTHER, VF_SID_SYSTEM,
-            VF_SID_ADMINISTRATORS, VF_SID_TRUSTED_INSTALLER};
+            VF_SID_ADMINISTRATORS, VF_SID_TRUSTED_INSTALLER,
+            VF_INI_OK, VF_INI_ERR_INVALID_INPUT, VF_INI_ERR_ENCODING, VF_INI_ERR_MISSING_END_MARKER,
+            VF_INI_ERR_UNMATCHED_END_MARKER,
+            VF_GPU_CONN_UNKNOWN, VF_GPU_CONN_INTEGRATED, VF_GPU_CONN_DISCRETE, VF_GPU_CONN_EXTERNAL,
+            VF_DISK_UNKNOWN, VF_DISK_HDD, VF_DISK_SSD, VF_DISK_NVME,
+            VF_ARCH_UNKNOWN, VF_ARCH_X64, VF_ARCH_ARM64_EMULATED, VF_ARCH_ARM64_NATIVE, VF_ARCH_X86,
+            VF_GPU_PREF_DEFAULT, VF_GPU_PREF_POWER_SAVING, VF_GPU_PREF_HIGH_PERF,
+            VF_PROC_CLASS_UNKNOWN, VF_PROC_CLASS_WINDOWS_SYSTEM, VF_PROC_CLASS_RECORDING_STREAMING,
+            VF_PROC_CLASS_CALLS_VOICE, VF_PROC_CLASS_MESSAGING, VF_PROC_CLASS_BROWSERS,
+            VF_PROC_CLASS_STORES_LAUNCHERS, VF_PROC_CLASS_MUSIC, VF_PROC_CLASS_CLOUD_SYNC,
+            VF_PROC_CLASS_DEVELOPER_IDE, VF_PROC_CLASS_HEAVY_WORK, VF_PROC_CLASS_POSSIBLE_GAME,
+            VF_PROC_ACTION_DO_NOT_TOUCH, VF_PROC_ACTION_ECO_ONLY,
+            VF_PROC_ACTION_THROTTLE, VF_PROC_ACTION_BOOST_AS_GAME};
         std::vector<uint32_t> rust_constants(expected_constants.size() + 8, 0);
         const size_t constant_count = vf_rust_bridge_constants(rust_constants.data(), rust_constants.size());
         rust_constants.resize(std::min(constant_count, rust_constants.size()));

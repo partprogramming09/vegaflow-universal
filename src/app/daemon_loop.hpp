@@ -6,7 +6,6 @@
 #include "detect/hardware_profiler.hpp"
 #include "optimize/cpu_orchestrator.hpp"
 #include "optimize/memory_manager.hpp"
-#include "safety/frame_telemetry.hpp"
 
 namespace vegaflow::app {
 
@@ -15,8 +14,8 @@ int RunDaemon(
     vegaflow::SystemHardwareProfile& hw,
     vegaflow::CpuOrchestrator& cpu_orchestrator,
     vegaflow::MemoryManager& mem_mgr,
-    vegaflow::FrameTelemetryMonitor& telemetry_monitor,
     const vegaflow::PrivilegeStatus& priv,
-    bool once_mode);
+    bool once_mode,
+    bool safe_mode = false);
 
 } // namespace vegaflow::app

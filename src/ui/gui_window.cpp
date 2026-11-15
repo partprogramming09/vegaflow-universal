@@ -1,4 +1,5 @@
 #include "ui/gui_window.hpp"
+#include "ui/app_identity.hpp"
 #include "ui/gui_components.hpp"
 
 #include <psapi.h>
@@ -49,7 +50,7 @@ void PaintDashboard(HDC hdcMem, const RECT& rcClient, GuiWindowState* state) {
     DrawTextAt(hdcMem, 22, 44, L"UNIVERSAL TUNING", CLR_TEXT_MUTED, state->hFontSmall);
 
     RECT rcChip = { 158, 22, 234, 42 };
-    DrawBadge(hdcMem, rcChip, L"v1.2 UMA", CLR_ACCENT_AMBER, RGB(36, 30, 20), CLR_ACCENT_AMBER, state->hFontSmallBold);
+    DrawBadge(hdcMem, rcChip, L"v" + Utf8ToWide(ui::kVersion), CLR_ACCENT_AMBER, RGB(36, 30, 20), CLR_ACCENT_AMBER, state->hFontSmallBold);
 
     // Divider line under the logo
     HPEN hPenHeadDiv = CreatePen(PS_SOLID, 1, CLR_SIDEBAR_BORDER);
@@ -163,7 +164,7 @@ void PaintDashboard(HDC hdcMem, const RECT& rcClient, GuiWindowState* state) {
     DeleteObject(hPenDot);
 
     std::wstring statusText = state->data.last_action_status.empty()
-                                ? L"Sistema activo - Monitoreo en tiempo real (Cero VRAM)"
+                                ? L"VegaFlow activo - vigilando juegos y memoria"
                                 : Utf8ToWide(state->data.last_action_status);
     DrawTextAt(hdcMem, 32, rcClient.bottom - 23, statusText, CLR_TEXT_TITLE, state->hFontSmall);
 
@@ -173,7 +174,7 @@ void PaintDashboard(HDC hdcMem, const RECT& rcClient, GuiWindowState* state) {
     COLORREF apuColor = state->data.apu_gpu_priority_active ? CLR_ACCENT_GREEN : CLR_ACCENT_AMBER;
     DrawActionButton(hdcMem, rcApuBtn, apuBtnText, isApuHov, apuColor, state->hFontSmallBold, ID_ACT_TOGGLE_APU_POWER, state);
 
-    DrawTextAt(hdcMem, rcClient.right - 280, rcClient.bottom - 23, L"VegaFlow Universal | Win32 GDI | Zero VRAM", CLR_TEXT_MUTED, state->hFontSmall);
+    DrawTextAt(hdcMem, rcClient.right - 280, rcClient.bottom - 23, L"VegaFlow Universal | Win32 GDI", CLR_TEXT_MUTED, state->hFontSmall);
 }
 
 // =============================================================================
@@ -201,13 +202,7 @@ void HandleActionClick(HWND hwnd, GuiWindowState* state, int id) {
         }
 
         case ID_ACT_APPLY_PRESET: {
-            if (state->callbacks.on_ToggleTimerForce && !state->data.timer_forced_manual) {
-                state->callbacks.on_ToggleTimerForce();
-            }
-            if (state->callbacks.on_ToggleMpo && !state->data.mpo_disabled) {
-                state->callbacks.on_ToggleMpo();
-            }
-            if (state->callbacks.on_ToggleShaderCache && !state->data.amd_shader_cache_forced) {
+            if (state->data.has_amd_driver && state->callbacks.on_ToggleShaderCache && !state->data.amd_shader_cache_forced) {
                 state->callbacks.on_ToggleShaderCache();
             }
             if (state->callbacks.on_ToggleMmcssGaming && !state->data.mmcss_gaming_optimized) {
@@ -219,7 +214,7 @@ void HandleActionClick(HWND hwnd, GuiWindowState* state, int id) {
             if (state->callbacks.on_IsolateBackgroundNow) {
                 state->callbacks.on_IsolateBackgroundNow();
             }
-            if (res.empty()) res = "Preset óptimo aplicado exitosamente (Timer, MPO, ShaderCache, MMCSS, Purga, CPU Sets)";
+            if (res.empty()) res = "Preset óptimo aplicado exitosamente (MMCSS, Purga, CPU Sets)";
             state->data.last_action_status = res;
             break;
         }
@@ -235,14 +230,6 @@ void HandleActionClick(HWND hwnd, GuiWindowState* state, int id) {
         case ID_ACT_APPLY_ALL_2B: {
             if (state->callbacks.on_ApplyAllGamingTweaks) {
                 res = state->callbacks.on_ApplyAllGamingTweaks();
-                state->data.last_action_status = res;
-            }
-            break;
-        }
-
-        case ID_ACT_TOGGLE_TIMER: {
-            if (state->callbacks.on_ToggleTimerForce) {
-                res = state->callbacks.on_ToggleTimerForce();
                 state->data.last_action_status = res;
             }
             break;
@@ -471,7 +458,7 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
             state->nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
             state->nid.uCallbackMessage = WM_APP_TRAYICON;
             state->nid.hIcon = LoadIconW(nullptr, MAKEINTRESOURCEW(32512));
-            wcscpy_s(state->nid.szTip, L"VegaFlow Universal Optimizer - UXTU Dashboard");
+            wcscpy_s(state->nid.szTip, ui::kTrayTip);
             state->tray_registered = (Shell_NotifyIconW(NIM_ADD, &state->nid) == TRUE);
 
             // 1500 ms telemetry timer
@@ -606,7 +593,7 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                 GetCursorPos(&pt);
                 HMENU hMenu = CreatePopupMenu();
                 if (hMenu) {
-                    AppendMenuW(hMenu, MF_STRING, ID_TRAY_RESTORE, L"Restaurar Dashboard UXTU");
+                    AppendMenuW(hMenu, MF_STRING, ID_TRAY_RESTORE, L"Restaurar VegaFlow");
                     AppendMenuW(hMenu, MF_STRING, ID_TRAY_PURGE, L"Purgar Standby RAM Ahora");
                     AppendMenuW(hMenu, MF_SEPARATOR, 0, nullptr);
                     AppendMenuW(hMenu, MF_STRING, ID_TRAY_EXIT, L"Cerrar VegaFlow Universal");
@@ -723,7 +710,7 @@ int GuiWindow::RunGuiLoop(const GuiCallbacks& callbacks) {
     }
 
     HINSTANCE hInstance = GetModuleHandleW(nullptr);
-    const wchar_t CLASS_NAME[] = L"VegaFlowUniversalUxtuClass";
+    const wchar_t* const CLASS_NAME = ui::kWindowClass;
 
     WNDCLASSEXW wc = {};
     wc.cbSize        = sizeof(WNDCLASSEXW);
@@ -759,7 +746,7 @@ int GuiWindow::RunGuiLoop(const GuiCallbacks& callbacks) {
     HWND hwnd = CreateWindowExW(
         0,
         CLASS_NAME,
-        L"VegaFlow Universal Optimizer - Universal x86 Tuning Utility (UXTU)",
+        ui::kWindowTitle,
         dwStyle,
         posX, posY, winWidth, winHeight,
         nullptr,

@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inanición de la GPU</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper: #f5f5f5; --color-ink: #2d3142; --color-muted: #4f5d75; --color-accent: #bf4520;
+      --font-sans: 'Geist', system-ui, sans-serif; --font-serif: 'Instrument Serif', serif; --font-mono: 'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400; letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    .scroll { overflow-x: auto; }
+    svg { width: 100%; min-width: 1000px; display: block; }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Patrón universal · VegaFlow Universal</p>
+    <h1>Inanición de la GPU: sin aislamiento y con VegaFlow</h1>
+    <div class="scroll">
+    <svg viewBox="0 0 1000 640" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="inanicion-gpu-secuencia-title inanicion-gpu-secuencia-desc">
+      <title id="inanicion-gpu-secuencia-title">Inanición de la GPU: sin aislamiento y con VegaFlow</title>
+      <desc id="inanicion-gpu-secuencia-desc">Sin aislamiento, el ruido de fondo interrumpe a la CPU mientras prepara las listas de comandos, el bus se queda sin datos durante 8-15 ms y el cuadro llega tarde; con VegaFlow el ruido queda confinado al último núcleo y la CPU mantiene un flujo continuo hacia la GPU.</desc>
+      <defs>
+        <pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="0.9" fill="rgba(45,49,66,0.10)"/></pattern>
+        <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/></marker>
+        <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bf4520"/></marker>
+      </defs>
+      <rect width="100%" height="100%" fill="#f5f5f5"/>
+      <rect width="100%" height="100%" fill="url(#dots)" opacity="0.55"/>
+
+      <!-- Fragmento ALT: dos regiones -->
+      <rect x="16" y="144" width="964" height="428" rx="4" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+      <rect x="16" y="144" width="40" height="16" rx="2" fill="#f5f5f5" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+      <text x="36" y="156" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.12em">ALT</text>
+      <line x1="24" y1="380" x2="972" y2="380" stroke="rgba(45,49,66,0.20)" stroke-width="1" stroke-dasharray="4,3"/>
+
+      <!-- Lifelines: BG 104 · CPU 280 · BUS 456 · GPU 632 -->
+      <line x1="104" y1="128" x2="104" y2="584" stroke="rgba(45,49,66,0.22)" stroke-width="1" stroke-dasharray="3,3"/>
+      <line x1="280" y1="128" x2="280" y2="584" stroke="rgba(45,49,66,0.22)" stroke-width="1" stroke-dasharray="3,3"/>
+      <line x1="456" y1="128" x2="456" y2="584" stroke="rgba(45,49,66,0.22)" stroke-width="1" stroke-dasharray="3,3"/>
+      <line x1="632" y1="128" x2="632" y2="584" stroke="rgba(45,49,66,0.22)" stroke-width="1" stroke-dasharray="3,3"/>
+
+      <!-- Guardas del ALT (sobre las lifelines, con máscara) -->
+      <rect x="64" y="146" width="360" height="14" rx="2" fill="#f5f5f5"/>
+      <text x="68" y="156" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" letter-spacing="0.04em">[SIN AISLAMIENTO: Retraso de CPU provoca inanición en la GPU]</text>
+      <rect x="24" y="394" width="272" height="14" rx="2" fill="#f5f5f5"/>
+      <text x="28" y="404" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" letter-spacing="0.04em">[CON VEGAFLOW: Aislamiento Espacial + ASPM=0]</text>
+
+      <!-- Mensajes -->
+      <line x1="280" y1="208" x2="456" y2="208" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <line x1="104" y1="248" x2="280" y2="248" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <line x1="456" y1="348" x2="632" y2="348" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <line x1="280" y1="496" x2="456" y2="496" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <line x1="456" y1="544" x2="632" y2="544" stroke="#bf4520" stroke-width="1.4" marker-end="url(#arrow-accent)"/>
+
+      <!-- Números de mensaje (con máscara) -->
+      <rect x="358" y="188" width="20" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="368" y="198" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">1</text>
+      <rect x="182" y="228" width="20" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="192" y="238" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">2</text>
+      <rect x="534" y="328" width="20" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="544" y="338" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">3</text>
+      <rect x="358" y="476" width="20" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="368" y="486" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">4</text>
+      <rect x="534" y="524" width="20" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="544" y="534" fill="#bf4520" font-size="9" font-weight="600" font-family="'Geist Mono', monospace" text-anchor="middle">5</text>
+
+      <!-- Notas sobre un participante -->
+      <rect x="328" y="268" width="256" height="48" rx="4" fill="#f5f5f5" stroke="rgba(45,49,66,0.30)" stroke-width="0.8" stroke-dasharray="4,3"/>
+      <text x="456" y="288" fill="#4f5d75" font-size="12" font-style="italic" font-family="'Instrument Serif', serif" text-anchor="middle">El enlace de despacho se queda</text>
+      <text x="456" y="306" fill="#4f5d75" font-size="12" font-style="italic" font-family="'Instrument Serif', serif" text-anchor="middle">sin datos durante 8-15 ms</text>
+
+      <rect x="24" y="420" width="248" height="48" rx="4" fill="#f5f5f5" stroke="rgba(45,49,66,0.30)" stroke-width="0.8" stroke-dasharray="4,3"/>
+      <text x="148" y="440" fill="#4f5d75" font-size="12" font-style="italic" font-family="'Instrument Serif', serif" text-anchor="middle">Ruido confinado al último núcleo</text>
+      <text x="148" y="458" fill="#4f5d75" font-size="12" font-style="italic" font-family="'Instrument Serif', serif" text-anchor="middle">(EcoQoS + I/O VeryLow)</text>
+
+      <!-- Columna de descripción de cada mensaje -->
+      <text x="656" y="204" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace">1</text>
+      <text x="672" y="204" fill="#2d3142" font-size="11" font-family="'Geist', sans-serif">CPU → BUS · Preparando listas de comandos</text>
+      <text x="672" y="220" fill="#2d3142" font-size="11" font-family="'Geist', sans-serif">D3D11/D3D12...</text>
+
+      <text x="656" y="244" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace">2</text>
+      <text x="672" y="244" fill="#2d3142" font-size="11" font-family="'Geist', sans-serif">BG → CPU · ¡Interrupción no controlada!</text>
+      <text x="672" y="260" fill="#2d3142" font-size="11" font-family="'Geist', sans-serif">Chrome desaloja la Caché L3</text>
+
+      <text x="656" y="344" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace">3</text>
+      <text x="672" y="344" fill="#2d3142" font-size="11" font-family="'Geist', sans-serif">BUS → GPU · Cuadro entregado con retraso</text>
+      <text x="672" y="360" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', sans-serif">→ ¡CAÍDA DRÁSTICA DE 1% LOW!</text>
+
+      <text x="656" y="492" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace">4</text>
+      <text x="672" y="492" fill="#2d3142" font-size="11" font-family="'Geist', sans-serif">CPU → BUS · Flujo continuo ininterrumpido</text>
+      <text x="672" y="508" fill="#2d3142" font-size="11" font-family="'Geist', sans-serif">de Command Lists</text>
+
+      <text x="656" y="540" fill="#bf4520" font-size="9" font-weight="600" font-family="'Geist Mono', monospace">5</text>
+      <text x="672" y="540" fill="#2d3142" font-size="11" font-family="'Geist', sans-serif">BUS → GPU · Tubería gráfica saturada al 100%</text>
+      <text x="672" y="556" fill="#bf4520" font-size="11" font-weight="600" font-family="'Geist', sans-serif">→ ¡FRAMETIME PLANO Y ESTABLE!</text>
+
+      <!-- Participantes -->
+      <rect x="20" y="64" width="168" height="64" rx="6" fill="#f5f5f5"/>
+      <rect x="20" y="64" width="168" height="64" rx="6" fill="rgba(79,93,117,0.10)" stroke="#5a6580" stroke-width="1"/>
+      <rect x="28" y="72" width="28" height="12" rx="2" fill="transparent" stroke="rgba(90,101,128,0.40)" stroke-width="0.8"/>
+      <text x="42" y="81" fill="#5a6580" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">BG</text>
+      <text x="104" y="100" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Ruido de Fondo</text>
+      <text x="104" y="116" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">Chromium / Discord</text>
+
+      <rect x="196" y="64" width="168" height="64" rx="6" fill="#f5f5f5"/>
+      <rect x="196" y="64" width="168" height="64" rx="6" fill="#ffffff" stroke="#4f5d75" stroke-width="1"/>
+      <rect x="204" y="72" width="28" height="12" rx="2" fill="transparent" stroke="rgba(79,93,117,0.40)" stroke-width="0.8"/>
+      <text x="218" y="81" fill="#4f5d75" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">CPU</text>
+      <text x="280" y="100" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">CPU Host</text>
+      <text x="280" y="116" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">Núcleos Primarios</text>
+
+      <rect x="372" y="64" width="168" height="64" rx="6" fill="#f5f5f5"/>
+      <rect x="372" y="64" width="168" height="64" rx="6" fill="#ffffff" stroke="#4f5d75" stroke-width="1"/>
+      <rect x="380" y="72" width="28" height="12" rx="2" fill="transparent" stroke="rgba(79,93,117,0.40)" stroke-width="0.8"/>
+      <text x="394" y="81" fill="#4f5d75" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">BUS</text>
+      <text x="456" y="100" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Cable Thunderbolt /</text>
+      <text x="456" y="116" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Bus PCIe</text>
+
+      <rect x="548" y="64" width="168" height="64" rx="6" fill="#f5f5f5"/>
+      <rect x="548" y="64" width="168" height="64" rx="6" fill="#ffffff" stroke="#4f5d75" stroke-width="1"/>
+      <rect x="556" y="72" width="28" height="12" rx="2" fill="transparent" stroke="rgba(79,93,117,0.40)" stroke-width="0.8"/>
+      <text x="570" y="81" fill="#4f5d75" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">GPU</text>
+      <text x="632" y="100" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">GPU Dedicada / Externa</text>
+      <text x="632" y="116" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">VRAM GDDR6</text>
+
+      <!-- Leyenda -->
+      <line x1="16" y1="600" x2="980" y2="600" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+      <text x="16" y="624" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">LEYENDA</text>
+      <line x1="96" y1="620" x2="128" y2="620" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <text x="136" y="624" fill="#4f5d75" font-size="10" font-family="'Geist', sans-serif">Mensaje (el número remite a la columna derecha)</text>
+      <line x1="432" y1="620" x2="464" y2="620" stroke="#bf4520" stroke-width="1.4" marker-end="url(#arrow-accent)"/>
+      <text x="472" y="624" fill="#4f5d75" font-size="10" font-family="'Geist', sans-serif">Resultado con VegaFlow</text>
+      <rect x="632" y="614" width="20" height="12" rx="2" fill="#f5f5f5" stroke="rgba(45,49,66,0.30)" stroke-width="0.8" stroke-dasharray="4,3"/>
+      <text x="660" y="624" fill="#4f5d75" font-size="10" font-family="'Geist', sans-serif">Nota sobre un participante</text>
+    </svg>
+    </div>
+  </div>
+</body>
+</html>

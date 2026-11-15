@@ -2,8 +2,8 @@
 # through vf_rust_config_load. Each row is read as a file holding only that key: {"key": value}, or
 # {"memory": {"key": value}} for the memory keys, or {"custom_game_exes": [value]} for game_exe.
 # Row: id <TAB> key <TAB> value as JSON text <TAB> accepted|rejected.
-# Ranges (factory value in brackets): poll_interval_ms 250..60000 [1500], timer_resolution_ns100 5000..156250
-# [5000], min_free_ram_mb and min_standby_mb 128..1048576 [1200, 1500], cooldown_seconds 10..3600 [90],
+# Ranges (factory value in brackets): poll_interval_ms 250..60000 [1500],
+# min_free_ram_mb and min_standby_mb 128..1048576 [1200, 1500], cooldown_seconds 10..3600 [90],
 # max_game_disk_read_mb_s 1..100000 [15]. They keep the daemon working; they are not tuning advice.
 p01	poll_interval_ms	1500	accepted
 p02	poll_interval_ms	250	accepted
@@ -19,15 +19,6 @@ p11	poll_interval_ms	true	rejected
 p12	poll_interval_ms	null	rejected
 p13	poll_interval_ms	4294967296	rejected
 p14	poll_interval_ms	99999999999999999999999	rejected
-t01	timer_resolution_ns100	5000	accepted
-t02	timer_resolution_ns100	156250	accepted
-t03	timer_resolution_ns100	4999	rejected
-t04	timer_resolution_ns100	156251	rejected
-t05	timer_resolution_ns100	0	rejected
-b01	timer_forced_manual	true	accepted
-b02	timer_forced_manual	false	accepted
-b03	timer_forced_manual	1	rejected
-b04	timer_forced_manual	"true"	rejected
 b05	restrict_game_cpu_sets	false	accepted
 b06	restrict_game_cpu_sets	0	rejected
 m01	min_free_ram_mb	1200	accepted

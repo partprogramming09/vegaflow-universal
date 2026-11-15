@@ -3,7 +3,6 @@
 #include <windows.h>
 
 #include <cstdint>
-#include <cstdlib>
 #include <iostream>
 #include <optional>
 #include <string>
@@ -14,12 +13,136 @@
 #include "optimize/graphics/graphics_optimizer.hpp"
 #include "optimize/memory_manager.hpp"
 #include "optimize/cpu_orchestrator.hpp"
-#include "safety/frame_telemetry.hpp"
 #include "optimize/steam/steam_engine_optimizer.hpp"
-#include <filesystem>
-#include "session/text_convert.hpp"
+#include "session/game_session.hpp"
+#include "session/reports.hpp"
+#include "windows/text_convert.hpp"
+#include "windows/device_probe.hpp"
+#include "windows/power.hpp"
+#include "windows/registry.hpp"
+#include "windows/system_counters.hpp"
 
 namespace vegaflow::app {
+
+namespace {
+
+class WindowsGameSessionEnv final : public vegaflow::session::GameSessionEnvironment {
+public:
+    WindowsGameSessionEnv(
+        vegaflow::FileSystem& fs,
+        vegaflow::CpuOrchestrator& cpu,
+        vegaflow::MemoryManager& mem,
+        vegaflow::RegistryPort& reg,
+        vegaflow::PowerPort& power,
+        std::function<void(const std::string&)>* audit_cb)
+        : fs_(fs), cpu_(cpu), mem_(mem), reg_(reg), power_(power), audit_cb_(audit_cb) {}
+
+    std::optional<vegaflow::DetectedGameProcess> DetectActiveGame(const vegaflow::ProcessPolicyConfig& policy) override {
+        return vegaflow::ProcessDetector::DetectActiveGame(policy);
+    }
+
+    bool IsWindowValid(HWND hwnd) override {
+        return vegaflow::IsWindowHandleValid(hwnd);
+    }
+
+    bool IsProcessAlive(uint32_t pid) override {
+        return vegaflow::ProcessDetector::IsProcessAlive(pid);
+    }
+
+    std::vector<vegaflow::BackgroundProcessTarget> ClassifyBackgroundProcesses(
+        uint32_t game_pid,
+        const vegaflow::ProcessPolicyConfig& policy) override {
+        return vegaflow::ProcessDetector::ClassifyBackgroundProcesses(game_pid, policy);
+    }
+
+    void QueryLiveMemory(uint64_t& out_local_vram_budget_bytes, uint64_t& out_local_vram_usage_bytes, bool& out_vram_valid) override {
+        live_mem_ = mem_.SampleTelemetry();
+        out_local_vram_budget_bytes = live_mem_.vram.local_budget_bytes;
+        out_local_vram_usage_bytes = live_mem_.vram.local_usage_bytes;
+        out_vram_valid = live_mem_.vram.valid;
+    }
+
+    void SetDynamicPrioritySeparation(uint32_t val) override {
+        vegaflow::KernelSchedulerTweaks(reg_).SetDynamicPrioritySeparation(val, false);
+    }
+
+    void SetGameDvrAndFseOptimized(bool optimize) override {
+        vegaflow::DisplayTweaks(reg_).SetGameDvrAndFseOptimized(optimize, false);
+    }
+
+    void SetApuLaptopPowerProfile(bool optimize, const vegaflow::ApuOptimizationPolicy& static_policy) override {
+        vegaflow::PowerModeTweaks(power_).SetApuLaptopPowerProfile(optimize, static_policy, false);
+    }
+
+    void ApplyDxgiFlipModelUpgrade(const std::wstring& exe_path) override {
+        vegaflow::DxgiFlipTweaks(reg_).ApplyFlipModelUpgrade(exe_path, false);
+    }
+
+    vegaflow::SteamGameEntry InspectGameDirectory(const std::wstring& dir, uint32_t app_id, const std::string& name) override {
+        return vegaflow::SteamEngineOptimizer::InspectGameDirectory(dir, app_id, name, &reg_);
+    }
+
+    void ApplyEngineUmaPreset(
+        const vegaflow::SteamGameEntry& game,
+        const vegaflow::ApuOptimizationPolicy& static_policy,
+        uint32_t pool_mb) override {
+        vegaflow::SteamEngineOptimizer(fs_, &reg_).ApplyEngineUmaPreset(game, static_policy, pool_mb, false);
+    }
+
+    void ApplyCpuOptimizations(
+        uint32_t game_pid,
+        uint64_t game_creation_time,
+        uint32_t presenter_thread_id,
+        bool is_dx12,
+        const std::vector<ULONG>& game_sets,
+        const std::vector<ULONG>& bg_sets,
+        const std::vector<vegaflow::BackgroundProcessTarget>& bg_targets,
+        uint32_t& out_throttled) override {
+        auto cpu_res = cpu_.ApplyOptimizations(
+            game_pid, game_creation_time, presenter_thread_id, is_dx12, game_sets, bg_sets, bg_targets, false);
+        out_throttled = cpu_res.background_processes_throttled;
+    }
+
+    void RestoreCpuAll() override {
+        std::cout << "[INFO] Game closed. Restoring system state...\n";
+        cpu_.RestoreAll(false);
+    }
+
+    void EvaluateMemory(uint32_t game_pid, const std::vector<uint32_t>& bg_pids, bool allow_ram_purge) override {
+        if (!allow_ram_purge) return;
+        auto mem_report = mem_.EvaluateAndOptimize(game_pid, bg_pids, false);
+        if (mem_report.standby_purged || mem_report.background_processes_trimmed > 0) {
+            std::cout << "[OPT] Memory optimized: " << mem_report.reason << "\n";
+        }
+    }
+
+    void EvaluateUmaGuard(const vegaflow::ApuOptimizationPolicy& live_policy, const std::vector<uint32_t>& bg_pids) override {
+        auto uma_guard = mem_.EvaluateUmaPressureGuard(live_mem_, live_policy, bg_pids, false);
+        if (uma_guard.guard_triggered) {
+            std::string guard_msg = "[UMA GUARD] " + uma_guard.active_reason +
+                " (Intervenci\u00f3n #" + std::to_string(uma_guard.total_interventions) + ")";
+            std::cout << guard_msg << "\n";
+            if (audit_cb_ && *audit_cb_) {
+                (*audit_cb_)(guard_msg);
+            }
+        }
+    }
+
+    void SaveSessionReport(const std::string& exe_utf8, const std::string& api_name, uint32_t pid) override {
+        SaveSessionReportToFile(exe_utf8, api_name, pid, "logs/session_reports.log");
+    }
+
+private:
+    vegaflow::FileSystem& fs_;
+    vegaflow::CpuOrchestrator& cpu_;
+    vegaflow::MemoryManager& mem_;
+    vegaflow::RegistryPort& reg_;
+    vegaflow::PowerPort& power_;
+    std::function<void(const std::string&)>* audit_cb_ = nullptr;
+    vegaflow::SystemMemoryTelemetry live_mem_{};
+};
+
+} // namespace
 
 void RunSingleIteration(
     const AppConfig& config,
@@ -27,200 +150,44 @@ void RunSingleIteration(
     vegaflow::SystemHardwareProfile& hw,
     vegaflow::CpuOrchestrator& cpu_orchestrator,
     vegaflow::MemoryManager& mem_mgr,
-    vegaflow::FrameTelemetryMonitor& telemetry_monitor,
     bool& game_active,
     uint32_t& active_game_pid,
     std::wstring& active_game_exe,
     std::string& active_game_api,
     HWND& active_game_hwnd,
-    bool& timer_boosted,
     std::wstring* active_game_path,
     uint32_t* out_noisy_bg_count,
     std::function<void(const std::string&)>* audit_cb) {
 
-    using namespace vegaflow;
+    vegaflow::WindowsDeviceProbe device_probe;
+    vegaflow::WindowsRegistryPort reg;
+    vegaflow::WindowsPowerPort power;
+    WindowsGameSessionEnv env(file_system, cpu_orchestrator, mem_mgr, reg, power, audit_cb);
 
-    std::optional<DetectedGameProcess> game_opt;
-    if (game_active && active_game_pid != 0 &&
-        active_game_hwnd != nullptr && IsWindow(active_game_hwnd) &&
-        ProcessDetector::IsProcessAlive(active_game_pid)) {
-        DetectedGameProcess cached_game{};
-        cached_game.pid = active_game_pid;
-        cached_game.exe_name = active_game_exe;
-        cached_game.full_path = active_game_path ? *active_game_path : L"";
-        if (active_game_api == "DirectX 12") cached_game.api = RenderApi::DirectX12;
-        else if (active_game_api == "Vulkan") cached_game.api = RenderApi::Vulkan;
-        else if (active_game_api == "DirectX 9/10") cached_game.api = RenderApi::DirectX9_10;
-        else cached_game.api = RenderApi::DirectX11;
-        cached_game.main_window = active_game_hwnd;
-        cached_game.presenter_thread_id = static_cast<uint32_t>(GetWindowThreadProcessId(active_game_hwnd, nullptr));
-        game_opt = cached_game;
-    } else {
-        game_opt = ProcessDetector::DetectActiveGame(config.custom_game_exes);
-    }
+    vegaflow::session::GameSessionState state{};
+    state.game_active = game_active;
+    state.active_game_pid = active_game_pid;
+    state.active_game_exe = active_game_exe;
+    state.active_game_path = active_game_path ? *active_game_path : L"";
+    state.active_game_api = active_game_api;
+    state.active_game_hwnd = active_game_hwnd;
 
-    if (game_opt.has_value()) {
-        const auto& game = *game_opt;
-        active_game_hwnd = game.main_window;
-        active_game_exe = game.exe_name;
-        active_game_api = ProcessDetector::RenderApiToString(game.api);
-        if (active_game_path) {
-            *active_game_path = game.full_path;
+    auto emit_audit = [&](const std::string& msg) {
+        std::cout << msg << "\n";
+        if (audit_cb && *audit_cb) {
+            (*audit_cb)(msg);
         }
+    };
 
-        bool is_new_game = (!game_active || active_game_pid != game.pid);
+    vegaflow::session::RunGameSessionCycle(config, device_probe, env, hw, state, out_noisy_bg_count, emit_audit);
 
-        auto live_mem = mem_mgr.SampleTelemetry();
-        ApuOptimizationPolicy policy = HardwareProfiler::BuildOptimizationPolicy(hw, live_mem.vram.local_budget_bytes);
-        // The optimizers used to rebuild the policy themselves, without the live DXGI budget; keep exactly that.
-        const ApuOptimizationPolicy static_policy = HardwareProfiler::BuildOptimizationPolicy(hw);
-
-        if (is_new_game) {
-            if (game_active && active_game_pid != 0) {
-                std::cout << telemetry_monitor.FormatSessionReport(WideToUtf8(active_game_exe)) << "\n";
-                telemetry_monitor.SaveSessionReportToFile(WideToUtf8(active_game_exe), "logs/session_reports.log");
-                telemetry_monitor.StopMonitoring();
-            }
-
-            std::cout << "[INFO] Game detected: " << WideToUtf8(game.exe_name)
-                      << " (PID: " << game.pid << ") using " << active_game_api << "\n";
-            if (audit_cb && *audit_cb) {
-                (*audit_cb)("Juego detectado: " + WideToUtf8(game.exe_name) + " (PID: " + std::to_string(game.pid) + ") [" + active_game_api + "]");
-            }
-
-            if (!timer_boosted) {
-                if (GraphicsOptimizer::EnableHighPrecisionTimer(config.timer_resolution_ns100)) {
-                    timer_boosted = true;
-                    std::cout << "[OPT] High-precision timer enabled (" << (config.timer_resolution_ns100 / 10000.0) << " ms)\n";
-                }
-            }
-
-            bool is_dx12 = (game.api == RenderApi::DirectX12 || game.api == RenderApi::Vulkan);
-            GraphicsOptimizer::SetDynamicPrioritySeparation(is_dx12 ? 0x26 : 0x28, false);
-
-            GraphicsOptimizer::SetGameDvrAndFseOptimized(true, false);
-            GraphicsOptimizer::SetApuLaptopPowerProfile(true, static_policy, false);
-
-            // =================================================================
-            // SMART PER-GAME AUTO-PROFILING (R&D)
-            // =================================================================
-            std::filesystem::path pExe(game.full_path);
-            auto inspected = SteamEngineOptimizer::InspectGameDirectory(
-                pExe.parent_path().wstring(),
-                0,
-                WideToUtf8(game.exe_name));
-            if (inspected.primary_exe_path.empty()) {
-                inspected.primary_exe_path = game.full_path;
-            }
-
-            auto emit_profile_msg = [&](const std::string& msg) {
-                std::cout << msg << "\n";
-                if (audit_cb && *audit_cb) {
-                    (*audit_cb)(msg);
-                }
-            };
-
-            if (inspected.has_anticheat) {
-                // Profile 1: Anti-Cheat Protected
-                emit_profile_msg("[SECURITY] Anti-Cheat detectado (HoYoKProtect/EAC/BE). Perfil Pasivo Seguro activado: DXGI Flip Model + Aislamiento CPU (0 archivos modificados).");
-                GraphicsOptimizer::ApplyDxgiFlipModelUpgrade(game.full_path, false);
-            } else if (inspected.engine == GameEngineType::UnrealEngine4_5) {
-                // Profile 2: Unreal Engine without Anti-Cheat
-                GraphicsOptimizer::ApplyDxgiFlipModelUpgrade(game.full_path, false);
-                uint32_t pool_mb = policy.safe_vram_pool_mb;
-                std::string async_comp_str = (!policy.disable_dx12_async_compute) ? "ON" : "OFF";
-                std::string preset_msg = "[ENGINE] Unreal Engine detectado. Preset UMA (" + policy.guard_mode_name +
-                    ") aplicado (Pool " + std::to_string(pool_mb) + " MB, LimitVRAM=0, AsyncCompute=" + async_comp_str + ").";
-                if (!inspected.engine_preset_applied) {
-                    SteamEngineOptimizer(file_system).ApplyEngineUmaPreset(inspected, static_policy, pool_mb, false);
-                    emit_profile_msg(preset_msg);
-                } else {
-                    emit_profile_msg(preset_msg);
-                }
-            } else {
-                // Profile 3: Generic DX11/DX12 games
-                GraphicsOptimizer::ApplyDxgiFlipModelUpgrade(game.full_path, false);
-                emit_profile_msg("[OPTIMIZE] Juego nativo detectado. DXGI Flip Model y prioridad de renderizador aplicados.");
-            }
-
-            telemetry_monitor.StartMonitoring(game.pid);
-            game_active = true;
-            active_game_pid = game.pid;
-        }
-
-        auto bg_pids = ProcessDetector::FindBackgroundNoisyProcesses(game.pid);
-        if (out_noisy_bg_count) {
-            *out_noisy_bg_count = static_cast<uint32_t>(bg_pids.size());
-        }
-        bool is_dx12 = (game.api == RenderApi::DirectX12 || game.api == RenderApi::Vulkan);
-
-        const std::vector<ULONG> no_sets;
-        auto cpu_res = cpu_orchestrator.ApplyOptimizations(
-            game.pid,
-            game.presenter_thread_id,
-            is_dx12,
-            config.restrict_game_cpu_sets ? hw.cpu_topology.game_optimal_cpu_set_ids : no_sets,
-            hw.cpu_topology.background_cpu_set_ids,
-            bg_pids,
-            false);
-
-        if (is_new_game) {
-            std::string eco_msg = "[CPU] EcoQoS activado en procesos secundarios (" +
-                std::to_string(cpu_res.background_processes_throttled) + " procesos en modo eficiencia térmica para ahorro APU).";
-            std::cout << eco_msg << "\n";
-            if (audit_cb && *audit_cb) {
-                (*audit_cb)(eco_msg);
-            }
-
-            std::string io_msg = "[I/O NT] Jerarquía I/O activada: IoPriorityHigh en juego (PID " +
-                std::to_string(game.pid) + ") y IoPriorityVeryLow en procesos de fondo.";
-            std::cout << io_msg << "\n";
-            if (audit_cb && *audit_cb) {
-                (*audit_cb)(io_msg);
-            }
-        }
-
-        auto mem_report = mem_mgr.EvaluateAndOptimize(game.pid, bg_pids, false);
-        if (mem_report.standby_purged || mem_report.background_processes_trimmed > 0) {
-            std::cout << "[OPT] Memory optimized: " << mem_report.reason << "\n";
-        }
-
-        auto uma_guard = mem_mgr.EvaluateUmaPressureGuard(live_mem, policy, bg_pids, false);
-        if (uma_guard.guard_triggered) {
-            std::string guard_msg = "[UMA GUARD] " + uma_guard.active_reason + " (Intervención #" + std::to_string(uma_guard.total_interventions) + ")";
-            std::cout << guard_msg << "\n";
-            if (audit_cb && *audit_cb) {
-                (*audit_cb)(guard_msg);
-            }
-        }
-    } else {
-        // Fallback: If previously tracked game is still alive in background/minimized, preserve session
-        if (game_active) {
-            if (active_game_pid != 0 && ProcessDetector::IsProcessAlive(active_game_pid)) {
-                // Game process is still alive (minimized or Alt-Tabbed); do not discard session yet
-            } else {
-                std::cout << "[INFO] Game closed (PID: " << active_game_pid << "). Restoring system state...\n";
-                std::cout << telemetry_monitor.FormatSessionReport(WideToUtf8(active_game_exe)) << "\n";
-                telemetry_monitor.SaveSessionReportToFile(WideToUtf8(active_game_exe), "logs/session_reports.log");
-                telemetry_monitor.StopMonitoring();
-
-                cpu_orchestrator.RestoreAll(false);
-                GraphicsOptimizer::SetDynamicPrioritySeparation(0x02, false);
-                if (timer_boosted && !config.timer_forced_manual) {
-                    GraphicsOptimizer::RestoreDefaultTimer();
-                    timer_boosted = false;
-                    std::cout << "[OPT] Default timer resolution restored.\n";
-                }
-                game_active = false;
-                active_game_pid = 0;
-                active_game_exe.clear();
-                active_game_api.clear();
-                active_game_hwnd = nullptr;
-                if (active_game_path) {
-                    active_game_path->clear();
-                }
-            }
-        }
+    game_active = state.game_active;
+    active_game_pid = state.active_game_pid;
+    active_game_exe = state.active_game_exe;
+    active_game_api = state.active_game_api;
+    active_game_hwnd = state.active_game_hwnd;
+    if (active_game_path) {
+        *active_game_path = state.active_game_path;
     }
 }
 

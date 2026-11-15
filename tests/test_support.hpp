@@ -36,14 +36,13 @@ void RecordResult(bool success, const std::string& test_name, const std::string&
 // (DetectHardware + BuildOptimizationPolicy, without the live DXGI budget).
 const vegaflow::ApuOptimizationPolicy& DetectedPolicy();
 
-// One function per numbered test, in tests/integration/. The numbers are stable: 9 and 12 were removed.
+// One function per numbered test, in tests/integration/. The numbers are stable: 7, 9 and 12 were removed.
 void Test01();
 void Test02();
 void Test03();
 void Test04();
 void Test05();
 void Test06();
-void Test07();
 void Test08();
 void Test10();
 void Test11();
@@ -82,5 +81,18 @@ void Test44();
 void Test45();
 void Test46();
 void Test47();
+void Test48();
+void Test49();
+void Test50();
+void Test51();
+void Test52();
+void Test53();
+void Test54();
+void Test55();
+void Test56();
+void Test57();
+void Test58();
+void Test59();
+void Test60();
 
 } // namespace vftest

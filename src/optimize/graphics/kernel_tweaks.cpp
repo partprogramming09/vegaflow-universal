@@ -1,204 +1,99 @@
 #include "optimize/graphics/graphics_internal.hpp"
 
+#include <cstdio>
+
 namespace vegaflow {
 
 using namespace graphics_internal;
 
-bool GraphicsOptimizer::SetMemoryCompressionEnabled(bool enable, bool dry_run) {
-    if (dry_run) {
-        return true;
-    }
+namespace {
 
-    std::wstring cmd = L"powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden -Command \"";
-    if (enable) {
-        cmd += L"Enable-MMAgent -MemoryCompression\"";
-    } else {
-        cmd += L"Disable-MMAgent -MemoryCompression\"";
-    }
+constexpr wchar_t kPriorityControlPath[] = L"SYSTEM\\CurrentControlSet\\Control\\PriorityControl";
+constexpr wchar_t kMemoryManagementPath[] = L"SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Memory Management";
 
-    STARTUPINFOW si{};
-    si.cb = sizeof(si);
-    si.dwFlags = STARTF_USESHOWWINDOW;
-    si.wShowWindow = SW_HIDE;
+} // namespace
 
-    PROCESS_INFORMATION pi{};
-
-    std::vector<wchar_t> cmd_buffer(cmd.begin(), cmd.end());
-    cmd_buffer.push_back(L'\0');
-
-    BOOL created = CreateProcessW(
-        nullptr,
-        cmd_buffer.data(),
-        nullptr,
-        nullptr,
-        FALSE,
-        CREATE_NO_WINDOW,
-        nullptr,
-        nullptr,
-        &si,
-        &pi
-    );
-
-    if (!created) {
-        return false;
-    }
-
-    HCURSOR hOldCursor = SetCursor(LoadCursorW(nullptr, MAKEINTRESOURCEW(32650)));
-    ULONGLONG start_tick = GetTickCount64();
-    constexpr ULONGLONG kTimeoutMs = 5000;
-    DWORD wait_res = WAIT_TIMEOUT;
-
-    while (true) {
-        ULONGLONG elapsed = GetTickCount64() - start_tick;
-        if (elapsed >= kTimeoutMs) {
-            wait_res = WAIT_TIMEOUT;
-            break;
-        }
-        DWORD remaining = static_cast<DWORD>(kTimeoutMs - elapsed);
-        DWORD mw = MsgWaitForMultipleObjects(1, &pi.hProcess, FALSE, remaining, QS_ALLINPUT);
-        if (mw == WAIT_OBJECT_0) {
-            wait_res = WAIT_OBJECT_0;
-            break;
-        } else if (mw == WAIT_OBJECT_0 + 1) {
-            MSG msg;
-            while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
-                TranslateMessage(&msg);
-                DispatchMessageW(&msg);
-            }
-        } else {
-            wait_res = mw;
-            break;
-        }
-    }
-    if (hOldCursor) {
-        SetCursor(hOldCursor);
-    }
-    DWORD exit_code = 1;
-    if (wait_res == WAIT_OBJECT_0) {
-        GetExitCodeProcess(pi.hProcess, &exit_code);
-    } else {
-        TerminateProcess(pi.hProcess, 1);
-    }
-
-    CloseHandle(pi.hThread);
-    CloseHandle(pi.hProcess);
-
-    return (wait_res == WAIT_OBJECT_0 && exit_code == 0);
+bool KernelSchedulerTweaks::SetMemoryCompressionEnabled(bool enable, bool dry_run) {
+    return reg_.SetMemoryCompressionEnabled(enable, dry_run);
 }
 
-bool GraphicsOptimizer::SetDynamicPrioritySeparation(uint32_t value, bool dry_run) {
+bool KernelSchedulerTweaks::IsMemoryCompressionEnabled() {
+    return reg_.IsMemoryCompressionEnabled();
+}
+
+bool KernelSchedulerTweaks::SetDynamicPrioritySeparation(uint32_t value, bool dry_run) {
     if (dry_run) {
         return true;
     }
 
-    HKEY hKey = nullptr;
-    LSTATUS status = RegOpenKeyExW(
-        HKEY_LOCAL_MACHINE,
-        L"SYSTEM\\CurrentControlSet\\Control\\PriorityControl",
-        0,
-        KEY_READ | KEY_SET_VALUE,
-        &hKey
-    );
+    const bool is_default = (value == 0x02u);
+    char hexbuf[16]{};
+    std::snprintf(hexbuf, sizeof(hexbuf), "0x%x", value);
 
-    if (status != ERROR_SUCCESS) {
-        return false;
-    }
-
-    const std::wstring prio_path = L"SYSTEM\\CurrentControlSet\\Control\\PriorityControl";
-    const bool is_default = (value == 0x02);
-    if (!is_default) RegBackupValue(kHiveLocalMachine, prio_path, hKey, L"Win32PrioritySeparation");
-    DWORD dwVal = static_cast<DWORD>(value);
-    LSTATUS set_status = RegSetValueExW(
-        hKey,
+    const bool set_ok = reg_.WriteValue(
+        RegHive::LocalMachine,
+        kPriorityControlPath,
         L"Win32PrioritySeparation",
-        0,
-        REG_DWORD,
-        reinterpret_cast<const BYTE*>(&dwVal),
-        sizeof(dwVal)
-    );
+        RegValue::MakeDword(value),
+        !is_default,
+        "Prioridad de quantum CPU en juego",
+        hexbuf);
 
-    RegCloseKey(hKey);
-    if (is_default) RegRestoreValue(kHiveLocalMachine, prio_path, L"Win32PrioritySeparation");
-    return (set_status == ERROR_SUCCESS);
+    if (is_default) {
+        reg_.RestoreBackedUpValue(RegHive::LocalMachine, kPriorityControlPath, L"Win32PrioritySeparation");
+    }
+    return set_ok;
 }
 
-bool GraphicsOptimizer::SetKernelMemoryPagingShield(bool enable, bool dry_run) {
+uint32_t KernelSchedulerTweaks::QueryDynamicPrioritySeparation() {
+    RegValue val;
+    if (reg_.ReadValue(RegHive::LocalMachine, kPriorityControlPath, L"Win32PrioritySeparation", val) &&
+        val.type == RegValueType::Dword) {
+        return val.dword;
+    }
+    return 2u;
+}
+
+bool KernelSchedulerTweaks::SetKernelMemoryPagingShield(bool enable, bool dry_run) {
     if (dry_run) {
         return true;
     }
 
-    HKEY hKey = nullptr;
-    LSTATUS status = RegOpenKeyExW(
-        HKEY_LOCAL_MACHINE,
-        L"SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Memory Management",
-        0,
-        KEY_READ | KEY_SET_VALUE,
-        &hKey
-    );
+    const uint32_t disable_paging = enable ? 1u : 0u;
+    const uint32_t large_cache = 0u;
 
-    if (status != ERROR_SUCCESS) {
-        return false;
-    }
-
-    const std::wstring mm_path = L"SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Memory Management";
-    if (enable) {
-        RegBackupValue(kHiveLocalMachine, mm_path, hKey, L"DisablePagingExecutive");
-        RegBackupValue(kHiveLocalMachine, mm_path, hKey, L"LargeSystemCache");
-    }
-    DWORD disable_paging = enable ? 1 : 0;
-    DWORD large_cache = 0; // Prevents the system file cache from displacing game memory
-
-    LSTATUS st1 = RegSetValueExW(
-        hKey,
+    const bool st1 = reg_.WriteValue(
+        RegHive::LocalMachine,
+        kMemoryManagementPath,
         L"DisablePagingExecutive",
-        0,
-        REG_DWORD,
-        reinterpret_cast<const BYTE*>(&disable_paging),
-        sizeof(disable_paging)
-    );
+        RegValue::MakeDword(disable_paging),
+        enable,
+        "Blindaje de memoria del kernel",
+        "1");
 
-    LSTATUS st2 = RegSetValueExW(
-        hKey,
+    const bool st2 = reg_.WriteValue(
+        RegHive::LocalMachine,
+        kMemoryManagementPath,
         L"LargeSystemCache",
-        0,
-        REG_DWORD,
-        reinterpret_cast<const BYTE*>(&large_cache),
-        sizeof(large_cache)
-    );
+        RegValue::MakeDword(large_cache),
+        enable,
+        "Evitar desplazamiento por cach\u00e9",
+        "0");
 
-    RegCloseKey(hKey);
     if (!enable) {
-        RegRestoreValue(kHiveLocalMachine, mm_path, L"DisablePagingExecutive");
-        RegRestoreValue(kHiveLocalMachine, mm_path, L"LargeSystemCache");
+        reg_.RestoreBackedUpValue(RegHive::LocalMachine, kMemoryManagementPath, L"DisablePagingExecutive");
+        reg_.RestoreBackedUpValue(RegHive::LocalMachine, kMemoryManagementPath, L"LargeSystemCache");
     }
-    return (st1 == ERROR_SUCCESS && st2 == ERROR_SUCCESS);
+    return st1 && st2;
 }
 
-bool GraphicsOptimizer::QueryKernelMemoryPagingShield() {
-    HKEY hKey = nullptr;
-    LSTATUS status = RegOpenKeyExW(
-        HKEY_LOCAL_MACHINE,
-        L"SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Memory Management",
-        0,
-        KEY_READ,
-        &hKey
-    );
-
-    if (status != ERROR_SUCCESS) {
-        return false;
+bool KernelSchedulerTweaks::QueryKernelMemoryPagingShield() {
+    RegValue val;
+    if (reg_.ReadValue(RegHive::LocalMachine, kMemoryManagementPath, L"DisablePagingExecutive", val) &&
+        val.type == RegValueType::Dword) {
+        return val.dword == 1u;
     }
-
-    DWORD val = 0;
-    DWORD type = 0;
-    DWORD size = sizeof(val);
-    bool active = false;
-
-    if (RegQueryValueExW(hKey, L"DisablePagingExecutive", nullptr, &type, reinterpret_cast<LPBYTE>(&val), &size) == ERROR_SUCCESS && type == REG_DWORD) {
-        active = (val == 1);
-    }
-
-    RegCloseKey(hKey);
-    return active;
+    return false;
 }
 
 } // namespace vegaflow

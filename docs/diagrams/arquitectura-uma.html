@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arquitectura UMA · Memoria unificada</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper: #f5f5f5; --color-ink: #2d3142; --color-muted: #4f5d75; --color-accent: #bf4520;
+      --font-sans: 'Geist', system-ui, sans-serif; --font-serif: 'Instrument Serif', serif; --font-mono: 'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400; letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    .scroll { overflow-x: auto; }
+    svg { width: 100%; min-width: 1000px; display: block; }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Arquitectura · VegaFlow Universal</p>
+    <h1>Arquitectura UMA · Una memoria para CPU y GPU</h1>
+    <div class="scroll">
+    <svg viewBox="0 0 1000 568" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="arquitectura-uma-title arquitectura-uma-desc">
+      <title id="arquitectura-uma-title">Arquitectura UMA · Una memoria para CPU y GPU</title>
+      <desc id="arquitectura-uma-desc">La CPU Zen 2 y la iGPU Vega 6 acceden por el mismo Infinity Fabric e IMC, en doble canal DDR4-3200, a 16 GB de memoria física compartida; la BIOS informa de 512 MB dedicados, pero la GPU puede usar hasta 8192 MB.</desc>
+      <defs>
+        <pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="0.9" fill="rgba(45,49,66,0.10)"/></pattern>
+        <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#4f5d75"/></marker>
+      </defs>
+      <rect width="100%" height="100%" fill="#f5f5f5"/>
+      <rect width="100%" height="100%" fill="url(#dots)" opacity="0.55"/>
+      <path d="M300,168 L300,188 Q300,196 308,196 L432,196 Q440,196 440,204 L440,232" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <path d="M700,168 L700,188 Q700,196 692,196 L568,196 Q560,196 560,204 L560,232" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <path d="M500,324 L500,368" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <rect x="160" y="80" width="280" height="88" fill="#f5f5f5"/>
+      <rect x="160" y="80" width="280" height="88" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+      <rect x="172" y="92" width="33" height="16" rx="2" fill="none" stroke="#2d3142" stroke-opacity="0.5"/>
+      <text x="178" y="104" fill="#2d3142" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">CPU</text>
+      <text x="300.0" y="128" fill="#2d3142" font-size="15" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">CPU Zen 2 (6C/12T)</text>
+      <text x="300.0" y="150" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="middle">35W-45W de TDP térmico</text>
+      <rect x="560" y="80" width="280" height="88" fill="#f5f5f5"/>
+      <rect x="560" y="80" width="280" height="88" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+      <rect x="572" y="92" width="33" height="16" rx="2" fill="none" stroke="#2d3142" stroke-opacity="0.5"/>
+      <text x="578" y="104" fill="#2d3142" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">GPU</text>
+      <text x="700.0" y="128" fill="#2d3142" font-size="15" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">iGPU Vega 6 (6 CUs)</text>
+      <text x="700.0" y="150" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="middle">384 stream processors</text>
+      <rect x="300" y="232" width="400" height="92" fill="#f5f5f5"/>
+      <rect x="300" y="232" width="400" height="92" rx="6" fill="rgba(191,69,32,0.08)" stroke="#bf4520" stroke-width="1"/>
+      <rect x="312" y="244" width="33" height="16" rx="2" fill="none" stroke="#bf4520" stroke-opacity="0.5"/>
+      <text x="318" y="256" fill="#bf4520" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">BUS</text>
+      <text x="500.0" y="280" fill="#2d3142" font-size="15" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Infinity Fabric / IMC</text>
+      <text x="500.0" y="302" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="middle">doble canal DDR4-3200 MHz · ~38-42 GB/s</text>
+      <rect x="220" y="368" width="560" height="112" fill="#f5f5f5"/>
+      <rect x="220" y="368" width="560" height="112" rx="6" fill="#ececec" stroke="#2d3142" stroke-width="1"/>
+      <rect x="232" y="380" width="33" height="16" rx="2" fill="none" stroke="#2d3142" stroke-opacity="0.5"/>
+      <text x="238" y="392" fill="#2d3142" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">RAM</text>
+      <text x="500.0" y="416" fill="#2d3142" font-size="15" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Memoria física compartida: 16 GB</text>
+      <text x="500.0" y="438" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="middle">la BIOS informa de 512 MB de «VRAM dedicada» (falso)</text>
+      <text x="500.0" y="456" fill="#4f5d75" font-size="10" font-family="'Geist Mono', monospace" text-anchor="middle">la GPU puede usar hasta 8192 MB</text>
+      <text x="160" y="532" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.18em">FOCO</text>
+      <text x="216" y="532" fill="#4f5d75" font-size="9" font-family="'Geist', sans-serif" font-style="italic">La CPU y la iGPU no tienen memoria propia: las dos pasan por el mismo bus hacia los mismos 16 GB.</text>
+
+    </svg>
+    </div>
+  </div>
+</body>
+</html>

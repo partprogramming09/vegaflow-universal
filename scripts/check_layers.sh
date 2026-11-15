@@ -6,20 +6,19 @@ set -u
 cd "$(dirname "$0")/.." || exit 2
 
 # Folders each layer may include (its own folder is always allowed).
-# "Migration" entries are the old folders (detect/, optimize/, safety/): they go away phase by phase
+# "Migration" entries are the old folders (detect/, optimize/): they go away phase by phase
 # (docs/plan/maestro/) and must be removed from these lists when they do.
 allowed() {
     case "$1" in
-    app) echo "session ui model windows bridge detect optimize safety" ;;
+    app) echo "session ui model windows bridge detect optimize" ;;
     ui) echo "session model" ;;
-    session) echo "model ports bridge detect optimize safety windows" ;; # Migration: detect optimize safety windows
+    session) echo "model ports bridge detect optimize windows" ;; # Migration: detect optimize windows
     ports) echo "model" ;;
     windows) echo "ports model bridge" ;;
     model) echo "" ;;
     bridge) echo "" ;;
-    detect) echo "model windows bridge safety" ;;
+    detect) echo "model windows bridge" ;;
     optimize) echo "model ports windows bridge" ;;
-    safety) echo "model windows bridge" ;;
     *) echo "UNKNOWN" ;;
     esac
 }

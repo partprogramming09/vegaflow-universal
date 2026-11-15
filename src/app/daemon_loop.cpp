@@ -11,14 +11,15 @@
 #include "optimize/graphics/graphics_optimizer.hpp"
 #include "optimize/memory_manager.hpp"
 #include "optimize/cpu_orchestrator.hpp"
-#include "safety/frame_telemetry.hpp"
 #include "optimize/steam/steam_engine_optimizer.hpp"
 #include "app/app_state.hpp"
 #include "session/config.hpp"
 #include "session/reports.hpp"
+#include "windows/power.hpp"
+#include "windows/registry.hpp"
 #include "windows/safe_file_system.hpp"
 #include "session/run_cycle.hpp"
-#include "session/text_convert.hpp"
+#include "windows/text_convert.hpp"
 
 namespace vegaflow::app {
 
@@ -27,35 +28,48 @@ int RunDaemon(
     vegaflow::SystemHardwareProfile& hw,
     vegaflow::CpuOrchestrator& cpu_orchestrator,
     vegaflow::MemoryManager& mem_mgr,
-    vegaflow::FrameTelemetryMonitor& telemetry_monitor,
     const vegaflow::PrivilegeStatus& priv,
-    bool once_mode) {
+    bool once_mode,
+    bool safe_mode) {
     using namespace vegaflow;
     // Built once from the boot profile, the same way each optimizer used to rebuild it on every call.
     const ApuOptimizationPolicy policy = HardwareProfiler::BuildOptimizationPolicy(hw);
     SafeFileSystem file_system; // the real FileSystem port (SandboxGuard)
+    WindowsRegistryPort reg;
+    WindowsPowerPort power;
+    GraphicsOptimizer gfx(hw, policy, reg, &power);
 
     bool game_active = false;
     uint32_t active_game_pid = 0;
     std::wstring active_game_exe;
     std::string active_game_api;
     HWND active_game_hwnd = nullptr;
-    bool timer_boosted = false;
 
-    GraphicsOptimizer::SetGameDvrAndFseOptimized(true, false);
-    GraphicsOptimizer::SetApuLaptopPowerProfile(true, policy, false);
+    if (safe_mode) {
+        std::cout << "[WARN] MODO SEGURO ACTIVO: VegaFlow detect\u00f3 2 o m\u00e1s cierres anormales seguidos. "
+                  << "Arrancando sin aplicar ajustes del sistema. Usa --restore-registry si necesitas revertir.\n";
+    } else {
+        gfx.Display().SetGameDvrAndFseOptimized(true, false);
+        if (gfx.PowerMode()) {
+            gfx.PowerMode()->SetApuLaptopPowerProfile(true, policy, false);
+        }
+    }
 
     if (once_mode) {
-        RunSingleIteration(
-            config, file_system, hw, cpu_orchestrator, mem_mgr, telemetry_monitor,
-            game_active, active_game_pid, active_game_exe, active_game_api, active_game_hwnd, timer_boosted);
-        if (game_active) {
-            telemetry_monitor.SaveSessionReportToFile(WideToUtf8(active_game_exe), "logs/session_reports.log");
-            cpu_orchestrator.RestoreAll(false);
-            if (timer_boosted) {
-                GraphicsOptimizer::RestoreDefaultTimer();
+        if (!safe_mode) {
+            RunSingleIteration(
+                config, file_system, hw, cpu_orchestrator, mem_mgr,
+                game_active, active_game_pid, active_game_exe, active_game_api, active_game_hwnd);
+            if (game_active) {
+                SaveSessionReportToFile(WideToUtf8(active_game_exe), active_game_api, active_game_pid, "logs/session_reports.log");
+                cpu_orchestrator.RestoreAll(false);
+                gfx.KernelScheduler().SetDynamicPrioritySeparation(0x02, false);
             }
-            telemetry_monitor.StopMonitoring();
+            if (gfx.PowerMode() && gfx.PowerMode()->IsApuPowerModeApplied()) {
+                gfx.PowerMode()->SetApuLaptopPowerProfile(false, policy, false);
+            }
+            gfx.Display().SetGameDvrAndFseOptimized(false, false);
+            gfx.RestoreAllRegistryBackups();
         }
         return 0;
     }
@@ -93,9 +107,8 @@ int RunDaemon(
     }
 
     std::cout << "================================================================================\n";
-    std::cout << "            VEGAFLOW DAEMON INITIALIZED (ZERO-OVERHEAD ACTIVE)                  \n";
+    std::cout << "            VEGAFLOW DAEMON INITIALIZED                                    \n";
     std::cout << "  Poll Interval : " << config.poll_interval_ms << " ms (Waitable Timer)\n";
-    std::cout << "  Timer Target  : " << (config.timer_resolution_ns100 / 10000.0) << " ms\n";
     std::cout << "  Architecture  : " << HardwareProfiler::MemArchToString(hw.primary_gpu.mem_arch) << "\n";
     if (!priv.is_elevated) {
         std::cout << "  [WARN] Running without Administrator privileges: Standby List purge requires Admin.\n";
@@ -115,28 +128,31 @@ int RunDaemon(
         if (wait_res == WAIT_OBJECT_0) {
             break;
         } else if (wait_res == WAIT_OBJECT_0 + 1) {
-            RunSingleIteration(
-                config, file_system, hw, cpu_orchestrator, mem_mgr, telemetry_monitor,
-                game_active, active_game_pid, active_game_exe, active_game_api, active_game_hwnd, timer_boosted);
+            if (!safe_mode) {
+                RunSingleIteration(
+                    config, file_system, hw, cpu_orchestrator, mem_mgr,
+                    game_active, active_game_pid, active_game_exe, active_game_api, active_game_hwnd);
+            }
         } else {
             break;
         }
     }
 
     std::cout << "\n[INFO] Shutdown signal received. Cleaning up resources...\n";
-    if (game_active) {
-        telemetry_monitor.SaveSessionReportToFile(WideToUtf8(active_game_exe), "logs/session_reports.log");
-        cpu_orchestrator.RestoreAll(false);
-        GraphicsOptimizer::SetDynamicPrioritySeparation(0x02, false);
-        if (timer_boosted) {
-            GraphicsOptimizer::RestoreDefaultTimer();
+    if (!safe_mode) {
+        if (game_active) {
+            SaveSessionReportToFile(WideToUtf8(active_game_exe), active_game_api, active_game_pid, "logs/session_reports.log");
+            cpu_orchestrator.RestoreAll(false);
+            gfx.KernelScheduler().SetDynamicPrioritySeparation(0x02, false);
         }
-        telemetry_monitor.StopMonitoring();
+        if (gfx.PowerMode()) {
+            gfx.PowerMode()->SetApuLaptopPowerProfile(false, policy, false);
+        }
+        gfx.Display().SetGameDvrAndFseOptimized(false, false);
+        // Restores the registry (GameDVR, AMD driver, MPO, MMCSS, priority, paging) to its state before VegaFlow.
+        const bool registry_restored = gfx.RestoreAllRegistryBackups();
+        std::cout << "[INFO] Registry values restored to their original state: " << (registry_restored ? "yes" : "partially or not (see --restore-registry)") << "\n";
     }
-    GraphicsOptimizer::SetApuLaptopPowerProfile(false, policy, false);
-    // Restores the registry (GameDVR, AMD driver, MPO, MMCSS, priority, paging) to its state before VegaFlow.
-    const bool registry_restored = GraphicsOptimizer::RestoreAllRegistryBackups();
-    std::cout << "[INFO] Registry values restored to their original state: " << (registry_restored ? "yes" : "partially or not (see --restore-registry)") << "\n";
 
     CancelWaitableTimer(waitable_timer);
     CloseHandle(waitable_timer);

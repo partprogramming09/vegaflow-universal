@@ -1,6 +1,8 @@
 # ADR 0001: Rust decide, C++ actúa a través de puertos
 
-**Lector:** personas. Fecha: 2026-11-08. Estado: **propuesta** (pendiente de aprobación).
+**Lector:** personas. Fecha: 2026-11-08 (propuesta). Estado: **aceptado** el 2026-11-14.
+
+**Evidencia de la aceptación (2026-11-14):** fases 1 a 8 y R3 hechas; `scripts/check_layers.sh` pasa (272 includes, capas respetadas) y `src/session/` ya no llama a Win32. Resultado en [`docs/arquitectura/modulos.md`](../arquitectura/modulos.md).
 
 ## Contexto
 

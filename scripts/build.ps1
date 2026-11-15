@@ -122,7 +122,6 @@ $Libs = @(
     "-lgdi32",
     "-lshell32",
     "-ldwmapi",
-    "-ltdh",
     "-lws2_32",
     "-luserenv",
     "-lbcrypt"

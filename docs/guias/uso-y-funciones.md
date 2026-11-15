@@ -1,37 +1,12 @@
 # Funciones de VegaFlow
 
+**Lector:** personas
+
 ## 2. Módulos Principales de VegaFlow
 
-```
-+---------------------------------------------------------------------------------------------------+
-|                                VEGAFLOW UNIVERSAL ARCHITECTURE                                    |
-+---------------------------------------------------------------------------------------------------+
-|                                                                                                   |
-|  [ Detección No Invasiva ] ---> [ Anti-Cheat Sentinel ]                                           |
-|                                       |                                                           |
-|             +-------------------------+-------------------------+                                 |
-|             | (Si has_anticheat == false)                       | (Si has_anticheat == true)      |
-|             v                                                   v                                 |
-|   +------------------------------------+              +------------------------------------+      |
-|   |   OPTIMIZACIONES A NIVEL MOTOR     |              |   OPTIMIZACIONES NO INVASIVAS      |      |
-|   | - DXVK-GPLAsync (6 worker threads) |              | - DXGI Hardware Flip Model         |      |
-|   | - UMA Engine Streaming (Pool 3000) |              | - CPU Sets cooperativos de juego   |      |
-|   | - AsyncCompute deshabilitado       |              | - Temporizador NT a 0.5 ms exactos |      |
-|   | - Backups automáticos .bak         |              |                                    |      |
-|   +------------------------------------+              +------------------------------------+      |
-|                                       \                         /                                 |
-|                                        +-----------+-----------+                                  |
-|                                                    |                                              |
-|                                                    v                                              |
-|                           [ SUBSISTEMA CENTRAL DE RENDIMIENTO (KERNEL & OS) ]                     |
-|                           - MMCSS Gaming Profile (GPU Priority = 8)                               |
-|                           - Dynamic Win32PrioritySeparation (0x26 / 0x28)                         |
-|                           - APU Power Profile (CPU capped 3.2GHz, ASPM Off, Vega @ 1500MHz)       |
-|                           - Purga Inteligente de Standby List (con histéresis y check de I/O)     |
-|                           - Desactivación de MPO y Memory Compression                             |
-|                                                                                                   |
-+---------------------------------------------------------------------------------------------------+
-```
+![Módulos principales de VegaFlow: la detección no invasiva pasa al Anti-Cheat Sentinel; sin anti-cheat se aplican optimizaciones a nivel motor y con anti-cheat optimizaciones no invasivas, y ambas ramas terminan en el subsistema central de rendimiento del kernel y el sistema operativo](../diagrams/modulos-principales.png)
+
+[Ver el diagrama a pantalla completa](../diagrams/modulos-principales.html)
 
 ### 2.1. DXGI Hardware Flip Model Presentation Upgrade
 - Interviene en `HKCU\Software\Microsoft\DirectX\UserGpuPreferences` registrando las directivas `AutoFlipModel=1;DirectFlip=1;TurboSync=1;SwapEffectUpgradeEnable=1;GpuPreference=2;`.
@@ -162,27 +137,25 @@ Para asegurar compatibilidad universal en todo el ecosistema de procesadores AMD
 
 VegaFlow puede operar como servicio en segundo plano, como herramienta de consola o como interfaz gráfica de escritorio.
 
-```
-+----------------------------------------------------------------------------------+
-|                            COMANDOS CLI DISPONIBLES                              |
-+----------------------------------------------------------------------------------+
-|  --status, -s             Muestra reporte detallado de hardware, RAM y tweaks   |
-|  --gui, -g                Lanza la interfaz gráfica nativa Win32/GDI en bandeja  |
-|  --system-info            Exporta telemetría de hardware, UMA y SO en JSON       |
-|  --monitor, -m            Monitor en tiempo real en consola (RAM, VRAM, FPS)     |
-|  --purge-now, -p          Fuerza purga inmediata de memoria Standby y trim       |
-|  --mpo-disable            Desactiva Multi-Plane Overlay (MPO) en DWM             |
-|  --mpo-restore            Restaura Multi-Plane Overlay (MPO) al valor de fábrica |
-|  --shader-cache-force     Fuerza la caché de shaders en disco del driver AMD     |
-|  --mem-compression-off    Desactiva la compresión de memoria de Windows          |
-|  --dxvk-install <ruta>    Despliega DXVK-GPLAsync en la carpeta del juego        |
-|  --dxvk-remove <ruta>     Elimina DXVK y restaura el backend DirectX 11          |
-|  --apu-gpu-priority       Activa perfil térmico/energía con prioridad GPU (cap 3.4 GHz) |
-|  --apu-balanced           Restaura el perfil de energía balanceado estándar      |
-|  --dry-run, -d            Simula ciclos de evaluación sin modificar el sistema   |
-|  --help, -h               Imprime el manual de opciones                          |
-+----------------------------------------------------------------------------------+
-```
+**Comandos de consola disponibles:**
+
+| Comando | Qué hace |
+|---|---|
+| `--status, -s` | Muestra reporte detallado de hardware, RAM y tweaks |
+| `--gui, -g` | Lanza la interfaz gráfica nativa Win32/GDI en bandeja |
+| `--system-info` | Exporta telemetría de hardware, UMA y SO en JSON |
+| `--monitor, -m` | Monitor en tiempo real en consola (RAM, VRAM, FPS) |
+| `--purge-now, -p` | Fuerza purga inmediata de memoria Standby y trim |
+| `--mpo-disable` | Desactiva Multi-Plane Overlay (MPO) en DWM |
+| `--mpo-restore` | Restaura Multi-Plane Overlay (MPO) al valor de fábrica |
+| `--shader-cache-force` | Fuerza la caché de shaders en disco del driver AMD |
+| `--mem-compression-off` | Desactiva la compresión de memoria de Windows |
+| `--dxvk-install <ruta>` | Despliega DXVK-GPLAsync en la carpeta del juego |
+| `--dxvk-remove <ruta>` | Elimina DXVK y restaura el backend DirectX 11 |
+| `--apu-gpu-priority` | Activa perfil térmico/energía con prioridad GPU (cap 3.4 GHz) |
+| `--apu-balanced` | Restaura el perfil de energía balanceado estándar |
+| `--dry-run, -d` | Simula ciclos de evaluación sin modificar el sistema |
+| `--help, -h` | Imprime el manual de opciones |
 
 #### Ejemplos Prácticos:
 

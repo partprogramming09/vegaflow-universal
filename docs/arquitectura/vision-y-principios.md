@@ -1,5 +1,7 @@
 # Arquitectura de Alto Rendimiento, Validación Empírica y Patrón Universal de Aislamiento de CPU/GPU
 
+**Lector:** personas
+
 > **VegaFlow Universal — Runtime Híbrido C++20 + Rust (`staticlib` FFI)**  
 > **Caso de Estudio en Motor Comercial (*Octopath Traveler II* — Unreal Engine 4 HD-2D)**  
 > **Análisis Universal de Arquitectura: AMD Ryzen (Monolítico / Multi-CCD / X3D) vs. Intel Core (Homogéneo / Híbrido P+E) en configuraciones iGPU, dGPU y eGPU**
@@ -27,34 +29,9 @@ En sistemas contemporáneos donde conviven aplicaciones en primer plano (juegos 
 
 Este comportamiento provoca un fenómeno físico destructivo sobre la memoria caché y el despachador de gráficos:
 
-```
-┌─ ARQUITECTURA SIN AISLAMIENTO: Contención en Caché L3, Bus de Memoria y Presupuesto Térmico ───┐
-│ ┌─ Complejo de Núcleos CPU (Caché L3 Unificada o Particionada) ──────────────────────────┐     │
-│ │ Núcleos Principales 0-2                                                                │     │
-│ │   Hilos del Juego (GameThread / RenderThread)                                          │     │
-│ │   Envenenados por hilos de Chrome/Discord                                              │     │
-│ │                                                                                        │     │
-│ │ Núcleos Secundarios 3-5                                                                │     │
-│ │   Workers de fondo, Indexador, Telemetría                                              │     │
-│ │   Migración constante entre núcleos                                                    │     │
-│ └────────────────────────────────────────────────────────────────────────────────────────┘     │
-│ ┌─ Procesador Gráfico (iGPU UMA / dGPU PCIe / eGPU TB4) ─────────────────────────────────┐     │
-│ │ Hambriento esperando listas de comandos D3D11/D3D12                                    │     │
-│ └────────────────────────────────────────────────────────────────────────────────────────┘     │
-│ ┌─ Bus de Interconexión (Infinity Fabric / Ring Bus / Enlace PCIe) ──────────────────────┐     │
-│ │ (punto de contención)                                                                  │     │
-│ └────────────────────────────────────────────────────────────────────────────────────────┘     │
-│ ┌─ Subsistema de Memoria RAM / VRAM ─────────────────────────────────────────────────────┐     │
-│ │ Líneas de caché desalojadas forzando accesos a memoria lenta                           │     │
-│ └────────────────────────────────────────────────────────────────────────────────────────┘     │
-└────────────────────────────────────────────────────────────────────────────────────────────────┘
+![Sin aislamiento: los núcleos principales 0-2, los secundarios 3-5 y el procesador gráfico comparten el bus de interconexión, punto de contención hacia la memoria RAM o VRAM, con desalojos de L3, robo de cuotas y latencia de draw calls](../diagrams/sin-aislamiento.png)
 
-Enlaces hacia el Bus de Interconexión:
-  Núcleos Principales 0-2   ◄──► Bus   Desalojos constantes de L3 (Cache Thrashing)
-  Núcleos Secundarios 3-5   ◄──► Bus   Interrupciones de hilo y robo de cuotas (Quantum Preemption)
-  Procesador Gráfico        ◄──► Bus   Latencia de despacho de draw calls elevada
-  Bus de Interconexión      ◄──► Subsistema de Memoria RAM / VRAM
-```
+[Ver el diagrama a pantalla completa](../diagrams/sin-aislamiento.html)
 
 ### Mecanismos de Degradación del Rendimiento
 1. **Contaminación y Desalojo de Caché L3 (*Cache Thrashing*):**  
@@ -70,32 +47,9 @@ Enlaces hacia el Bus de Interconexión:
 
 VegaFlow erradica la contención de silicio erigiendo **cuatro barreras simultáneas** implementadas mediante llamadas directas a las interfaces de programación nativas de Windows NT:
 
-```
-┌─ ARQUITECTURA AISLADA: Las 4 Barreras de Contención del Kernel de Windows NT ──────────────────┐
-│ ┌─ Jaula de Sacrificio Determinista (Último Núcleo Físico - Núcleo 5 / Afinidad 0xC00) ──┐     │
-│ │ Procesos de Fondo Ruidosos (Chrome, Discord, Launchers)                                │     │
-│ │ 1. SetProcessDefaultCpuSets / Afinidad 0xC00                                           │     │
-│ │ 2. EcoQoS: SetProcessInformation (ProcessPowerThrottling)                              │     │
-│ │ 3. I/O NT: NtSetInformationProcess (IoPriorityVeryLow = 0)                             │     │
-│ │ 4. Memory Priority: MEMORY_PRIORITY_LOW (2)                                            │     │
-│ └────────────────────────────────────────────────────────────────────────────────────────┘     │
-│      │  Ahorro térmico de 3W a 5W devuelto al juego                                            │
-│      ▼                                                                                         │
-│ ┌─ Espacio de Cómputo Prioritario (Núcleos 0 a 4) ───────────────────────────────────────┐     │
-│ │ Hilos Críticos del Motor de Juego                                                      │     │
-│ │ • GameThread / RenderThread / Audio / RHI                                              │     │
-│ │ • Libre de desalojos de Caché L3                                                       │     │
-│ │ • Frecuencia Turbo sostenida a máxima cota (+138 a +290 MHz)                           │     │
-│ └────────────────────────────────────────────────────────────────────────────────────────┘     │
-│      │  Despacho ininterrumpido de Draw Calls                                                  │
-│      ▼                                                                                         │
-│ ┌─ Barrera D3D/Driver en Registro NT ────────────────────────────────────────────────────┐     │
-│ │ 4. FlipQueueSize = 1 + PCIe ASPM = 0                                                   │     │
-│ │ • Cero cuadros encolados en cola de presentación                                       │     │
-│ │ • Cero transiciones L0s/L1 de micro-reposo en bus PCIe                                 │     │
-│ └────────────────────────────────────────────────────────────────────────────────────────┘     │
-└────────────────────────────────────────────────────────────────────────────────────────────────┘
-```
+![Aislada: la jaula del último núcleo físico (afinidad 0xC00) confina los procesos de fondo con CPU Sets, EcoQoS y prioridad de E/S y de memoria; el ahorro de 3W a 5W vuelve al juego, y la barrera 4 fija FlipQueueSize = 1 y ASPM = 0 en el registro](../diagrams/aislada-4-barreras.png)
+
+[Ver el diagrama a pantalla completa](../diagrams/aislada-4-barreras.html)
 
 ### Detalle de las 4 Barreras:
 1. **Barrera 1 — Confinamiento Espacial de CPU (`SetProcessDefaultCpuSets` / `SetProcessAffinityMask`):**  
@@ -123,20 +77,12 @@ VegaFlow erradica la contención de silicio erigiendo **cuatro barreras simultá
 
 VegaFlow Universal nace de un principio fundamental de ingeniería de software y hardware: **no se trata de copiar código de terceros ni aplicar "tweaks" milagrosos a ciegas, sino de comprender con rigor técnico de raíz cómo funcionan el sistema operativo Windows NT, el subsistema gráfico DXGI/DWM y la arquitectura de hardware del procesador para optimizar el consumo de recursos y maximizar el rendimiento real de los videojuegos.**
 
-```
-+-----------------------------------------------------------------------------------+
-|                        FILOSOFÍA DE DESARROLLO VEGAFLOW                           |
-+-----------------------------------------------------------------------------------+
-| 1. Rigor Técnico y Matemático: Cada cambio se fundamenta en especificaciones      |
-|    oficiales de Microsoft, AMD y el estándar Vulkan/DirectX.                      |
-| 2. Cero Overhead en Reposo: Menos de 15 MB de RAM privada (Private Working Set)   |
-|    y 0.0% de uso de CPU mientras no haya un juego en ejecución activa.            |
-| 3. Reversibilidad Total: Ninguna alteración es destructiva. Copias de seguridad    |
-|    inmediatas (.vegaflow.bak, *.original.bak) y comandos de reversión completos.  |
-| 4. Integridad y Seguridad Anti-Cheat: Respeto absoluto a los sistemas de juego    |
-|    limpio. Cero inyecciones o alteraciones en títulos con protección kernel.     |
-+-----------------------------------------------------------------------------------+
-```
+**Filosofía de desarrollo de VegaFlow:**
+
+1. **Rigor técnico y matemático:** cada cambio se fundamenta en especificaciones oficiales de Microsoft, AMD y el estándar Vulkan/DirectX.
+2. **Cero overhead en reposo:** menos de 15 MB de RAM privada (Private Working Set) y 0.0% de uso de CPU mientras no haya un juego en ejecución activa.
+3. **Reversibilidad total:** ninguna alteración es destructiva. Copias de seguridad inmediatas (`.vegaflow.bak`, `*.original.bak`) y comandos de reversión completos.
+4. **Integridad y seguridad anti-cheat:** respeto absoluto a los sistemas de juego limpio. Cero inyecciones o alteraciones en títulos con protección kernel.
 
 #### Mandamientos del Desarrollador en VegaFlow:
 - **Medición empírica antes de aseverar:** Ninguna optimización se considera válida sin evidencia medible (percentiles 1% Lows, 0.1% Lows, frametime delta y pruebas de estrés).
@@ -196,7 +142,7 @@ Especificado en [`hardware-y-tiers.md`](hardware-y-tiers.md) e implementado en [
 #### 1.4. Runtime DXGI Pressure Guard y Blindaje Anti-Cheat
 - **Monitoreo en Tiempo Real (`EvaluateUmaPressureGuard`):** Sondaje del presupuesto DXGI 1.4 (`IDXGIAdapter3`). Si el consumo local alcanza el **85%** o la memoria física libre es inferior a **1536 MB**, mitiga proactivamente mediante recorte de conjuntos de trabajo secundarios sin pausas perceptibles.
 - **Zero-Trust Lockdown (`SandboxGuard`):** Aislamiento de rutas canónicas, whitelist estricta y bloqueo total ante firmas de kernel anti-cheat (HoYoKProtect, Vanguard, EAC, BattlEye, ACE).
-- **Cobertura de Pruebas:** **45 de 45 pruebas unitarias e integradas C++20 y 158 pruebas Rust en un Mac (87 del núcleo, 63 adversariales y 8 del puente) pasando en verde** (`TEST RESULTS: 45 PASSED, 0 FAILED`, 2026-11-10).
+- **Cobertura de Pruebas:** **57 de 57 pruebas unitarias e integradas C++20 y 252 pruebas Rust (`cargo test`) pasando en verde** (`TEST RESULTS: 57 PASSED, 0 FAILED`, 2026-11-14).
 
 #### 1.5. Núcleo Híbrido Rust FFI (`vegaflow-core`)
 Implementado en el crate estático [`rust/vegaflow-core/`](../../rust/vegaflow-core) y enlazado sin sobrecarga vía C ABI ([`src/bridge/rust_bridge.h`](../../src/bridge/rust_bridge.h)):

@@ -1,20 +1,34 @@
 //! Every function exported to C++ (`vf_rust_*`), in one place. Each one checks its pointers, catches panics with
-//! `ffi_guard` and calls the rule in `policy/` (or the ntdll call in `nt_memory`). The C declarations are in
-//! `src/bridge/rust_bridge.h`.
+//! `ffi_guard` and calls the rule in `policy/`. The C declarations are in `src/bridge/rust_bridge.h`.
 
 use std::os::raw::{c_char, c_void};
 
-use crate::nt_memory;
 use crate::policy::apu_tier::{self, VfTierInput, TIER_ENTRY, TIER_MID};
 use crate::policy::config_file::{self, SaveRefused, Settings};
 use crate::policy::config_rules;
-use crate::policy::cpu_governor::{self, VfCpuCoreEntry, VfTopologyPartitionOut, VF_MAX_LOGICAL_PROCESSORS};
+use crate::policy::cpu_governor::{self, VfCpuCoreEntry, VfTopologyPartitionOut};
+use crate::policy::device_profile::{
+    self, ParsedGpuAdapter, VfDeviceProfileDecision, VfDeviceProfileInput, VfGpuAdapterInput, VF_ARCH_ARM64_EMULATED,
+    VF_ARCH_ARM64_NATIVE, VF_ARCH_UNKNOWN, VF_ARCH_X64, VF_ARCH_X86, VF_DISK_HDD, VF_DISK_NVME, VF_DISK_SSD, VF_DISK_UNKNOWN,
+    VF_GPU_CONN_DISCRETE, VF_GPU_CONN_EXTERNAL, VF_GPU_CONN_INTEGRATED, VF_GPU_CONN_UNKNOWN, VF_GPU_PREF_DEFAULT,
+    VF_GPU_PREF_HIGH_PERF, VF_GPU_PREF_POWER_SAVING,
+};
 use crate::policy::file_access::{self, AllowedRoot};
 use crate::policy::folder_trust::{self, Ace, SidKind};
+use crate::policy::ini_merge::{
+    self, VF_INI_ERR_ENCODING, VF_INI_ERR_INVALID_INPUT, VF_INI_ERR_MISSING_END_MARKER, VF_INI_ERR_UNMATCHED_END_MARKER, VF_INI_OK,
+};
+use crate::policy::memory_purge::{self, VfMemoryPurgeDecision, VfMemoryPurgeInput, DEFAULT_VRAM_PRESSURE_THRESHOLD};
 use crate::policy::path_policy::{self, VF_PATH_INTERNAL_ERROR};
+use crate::policy::process_class::{
+    self, ProcessPolicyInput, VfProcessCategoryActions, VfProcessDecision, VF_PROC_ACTION_BOOST_AS_GAME,
+    VF_PROC_ACTION_DO_NOT_TOUCH, VF_PROC_ACTION_ECO_ONLY, VF_PROC_ACTION_THROTTLE, VF_PROC_CLASS_BROWSERS,
+    VF_PROC_CLASS_CALLS_VOICE, VF_PROC_CLASS_CLOUD_SYNC, VF_PROC_CLASS_DEVELOPER_IDE, VF_PROC_CLASS_HEAVY_WORK,
+    VF_PROC_CLASS_MESSAGING, VF_PROC_CLASS_MUSIC, VF_PROC_CLASS_POSSIBLE_GAME, VF_PROC_CLASS_RECORDING_STREAMING,
+    VF_PROC_CLASS_STORES_LAUNCHERS, VF_PROC_CLASS_UNKNOWN, VF_PROC_CLASS_WINDOWS_SYSTEM,
+};
 use crate::policy::sandbox_core;
 use crate::policy::steam_library;
-use crate::policy::uma_memory::{self, VfNtMemoryListSample, VfUmaGuardDecision, VfUmaTelemetryInput};
 
 /// Runs `f` for an `extern "C"` function and returns `fallback` if it panics. A panic must never cross into C++ (that is
 /// undefined behaviour) and must not take the daemon down; every fallback is the cautious answer for its function
@@ -147,33 +161,44 @@ pub extern "C" fn vf_rust_is_critical_system_filename(utf8_name: *const c_char, 
 }
 
 #[no_mangle]
-pub extern "C" fn vf_rust_evaluate_uma_pressure(
-    input: *const VfUmaTelemetryInput,
-    prev_interventions: u32,
-) -> VfUmaGuardDecision {
+pub extern "C" fn vf_rust_vram_pressure_threshold() -> f64 {
+    ffi_guard(DEFAULT_VRAM_PRESSURE_THRESHOLD, || DEFAULT_VRAM_PRESSURE_THRESHOLD)
+}
+
+#[no_mangle]
+pub extern "C" fn vf_rust_evaluate_memory_purge(input: *const VfMemoryPurgeInput) -> VfMemoryPurgeDecision {
     ffi_guard(unsafe { core::mem::zeroed() }, || {
         if input.is_null() {
-            return VfUmaGuardDecision {
-                available_os_headroom_mb: 0,
-                dxgi_budget_utilization: 0.0,
+            return VfMemoryPurgeDecision {
+                should_purge_standby: false,
+                should_trim_background: false,
+                skipped_due_to_cooldown: false,
+                skipped_due_to_disk_io: false,
+                cooldown_remaining_seconds: 0,
                 guard_triggered: false,
                 dxgi_over_ceiling: false,
                 free_ram_critical: false,
-                total_interventions: prev_interventions,
+                dxgi_budget_utilization: 0.0,
+                available_os_headroom_mb: 0,
+                total_interventions: 0,
             };
         }
-        uma_memory::evaluate_pressure(unsafe { &*input }, prev_interventions)
+        memory_purge::evaluate_memory_purge(unsafe { &*input })
     })
 }
 
 #[no_mangle]
-pub extern "C" fn vf_rust_query_nt_memory_lists() -> VfNtMemoryListSample {
-    ffi_guard(unsafe { core::mem::zeroed() }, nt_memory::query_memory_lists)
-}
-
-#[no_mangle]
-pub extern "C" fn vf_rust_purge_nt_standby_list(dry_run: bool) -> bool {
-    ffi_guard(false, || nt_memory::purge_standby_list(dry_run))
+pub extern "C" fn vf_rust_is_factory_memory_protected_exe(utf8_name: *const c_char, len: usize) -> bool {
+    ffi_guard(true, || {
+        if utf8_name.is_null() || len == 0 {
+            return true;
+        }
+        let bytes = unsafe { core::slice::from_raw_parts(utf8_name as *const u8, len) };
+        match std::str::from_utf8(bytes) {
+            Ok(s) => memory_purge::is_factory_memory_protected_exe(s),
+            Err(_) => true,
+        }
+    })
 }
 
 #[no_mangle]
@@ -183,11 +208,27 @@ pub extern "C" fn vf_rust_partition_cpu_topology(
     out: *mut VfTopologyPartitionOut,
 ) -> bool {
     ffi_guard(false, || {
-        if entries.is_null() || out.is_null() || count == 0 || (count as usize) > VF_MAX_LOGICAL_PROCESSORS {
+        if entries.is_null() || out.is_null() || count == 0 || count > 2048 {
             return false;
         }
         let entries_slice = unsafe { core::slice::from_raw_parts(entries, count as usize) };
         cpu_governor::partition(entries_slice, unsafe { &mut *out })
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn vf_rust_partition_cpu_topology_group(
+    entries: *const VfCpuCoreEntry,
+    count: u32,
+    target_group: u16,
+    out: *mut VfTopologyPartitionOut,
+) -> bool {
+    ffi_guard(false, || {
+        if entries.is_null() || out.is_null() || count == 0 || count > 2048 {
+            return false;
+        }
+        let entries_slice = unsafe { core::slice::from_raw_parts(entries, count as usize) };
+        cpu_governor::partition_for_group(entries_slice, target_group, unsafe { &mut *out })
     })
 }
 
@@ -204,9 +245,7 @@ pub type VfUtf8Fn = Option<unsafe extern "C" fn(ctx: *mut c_void, utf8: *const u
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct VfConfigSettings {
     pub poll_interval_ms: u32,
-    pub timer_resolution_ns100: u32,
     pub cooldown_seconds: u32,
-    pub timer_forced_manual: bool,
     pub restrict_game_cpu_sets: bool,
     pub min_free_ram_mb: u64,
     pub min_standby_mb: u64,
@@ -232,9 +271,7 @@ pub const VF_CONFIG_SAVE_INVALID: u32 = 2;
 fn to_ffi(s: &Settings) -> VfConfigSettings {
     VfConfigSettings {
         poll_interval_ms: s.poll_interval_ms,
-        timer_resolution_ns100: s.timer_resolution_ns100,
         cooldown_seconds: s.cooldown_seconds,
-        timer_forced_manual: s.timer_forced_manual,
         restrict_game_cpu_sets: s.restrict_game_cpu_sets,
         min_free_ram_mb: s.min_free_ram_mb,
         min_standby_mb: s.min_standby_mb,
@@ -306,14 +343,13 @@ pub extern "C" fn vf_rust_config_save(
         let s = unsafe { &*settings };
         let settings = Settings {
             poll_interval_ms: s.poll_interval_ms,
-            timer_resolution_ns100: s.timer_resolution_ns100,
-            timer_forced_manual: s.timer_forced_manual,
             restrict_game_cpu_sets: s.restrict_game_cpu_sets,
             min_free_ram_mb: s.min_free_ram_mb,
             min_standby_mb: s.min_standby_mb,
             cooldown_seconds: s.cooldown_seconds,
             max_game_disk_read_mb_s: s.max_game_disk_read_mb_s,
             custom_game_exes,
+            ..Settings::default()
         };
         match config_file::save(original, &settings) {
             Ok(text) => {
@@ -325,6 +361,233 @@ pub extern "C" fn vf_rust_config_save(
             Err(SaveRefused::Blocked(_)) => VF_CONFIG_SAVE_BLOCKED,
             Err(SaveRefused::InvalidSetting(_)) => VF_CONFIG_SAVE_INVALID,
         }
+    })
+}
+
+/// Phase 5 process policy config settings passed over FFI alongside `VfConfigLoad`.
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct VfProcessPolicyConfig {
+    pub category_actions: VfProcessCategoryActions,
+    pub heavy_work_as_game: bool,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct VfProcessExceptionEntry {
+    pub exe_ptr: *const u8,
+    pub exe_len: usize,
+    pub action: u8,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct VfProcessClassifyInput {
+    pub full_path_ptr: *const u8,
+    pub full_path_len: usize,
+    pub exe_name_ptr: *const u8,
+    pub exe_name_len: usize,
+    pub category_actions: VfProcessCategoryActions,
+    pub exceptions_ptr: *const VfProcessExceptionEntry,
+    pub exceptions_count: usize,
+    pub custom_games_nul_ptr: *const u8,
+    pub custom_games_nul_len: usize,
+    pub excluded_games_nul_ptr: *const u8,
+    pub excluded_games_nul_len: usize,
+    pub heavy_work_as_game: bool,
+    pub is_foreground_3d: bool,
+    pub has_anticheat_signal: bool,
+}
+
+pub type VfProcessExceptionFn = Option<unsafe extern "C" fn(ctx: *mut c_void, exe: *const u8, len: usize, action: u8)>;
+
+#[no_mangle]
+pub extern "C" fn vf_rust_config_load_ex(
+    bytes: *const u8,
+    len: usize,
+    out: *mut VfConfigLoad,
+    out_policy: *mut VfProcessPolicyConfig,
+    on_game_exe: VfUtf8Fn,
+    on_excluded_game_exe: VfUtf8Fn,
+    on_exception: VfProcessExceptionFn,
+    ctx: *mut c_void,
+) -> bool {
+    ffi_guard(false, || {
+        if out.is_null() || out_policy.is_null() || (bytes.is_null() && len != 0) {
+            return false;
+        }
+        let text = if len == 0 { &[][..] } else { unsafe { core::slice::from_raw_parts(bytes, len) } };
+        let loaded = config_file::load(text);
+        unsafe {
+            *out = VfConfigLoad {
+                settings: to_ffi(&loaded.settings),
+                status: loaded.status,
+                rejected_keys: loaded.rejected_keys,
+            };
+            *out_policy = VfProcessPolicyConfig {
+                category_actions: loaded.settings.process_category_actions,
+                heavy_work_as_game: loaded.settings.heavy_work_as_game,
+            };
+        }
+        if let Some(callback) = on_game_exe {
+            for name in &loaded.settings.custom_game_exes {
+                unsafe { callback(ctx, name.as_ptr(), name.len()) };
+            }
+        }
+        if let Some(callback) = on_excluded_game_exe {
+            for name in &loaded.settings.excluded_game_exes {
+                unsafe { callback(ctx, name.as_ptr(), name.len()) };
+            }
+        }
+        if let Some(callback) = on_exception {
+            for (exe, action) in &loaded.settings.process_exceptions {
+                unsafe { callback(ctx, exe.as_ptr(), exe.len(), *action) };
+            }
+        }
+        true
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn vf_rust_config_save_ex(
+    original: *const u8,
+    original_len: usize,
+    settings: *const VfConfigSettings,
+    policy: *const VfProcessPolicyConfig,
+    game_exes: *const u8,
+    game_exes_len: usize,
+    excluded_game_exes: *const u8,
+    excluded_game_exes_len: usize,
+    exceptions: *const VfProcessExceptionEntry,
+    exceptions_count: usize,
+    on_text: VfUtf8Fn,
+    ctx: *mut c_void,
+) -> u32 {
+    ffi_guard(VF_CONFIG_SAVE_INVALID, || {
+        if settings.is_null()
+            || policy.is_null()
+            || (original.is_null() && original_len != 0)
+            || (game_exes.is_null() && game_exes_len != 0)
+            || (excluded_game_exes.is_null() && excluded_game_exes_len != 0)
+            || (exceptions.is_null() && exceptions_count != 0)
+        {
+            return VF_CONFIG_SAVE_INVALID;
+        }
+        let original = if original_len == 0 { &[][..] } else { unsafe { core::slice::from_raw_parts(original, original_len) } };
+        let names = if game_exes_len == 0 { &[][..] } else { unsafe { core::slice::from_raw_parts(game_exes, game_exes_len) } };
+        let excl = if excluded_game_exes_len == 0 {
+            &[][..]
+        } else {
+            unsafe { core::slice::from_raw_parts(excluded_game_exes, excluded_game_exes_len) }
+        };
+        let Some(custom_game_exes) = game_names(names) else {
+            return VF_CONFIG_SAVE_INVALID;
+        };
+        let Some(excluded_game_exes) = game_names(excl) else {
+            return VF_CONFIG_SAVE_INVALID;
+        };
+        let mut process_exceptions: Vec<(String, u8)> = Vec::with_capacity(exceptions_count);
+        if exceptions_count > 0 {
+            let ex_slice = unsafe { core::slice::from_raw_parts(exceptions, exceptions_count) };
+            for e in ex_slice {
+                let Some(bytes) = (unsafe { bytes_or_empty(e.exe_ptr, e.exe_len) }) else {
+                    return VF_CONFIG_SAVE_INVALID;
+                };
+                let Ok(name) = std::str::from_utf8(bytes) else {
+                    return VF_CONFIG_SAVE_INVALID;
+                };
+                process_exceptions.push((name.to_string(), e.action));
+            }
+        }
+        let s = unsafe { &*settings };
+        let p = unsafe { &*policy };
+        let settings = Settings {
+            poll_interval_ms: s.poll_interval_ms,
+            restrict_game_cpu_sets: s.restrict_game_cpu_sets,
+            min_free_ram_mb: s.min_free_ram_mb,
+            min_standby_mb: s.min_standby_mb,
+            cooldown_seconds: s.cooldown_seconds,
+            max_game_disk_read_mb_s: s.max_game_disk_read_mb_s,
+            custom_game_exes,
+            heavy_work_as_game: p.heavy_work_as_game,
+            process_category_actions: p.category_actions,
+            process_exceptions,
+            excluded_game_exes,
+        };
+        match config_file::save(original, &settings) {
+            Ok(text) => {
+                if let Some(callback) = on_text {
+                    unsafe { callback(ctx, text.as_ptr(), text.len()) };
+                }
+                VF_CONFIG_SAVE_OK
+            }
+            Err(SaveRefused::Blocked(_)) => VF_CONFIG_SAVE_BLOCKED,
+            Err(SaveRefused::InvalidSetting(_)) => VF_CONFIG_SAVE_INVALID,
+        }
+    })
+}
+
+fn split_nul_utf8(buf: &[u8]) -> Vec<&str> {
+    if buf.is_empty() {
+        return Vec::new();
+    }
+    let body = buf.strip_suffix(&[0]).unwrap_or(buf);
+    body.split(|&b| b == 0)
+        .filter(|s| !s.is_empty())
+        .filter_map(|s| std::str::from_utf8(s).ok())
+        .collect()
+}
+
+#[no_mangle]
+pub extern "C" fn vf_rust_classify_process(input: *const VfProcessClassifyInput, out: *mut VfProcessDecision) -> bool {
+    ffi_guard(false, || {
+        if input.is_null() || out.is_null() {
+            return false;
+        }
+        let inp = unsafe { &*input };
+        let Some(fp_bytes) = (unsafe { bytes_or_empty(inp.full_path_ptr, inp.full_path_len) }) else {
+            return false;
+        };
+        let Some(exe_bytes) = (unsafe { bytes_or_empty(inp.exe_name_ptr, inp.exe_name_len) }) else {
+            return false;
+        };
+        let Some(custom_bytes) = (unsafe { bytes_or_empty(inp.custom_games_nul_ptr, inp.custom_games_nul_len) }) else {
+            return false;
+        };
+        let Some(excl_bytes) = (unsafe { bytes_or_empty(inp.excluded_games_nul_ptr, inp.excluded_games_nul_len) }) else {
+            return false;
+        };
+        if inp.exceptions_ptr.is_null() && inp.exceptions_count != 0 {
+            return false;
+        }
+        let full_path = std::str::from_utf8(fp_bytes).unwrap_or("");
+        let exe_name = std::str::from_utf8(exe_bytes).unwrap_or("");
+        let custom_games = split_nul_utf8(custom_bytes);
+        let excluded_games = split_nul_utf8(excl_bytes);
+        let mut exceptions: Vec<(&str, u8)> = Vec::with_capacity(inp.exceptions_count);
+        if inp.exceptions_count > 0 {
+            let ex_slice = unsafe { core::slice::from_raw_parts(inp.exceptions_ptr, inp.exceptions_count) };
+            for e in ex_slice {
+                if let Some(eb) = unsafe { bytes_or_empty(e.exe_ptr, e.exe_len) } {
+                    if let Ok(es) = std::str::from_utf8(eb) {
+                        exceptions.push((es, e.action));
+                    }
+                }
+            }
+        }
+        let dec = process_class::classify_process(&ProcessPolicyInput {
+            full_path,
+            exe_name,
+            category_actions: inp.category_actions,
+            exceptions: &exceptions,
+            custom_game_exes: &custom_games,
+            excluded_game_exes: &excluded_games,
+            heavy_work_as_game: inp.heavy_work_as_game,
+            is_foreground_3d: inp.is_foreground_3d,
+            has_anticheat_signal: inp.has_anticheat_signal,
+        });
+        unsafe { *out = dec };
+        true
     })
 }
 
@@ -381,6 +644,286 @@ pub extern "C" fn vf_rust_only_admins_can_write(has_dacl: bool, owner_kind: u8, 
     })
 }
 
+/// Called once with raw output bytes (may contain UTF-16 NULs), valid only during the call.
+pub type VfBytesFn = Option<unsafe extern "C" fn(ctx: *mut c_void, data: *const u8, len: usize)>;
+
+/// Called once per key/value pair read from an INI section; UTF-8, not NUL-terminated.
+pub type VfKvFn = Option<unsafe extern "C" fn(ctx: *mut c_void, key: *const u8, key_len: usize, val: *const u8, val_len: usize)>;
+
+/// One key/value update for INI / boot.config editing.
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct VfIniKv {
+    pub key: *const u8,
+    pub key_len: usize,
+    pub value: *const u8,
+    pub value_len: usize,
+}
+
+unsafe fn bytes_or_empty<'a>(ptr: *const u8, len: usize) -> Option<&'a [u8]> {
+    if len == 0 {
+        Some(&[])
+    } else if ptr.is_null() {
+        None
+    } else {
+        Some(core::slice::from_raw_parts(ptr, len))
+    }
+}
+
+unsafe fn extract_kv_pairs<'a>(pairs: *const VfIniKv, pair_count: usize) -> Option<Vec<(&'a str, &'a str)>> {
+    if pair_count == 0 {
+        return Some(Vec::new());
+    }
+    if pairs.is_null() {
+        return None;
+    }
+    let slice = core::slice::from_raw_parts(pairs, pair_count);
+    let mut out = Vec::with_capacity(pair_count);
+    for p in slice {
+        let kb = bytes_or_empty(p.key, p.key_len)?;
+        let vb = bytes_or_empty(p.value, p.value_len)?;
+        let k = std::str::from_utf8(kb).ok()?;
+        let v = std::str::from_utf8(vb).ok()?;
+        out.push((k, v));
+    }
+    Some(out)
+}
+
+#[no_mangle]
+pub extern "C" fn vf_rust_ini_merge_unreal(
+    original: *const u8,
+    original_len: usize,
+    block: *const u8,
+    block_len: usize,
+    on_out: VfBytesFn,
+    ctx: *mut c_void,
+) -> u32 {
+    ffi_guard(VF_INI_ERR_INVALID_INPUT, || {
+        let Some(orig_bytes) = (unsafe { bytes_or_empty(original, original_len) }) else {
+            return VF_INI_ERR_INVALID_INPUT;
+        };
+        let Some(block_bytes) = (unsafe { bytes_or_empty(block, block_len) }) else {
+            return VF_INI_ERR_INVALID_INPUT;
+        };
+        let Ok(block_str) = std::str::from_utf8(block_bytes) else {
+            return VF_INI_ERR_INVALID_INPUT;
+        };
+        match ini_merge::merge_unreal_uma_block(orig_bytes, block_str) {
+            Ok(out) => {
+                if let Some(cb) = on_out {
+                    unsafe { cb(ctx, out.as_ptr(), out.len()) };
+                }
+                VF_INI_OK
+            }
+            Err(e) => e.code(),
+        }
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn vf_rust_ini_remove_unreal(
+    original: *const u8,
+    original_len: usize,
+    out_changed: *mut bool,
+    on_out: VfBytesFn,
+    ctx: *mut c_void,
+) -> u32 {
+    ffi_guard(VF_INI_ERR_INVALID_INPUT, || {
+        let Some(orig_bytes) = (unsafe { bytes_or_empty(original, original_len) }) else {
+            return VF_INI_ERR_INVALID_INPUT;
+        };
+        match ini_merge::remove_unreal_uma_block(orig_bytes) {
+            Ok((out, changed)) => {
+                if !out_changed.is_null() {
+                    unsafe { *out_changed = changed };
+                }
+                if let Some(cb) = on_out {
+                    unsafe { cb(ctx, out.as_ptr(), out.len()) };
+                }
+                VF_INI_OK
+            }
+            Err(e) => e.code(),
+        }
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn vf_rust_ini_merge_unity(
+    original: *const u8,
+    original_len: usize,
+    pairs: *const VfIniKv,
+    pair_count: usize,
+    on_out: VfBytesFn,
+    ctx: *mut c_void,
+) -> u32 {
+    ffi_guard(VF_INI_ERR_INVALID_INPUT, || {
+        let Some(orig_bytes) = (unsafe { bytes_or_empty(original, original_len) }) else {
+            return VF_INI_ERR_INVALID_INPUT;
+        };
+        let Some(kv) = (unsafe { extract_kv_pairs(pairs, pair_count) }) else {
+            return VF_INI_ERR_INVALID_INPUT;
+        };
+        match ini_merge::merge_unity_boot_config(orig_bytes, &kv) {
+            Ok(out) => {
+                if let Some(cb) = on_out {
+                    unsafe { cb(ctx, out.as_ptr(), out.len()) };
+                }
+                VF_INI_OK
+            }
+            Err(e) => e.code(),
+        }
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn vf_rust_ini_apply_section(
+    original: *const u8,
+    original_len: usize,
+    section: *const u8,
+    section_len: usize,
+    pairs: *const VfIniKv,
+    pair_count: usize,
+    on_out: VfBytesFn,
+    ctx: *mut c_void,
+) -> u32 {
+    ffi_guard(VF_INI_ERR_INVALID_INPUT, || {
+        let Some(orig_bytes) = (unsafe { bytes_or_empty(original, original_len) }) else {
+            return VF_INI_ERR_INVALID_INPUT;
+        };
+        let Some(sec_bytes) = (unsafe { bytes_or_empty(section, section_len) }) else {
+            return VF_INI_ERR_INVALID_INPUT;
+        };
+        let Ok(sec_str) = std::str::from_utf8(sec_bytes) else {
+            return VF_INI_ERR_INVALID_INPUT;
+        };
+        let Some(kv) = (unsafe { extract_kv_pairs(pairs, pair_count) }) else {
+            return VF_INI_ERR_INVALID_INPUT;
+        };
+        match ini_merge::apply_ini_section_keys(orig_bytes, sec_str, &kv) {
+            Ok(out) => {
+                if let Some(cb) = on_out {
+                    unsafe { cb(ctx, out.as_ptr(), out.len()) };
+                }
+                VF_INI_OK
+            }
+            Err(e) => e.code(),
+        }
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn vf_rust_ini_remove_section_keys(
+    original: *const u8,
+    original_len: usize,
+    section: *const u8,
+    section_len: usize,
+    keys: *const VfIniKv,
+    key_count: usize,
+    out_changed: *mut bool,
+    on_out: VfBytesFn,
+    ctx: *mut c_void,
+) -> u32 {
+    ffi_guard(VF_INI_ERR_INVALID_INPUT, || {
+        let Some(orig_bytes) = (unsafe { bytes_or_empty(original, original_len) }) else {
+            return VF_INI_ERR_INVALID_INPUT;
+        };
+        let Some(sec_bytes) = (unsafe { bytes_or_empty(section, section_len) }) else {
+            return VF_INI_ERR_INVALID_INPUT;
+        };
+        let Ok(sec_str) = std::str::from_utf8(sec_bytes) else {
+            return VF_INI_ERR_INVALID_INPUT;
+        };
+        let Some(kv) = (unsafe { extract_kv_pairs(keys, key_count) }) else {
+            return VF_INI_ERR_INVALID_INPUT;
+        };
+        let key_names: Vec<&str> = kv.into_iter().map(|(k, _)| k).collect();
+        match ini_merge::remove_ini_section_keys(orig_bytes, sec_str, &key_names) {
+            Ok((out, changed)) => {
+                if !out_changed.is_null() {
+                    unsafe { *out_changed = changed };
+                }
+                if let Some(cb) = on_out {
+                    unsafe { cb(ctx, out.as_ptr(), out.len()) };
+                }
+                VF_INI_OK
+            }
+            Err(e) => e.code(),
+        }
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn vf_rust_ini_query_section(
+    original: *const u8,
+    original_len: usize,
+    section: *const u8,
+    section_len: usize,
+    on_kv: VfKvFn,
+    ctx: *mut c_void,
+) -> u32 {
+    ffi_guard(VF_INI_ERR_INVALID_INPUT, || {
+        let Some(orig_bytes) = (unsafe { bytes_or_empty(original, original_len) }) else {
+            return VF_INI_ERR_INVALID_INPUT;
+        };
+        let Some(sec_bytes) = (unsafe { bytes_or_empty(section, section_len) }) else {
+            return VF_INI_ERR_INVALID_INPUT;
+        };
+        let Ok(sec_str) = std::str::from_utf8(sec_bytes) else {
+            return VF_INI_ERR_INVALID_INPUT;
+        };
+        match ini_merge::query_ini_section_keys(orig_bytes, sec_str) {
+            Ok(pairs) => {
+                if let Some(cb) = on_kv {
+                    for (k, v) in &pairs {
+                        unsafe { cb(ctx, k.as_ptr(), k.len(), v.as_ptr(), v.len()) };
+                    }
+                }
+                VF_INI_OK
+            }
+            Err(e) => e.code(),
+        }
+    })
+}
+
+/// Evaluates the universal GPU / hardware device profile decision.
+#[no_mangle]
+pub extern "C" fn vf_rust_evaluate_device_profile(
+    adapters: *const VfGpuAdapterInput,
+    adapter_count: usize,
+    input: *const VfDeviceProfileInput,
+    out: *mut VfDeviceProfileDecision,
+) -> bool {
+    ffi_guard(false, || {
+        if input.is_null() || out.is_null() || (adapters.is_null() && adapter_count != 0) {
+            return false;
+        }
+        let raw_slice: &[VfGpuAdapterInput] = if adapter_count == 0 {
+            &[]
+        } else {
+            unsafe { core::slice::from_raw_parts(adapters, adapter_count) }
+        };
+        let mut parsed: Vec<ParsedGpuAdapter<'_>> = Vec::with_capacity(raw_slice.len());
+        for a in raw_slice {
+            let name = match unsafe { bytes_or_empty(a.name_ptr, a.name_len) } {
+                Some(b) => core::str::from_utf8(b).unwrap_or(""),
+                None => "",
+            };
+            parsed.push(ParsedGpuAdapter {
+                vendor_id: a.vendor_id,
+                device_id: a.device_id,
+                dxcore_available: a.dxcore_available,
+                dxcore_integrated: a.dxcore_integrated,
+                dxcore_detachable: a.dxcore_detachable,
+                removal_detachable: a.removal_detachable,
+                name,
+            });
+        }
+        let decision = device_profile::evaluate_profile(&parsed, unsafe { &*input });
+        unsafe { *out = decision };
+        true
+    })
+}
+
 /// Size, alignment and the offset and size of each field of every struct shared with C++, in the order documented in rust_bridge.h.
 /// rust_bridge.h is written by hand; C++ Test 34 compares these numbers with its own sizeof/alignof/offsetof.
 fn bridge_layout() -> Vec<usize> {
@@ -397,20 +940,40 @@ fn bridge_layout() -> Vec<usize> {
         };
     }
     let mut v = Vec::new();
-    layout!(v, VfUmaTelemetryInput, total_physical_bytes, free_and_zero_bytes, standby_bytes, local_budget_bytes,
-        local_usage_bytes, runtime_pressure_threshold, vram_valid, is_discrete_tier);
-    layout!(v, VfUmaGuardDecision, available_os_headroom_mb, dxgi_budget_utilization, guard_triggered, dxgi_over_ceiling,
-        free_ram_critical, total_interventions);
-    layout!(v, VfNtMemoryListSample, free_and_zero_bytes, standby_bytes, modified_bytes, valid);
-    layout!(v, VfCpuCoreEntry, cpu_set_id, core_index, logical_processor_index, last_level_cache_index, efficiency_class);
+    layout!(v, VfMemoryPurgeInput, total_physical_bytes, free_and_zero_bytes, standby_bytes, local_budget_bytes,
+        local_usage_bytes, vram_valid, memory_lists_valid, is_uma_gpu, allow_ram_purge, min_free_ram_mb, min_standby_mb,
+        cooldown_seconds, elapsed_since_last_purge_ms, game_disk_read_bytes_per_sec, max_game_disk_read_bytes_per_sec,
+        pressure_threshold_override, prev_interventions, dry_run);
+    layout!(v, VfMemoryPurgeDecision, should_purge_standby, should_trim_background, skipped_due_to_cooldown,
+        skipped_due_to_disk_io, cooldown_remaining_seconds, guard_triggered, dxgi_over_ceiling, free_ram_critical,
+        dxgi_budget_utilization, available_os_headroom_mb, total_interventions);
+    layout!(v, VfCpuCoreEntry, cpu_set_id, core_index, logical_processor_index, group, last_level_cache_index, efficiency_class);
     layout!(v, VfTopologyPartitionOut, game_cpu_set_ids, game_count, background_cpu_set_ids, background_count,
         physical_cores, logical_processors, has_multiple_ccx, has_hybrid_cores);
     layout!(v, VfTierInput, total_ram_mb, physical_cores, arch_gen, dedicated_vram, is_nvidia);
     layout!(v, VfAllowedRoot, path, len, writable);
-    layout!(v, VfConfigSettings, poll_interval_ms, timer_resolution_ns100, cooldown_seconds, timer_forced_manual,
+    layout!(v, VfConfigSettings, poll_interval_ms, cooldown_seconds,
         restrict_game_cpu_sets, min_free_ram_mb, min_standby_mb, max_game_disk_read_mb_s);
     layout!(v, VfConfigLoad, settings, status, rejected_keys);
     layout!(v, VfAceEntry, mask, sid_kind, allows, inherit_only);
+    layout!(v, VfIniKv, key, key_len, value, value_len);
+    layout!(v, VfGpuAdapterInput, vendor_id, device_id, dedicated_vram_mb, shared_sys_mb, dxcore_available,
+        dxcore_integrated, dxcore_detachable, removal_detachable, name_ptr, name_len);
+    layout!(v, VfDeviceProfileInput, total_ram_mb, physical_cores, cpu_family, cpu_model, user_gpu_pref,
+        system_arch, power_known, has_battery, ac_online, battery_saver, dxcore_available, ram_probe_ok,
+        experimental_egpu_streaming, override_arch_gen);
+    layout!(v, VfDeviceProfileDecision, selected_gpu_index, gpu_probe_ok, gpu_connection, gpu_arch_gen,
+        apu_tier, apply_visual_cuts, apply_uma_memory_guard, apply_uma_vram_reg_override, allow_ram_purge,
+        force_high_perf_power_plan, block_driver_tweaks, apply_egpu_streaming_tweaks, safe_vram_pool_mb,
+        amd_tessellation_cap, dxvk_compiler_threads, disable_dx12_async_compute);
+    layout!(v, VfProcessCategoryActions, recording_streaming, calls_voice, messaging, browsers,
+        stores_launchers, music, cloud_sync);
+    layout!(v, VfProcessDecision, process_class, action, protected_by_anticheat, path_verified);
+    layout!(v, VfProcessPolicyConfig, category_actions, heavy_work_as_game);
+    layout!(v, VfProcessExceptionEntry, exe_ptr, exe_len, action);
+    layout!(v, VfProcessClassifyInput, full_path_ptr, full_path_len, exe_name_ptr, exe_name_len,
+        category_actions, exceptions_ptr, exceptions_count, custom_games_nul_ptr, custom_games_nul_len,
+        excluded_games_nul_ptr, excluded_games_nul_len, heavy_work_as_game, is_foreground_3d, has_anticheat_signal);
     v
 }
 
@@ -423,11 +986,25 @@ pub extern "C" fn vf_rust_bridge_constants(out: *mut u32, cap: usize) -> usize {
         let constants = [
             VF_CONFIG_CORRUPT, VF_CONFIG_KEY_REJECTED, VF_CONFIG_NEWER_VERSION, VF_CONFIG_OLD_VERSION, VF_CONFIG_EMPTY,
             VF_CONFIG_BLOCKS_SAVE, VF_CONFIG_KEY_VERSION, VF_CONFIG_KEY_POLL_INTERVAL_MS,
-            VF_CONFIG_KEY_TIMER_RESOLUTION_NS100, VF_CONFIG_KEY_TIMER_FORCED_MANUAL, VF_CONFIG_KEY_RESTRICT_GAME_CPU_SETS,
+            VF_CONFIG_KEY_RESTRICT_GAME_CPU_SETS,
             VF_CONFIG_KEY_MIN_FREE_RAM_MB, VF_CONFIG_KEY_MIN_STANDBY_MB, VF_CONFIG_KEY_COOLDOWN_SECONDS,
             VF_CONFIG_KEY_MAX_GAME_DISK_READ_MB_S, VF_CONFIG_KEY_CUSTOM_GAME_EXES, VF_CONFIG_KEY_MEMORY,
+            VF_CONFIG_KEY_HEAVY_WORK_AS_GAME, VF_CONFIG_KEY_PROCESS_CATEGORY_ACTIONS,
+            VF_CONFIG_KEY_PROCESS_EXCEPTIONS, VF_CONFIG_KEY_EXCLUDED_GAME_EXES,
             VF_CONFIG_SAVE_OK, VF_CONFIG_SAVE_BLOCKED, VF_CONFIG_SAVE_INVALID, VF_SID_OTHER as u32, VF_SID_SYSTEM as u32,
             VF_SID_ADMINISTRATORS as u32, VF_SID_TRUSTED_INSTALLER as u32,
+            VF_INI_OK, VF_INI_ERR_INVALID_INPUT, VF_INI_ERR_ENCODING, VF_INI_ERR_MISSING_END_MARKER,
+            VF_INI_ERR_UNMATCHED_END_MARKER,
+            VF_GPU_CONN_UNKNOWN as u32, VF_GPU_CONN_INTEGRATED as u32, VF_GPU_CONN_DISCRETE as u32, VF_GPU_CONN_EXTERNAL as u32,
+            VF_DISK_UNKNOWN as u32, VF_DISK_HDD as u32, VF_DISK_SSD as u32, VF_DISK_NVME as u32,
+            VF_ARCH_UNKNOWN as u32, VF_ARCH_X64 as u32, VF_ARCH_ARM64_EMULATED as u32, VF_ARCH_ARM64_NATIVE as u32, VF_ARCH_X86 as u32,
+            VF_GPU_PREF_DEFAULT as u32, VF_GPU_PREF_POWER_SAVING as u32, VF_GPU_PREF_HIGH_PERF as u32,
+            VF_PROC_CLASS_UNKNOWN as u32, VF_PROC_CLASS_WINDOWS_SYSTEM as u32, VF_PROC_CLASS_RECORDING_STREAMING as u32,
+            VF_PROC_CLASS_CALLS_VOICE as u32, VF_PROC_CLASS_MESSAGING as u32, VF_PROC_CLASS_BROWSERS as u32,
+            VF_PROC_CLASS_STORES_LAUNCHERS as u32, VF_PROC_CLASS_MUSIC as u32, VF_PROC_CLASS_CLOUD_SYNC as u32,
+            VF_PROC_CLASS_DEVELOPER_IDE as u32, VF_PROC_CLASS_HEAVY_WORK as u32, VF_PROC_CLASS_POSSIBLE_GAME as u32,
+            VF_PROC_ACTION_DO_NOT_TOUCH as u32, VF_PROC_ACTION_ECO_ONLY as u32,
+            VF_PROC_ACTION_THROTTLE as u32, VF_PROC_ACTION_BOOST_AS_GAME as u32,
         ];
         if !out.is_null() {
             let n = constants.len().min(cap);
