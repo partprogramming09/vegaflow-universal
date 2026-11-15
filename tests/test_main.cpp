@@ -130,6 +130,7 @@ int main() {
         {61, vftest::Test61},
         {62, vftest::Test62},
         {63, vftest::Test63},
+        {64, vftest::Test64},
     };
     for (const auto& [number, run] : tests) {
         try {

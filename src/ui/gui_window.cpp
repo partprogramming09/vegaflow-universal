@@ -1,6 +1,7 @@
 #include "ui/gui_window.hpp"
 #include "ui/app_identity.hpp"
 #include "ui/gui_components.hpp"
+#include "ui/history_view.hpp"
 #include "ui/settings_view.hpp"
 
 #include <psapi.h>
@@ -67,7 +68,7 @@ void PaintDashboard(HDC hdcMem, const RECT& rcClient, GuiWindowState* state) {
         L"2. Ajustes del sistema",
         L"3. Memoria UMA & Núcleos CPU",
         L"4. Biblioteca Steam & Motores",
-        L"5. Historial de Cambios (Log)"
+        L"5. Historial"
     };
 
     for (int i = 0; i < 5; ++i) {
@@ -131,7 +132,7 @@ void PaintDashboard(HDC hdcMem, const RECT& rcClient, GuiWindowState* state) {
             RenderTabSteam(hdcMem, rcClient, state, contentLeft, contentRight, contentTop, contentBottom, contentW);
             break;
         case 4:
-            RenderTabAuditLog(hdcMem, rcClient, state, contentLeft, contentRight, contentTop, contentBottom, contentW);
+            ui::HistoryViewPaint(hdcMem, state, RECT{contentLeft, contentTop, contentRight, contentBottom});
             break;
         default:
             RenderTabDashboard(hdcMem, rcClient, state, contentLeft, contentRight, contentTop, contentBottom, contentW);
@@ -187,10 +188,10 @@ void HandleActionClick(HWND hwnd, GuiWindowState* state, int id) {
     // Tab switching
     if (id >= ID_TAB_0 && id <= ID_TAB_4) {
         state->current_tab = id - ID_TAB_0;
-        if (state->current_tab == 1) {
-            ui::SettingsViewRefresh(hwnd, state);
-        }
+        if (state->current_tab == 1) ui::SettingsViewRefresh(hwnd, state);
+        if (state->current_tab == 4) ui::HistoryViewRefresh(hwnd, state);
         ui::SettingsViewShow(state, state->current_tab == 1);
+        ui::HistoryViewShow(state, state->current_tab == 4);
         InvalidateRect(hwnd, nullptr, FALSE);
         return;
     }
@@ -412,10 +413,6 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                                              DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
                                              CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
 
-            state->hFontMonospace = CreateFontW(-12, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
-                                                DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-                                                CLEARTYPE_QUALITY, FIXED_PITCH | FF_MODERN, L"Consolas");
-
             // System Tray icon
             state->nid.cbSize = sizeof(NOTIFYICONDATAW);
             state->nid.hWnd = hwnd;
@@ -448,6 +445,7 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 
         case WM_SIZE: {
             if (state && state->current_tab == 1) ui::SettingsViewRelayout(state);
+            if (state && state->current_tab == 4) ui::HistoryViewRelayout(state);
             InvalidateRect(hwnd, nullptr, FALSE);
             return 0;
         }
@@ -457,13 +455,18 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                 ui::SettingsViewScroll(state, -GET_WHEEL_DELTA_WPARAM(wParam) / 2);
                 return 0;
             }
+            if (state && state->current_tab == 4) {
+                ui::HistoryViewScroll(state, -GET_WHEEL_DELTA_WPARAM(wParam) / 2);
+                return 0;
+            }
             break;
         }
 
         case WM_DRAWITEM: {
             auto* item = reinterpret_cast<const DRAWITEMSTRUCT*>(lParam);
             if (state && item && item->CtlType == ODT_BUTTON) {
-                ui::SettingsViewDrawItem(item, state);
+                if (static_cast<int>(item->CtlID) >= ui::kHistoryRestoreAllId) ui::HistoryViewDrawItem(item, state);
+                else ui::SettingsViewDrawItem(item, state);
                 return TRUE;
             }
             break;
@@ -545,8 +548,9 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 
         case WM_TIMER: {
             if (wParam == TIMER_TELEMETRY_ID && state) {
-                if (state->current_tab == 1 && IsWindowVisible(hwnd) && !IsIconic(hwnd)) {
-                    ui::SettingsViewRefresh(hwnd, state);
+                if (IsWindowVisible(hwnd) && !IsIconic(hwnd)) {
+                    if (state->current_tab == 1) ui::SettingsViewRefresh(hwnd, state);
+                    if (state->current_tab == 4) ui::HistoryViewRefresh(hwnd, state);
                 }
                 if (state->callbacks.on_PollTelemetry) {
                     std::string prevStatus = state->data.last_action_status;
@@ -594,6 +598,7 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
         case WM_COMMAND: {
             int wmId = LOWORD(wParam);
             if (!state) break;
+            if (ui::HistoryViewCommand(hwnd, state, wmId, HIWORD(wParam), reinterpret_cast<HWND>(lParam))) return 0;
             if (ui::SettingsViewCommand(hwnd, state, wmId, HIWORD(wParam), reinterpret_cast<HWND>(lParam))) return 0;
 
             switch (wmId) {
@@ -662,7 +667,6 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                 if (state->hFontSmall)     DeleteObject(state->hFontSmall);
                 if (state->hFontSmallBold) DeleteObject(state->hFontSmallBold);
                 if (state->hFontMetric)    DeleteObject(state->hFontMetric);
-                if (state->hFontMonospace) DeleteObject(state->hFontMonospace);
             }
             PostQuitMessage(0);
             return 0;
@@ -749,6 +753,8 @@ int GuiWindow::RunGuiLoop(const GuiCallbacks& callbacks) {
 
     ui::SettingsViewRefresh(hwnd, &state);
     ui::SettingsViewShow(&state, false);
+    ui::HistoryViewRefresh(hwnd, &state);
+    ui::HistoryViewShow(&state, false);
     ShowWindow(hwnd, SW_SHOW);
     UpdateWindow(hwnd);
 

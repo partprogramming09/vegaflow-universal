@@ -22,6 +22,7 @@
 #include "windows/registry.hpp"
 #include "bridge/rust_bridge.h"
 #include "session/system_info.hpp"
+#include "session/history_screen.hpp"
 #include "session/restore.hpp"
 #include <filesystem>
 #include "app/app_state.hpp"
@@ -233,14 +234,6 @@ int RunGuiMode(
 
         data.daemon_private_ws_kb = daemon_ws / 1024;
         data.last_action_status = last_gui_status;
-        if (ChangeJournal* j = GetActiveChangeJournal()) {
-            data.audit_log = vegaflow::session::FormatJournalHistory(*j, 150);
-            if (data.audit_log.empty()) {
-                data.audit_log = audit_log;
-            }
-        } else {
-            data.audit_log = audit_log;
-        }
 
         data.running_steam_app_id = running_steam_appid;
         data.active_game_engine = active_game_engine;
@@ -351,6 +344,22 @@ int RunGuiMode(
         last_gui_status = msg;
         AddAuditLog("Ajustes: " + id + (turn_on ? " activar: " : " desactivar: ") + msg);
         return msg;
+    };
+
+    callbacks.on_PollHistory = [&]() -> session::HistoryScreenModel {
+        ChangeJournal* j = GetActiveChangeJournal();
+        return j ? session::BuildHistoryScreen(j->Entries()) : session::BuildHistoryScreen({});
+    };
+
+    callbacks.on_UndoChange = [&](uint64_t journal_id) -> std::string {
+        ChangeJournal* j = GetActiveChangeJournal();
+        if (!j) return "No hay historial de cambios en esta sesión.";
+        WindowsSystemUndo undo(file_system);
+        const auto res = session::UndoOneChange(*j, undo, journal_id);
+        tweaks_query_countdown = 0;
+        last_gui_status = res.message;
+        AddAuditLog("Historial: " + res.message);
+        return res.message;
     };
 
     callbacks.on_RequestElevate = [&]() -> bool {

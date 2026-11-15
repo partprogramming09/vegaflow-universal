@@ -30,4 +30,12 @@ inline constexpr const wchar_t* kAutomatic = L"Automático";
 inline constexpr const wchar_t* kOnlyApplicable = L"Solo se muestran los ajustes que sirven en este equipo.";
 inline constexpr const wchar_t* kNothingToShow = L"No hay ajustes que mostrar en este equipo. Activa las funciones experimentales para ver más.";
 
+inline constexpr const wchar_t* kHistoryTitle = L"Historial";
+inline constexpr const wchar_t* kHistorySubtitle = L"Todo lo que VegaFlow cambió en tu equipo, con el valor que había antes.";
+inline constexpr const wchar_t* kHistoryRestoreAll = L"Devolver todo a como estaba";
+inline constexpr const wchar_t* kUndo = L"Deshacer";
+inline constexpr const wchar_t* kBefore = L"Antes: ";
+inline constexpr const wchar_t* kNow = L"  ·  Ahora: ";
+inline constexpr const wchar_t* kNoUndoNeeded = L"Sin acción";
+
 } // namespace vegaflow::ui::text

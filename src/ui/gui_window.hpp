@@ -19,6 +19,7 @@
 #include <string>
 #include <vector>
 
+#include "session/history_screen.hpp"
 #include "session/settings_screen.hpp"
 #include "session/system_info.hpp"
 
@@ -78,7 +79,6 @@ struct GuiDashboardData {
 
     uint64_t daemon_private_ws_kb = 0;
     std::string last_action_status;
-    std::vector<std::string> audit_log;
 
     uint32_t running_steam_app_id = 0;
     std::string active_game_engine;
@@ -132,6 +132,8 @@ struct GuiCallbacks {
     // Ajustes del sistema screen: what the machine and the settings look like now, and turning one on or off by id.
     std::function<SettingsScreenInputs()> on_PollSettings;
     std::function<std::string(const std::string& setting_id, bool turn_on)> on_SetSetting;
+    std::function<session::HistoryScreenModel()> on_PollHistory;
+    std::function<std::string(uint64_t journal_id)> on_UndoChange; // undoes one row of Historial
 };
 
 class GuiWindow {

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 
+#include "ui/native_controls.hpp"
 #include "ui/texts.hpp"
 
 namespace vegaflow::ui {
@@ -21,28 +22,6 @@ struct Item {
 
 constexpr int kRowH = 68;
 constexpr int kCtl = 36; // control height: well above the 24 px minimum
-
-RECT ContentRect(HWND hwnd) {
-    RECT c{};
-    GetClientRect(hwnd, &c);
-    return {SIDEBAR_WIDTH + 16, 16, c.right - 16, c.bottom - STATUSBAR_HEIGHT - 16};
-}
-
-int TextHeight(HDC hdc, HFONT font, const std::wstring& text, int width) {
-    HGDIOBJ old = SelectObject(hdc, font);
-    RECT r = {0, 0, std::max(width, 40), 0};
-    DrawTextW(hdc, text.c_str(), -1, &r, DT_CALCRECT | DT_WORDBREAK | DT_NOPREFIX);
-    SelectObject(hdc, old);
-    return r.bottom - r.top;
-}
-
-int TextWidth(HDC hdc, HFONT font, const std::wstring& text) {
-    HGDIOBJ old = SelectObject(hdc, font);
-    SIZE sz{};
-    GetTextExtentPoint32W(hdc, text.c_str(), static_cast<int>(text.size()), &sz);
-    SelectObject(hdc, old);
-    return sz.cx;
-}
 
 const wchar_t* GpuKind(const DeviceFacts& d) {
     switch (d.connection) {
@@ -132,11 +111,6 @@ RECT ExperimentalSwitch(const Item& gpu_card) {
     return {gpu_card.rc.right - 16 - 270, gpu_card.rc.top + 20, gpu_card.rc.right - 16, gpu_card.rc.top + 20 + kCtl};
 }
 
-HWND MakeButton(HWND parent, int id, const std::wstring& name) {
-    return CreateWindowExW(0, L"BUTTON", name.c_str(), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_OWNERDRAW | BS_NOTIFY, 0, 0, 10, 10, parent,
-                           reinterpret_cast<HMENU>(static_cast<INT_PTR>(id)), GetModuleHandleW(nullptr), nullptr);
-}
-
 std::wstring ExperimentalName(bool on) {
     return std::wstring(text::kShowExperimental) + (on ? L": activado" : L": desactivado");
 }
@@ -150,17 +124,6 @@ void DestroyControls(GuiWindowState* st) {
         if (h) DestroyWindow(h);
     }
     st->settings_controls.clear();
-}
-
-void PlaceClipped(HWND h, const RECT& r, const RECT& content) {
-    if (!h) return;
-    SetWindowPos(h, nullptr, r.left, r.top, r.right - r.left, r.bottom - r.top, SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW);
-    // Clip to the part inside the content area so a scrolled control never paints over the sidebar or the status bar,
-    // yet stays focusable (a hidden control would be skipped by Tab).
-    RECT vis{};
-    if (!IntersectRect(&vis, &r, &content)) vis = {0, 0, 0, 0};
-    else OffsetRect(&vis, -r.left, -r.top);
-    SetWindowRgn(h, CreateRectRgn(vis.left, vis.top, vis.right, vis.bottom), TRUE);
 }
 
 void DrawChip(HDC hdc, int x, int y, const std::wstring& label, COLORREF fg, COLORREF bg, COLORREF border, HFONT font, int* width) {
@@ -180,7 +143,7 @@ void SettingsViewScroll(GuiWindowState* st, int delta_px) {
 
 void SettingsViewRelayout(GuiWindowState* st) {
     if (!st->hwnd || st->settings_controls.empty()) return;
-    const RECT content = ContentRect(st->hwnd);
+    const RECT content = ScreenContentRect(st->hwnd);
     HDC hdc = GetDC(st->hwnd);
     int total = 0;
     auto items = BuildLayout(hdc, st, content, &total);
@@ -225,11 +188,11 @@ void SettingsViewRefresh(HWND hwnd, GuiWindowState* st) {
     for (const SettingRow* r : rows) signature.push_back(r->spec->id);
     if (signature != st->settings_signature || st->settings_controls.empty()) {
         DestroyControls(st);
-        st->settings_controls.push_back(MakeButton(hwnd, kSettingsExperimentalId, ExperimentalName(st->settings_show_experimental)));
+        st->settings_controls.push_back(MakeOwnerButton(hwnd, kSettingsExperimentalId, ExperimentalName(st->settings_show_experimental)));
         for (size_t k = 0; k < rows.size(); ++k) {
             const int base = kSettingsRowBaseId + 2 * static_cast<int>(k);
-            st->settings_controls.push_back(rows[k]->spec->user_switch ? MakeButton(hwnd, base, ToggleName(*rows[k])) : nullptr);
-            st->settings_controls.push_back(MakeButton(hwnd, base + 1, L"Qué cambia: " + Utf8ToWide(rows[k]->spec->name)));
+            st->settings_controls.push_back(rows[k]->spec->user_switch ? MakeOwnerButton(hwnd, base, ToggleName(*rows[k])) : nullptr);
+            st->settings_controls.push_back(MakeOwnerButton(hwnd, base + 1, L"Qué cambia: " + Utf8ToWide(rows[k]->spec->name)));
         }
         st->settings_signature = signature;
     } else {
@@ -362,13 +325,7 @@ void SettingsViewDrawItem(const DRAWITEMSTRUCT* d, GuiWindowState* st) {
     const bool is_exp = (id == kSettingsExperimentalId);
     const bool is_tip = !is_exp && ((id - kSettingsRowBaseId) % 2 == 1);
 
-    const COLORREF surface = is_exp ? RGB(26, 34, 51) : CLR_CARD_BG;
-    HBRUSH bg = CreateSolidBrush(surface);
-    FillRect(hdc, &rc, bg);
-    DeleteObject(bg);
-
-    RECT body = {rc.left + 1, rc.top + 1, rc.right - 1, rc.bottom - 1};
-    DrawRoundedCard(hdc, body, pressed ? CLR_BTN_HOVER : CLR_BTN_BG, CLR_CONTROL_BORDER, 6);
+    DrawButtonFrame(hdc, rc, is_exp ? RGB(26, 34, 51) : CLR_CARD_BG, pressed);
 
     bool on = false;
     std::wstring label;
@@ -415,27 +372,11 @@ void SettingsViewDrawItem(const DRAWITEMSTRUCT* d, GuiWindowState* st) {
         DrawTextRect(hdc, tr, label, CLR_TEXT_TITLE, st->hFontSmall, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
     }
 
-    if (focus) {
-        // Keyboard focus ring: 2 px, 8:1 or better on every surface (Test 62).
-        HPEN ring = CreatePen(PS_SOLID, 2, CLR_FOCUS_RING);
-        HGDIOBJ old_pen = SelectObject(hdc, ring);
-        HGDIOBJ old_brush = SelectObject(hdc, GetStockObject(NULL_BRUSH));
-        RoundRect(hdc, rc.left + 1, rc.top + 1, rc.right - 1, rc.bottom - 1, 8, 8);
-        SelectObject(hdc, old_brush);
-        SelectObject(hdc, old_pen);
-        DeleteObject(ring);
-    }
+    if (focus) DrawFocusRing(hdc, rc);
 }
 
-// Brings a control that got keyboard focus into the visible area, so the focus ring is never drawn off screen.
 void ScrollIntoView(HWND hwnd, GuiWindowState* st, HWND control) {
-    RECT r{};
-    GetWindowRect(control, &r);
-    MapWindowPoints(nullptr, hwnd, reinterpret_cast<POINT*>(&r), 2);
-    const RECT content = ContentRect(hwnd);
-    int delta = 0;
-    if (r.top < content.top) delta = static_cast<int>(r.top - content.top) - 8;
-    else if (r.bottom > content.bottom) delta = static_cast<int>(r.bottom - content.bottom) + 8;
+    const int delta = ScrollDeltaToReveal(hwnd, control);
     if (delta != 0) SettingsViewScroll(st, delta);
 }
 
@@ -443,6 +384,7 @@ bool SettingsViewCommand(HWND hwnd, GuiWindowState* st, int id, int notify_code,
     if (id != kSettingsExperimentalId && id < kSettingsRowBaseId) return false;
     // Only our own controls may act: WM_COMMAND is allowed through the UIPI filter for the tray, so a posted fake
     // (lParam 0 or a foreign window) must not reach HKLM.
+    if (st->current_tab != 1 || !from || GetDlgCtrlID(from) != id) return true;
     if (std::find(st->settings_controls.begin(), st->settings_controls.end(), from) == st->settings_controls.end()) return true;
     if (notify_code == BN_SETFOCUS) {
         ScrollIntoView(hwnd, st, from);

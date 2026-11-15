@@ -137,7 +137,6 @@ struct GuiWindowState {
     HFONT hFontSmall = nullptr;
     HFONT hFontSmallBold = nullptr;
     HFONT hFontMetric = nullptr;
-    HFONT hFontMonospace = nullptr;
 
     NOTIFYICONDATAW nid = {};
     bool tray_registered = false;
@@ -151,6 +150,12 @@ struct GuiWindowState {
     int settings_scroll = 0;
     std::vector<HWND> settings_controls;  // [0] experimental switch, then per row: switch, (i); in Tab order
     std::vector<std::string> settings_signature;
+
+    // Historial screen (ui/history_view.cpp)
+    session::HistoryScreenModel history_model;
+    int history_scroll = 0;
+    std::vector<HWND> history_controls; // [0] restore all, then one per row (nullptr when the row cannot be undone)
+    std::vector<std::string> history_signature;
 };
 
 // UTF-8 to UTF-16 string conversion
@@ -171,6 +176,5 @@ void DrawToggleSwitch(HDC hdc, const RECT& rc, bool is_on, bool is_hovered, int 
 void RenderTabDashboard(HDC hdcMem, const RECT& rcClient, GuiWindowState* state, int contentLeft, int contentRight, int contentTop, int contentBottom, int contentW);
 void RenderTabMemory(HDC hdcMem, const RECT& rcClient, GuiWindowState* state, int contentLeft, int contentRight, int contentTop, int contentBottom, int contentW);
 void RenderTabSteam(HDC hdcMem, const RECT& rcClient, GuiWindowState* state, int contentLeft, int contentRight, int contentTop, int contentBottom, int contentW);
-void RenderTabAuditLog(HDC hdcMem, const RECT& rcClient, GuiWindowState* state, int contentLeft, int contentRight, int contentTop, int contentBottom, int contentW);
 
 } // namespace vegaflow
