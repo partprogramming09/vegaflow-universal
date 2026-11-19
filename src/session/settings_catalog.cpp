@@ -31,7 +31,7 @@ const std::vector<SettingSpec> kCatalog = {
      "HKLM\\SYSTEM\\CurrentControlSet\\Control\\PriorityControl: Win32PrioritySeparation",
      "Con un juego abierto: 0x28 con DirectX 11 o anterior, 0x26 con DirectX 12 o Vulkan. El interruptor de esta pantalla pone 0x26. De fábrica es 2", true, true},
     {"paging_shield", SettingFamily::Windows, "Mantener el núcleo de Windows en la RAM",
-     "Evita que partes de Windows se manden al disco.", true, Evidence::NotMeasured, false, false,
+     "Evita que partes de Windows se manden al disco. En una APU con poca RAM le quita memoria a la gráfica y pide reiniciar.", true, Evidence::NotMeasured, false, false,
      "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Memory Management: DisablePagingExecutive y LargeSystemCache",
      "DisablePagingExecutive 1, LargeSystemCache 0", true, false},
     {"mpo_disabled", SettingFamily::Windows, "Desactivar la superposición de planos (MPO)",
