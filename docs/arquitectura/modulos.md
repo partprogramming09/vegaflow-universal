@@ -35,7 +35,7 @@ Implementado en [`src/session/system_info.hpp`](../../src/session/system_info.hp
   - Conteo riguroso de núcleos físicos (6) y procesadores lógicos (12) mediante `GetLogicalProcessorInformationEx`.
   - Microarquitectura identificada: *Zen 2 Renoir 7nm*.
   - Tamaño de memoria caché L3 (8 MB / 8,388,608 bytes).
-  - Frecuencia objetivo de boost sostenido APU STAPM a **3.4 GHz** (35W-45W).
+  - Frecuencia objetivo de boost a **4.0 GHz**, sin tope STAPM (`cpu_stapm_cap_mhz = 0`).
   - Máscaras y CPU Sets activos para juegos y procesos de fondo.
 - **Gráficos & Memoria UMA (Vega 6)**:
   - Enumeración de adaptadores DirectX mediante `IDXGIFactory4` / `IDXGIAdapter3`.

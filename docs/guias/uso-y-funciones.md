@@ -74,7 +74,7 @@ El subsistema [`SandboxGuard`](../../src/windows/sandbox_guard.hpp) implementa u
 
 ### 2.7. Subsistema SystemInfo (Telemetría de Hardware & Exportación JSON)
 El subsistema [`SystemInfo`](../../src/session/system_info.hpp) desacopla la detección profunda de hardware y sistema operativo en un módulo autónomo y de alta precisión:
-- **Detección de CPU Zen 2:** Extrae el *Brand String* mediante instrucciones `CPUID` nativas (*AMD Ryzen 5 4600H with Radeon Graphics*), calcula topología de 6 núcleos físicos / 12 lógicos, arquitectura Renoir de 7nm, tamaño de caché L3 de 8 MB y frecuencia objetivo APU STAPM a 3.4 GHz sostenidos.
+- **Detección de CPU Zen 2:** Extrae el *Brand String* mediante instrucciones `CPUID` nativas (*AMD Ryzen 5 4600H with Radeon Graphics*), calcula topología de 6 núcleos físicos / 12 lógicos, arquitectura Renoir de 7nm, tamaño de caché L3 de 8 MB y frecuencia objetivo de boost a 4.0 GHz, sin tope STAPM (`cpu_stapm_cap_mhz = 0`).
 - **Topología de Gráficos & Memoria UMA (Vega 6):** Contrasta el reporte ficticio de BIOS (512 MB) con la memoria UMA compartida real del sistema (~7.7 GB) y sondea presupuestos dinámicos de VRAM en tiempo real mediante `IDXGIAdapter3::QueryVideoMemoryInfo`.
 - **Topología de Memoria RAM por Firmware (SMBIOS Type 17):** Inspecciona las tablas SMBIOS `RSMB` (`GetSystemFirmwareTable`), identificando la presencia de 2 módulos DIMM poblados y verificando el bus de 128 bits en **Dual-Channel** (~42 GB/s de ancho de banda). Presenta desglose de memoria libre real, Standby List y páginas modificadas.
 - **Kernel NT & Temporizador:** Informa la compilación exacta de Windows 11 (Build 26300 con UBR), resolución del temporizador NT (0.50 ms), MMCSS GPU Priority (8) y estado de compresión de memoria.
@@ -129,10 +129,10 @@ Para asegurar compatibilidad universal en todo el ecosistema de procesadores AMD
 
 1. **Tier 1: Entry UMA [Survival Guard]:**
    - **Objetivo:** APUs de entrada con $\le$ 8–9 GB de RAM o $\le$ 4 núcleos físicos (Vega 3/6/8 básica, Athlon Mobile, Intel Gen 9–11 UHD).
-   - **Defensa:** Acota el Texture Pool de Unreal Engine estrictamente entre 1536 y 2048 MB para evitar cierres catastróficos por OOM; limita DXVK a 3 hilos de compilación de shaders; impone teselación a 8x; deshabilita `AsyncCompute` en DX12; limita STAPM a 3000 MHz.
+   - **Defensa:** Acota el Texture Pool de Unreal Engine estrictamente entre 1536 y 2048 MB para evitar cierres catastróficos por OOM; limita DXVK a 3 hilos de compilación de shaders; impone teselación a 8x; deshabilita `AsyncCompute` en DX12; sin tope de frecuencia STAPM (`cpu_stapm_cap_mhz = 0`).
 2. **Tier 2: Mid Vega UMA [Sweet-Spot Guard]:**
    - **Objetivo:** APUs GCN 5 / Vega con 12–20 GB de RAM o CPUs Zen 2/Zen 3 de 6C–8C (Ryzen 5 4600H, 5500U, 5600H).
-   - **Políticas (100% retrocompatible con el testbed):** Pool VRAM a 4096 MB; 6 hilos dedicados para DXVK; teselación 16x; `disable_dx12_async_compute = true`; STAPM cap a 3400 MHz.
+   - **Políticas (100% retrocompatible con el testbed):** Pool VRAM a 4096 MB; 6 hilos dedicados para DXVK; teselación 16x; `disable_dx12_async_compute = true`; sin tope de frecuencia STAPM (`cpu_stapm_cap_mhz = 0`).
 3. **Tier 3: Advanced UMA [Do-No-Harm Guard]:**
    - **Objetivo:** APUs modernas RDNA 2, RDNA 3 y RDNA 3.5 (Radeon 680M, 780M, 890M, Strix Point) e Intel Xe/Arc UMA o configuraciones con $\ge$ 22 GB de RAM.
    - **Do-No-Harm Guard:** **Preserva intacto el cómputo asíncrono moderno** (`D3D12.AsyncCompute=1` y `r.RDG.AsyncCompute=1`); **no estrangula el reloj de la CPU** (`cpu_stapm_cap_mhz = 0`); asigna pool UMA generoso y adaptativo de 6144 a 8192 MB; teselación hasta 32x.
@@ -167,7 +167,7 @@ VegaFlow puede operar como servicio en segundo plano, como herramienta de consol
 | `--mem-compression-off` | Desactiva la compresión de memoria de Windows |
 | `--dxvk-install <ruta>` | Despliega DXVK-GPLAsync en la carpeta del juego |
 | `--dxvk-remove <ruta>` | Elimina DXVK y restaura el backend DirectX 11 |
-| `--apu-gpu-priority` | Activa perfil térmico/energía con prioridad GPU (cap 3.4 GHz) |
+| `--apu-gpu-priority` | Activa perfil térmico/energía con prioridad GPU (sin tope de frecuencia STAPM) |
 | `--apu-balanced` | Restaura el perfil de energía balanceado estándar |
 | `--dry-run, -d` | Simula ciclos de evaluación sin modificar el sistema |
 | `--help, -h` | Imprime el manual de opciones |
@@ -216,8 +216,8 @@ VegaFlow puede operar como servicio en segundo plano, como herramienta de consol
     "logical_processors": 12,
     "microarchitecture": "Zen 2 Renoir 7nm",
     "l3_cache_mb": 8.00,
-    "boost_target_ghz": 3.40,
-    "stapm_target": "3.4 GHz (APU Sustained / STAPM 35W-45W)"
+    "boost_target_ghz": 4.00,
+    "stapm_target": "4.0 GHz Smart Uncapped (100% CPU + 100% GPU Efficient-Aggressive + EPP 25)"
   },
   "gpu": {
     "adapter_name": "AMD Radeon(TM) Graphics (Vega 6 / GCN 5.0)",
