@@ -315,11 +315,47 @@ bool SandboxGuard::PathContainsAntiCheatSignature(const std::wstring& path) {
     return false;
 }
 
+namespace {
+constexpr int kMaxScanDepth = 4;
+constexpr size_t kMaxScanEntries = 20000;
+
+// `<library>\steamapps\common\<game>` for a path inside a Steam game folder, else empty. Anti-cheat often sits in a
+// subfolder of the game root (Zenless Zone Zero), so that root is searched in depth; other folders are not, because a
+// broad one such as %TEMP% would be walked for nothing.
+std::filesystem::path SteamGameRoot(const std::filesystem::path& dir) {
+    std::filesystem::path root;
+    std::wstring prev, prev2;
+    for (const auto& part : dir) {
+        root /= part;
+        if (prev2 == L"steamapps" && prev == L"common") return root;
+        prev2 = prev;
+        prev = part.wstring();
+        for (auto& c : prev) c = static_cast<wchar_t>(std::towlower(c));
+    }
+    return {};
+}
+
+bool DeepScanFindsAntiCheat(const std::filesystem::path& root) {
+    std::error_code ec;
+    std::filesystem::recursive_directory_iterator it(root, std::filesystem::directory_options::skip_permission_denied, ec);
+    const std::filesystem::recursive_directory_iterator end;
+    size_t visited = 0;
+    for (; !ec && it != end; it.increment(ec)) {
+        if (it.depth() >= kMaxScanDepth) it.disable_recursion_pending();
+        if (++visited > kMaxScanEntries) break;
+        if (SandboxGuard::PathContainsAntiCheatSignature(it->path().filename().wstring())) return true;
+    }
+    return false;
+}
+} // namespace
+
 bool SandboxGuard::DirectoryContainsAntiCheat(const std::filesystem::path& dir) {
     if (dir.empty()) return false;
 
     std::error_code ec;
     std::filesystem::path current = dir;
+
+    if (const auto game_root = SteamGameRoot(dir); !game_root.empty() && DeepScanFindsAntiCheat(game_root)) return true;
 
     std::error_code cwd_ec;
     std::filesystem::path project_root = std::filesystem::current_path(cwd_ec);
