@@ -53,6 +53,10 @@ public:
     // Test constructor: injects fake clock, probe, and control without touching Windows.
     MemoryManager(const MemoryPurgeConfig& config, Clock& clock, MemoryProbe& probe, MemoryControl& control);
 
+    // The GPU whose VRAM is sampled: hw.primary_gpu.luid, refreshed whenever the hardware profile changes (0 = first adapter).
+    void SetTargetLuid(uint64_t luid) { target_luid_ = luid; }
+    uint64_t TargetLuid() const { return target_luid_; }
+
     SystemMemoryTelemetry SampleTelemetry() const;
 
     // Evaluates memory thresholds, shared cooldown, and per-tick disk read rate via Rust,
@@ -90,6 +94,7 @@ private:
     Clock& clock_;
     MemoryProbe& probe_;
     MemoryControl& control_;
+    uint64_t target_luid_ = 0;
     std::chrono::steady_clock::time_point last_purge_time_{};
     uint32_t last_io_pid_ = 0;
     uint64_t last_game_read_bytes_ = 0;

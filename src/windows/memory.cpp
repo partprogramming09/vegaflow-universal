@@ -116,7 +116,7 @@ std::string WideToUtf8Mem(const wchar_t* str, int len) {
 
 } // namespace
 
-SystemMemoryTelemetry WindowsMemoryProbe::SampleSystemMemory() const {
+SystemMemoryTelemetry WindowsMemoryProbe::SampleSystemMemory(uint64_t target_luid) const {
     SystemMemoryTelemetry telemetry{};
 
     MEMORYSTATUSEX memStatus{};
@@ -167,35 +167,53 @@ SystemMemoryTelemetry WindowsMemoryProbe::SampleSystemMemory() const {
         if (s_pfnCreateDXGIFactory1) {
             IDXGIFactory1* factory = nullptr;
             if (SUCCEEDED(s_pfnCreateDXGIFactory1(__uuidof(IDXGIFactory1), reinterpret_cast<void**>(&factory))) && factory) {
-                UINT adapterIndex = 0;
                 IDXGIAdapter1* adapter = nullptr;
-                while (factory->EnumAdapters1(adapterIndex, &adapter) != DXGI_ERROR_NOT_FOUND) {
-                    DXGI_ADAPTER_DESC1 desc{};
-                    if (SUCCEEDED(adapter->GetDesc1(&desc))) {
-                        if (!(desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE)) {
-                            IDXGIAdapter3* adapter3 = nullptr;
-                            if (SUCCEEDED(adapter->QueryInterface(__uuidof(IDXGIAdapter3), reinterpret_cast<void**>(&adapter3))) && adapter3) {
-                                DXGI_QUERY_VIDEO_MEMORY_INFO localInfo{};
-                                if (SUCCEEDED(adapter3->QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &localInfo))) {
-                                    telemetry.vram.local_budget_bytes = localInfo.Budget;
-                                    telemetry.vram.local_usage_bytes = localInfo.CurrentUsage;
-                                    telemetry.vram.valid = true;
-                                }
-
-                                DXGI_QUERY_VIDEO_MEMORY_INFO nonLocalInfo{};
-                                if (SUCCEEDED(adapter3->QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_NON_LOCAL, &nonLocalInfo))) {
-                                    telemetry.vram.non_local_budget_bytes = nonLocalInfo.Budget;
-                                    telemetry.vram.non_local_usage_bytes = nonLocalInfo.CurrentUsage;
-                                }
-
-                                adapter3->Release();
-                                adapter->Release();
-                                break;
-                            }
+                if (target_luid != 0) {
+                    // Exact adapter: EnumAdapterByLuid (DXGI 1.4), else walk the adapters comparing AdapterLuid.
+                    LUID luid{};
+                    luid.LowPart = static_cast<DWORD>(target_luid & 0xFFFFFFFFu);
+                    luid.HighPart = static_cast<LONG>(static_cast<uint32_t>(target_luid >> 32));
+                    IDXGIFactory4* factory4 = nullptr;
+                    if (SUCCEEDED(factory->QueryInterface(__uuidof(IDXGIFactory4), reinterpret_cast<void**>(&factory4))) && factory4) {
+                        factory4->EnumAdapterByLuid(luid, __uuidof(IDXGIAdapter1), reinterpret_cast<void**>(&adapter));
+                        factory4->Release();
+                    }
+                    for (UINT i = 0; !adapter; ++i) {
+                        IDXGIAdapter1* candidate = nullptr;
+                        if (factory->EnumAdapters1(i, &candidate) == DXGI_ERROR_NOT_FOUND) break;
+                        DXGI_ADAPTER_DESC1 d{};
+                        if (SUCCEEDED(candidate->GetDesc1(&d)) &&
+                            ((static_cast<uint64_t>(static_cast<uint32_t>(d.AdapterLuid.HighPart)) << 32) | d.AdapterLuid.LowPart) == target_luid) {
+                            adapter = candidate;
+                        } else {
+                            candidate->Release();
                         }
                     }
+                } else {
+                    for (UINT i = 0; factory->EnumAdapters1(i, &adapter) != DXGI_ERROR_NOT_FOUND; ++i) {
+                        DXGI_ADAPTER_DESC1 d{};
+                        if (SUCCEEDED(adapter->GetDesc1(&d)) && !(d.Flags & DXGI_ADAPTER_FLAG_SOFTWARE)) break;
+                        adapter->Release();
+                        adapter = nullptr;
+                    }
+                }
+                if (adapter) {
+                    IDXGIAdapter3* adapter3 = nullptr;
+                    if (SUCCEEDED(adapter->QueryInterface(__uuidof(IDXGIAdapter3), reinterpret_cast<void**>(&adapter3))) && adapter3) {
+                        DXGI_QUERY_VIDEO_MEMORY_INFO localInfo{};
+                        if (SUCCEEDED(adapter3->QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &localInfo))) {
+                            telemetry.vram.local_budget_bytes = localInfo.Budget;
+                            telemetry.vram.local_usage_bytes = localInfo.CurrentUsage;
+                            telemetry.vram.valid = true;
+                        }
+                        DXGI_QUERY_VIDEO_MEMORY_INFO nonLocalInfo{};
+                        if (SUCCEEDED(adapter3->QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_NON_LOCAL, &nonLocalInfo))) {
+                            telemetry.vram.non_local_budget_bytes = nonLocalInfo.Budget;
+                            telemetry.vram.non_local_usage_bytes = nonLocalInfo.CurrentUsage;
+                        }
+                        adapter3->Release();
+                    }
                     adapter->Release();
-                    ++adapterIndex;
                 }
                 factory->Release();
             }

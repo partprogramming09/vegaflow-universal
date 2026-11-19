@@ -28,7 +28,9 @@ class MemoryProbe {
 public:
     virtual ~MemoryProbe() = default;
 
-    virtual SystemMemoryTelemetry SampleSystemMemory() const = 0;
+    // `target_luid` (DXGI AdapterLuid, high << 32 | low) picks the GPU whose VRAM budget is read; 0 = first hardware adapter.
+    // A non-zero LUID that no adapter has gives vram.valid == false (never another adapter's numbers).
+    virtual SystemMemoryTelemetry SampleSystemMemory(uint64_t target_luid = 0) const = 0;
     // Cumulative bytes read from disk by `pid` (IO_COUNTERS::ReadTransferCount).
     virtual bool SampleProcessDiskReadBytes(uint32_t pid, uint64_t& out_read_bytes) const = 0;
     // UTF-8 executable path or basename for `pid` so factory Do-Not-Trim exclusions can be checked.

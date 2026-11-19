@@ -13,7 +13,7 @@ namespace vegaflow {
 
 class WindowsMemoryProbe final : public MemoryProbe {
 public:
-    SystemMemoryTelemetry SampleSystemMemory() const override;
+    SystemMemoryTelemetry SampleSystemMemory(uint64_t target_luid = 0) const override;
     bool SampleProcessDiskReadBytes(uint32_t pid, uint64_t& out_read_bytes) const override;
     std::string QueryProcessImageName(uint32_t pid) const override;
     uint32_t CurrentProcessId() const override;
