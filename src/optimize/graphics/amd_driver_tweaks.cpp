@@ -81,7 +81,7 @@ bool AmdDriverTweaks::SetDx11UmaDriverBoost(bool enable, const ApuOptimizationPo
 
     for (const auto* sub : kAdapterSubkeys) {
         const std::wstring adapter_path = std::wstring(kDisplayClassBase) + L"\\" + sub;
-        if (!IsAmdAdapterKey(reg_, adapter_path)) {
+        if (!IsAmdAdapterKey(reg_, adapter_path, device_id_)) {
             continue;
         }
 
@@ -121,7 +121,7 @@ bool AmdDriverTweaks::SetTessellationCap(uint32_t max_tess, bool dry_run) {
 
     for (const auto* sub : kAdapterSubkeys) {
         const std::wstring adapter_path = std::wstring(kDisplayClassBase) + L"\\" + sub;
-        if (!IsAmdAdapterKey(reg_, adapter_path)) {
+        if (!IsAmdAdapterKey(reg_, adapter_path, device_id_)) {
             continue;
         }
 

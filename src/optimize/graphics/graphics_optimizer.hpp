@@ -41,7 +41,9 @@ enum class ApuPowerMode {
 // AMD display driver & UMA VRAM reporting tweaks (instantiated only for AMD GPUs).
 class AmdDriverTweaks {
 public:
-    explicit AmdDriverTweaks(RegistryPort& reg) : reg_(reg) {}
+    // `device_id` (PCI, 0 = every AMD adapter) limits every write to that adapter; `allow_vram_override` is false off an iGPU.
+    explicit AmdDriverTweaks(RegistryPort& reg, uint32_t device_id = 0, bool allow_vram_override = true)
+        : reg_(reg), device_id_(device_id), allow_vram_override_(allow_vram_override) {}
 
     bool SetShaderCacheForced(bool force_on, const ApuOptimizationPolicy& policy, bool dry_run = false);
     bool SetDx11UmaDriverBoost(bool enable, const ApuOptimizationPolicy& policy, bool dry_run = false);
@@ -56,6 +58,8 @@ public:
 
 private:
     RegistryPort& reg_;
+    uint32_t device_id_;
+    bool allow_vram_override_;
 };
 
 // Windows NT kernel scheduler & memory management tweaks.

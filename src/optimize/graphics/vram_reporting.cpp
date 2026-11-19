@@ -8,6 +8,10 @@ bool AmdDriverTweaks::ApplyVramReportingOverride(uint32_t target_mb, bool dry_ru
     if (dry_run) {
         return true;
     }
+    // The 512 MB-style override only makes sense for the iGPU's shared pool; never on an eGPU or dGPU.
+    if (!allow_vram_override_) {
+        return false;
+    }
 
     bool updated_driver = false;
     const uint64_t target_bytes = static_cast<uint64_t>(target_mb) * 1024ULL * 1024ULL;
@@ -17,7 +21,7 @@ bool AmdDriverTweaks::ApplyVramReportingOverride(uint32_t target_mb, bool dry_ru
 
     for (const auto* sub : kAdapterSubkeys) {
         const std::wstring adapter_path = std::wstring(kDisplayClassBase) + L"\\" + sub;
-        if (!IsAmdAdapterKey(reg_, adapter_path)) {
+        if (!IsAmdAdapterKey(reg_, adapter_path, device_id_)) {
             continue;
         }
         const bool s1 = reg_.WriteValue(
@@ -34,7 +38,7 @@ bool AmdDriverTweaks::ApplyVramReportingOverride(uint32_t target_mb, bool dry_ru
     bool updated_dxgi = false;
     for (const auto& sub : reg_.EnumSubkeys(RegHive::LocalMachine, kDirectXBasePath)) {
         const std::wstring dx_subkey = std::wstring(kDirectXBasePath) + L"\\" + sub;
-        if (!IsAmdDirectXSubkey(reg_, dx_subkey)) {
+        if (!IsAmdDirectXSubkey(reg_, dx_subkey, device_id_)) {
             continue;
         }
         if (reg_.WriteValue(
@@ -57,7 +61,7 @@ bool AmdDriverTweaks::RestoreVramReporting(bool dry_run) {
     bool restored_driver = false;
     for (const auto* sub : kAdapterSubkeys) {
         const std::wstring adapter_path = std::wstring(kDisplayClassBase) + L"\\" + sub;
-        if (!IsAmdAdapterKey(reg_, adapter_path)) {
+        if (!IsAmdAdapterKey(reg_, adapter_path, device_id_)) {
             continue;
         }
         const bool r1 = reg_.RestoreBackedUpValue(RegHive::LocalMachine, adapter_path, L"HardwareInformation.MemorySize");
@@ -68,7 +72,7 @@ bool AmdDriverTweaks::RestoreVramReporting(bool dry_run) {
     bool restored_dxgi = false;
     for (const auto& sub : reg_.EnumSubkeys(RegHive::LocalMachine, kDirectXBasePath)) {
         const std::wstring dx_subkey = std::wstring(kDirectXBasePath) + L"\\" + sub;
-        if (!IsAmdDirectXSubkey(reg_, dx_subkey)) {
+        if (!IsAmdDirectXSubkey(reg_, dx_subkey, device_id_)) {
             continue;
         }
         restored_dxgi = reg_.RestoreBackedUpValue(RegHive::LocalMachine, dx_subkey, L"DedicatedVideoMemory") || restored_dxgi;
@@ -83,7 +87,7 @@ bool AmdDriverTweaks::QueryVramReporting(uint32_t& out_driver_mb, uint64_t& out_
 
     for (const auto* sub : kAdapterSubkeys) {
         const std::wstring adapter_path = std::wstring(kDisplayClassBase) + L"\\" + sub;
-        if (!IsAmdAdapterKey(reg_, adapter_path)) {
+        if (!IsAmdAdapterKey(reg_, adapter_path, device_id_)) {
             continue;
         }
 
@@ -129,7 +133,7 @@ bool AmdDriverTweaks::QueryVramReporting(uint32_t& out_driver_mb, uint64_t& out_
 
     for (const auto& sub : reg_.EnumSubkeys(RegHive::LocalMachine, kDirectXBasePath)) {
         const std::wstring dx_subkey = std::wstring(kDirectXBasePath) + L"\\" + sub;
-        if (!IsAmdDirectXSubkey(reg_, dx_subkey)) {
+        if (!IsAmdDirectXSubkey(reg_, dx_subkey, device_id_)) {
             continue;
         }
         RegValue val;

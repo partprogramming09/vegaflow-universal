@@ -44,6 +44,7 @@ void Test73() {
     reg.SeedValue(vegaflow::RegHive::LocalMachine, kDisplay0000 + L"\\UMD", L"ShaderCache", vegaflow::RegValue::MakeBinary({0x31, 0x00}));
     vegaflow::SystemHardwareProfile hw{};
     hw.primary_gpu.vendor = vegaflow::GpuVendor::AMD;
+    hw.primary_gpu.connection = vegaflow::GpuConnection::Integrated;
     vegaflow::ApuOptimizationPolicy policy{};
     policy.block_driver_tweaks = false;
     policy.force_high_perf_power_plan = true;

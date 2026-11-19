@@ -175,4 +175,52 @@ void Test57() {
     RecordResult(ok, "Test 57: GraphicsOptimizer family gating, ven_1002 guard & MMCSS GPU Priority cleanup", details);
 }
 
+void Test93() {
+    // E1.3: with an iGPU (dev_1636) and an AMD eGPU (dev_73bf) only the target adapter is written; off an iGPU the VRAM override is refused.
+    namespace v = vegaflow;
+    const std::wstring cls = L"SYSTEM\\CurrentControlSet\\Control\\Class\\{4d36e968-e325-11ce-bfc1-08002be10318}\\";
+    const std::wstring dx = L"SOFTWARE\\Microsoft\\DirectX\\";
+    auto seed = [&](FakeRegistryPort& reg) {
+        reg.SeedValue(v::RegHive::LocalMachine, cls + L"0000", L"MatchingDeviceId", v::RegValue::MakeString(L"PCI\\VEN_1002&DEV_1636"));
+        reg.SeedValue(v::RegHive::LocalMachine, cls + L"0001", L"MatchingDeviceId", v::RegValue::MakeString(L"PCI\\VEN_1002&DEV_73BF"));
+        reg.SeedValue(v::RegHive::LocalMachine, cls + L"0002", L"DriverDesc", v::RegValue::MakeString(L"AMD Radeon (no id)"));
+        reg.SeedValue(v::RegHive::LocalMachine, dx + L"A", L"VendorId", v::RegValue::MakeDword(0x1002));
+        reg.SeedValue(v::RegHive::LocalMachine, dx + L"A", L"DeviceId", v::RegValue::MakeDword(0x1636));
+        reg.SeedValue(v::RegHive::LocalMachine, dx + L"B", L"VendorId", v::RegValue::MakeDword(0x1002));
+        reg.SeedValue(v::RegHive::LocalMachine, dx + L"B", L"DeviceId", v::RegValue::MakeDword(0x73BF));
+        reg.SeedValue(v::RegHive::LocalMachine, dx + L"C", L"VendorId", v::RegValue::MakeDword(0x1002));
+    };
+    auto touched = [](const FakeRegistryPort& reg, const std::wstring& needle) {
+        for (const auto& w : reg.writes) {
+            if (FakeRegistryPort::Lower(w.subkey).find(FakeRegistryPort::Lower(needle)) != std::wstring::npos) return true;
+        }
+        return false;
+    };
+
+    FakeRegistryPort a;
+    seed(a);
+    v::AmdDriverTweaks igpu(a, 0x1636, true);
+    const bool vram = igpu.ApplyVramReportingOverride(4096, false);
+    igpu.SetTessellationCap(16, false);
+    const bool target_only = vram && touched(a, L"\\0000") && touched(a, L"DirectX\\A") &&
+                             !touched(a, L"\\0001") && !touched(a, L"\\0002") &&
+                             !touched(a, L"DirectX\\B") && !touched(a, L"DirectX\\C");
+
+    FakeRegistryPort b;
+    seed(b);
+    v::AmdDriverTweaks egpu(b, 0x73BF, false);
+    const bool blocked = !egpu.ApplyVramReportingOverride(4096, false) && b.writes.empty();
+
+    // Restore with no saved value writes nothing (never a made-up 512 MB).
+    FakeRegistryPort c;
+    seed(c);
+    v::AmdDriverTweaks again(c, 0x1636, true);
+    const bool no_invented = !again.RestoreVramReporting(false) && c.writes.empty();
+
+    const bool ok = target_only && blocked && no_invented;
+    RecordResult(ok, "Test 93: AMD writes only the target adapter; VRAM override blocked off an iGPU",
+                 std::string("target only: ") + (target_only ? "PASS" : "FAIL") + ", eGPU blocked: " + (blocked ? "PASS" : "FAIL") +
+                 ", no invented restore: " + (no_invented ? "PASS" : "FAIL"));
+}
+
 } // namespace vftest

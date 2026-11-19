@@ -66,6 +66,7 @@ struct Rig {
         reg.SeedValue(vegaflow::RegHive::LocalMachine, std::wstring(kAdapter) + L"\\UMD", L"ShaderCache", vegaflow::RegValue::MakeBinary({0x31, 0x00}));
         original = reg.values;
         hw.primary_gpu.vendor = amd ? vegaflow::GpuVendor::AMD : vegaflow::GpuVendor::Unknown;
+        hw.primary_gpu.connection = vegaflow::GpuConnection::Integrated;
         policy.block_driver_tweaks = !amd;
         policy.force_high_perf_power_plan = true;
         policy.safe_vram_pool_mb = pool_mb;

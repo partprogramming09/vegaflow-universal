@@ -4,6 +4,7 @@
 #include "optimize/graphics/graphics_optimizer.hpp"
 
 #include <cstdint>
+#include <cwchar>
 #include <cwctype>
 #include <string>
 #include <string_view>
@@ -75,7 +76,8 @@ inline std::string WideToUtf8(std::wstring_view w) {
 // 1. If MatchingDeviceId exists, require "ven_1002" (reject Intel/NVIDIA immediately).
 // 2. Otherwise fall back to DriverDesc / ProviderName strings.
 // Never infer AMD from UMD or ShaderCache presence.
-inline bool IsAmdAdapterKey(RegistryPort& reg, const std::wstring& adapter_path) {
+// `device_id` != 0 narrows it to that one adapter (`ven_1002&dev_XXXX`) and fails closed without a MatchingDeviceId.
+inline bool IsAmdAdapterKey(RegistryPort& reg, const std::wstring& adapter_path, uint32_t device_id = 0) {
     if (!reg.KeyExists(RegHive::LocalMachine, adapter_path)) {
         return false;
     }
@@ -83,7 +85,19 @@ inline bool IsAmdAdapterKey(RegistryPort& reg, const std::wstring& adapter_path)
     RegValue match_id;
     if (reg.ReadValue(RegHive::LocalMachine, adapter_path, L"MatchingDeviceId", match_id) &&
         match_id.type == RegValueType::String) {
-        return ToLower(match_id.str).find(L"ven_1002") != std::wstring::npos;
+        const std::wstring id = ToLower(match_id.str);
+        if (id.find(L"ven_1002") == std::wstring::npos) {
+            return false;
+        }
+        if (device_id == 0) {
+            return true;
+        }
+        wchar_t dev[16];
+        swprintf(dev, 16, L"dev_%04x", device_id);
+        return id.find(dev) != std::wstring::npos;
+    }
+    if (device_id != 0) {
+        return false;
     }
 
     RegValue desc;
@@ -110,7 +124,15 @@ inline bool IsAmdAdapterKey(RegistryPort& reg, const std::wstring& adapter_path)
 // Strict AMD subkey verification under HKLM\SOFTWARE\Microsoft\DirectX\*:
 // 1. If VendorId exists, require 0x1002 (4098).
 // 2. Otherwise fall back to Description string.
-inline bool IsAmdDirectXSubkey(RegistryPort& reg, const std::wstring& dx_subkey) {
+// `device_id` != 0 also requires DeviceId == device_id (a subkey without DeviceId is skipped).
+inline bool IsAmdDirectXSubkey(RegistryPort& reg, const std::wstring& dx_subkey, uint32_t device_id = 0) {
+    if (device_id != 0) {
+        RegValue dev;
+        if (!reg.ReadValue(RegHive::LocalMachine, dx_subkey, L"DeviceId", dev) ||
+            dev.type != RegValueType::Dword || dev.dword != device_id) {
+            return false;
+        }
+    }
     RegValue vendor_id;
     if (reg.ReadValue(RegHive::LocalMachine, dx_subkey, L"VendorId", vendor_id)) {
         if (vendor_id.type == RegValueType::Dword) {

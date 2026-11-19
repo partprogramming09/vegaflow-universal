@@ -83,7 +83,7 @@ void AmdDriverTweaks::QueryAdapterState(
 
     for (const auto* sub : kAdapterSubkeys) {
         const std::wstring adapter_path = std::wstring(kDisplayClassBase) + L"\\" + sub;
-        if (!IsAmdAdapterKey(reg_, adapter_path)) {
+        if (!IsAmdAdapterKey(reg_, adapter_path, device_id_)) {
             continue;
         }
 
@@ -126,7 +126,7 @@ GraphicsOptimizer::GraphicsOptimizer(
       dxgi_(registry) {
     // Single centralized GPU vendor decision: AMD driver tweaks exist ONLY on AMD GPUs when allowed by policy.
     if (hw.primary_gpu.vendor == GpuVendor::AMD && !policy.block_driver_tweaks) {
-        amd_driver_.emplace(registry_);
+        amd_driver_.emplace(registry_, hw.primary_gpu.device_id, hw.primary_gpu.connection == GpuConnection::Integrated);
     }
     if (power != nullptr && policy.force_high_perf_power_plan) {
         power_mode_.emplace(*power);
