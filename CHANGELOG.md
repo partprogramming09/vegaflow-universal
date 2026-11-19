@@ -8,6 +8,9 @@ versions follow [Semantic Versioning](https://semver.org/).
 New native GUI (Win32, owner-draw controls reachable with Tab). Not tagged yet: the version number in the binary and
 `Cargo.toml` still reads 0.1.0 until the release step.
 
+### Changed
+- No tier caps the CPU frequency any more (`cpu_stapm_cap_mhz = 0`, Smart Uncapped Boost); the old 3000/3400 MHz caps in the docs were removed. Not A/B measured: see `docs/mediciones/estado-de-verificacion.md`.
+
 ### Added
 - Screens: Inicio, Juegos, Programas, Tu equipo, Configuración, Requisitos, plus Ajustes del sistema and Historial.
   Plain-language text; every tweak shows its evidence status and whether it is measured.

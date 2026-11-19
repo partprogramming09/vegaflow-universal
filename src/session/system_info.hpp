@@ -27,8 +27,8 @@ struct CpuInfo {
     std::string microarchitecture; // e.g. "Zen 2 Renoir 7nm"
     uint64_t l3_cache_bytes = 0;   // e.g. 8388608 (8 MB)
     double l3_cache_mb = 0.0;      // 8.0
-    double boost_target_ghz = 3.4; // 3.4 GHz APU target
-    std::string stapm_target;      // e.g. "3.4 GHz (APU Sustained / STAPM 35W-45W)"
+    double boost_target_ghz = 3.4; // default; BuildOptimizationPolicy sets the real target per tier
+    std::string stapm_target;      // e.g. "4.0 GHz Smart Uncapped (...)"
     std::vector<uint32_t> active_game_cpu_sets;
     std::vector<uint32_t> active_background_cpu_sets;
     bool probe_ok = true;
