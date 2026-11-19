@@ -1,6 +1,7 @@
 #include "optimize/steam/steam_engine_optimizer.hpp"
 #include "optimize/steam/steam_internal.hpp"
 #include "bridge/rust_bridge.h"
+#include "bridge/ffi_callback_guard.hpp"
 #include "windows/change_journal.hpp"
 
 namespace vegaflow {
@@ -46,18 +47,22 @@ std::string FormatFloatTrimmed(float val) {
     return s.empty() ? "0" : s;
 }
 
-void CollectBytesCallback(void* ctx, const uint8_t* data, size_t len) {
-    auto* out = static_cast<std::string*>(ctx);
-    out->assign(reinterpret_cast<const char*>(data), len);
+void CollectBytesCallback(void* ctx, const uint8_t* data, size_t len) noexcept {
+    RunCallbackGuarded([&] {
+        auto* out = static_cast<std::string*>(ctx);
+        out->assign(reinterpret_cast<const char*>(data), len);
+    });
 }
 
 struct QueriedKv {
     std::vector<std::pair<std::string, std::string>> pairs;
 };
 
-void CollectKvCallback(void* ctx, const char* key, size_t key_len, const char* val, size_t val_len) {
-    auto* out = static_cast<QueriedKv*>(ctx);
-    out->pairs.emplace_back(std::string(key, key_len), std::string(val, val_len));
+void CollectKvCallback(void* ctx, const char* key, size_t key_len, const char* val, size_t val_len) noexcept {
+    RunCallbackGuarded([&] {
+        auto* out = static_cast<QueriedKv*>(ctx);
+        out->pairs.emplace_back(std::string(key, key_len), std::string(val, val_len));
+    });
 }
 
 } // namespace
@@ -140,7 +145,7 @@ bool SteamEngineOptimizer::ApplyApuShadowConfig(
         kv.size(),
         CollectBytesCallback,
         &outBytes);
-    if (rc != VF_INI_OK) {
+    if (ConsumeCallbackFailure() || rc != VF_INI_OK) {
         return false;
     }
 
@@ -275,7 +280,7 @@ bool SteamEngineOptimizer::RestoreApuShadowConfig(
         &changed,
         CollectBytesCallback,
         &outBytes);
-    if (rc != VF_INI_OK) {
+    if (ConsumeCallbackFailure() || rc != VF_INI_OK) {
         return false;
     }
     if (!changed) {
@@ -319,7 +324,7 @@ bool SteamEngineOptimizer::QueryApuShadowConfig(
         std::char_traits<char>::length(kSystemSettings),
         CollectKvCallback,
         &queried);
-    if (rc != VF_INI_OK) {
+    if (ConsumeCallbackFailure() || rc != VF_INI_OK) {
         return false;
     }
 

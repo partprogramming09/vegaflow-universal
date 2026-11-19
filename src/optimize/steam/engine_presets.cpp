@@ -2,6 +2,7 @@
 #include "optimize/steam/steam_internal.hpp"
 #include "optimize/graphics/graphics_optimizer.hpp"
 #include "bridge/rust_bridge.h"
+#include "bridge/ffi_callback_guard.hpp"
 #include "windows/change_journal.hpp"
 #include "windows/registry.hpp"
 
@@ -58,9 +59,11 @@ bool WriteStringToFile(FileSystem& fs, const std::filesystem::path& path, const 
     return fs.Write(path.wstring(), content, is_anticheat_protected);
 }
 
-void CollectBytesCallback(void* ctx, const uint8_t* data, size_t len) {
-    auto* out = static_cast<std::string*>(ctx);
-    out->assign(reinterpret_cast<const char*>(data), len);
+void CollectBytesCallback(void* ctx, const uint8_t* data, size_t len) noexcept {
+    RunCallbackGuarded([&] {
+        auto* out = static_cast<std::string*>(ctx);
+        out->assign(reinterpret_cast<const char*>(data), len);
+    });
 }
 
 bool EnsureBackupBeforeModify(
@@ -269,7 +272,7 @@ EngineOptimizationReport SteamEngineOptimizer::ApplyEngineUmaPreset(
                 umaBlock.size(),
                 CollectBytesCallback,
                 &finalContent);
-            if (merge_rc != VF_INI_OK) {
+            if (ConsumeCallbackFailure() || merge_rc != VF_INI_OK) {
                 report.success = false;
                 report.status_message = (merge_rc == VF_INI_ERR_MISSING_END_MARKER || merge_rc == VF_INI_ERR_UNMATCHED_END_MARKER)
                     ? "Marcador de bloque VegaFlow incompleto en Engine.ini; archivo intacto"
@@ -356,7 +359,7 @@ EngineOptimizationReport SteamEngineOptimizer::ApplyEngineUmaPreset(
             kv.size(),
             CollectBytesCallback,
             &merged);
-        if (merge_rc != VF_INI_OK) {
+        if (ConsumeCallbackFailure() || merge_rc != VF_INI_OK) {
             report.success = false;
             report.status_message = "Codificacion de boot.config no valida; archivo intacto";
             return report;
@@ -437,7 +440,7 @@ EngineOptimizationReport SteamEngineOptimizer::RestoreEngineOriginalConfig(
                     &changed,
                     CollectBytesCallback,
                     &out_bytes);
-                if (rc != VF_INI_OK) {
+                if (ConsumeCallbackFailure() || rc != VF_INI_OK) {
                     report.success = false;
                     report.status_message = "Marcador incompleto en Engine.ini; no se modifico el archivo";
                     return report;
