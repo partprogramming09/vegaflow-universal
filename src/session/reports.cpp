@@ -92,6 +92,7 @@ void PrintStatusReport() {
     MemoryPurgeConfig mem_cfg{};
     mem_cfg.is_uma_architecture = (hw.primary_gpu.mem_arch == MemoryArchitecture::UMA_Integrated);
     MemoryManager mem_mgr(mem_cfg);
+    mem_mgr.SetTargetLuid(hw.primary_gpu.luid);
     SystemMemoryTelemetry mem = mem_mgr.SampleTelemetry();
 
     WindowsRegistryPort reg;
@@ -300,6 +301,7 @@ void ExecuteDryRun(const AppConfig& config) {
     MemoryPurgeConfig mem_cfg = config.memory;
     mem_cfg.is_uma_architecture = (hw.primary_gpu.mem_arch == MemoryArchitecture::UMA_Integrated);
     MemoryManager mem_mgr(mem_cfg);
+    mem_mgr.SetTargetLuid(hw.primary_gpu.luid);
     CpuOrchestrator cpu_orchestrator;
 
     std::cout << "[1/4] Scanning foreground processes for 3D Game / Graphics API...\n";

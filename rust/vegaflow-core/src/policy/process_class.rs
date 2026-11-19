@@ -125,9 +125,17 @@ fn has_any_marker(haystack: &str, markers: &[&str]) -> bool {
     markers.iter().any(|m| haystack.contains(m))
 }
 
+/// `..` or `.` as a path component: `c:\\windows\\..\\games` is not under `c:\\windows`.
+fn has_dot_segment(path: &str) -> bool {
+    path.split('\\').any(|s| s == "." || s == "..")
+}
+
 /// True when `path` is `<drive>:` + `root` or lives under it (`root` has no trailing `\\`).
 /// A plain `contains` would accept `d:\games\program files` and `c:\windowsx`.
 fn under_drive_root(path: &str, root: &str) -> bool {
+    if has_dot_segment(path) {
+        return false;
+    }
     let b = path.as_bytes();
     if b.len() < 2 || !b[0].is_ascii_alphabetic() || b[1] != b':' {
         return false;
@@ -138,6 +146,9 @@ fn under_drive_root(path: &str, root: &str) -> bool {
 
 /// `<drive>:\users\<name>\appdata\local|roaming`, exact component match.
 fn in_user_appdata(path: &str) -> bool {
+    if has_dot_segment(path) {
+        return false;
+    }
     let b = path.as_bytes();
     if b.len() < 2 || !b[0].is_ascii_alphabetic() || b[1] != b':' {
         return false;

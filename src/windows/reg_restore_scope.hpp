@@ -9,26 +9,37 @@
 
 namespace vegaflow {
 
-// hive ids as in registry.cpp: 0 = HKLM, 1 = HKCU.
+// hive ids as in registry.cpp: 0 = HKLM, 1 = HKCU. Each allowed key is tied to the hive VegaFlow edits it in.
 inline bool IsAllowedRestoreTarget(int hive, int hive_of_backup, std::wstring_view subkey) {
     if (hive != hive_of_backup) return false;
     if (hive != 0 && hive != 1) return false;
     std::wstring s;
-    for (wchar_t c : subkey) s.push_back(c == L'/' ? L'\\' : static_cast<wchar_t>(std::towlower(c)));
+    for (wchar_t c : subkey) {
+        // In the registry '/' is a literal character: translating it here would validate a different key than the one opened.
+        if (c == L'/') return false;
+        s.push_back(static_cast<wchar_t>(std::towlower(c)));
+    }
     // ".." could climb out of an allowed prefix.
     if (s.find(L"..") != std::wstring::npos) return false;
-    static constexpr std::array<std::wstring_view, 9> kAllowed = {
-        L"software\\microsoft\\directx",
-        L"software\\microsoft\\windows nt\\currentversion\\multimedia\\systemprofile",
-        L"software\\microsoft\\windows nt\\currentversion\\appcompatflags\\layers",
-        L"software\\microsoft\\windows\\currentversion\\gamedvr",
-        L"software\\microsoft\\windows\\dwm",
-        L"system\\currentcontrolset\\control\\class\\{4d36e968-e325-11ce-bfc1-08002be10318}",
-        L"system\\currentcontrolset\\control\\prioritycontrol",
-        L"system\\currentcontrolset\\control\\session manager\\memory management",
-        L"system\\gameconfigstore",
+    struct Allowed {
+        int hive;
+        std::wstring_view root;
     };
-    for (auto root : kAllowed) {
+    static constexpr std::array<Allowed, 10> kAllowed = {{
+        {0, L"software\\microsoft\\directx"},
+        {1, L"software\\microsoft\\directx\\usergpupreferences"},
+        {0, L"software\\microsoft\\windows nt\\currentversion\\multimedia\\systemprofile"},
+        {1, L"software\\microsoft\\windows nt\\currentversion\\appcompatflags\\layers"},
+        {1, L"software\\microsoft\\windows\\currentversion\\gamedvr"},
+        {0, L"software\\microsoft\\windows\\dwm"},
+        {0, L"system\\currentcontrolset\\control\\class\\{4d36e968-e325-11ce-bfc1-08002be10318}"},
+        {0, L"system\\currentcontrolset\\control\\prioritycontrol"},
+        {0, L"system\\currentcontrolset\\control\\session manager\\memory management"},
+        {1, L"system\\gameconfigstore"},
+    }};
+    for (const auto& entry : kAllowed) {
+        if (entry.hive != hive) continue;
+        const auto root = entry.root;
         if (s == root || (s.size() > root.size() && s.compare(0, root.size(), root) == 0 && s[root.size()] == L'\\')) {
             return true;
         }

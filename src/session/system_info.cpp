@@ -204,6 +204,7 @@ GpuInfo SystemInfo::GatherGpu(const SystemHardwareProfile& hw, bool include_live
 
     if (include_live_telemetry) {
         MemoryManager mem_mgr;
+        mem_mgr.SetTargetLuid(hw.primary_gpu.luid);
         SystemMemoryTelemetry telem = mem_mgr.SampleTelemetry();
         gpu.dxgi_budget.local_budget_bytes = telem.vram.local_budget_bytes;
         gpu.dxgi_budget.local_usage_bytes = telem.vram.local_usage_bytes;

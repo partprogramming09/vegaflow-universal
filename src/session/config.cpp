@@ -279,10 +279,11 @@ bool ConfigStore::Save(const AppConfig& cfg, bool dry_run, std::string* why) {
         excluded_names.empty() ? nullptr : reinterpret_cast<const uint8_t*>(excluded_names.data()), excluded_names.size(),
         ex_entries.empty() ? nullptr : ex_entries.data(), ex_entries.size(),
         CollectUtf8, &text);
+    const bool callback_failed = ConsumeCallbackFailure();
     if (result == VF_CONFIG_SAVE_BLOCKED) {
         return refuse("config.json cambió y ya no se puede sobrescribir sin perder lo que tiene; corrígelo a mano");
     }
-    if (ConsumeCallbackFailure() || result != VF_CONFIG_SAVE_OK || text.size() != 1) return refuse("un valor no cumple las reglas de config.json");
+    if (callback_failed || result != VF_CONFIG_SAVE_OK || text.size() != 1) return refuse("un valor no cumple las reglas de config.json");
     if (dry_run) return true;
     if (!fs_.Replace(path_, text[0])) return refuse("no se pudo escribir config.json");
     last_known_ = KnownSettings(text[0]);

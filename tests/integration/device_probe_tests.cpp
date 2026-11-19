@@ -50,7 +50,8 @@ void Test52() {
     // E1.1: DXGI reads the VRAM of the profile's own GPU by LUID; a LUID no adapter has gives no numbers at all.
     const auto real_mem = vegaflow::DefaultWindowsMemoryProbe().SampleSystemMemory(hw.primary_gpu.luid);
     const auto fake_mem = vegaflow::DefaultWindowsMemoryProbe().SampleSystemMemory(0x7FFF000000000001ULL);
-    const bool luid_ok = hw.primary_gpu.luid == 0 || (real_mem.vram.valid && real_mem.vram.local_budget_bytes > 0);
+    // A zero LUID would silently test the old first-adapter path: on a machine whose GPU probe works it is a failure.
+    const bool luid_ok = hw.primary_gpu.luid != 0 && real_mem.vram.valid && real_mem.vram.local_budget_bytes > 0;
     const bool unknown_luid_ok = !fake_mem.vram.valid && fake_mem.vram.local_budget_bytes == 0;
 
     const bool passed = gpu_ok && dxcore_ok && tier_ok && arch_ok && power_ok && disk_ok && display_ok && luid_ok && unknown_luid_ok;

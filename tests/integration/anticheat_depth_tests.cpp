@@ -49,14 +49,20 @@ void Test91() {
     { std::ofstream(nolib / L"a" / L"b" / "EasyAntiCheat_EOS.dll") << "x"; }
     const bool outside_library_not_walked = !vegaflow::SandboxGuard::DirectoryContainsAntiCheat(nolib);
     fs::remove_all(nolib, ec);
+    // The library folder itself is not a game: a trailing separator, `.` or `..` must not turn it into a whole-library scan.
+    const bool library_not_a_game = !vegaflow::SandboxGuard::DirectoryContainsAntiCheat(base) &&
+                                    !vegaflow::SandboxGuard::DirectoryContainsAntiCheat(base / L"clean_game" / L".." / L"..") &&
+                                    !vegaflow::SandboxGuard::DirectoryContainsAntiCheat(base / L"clean_game" / L".");
+    // `..` that lands on the anti-cheat game is still that game.
+    const bool dotdot_resolves = vegaflow::SandboxGuard::DirectoryContainsAntiCheat(base / L"clean_game" / L".." / L"ac_game");
     const bool write_blocked = !vegaflow::SandboxGuard::CanModifyGamePath(deep_ok / L"Binaries");
 
     fs::remove_all(base.parent_path().parent_path(), ec);
-    const bool ok = clean_ok && subfolder_found && top_level_found && depth_is_bounded && missing_dir_safe && outside_library_not_walked;
+    const bool ok = clean_ok && subfolder_found && top_level_found && depth_is_bounded && missing_dir_safe && outside_library_not_walked && library_not_a_game && dotdot_resolves;
     RecordResult(ok, "Test 91: anti-cheat scan reaches subfolders of the game folder up to a bounded depth",
                  std::string("Clean=") + (clean_ok ? "OK" : "FAIL") + ", Subfolder=" + (subfolder_found ? "OK" : "FAIL") +
                      ", TopLevel=" + (top_level_found ? "OK" : "FAIL") + ", DepthBounded=" + (depth_is_bounded ? "OK" : "FAIL") +
-                     ", NoLibraryShallow=" + (outside_library_not_walked ? "OK" : "FAIL") + ", MissingDir=" + (missing_dir_safe ? "OK" : "FAIL") + ", WriteBlocked(info)=" + (write_blocked ? "yes" : "no"));
+                     ", NoLibraryShallow=" + (outside_library_not_walked ? "OK" : "FAIL") + ", LibraryNotAGame=" + (library_not_a_game ? "OK" : "FAIL") + ", DotDot=" + (dotdot_resolves ? "OK" : "FAIL") + ", MissingDir=" + (missing_dir_safe ? "OK" : "FAIL") + ", WriteBlocked(info)=" + (write_blocked ? "yes" : "no"));
 }
 
 } // namespace vftest

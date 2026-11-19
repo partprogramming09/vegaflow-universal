@@ -1,4 +1,5 @@
 #include "windows/steam_paths.hpp"
+#include "bridge/ffi_callback_guard.hpp"
 #include "bridge/rust_bridge.h"
 #include "windows/registry.hpp"
 
@@ -60,13 +61,14 @@ std::vector<std::wstring> ReadSteamLibraryFolders(const std::wstring& steam_inst
 
     // Called from Rust: an exception must not unwind through it.
     auto on_path = [](void* ctx, const char* utf8, size_t len) noexcept {
-        try {
+        RunCallbackGuarded([&] {
             std::wstring wide = Utf8ToWidePath(utf8, len);
             if (!wide.empty()) AddUnique(*static_cast<std::vector<std::wstring>*>(ctx), std::move(wide));
-        } catch (...) {
-        }
+        });
     };
     vf_rust_steam_library_paths(vdf.data(), vdf.size(), on_path, &folders);
+    // A callback that threw left the list partial: an incomplete set of library roots must not widen or narrow the sandbox.
+    if (ConsumeCallbackFailure()) return {};
     return folders;
 }
 

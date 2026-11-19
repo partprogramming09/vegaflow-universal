@@ -223,6 +223,7 @@ int main(int argc, char* argv[]) {
     MemoryPurgeConfig mem_cfg = config.memory;
     mem_cfg.is_uma_architecture = (hw.primary_gpu.mem_arch == MemoryArchitecture::UMA_Integrated);
     MemoryManager mem_mgr(mem_cfg);
+    mem_mgr.SetTargetLuid(hw.primary_gpu.luid);
     CpuOrchestrator cpu_orchestrator;
 
     if (opts.monitor_flag) {
