@@ -125,35 +125,44 @@ fn has_any_marker(haystack: &str, markers: &[&str]) -> bool {
     markers.iter().any(|m| haystack.contains(m))
 }
 
+/// True when `path` is `<drive>:` + `root` or lives under it (`root` has no trailing `\\`).
+/// A plain `contains` would accept `d:\games\program files` and `c:\windowsx`.
+fn under_drive_root(path: &str, root: &str) -> bool {
+    let b = path.as_bytes();
+    if b.len() < 2 || !b[0].is_ascii_alphabetic() || b[1] != b':' {
+        return false;
+    }
+    let rest = &path[2..];
+    rest == root || rest.strip_prefix(root).is_some_and(|r| r.starts_with('\\'))
+}
+
+/// `<drive>:\users\<name>\appdata\local|roaming`, exact component match.
+fn in_user_appdata(path: &str) -> bool {
+    let b = path.as_bytes();
+    if b.len() < 2 || !b[0].is_ascii_alphabetic() || b[1] != b':' {
+        return false;
+    }
+    let mut parts = path[2..].split('\\');
+    parts.next() == Some("")
+        && parts.next() == Some("users")
+        && parts.next().is_some_and(|u| !u.is_empty())
+        && parts.next() == Some("appdata")
+        && matches!(parts.next(), Some("local") | Some("roaming"))
+}
+
 fn in_standard_install_root(parent: &str) -> bool {
-    has_any_marker(
-        parent,
-        &[
-            "\\appdata\\local\\",
-            "\\appdata\\local",
-            "\\appdata\\roaming\\",
-            "\\appdata\\roaming",
-            "\\program files\\",
-            "\\program files (x86)\\",
-            "\\program files\\windowsapps\\",
-            "\\programdata\\chocolatey\\",
-            "\\scoop\\apps\\",
-            "\\steamapps\\common\\",
-        ],
-    )
+    in_user_appdata(parent)
+        || ["\\program files", "\\program files (x86)", "\\programdata\\chocolatey"]
+            .iter()
+            .any(|r| under_drive_root(parent, r))
+        // Library folders can sit anywhere on any drive, so these two stay unanchored but component-bound.
+        || has_any_marker(parent, &["\\scoop\\apps\\", "\\steamapps\\common\\"])
 }
 
 fn in_windows_root(parent: &str) -> bool {
-    has_any_marker(
-        parent,
-        &[
-            ":\\windows\\",
-            ":\\windows",
-            "\\program files\\windowsapps\\",
-            "\\programdata\\microsoft\\windows defender\\",
-            "\\programdata\\vegaflow",
-        ],
-    )
+    ["\\windows", "\\program files\\windowsapps", "\\programdata\\microsoft\\windows defender", "\\programdata\\vegaflow"]
+        .iter()
+        .any(|r| under_drive_root(parent, r))
 }
 
 #[derive(Clone, Copy)]
