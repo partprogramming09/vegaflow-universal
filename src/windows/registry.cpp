@@ -1,6 +1,7 @@
 #include "windows/registry.hpp"
 #include "windows/change_journal.hpp"
 #include "windows/unique_handle.hpp"
+#include "windows/reg_restore_scope.hpp"
 
 #include <cstring>
 #include <cwctype>
@@ -243,6 +244,8 @@ bool RegRestoreRecord(int hive_of_backup, const std::wstring& record) {
     }
     RegCloseKey(hb);
     if (!ok) return false;
+    // The record is data from a user-writable key: refuse a target VegaFlow never edits or one in the other hive.
+    if (!IsAllowedRestoreTarget(static_cast<int>(hive), hive_of_backup, subkey)) return false;
 
     HKEY target = nullptr;
     const REGSAM want = KEY_WRITE | KEY_READ;
