@@ -13,7 +13,7 @@ Documento de entrada: `vegaflow_plan_expansion_agentes.md` (auditoría de `v0.1.
 - Extras GUI de Fase G aún sin cablear: ver [`14-fase-g.md`](14-fase-g.md).
 
 ## E3 - eGPU y HAL (0.4)
-- Ejes ortogonales en `device_profile.rs`: `GpuConnection`, `PcieLinkClass`, `DisplayRouting`, `VfDecisionReason` (máscara `u64`).
+- Ejes ortogonales en `device_profile.rs`: `GpuConnection` (**ya hecho**, `device_profile.rs:79,331`), pendientes `PcieLinkClass`, `DisplayRouting`, `VfDecisionReason` (máscara `u64`).
 - Sonda: ancho y velocidad PCIe (SetupAPI), loopback con `QueryDisplayConfig`, ReBAR, DirectStorage, SMBIOS de portátiles.
 - Palancas eGPU: nada de recortes UMA; sin ASPM en AC; USB Selective Suspend reversible. Presets de Unreal bajo bandera experimental hasta medir ABBA.
 - `IGpuVendorBackend`: AMD, NVIDIA (`nvapi64.dll` dinámica), Intel (tabla Arc y Core Ultra).
