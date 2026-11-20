@@ -48,7 +48,7 @@ const std::vector<SettingSpec> kCatalog = {
      "GameDVR_Enabled 0, AppCaptureEnabled 0",
      true, true},
     {"fse_compat", SettingFamily::Windows, "Compatibilidad: apagar las optimizaciones de pantalla completa",
-     "Solo para juegos DirectX 9 o 10 antiguos que fallan a pantalla completa. En Windows 11 puede quitar el modo flip independiente y subir la latencia.",
+     "Solo para juegos DirectX 9 o 10 que fallan a pantalla completa. En Windows 11 puede subir la latencia.",
      true, Evidence::NotMeasured, false, false,
      "HKCU\\System\\GameConfigStore: GameDVR_FSEBehaviorMode, GameDVR_HonorUserFSEBehaviorMode, GameDVR_DXGIHonorFSEWindowsCompatible y GameDVR_EFSEFeatureFlags",
      "GameDVR_FSEBehaviorMode 2, GameDVR_HonorUserFSEBehaviorMode 1, GameDVR_DXGIHonorFSEWindowsCompatible 1, GameDVR_EFSEFeatureFlags 0",
