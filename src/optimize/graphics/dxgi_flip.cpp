@@ -78,14 +78,15 @@ bool DxgiFlipTweaks::ApplyFlipModelUpgrade(
     }
 
     const uint64_t j_id = reg_.BeginDxgiPreferenceChange(exe_full_path, final_value, "DXGI Flip Model upgrade");
-    bool ok = final_value == old_prefs ||
-              reg_.WriteValue(RegHive::CurrentUser, kUserGpuPrefsPath, exe_full_path, RegValue::MakeString(final_value), false);
-    if (ok && final_layers != old_layers) {
-        ok = reg_.WriteValue(RegHive::CurrentUser, kAppCompatLayersPath, exe_full_path, RegValue::MakeString(final_layers), false);
-    }
+    const bool prefs_changed = final_value != old_prefs;
+    const bool prefs_ok = !prefs_changed ||
+        reg_.WriteValue(RegHive::CurrentUser, kUserGpuPrefsPath, exe_full_path, RegValue::MakeString(final_value), false);
+    const bool layers_ok = prefs_ok && (final_layers == old_layers ||
+        reg_.WriteValue(RegHive::CurrentUser, kAppCompatLayersPath, exe_full_path, RegValue::MakeString(final_layers), false));
 
-    reg_.EndDxgiPreferenceChange(j_id, ok);
-    return ok;
+    // Only committed entries are reverted: once the preference was written the entry stays committed even if Layers failed.
+    reg_.EndDxgiPreferenceChange(j_id, (prefs_changed && prefs_ok) || layers_ok);
+    return layers_ok;
 }
 
 bool DxgiFlipTweaks::QueryUserGpuPreferences(const std::wstring& exe_full_path, std::wstring& out_prefs) {

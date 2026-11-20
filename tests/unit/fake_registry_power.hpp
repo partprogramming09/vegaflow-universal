@@ -43,6 +43,8 @@ public:
     std::vector<FakeRegOp> writes;
     std::vector<FakeRegOp> deletes;
     bool memory_compression_enabled = true;
+    std::set<std::wstring> fail_write_subkeys; // lowercase subkeys whose WriteValue returns false (permission denied)
+    std::vector<bool> dxgi_journal_results;    // the succeeded flag of each EndDxgiPreferenceChange
     std::vector<vegaflow::ShaderCacheReport> shader_caches;
 
     void SeedValue(vegaflow::RegHive hive, const std::wstring& subkey, const std::wstring& name, const vegaflow::RegValue& val) {
@@ -105,6 +107,7 @@ public:
         const std::string& = {},
         const std::string& = {}) override {
         writes.push_back({ hive, subkey, name });
+        if (fail_write_subkeys.count(Lower(subkey)) > 0) return false;
         Key k = MakeKey(hive, subkey, name);
         if (backup_and_journal && backups.find(k) == backups.end()) {
             auto cur = values.find(k);
@@ -199,6 +202,11 @@ public:
     }
 
     std::vector<vegaflow::ShaderCacheReport> InspectShaderCaches() override { return shader_caches; }
+
+    uint64_t BeginDxgiPreferenceChange(const std::wstring&, const std::wstring&, const std::string&) override {
+        return dxgi_journal_results.size() + 1;
+    }
+    void EndDxgiPreferenceChange(uint64_t, bool succeeded) override { dxgi_journal_results.push_back(succeeded); }
 };
 
 class FakePowerPort final : public vegaflow::PowerPort {

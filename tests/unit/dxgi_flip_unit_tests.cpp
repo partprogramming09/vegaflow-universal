@@ -67,11 +67,23 @@ void Test94() {
     const bool dry_ok = vegaflow::DxgiFlipTweaks(dry_reg).ApplyFlipModelUpgrade(kExe, true, &dry_pref) &&
                         dry_pref == L"GpuPreference=1;SwapEffectUpgradeEnable=1;" && dry_reg.writes.empty();
 
-    const bool ok = fresh_ok && idempotent && prefs_kept && switched_in_place && layers_ok && dry_ok;
+    // Layers refused after the preference was written: the journal entry must stay committed, because only committed
+    // entries are reverted and the preference change would otherwise stay on with no way back. Nothing written: failed.
+    FakeRegistryPort part;
+    part.fail_write_subkeys.insert(FakeRegistryPort::Lower(kLayers));
+    const bool part_result = vegaflow::DxgiFlipTweaks(part).ApplyFlipModelUpgrade(kExe, false);
+    FakeRegistryPort none;
+    none.fail_write_subkeys.insert(FakeRegistryPort::Lower(kUgp));
+    const bool none_result = vegaflow::DxgiFlipTweaks(none).ApplyFlipModelUpgrade(kExe, false);
+    const bool partial_ok = !part_result && part.dxgi_journal_results == std::vector<bool>{true} &&
+                            !none_result && none.dxgi_journal_results == std::vector<bool>{false} &&
+                            !none.HasValue(vegaflow::RegHive::CurrentUser, kLayers, kExe);
+
+    const bool ok = fresh_ok && idempotent && prefs_kept && switched_in_place && layers_ok && dry_ok && partial_ok;
     RecordResult(ok, "Test 94: Flip upgrade writes only SwapEffectUpgradeEnable and appends HIGHDPIAWARE without touching user flags",
                  "Fresh=" + std::string(fresh_ok ? "OK" : "FAIL") + ", Idempotent=" + (idempotent ? "OK" : "FAIL") +
                      ", PrefsKept=" + (prefs_kept ? "OK" : "FAIL") + ", InPlace=" + (switched_in_place ? "OK" : "FAIL") +
-                     ", Layers=" + (layers_ok ? "OK" : "FAIL") + ", Dry=" + (dry_ok ? "OK" : "FAIL"));
+                     ", Layers=" + (layers_ok ? "OK" : "FAIL") + ", Dry=" + (dry_ok ? "OK" : "FAIL") + ", Partial=" + (partial_ok ? "OK" : "FAIL"));
 }
 
 } // namespace vftest
