@@ -1,5 +1,7 @@
 # VegaFlow Universal documentation
 
+**In short:** VegaFlow is a Windows program that keeps background apps out of a game's way on laptops where the processor and the graphics share memory. These pages explain how it works, how to install it and what was really measured. For example, if you want to know why a browser slows a game down on an AMD APU, start with [Hardware and tiers](./hardware-and-tiers/).
+
 **Reader:** people and agents
 
 Start here. Each page answers one question: find yours.

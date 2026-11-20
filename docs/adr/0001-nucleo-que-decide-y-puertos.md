@@ -1,82 +1,82 @@
-# ADR 0001: Rust decide, C++ actúa a través de puertos
+# ADR 0001: Rust decides, C++ acts through ports
 
-**Lector:** personas. Fecha: 2026-11-08 (propuesta). Estado: **aceptado** el 2026-11-14.
+**In short:** VegaFlow's C++ code mixed "what to do" with "how to talk to Windows", so no rule could be tested without touching the real system. This decision moves the rules into a Rust core and puts each Windows action behind a small interface, called a port, that a test can replace with a fake. For example, `EvaluateAndOptimize` used to decide and purge memory in the same place. After this decision the choice goes to the core, and the purge sits behind a memory port.
 
-**Evidencia de la aceptación (2026-11-14):** fases 1 a 8 y R3 hechas; `scripts/check_layers.sh` pasa (272 includes, capas respetadas) y `src/session/` ya no llama a Win32. Resultado en [`modules.md`](../guides/modules/).
+**Reader:** people. Date: 2026-11-08 (proposal). Status: **accepted** on 2026-11-14.
 
-## Contexto
+**Evidence of acceptance (2026-11-14):** phases 1 to 8 and R3 are done; `scripts/check_layers.sh` passes (272 includes, layers respected), and `src/session/` no longer calls Win32 directly. Result in [modules](../guides/modules/).
 
-VegaFlow es un daemon de Windows que corre como administrador. Está escrito en C++20 (unas 15 000 líneas) con un núcleo en Rust (el 7,5 %). No usa frameworks y lo mantiene una sola persona. El diagnóstico del 2026-11-08 encontró cinco problemas:
+## Context
 
-1. **Las decisiones están mezcladas con las llamadas a Windows** dentro de la misma función. Por ejemplo, `EvaluateAndOptimize` decide y purga en el mismo sitio, y la lista blanca decide y además lee variables del sistema. Así, una regla no se puede probar sin tocar el sistema real.
-2. **Clases hechas solo de funciones estáticas y sin interfaces:** `GraphicsOptimizer` tiene 36 miembros estáticos, `SandboxGuard` 21 y no hay ni una función `virtual`. No hay forma de cambiar el registro real por uno de prueba. Por eso las pruebas cambian el registro y el plan de energía de verdad, y un guardián final los restaura.
-3. **Dependencia circular entre `detect/` y `optimize/`.** `system_info.cpp` incluye optimizadores, y los optimizadores incluyen `hardware_profiler.hpp` para usar sus tipos (`ApuOptimizationPolicy`).
-4. **Todas las pruebas están en un solo archivo:** `tests/test_main.cpp`, con 2 157 líneas, 31 pruebas activas y un único `main`.
-5. **La orquestación está repartida.** `run_cycle.cpp` (el caso de uso "sesión de juego") vive en `app/` junto a la CLI y la GUI. Además, `frame_telemetry` está en `safety/` aunque mide FPS.
+VegaFlow is a Windows daemon (a background program) that runs as administrator. It is written in C++20 (about 15,000 lines) with a Rust core (7.5%). It uses no frameworks and is maintained by one person. The diagnosis of 2026-11-08 found five problems:
 
-## Decisión
+1. **Decisions are mixed with Windows calls** inside the same function. For example, `EvaluateAndOptimize` decides and purges in the same place, and the allowlist decides and also reads system variables. So a rule cannot be tested without touching the real system.
+2. **Classes made only of static functions and with no interfaces:** `GraphicsOptimizer` had 36 static members, `SandboxGuard` 21, and not a single `virtual` function (a method a test can override). There was no way to swap the real registry for a test one. That is why the tests changed the real registry and power plan, and a final guard restored them.
+3. **Circular dependency between `detect/` and `optimize/`.** `system_info.cpp` includes the optimizers, and the optimizers include `hardware_profiler.hpp` to use its types (`ApuOptimizationPolicy`).
+4. **All tests in one file:** `tests/test_main.cpp`, 2,157 lines, 31 active tests and a single `main`.
+5. **Orchestration is spread out.** `run_cycle.cpp` (the "game session" use case) lives in `app/` next to the CLI and the GUI. Also, `frame_telemetry` is in `safety/` even though it measures FPS.
 
-Una **arquitectura hexagonal ligera**, también llamada "núcleo que decide, carcasa que actúa":
+## Decision
+
+A **light hexagonal architecture** (also called "the core decides, the shell acts"; in the literature, ports and adapters):
 
 ```
 +-------------------------------------------------------+
-| Entradas: CLI, GUI, bucle del daemon (src/app)        |
+| Entries: CLI, GUI, daemon loop (src/app)              |
 +-------------------------------------------------------+
                            |
                            v
 +-------------------------------------------------------+
-| Casos de uso (src/session): sesión de juego,          |
-| perfil de motor, restaurar, informes                  |
-| Solo hablan con puertos y con el núcleo               |
+| Use cases (src/session): game session,                |
+| game engine profile, restore, reports                 |
+| They only talk to ports and to the core               |
 +-------------------------------------------------------+
                 |                          |
                 v                          v
 +---------------------------+  +---------------------------+
-| Núcleo Rust (decide)      |  | Puertos (src/ports):      |
-| rust/vegaflow-core        |  | interfaces C++ pequeñas:  |
-| reglas puras, sin I/O     |  | archivos, reloj, procesos,|
-| (la purga UMA sale de     |  | registro, energía, equipo,|
-| aquí en la fase 4)        |  | memoria, configuración,   |
-|                           |  | diario                    |
+| Rust core (decides)       |  | Ports (src/ports):        |
+| rust/vegaflow-core        |  | small C++ interfaces:     |
+| pure rules, no I/O        |  | files, clock, processes,  |
+| (the UMA purge moves      |  | registry, power, hardware,|
+| into the core in phase 4) |  | memory, configuration,    |
+|                           |  | and journal               |
 +---------------------------+  +---------------------------+
                                              |
                                              v
                                +---------------------------+
-                               | Adaptadores Windows       |
-                               | (src/windows): Win32,    |
+                               | Windows adapters          |
+                               | (src/windows): Win32,     |
                                | ntdll, ETW, DXGI          |
                                +---------------------------+
 ```
 
-Las reglas de la decisión:
+The rules of the decision:
 
-- **Las dependencias apuntan hacia dentro.** Los adaptadores conocen los puertos, y los casos de uso conocen los puertos y el núcleo. El núcleo no conoce a nadie.
-- **Se crea un puerto solo donde una prueba necesita un sustituto:** archivos (con la comprobación de la ruta ya abierta), reloj, control de procesos, registro, energía, sonda del equipo (GPU, disco, energía, versión de Windows), memoria (medir y purgar), configuración, y diario de cambios. No se crea una interfaz por cada clase.
-- **Las clases estáticas se convierten en objetos** que reciben sus puertos en el constructor. Todo se arma en un solo sitio (`main`, la llamada *composition root*).
-- **Los tipos compartidos** (perfil de hardware, política, juego detectado) pasan a `src/model/`. Esto corta el ciclo entre `detect/` y `optimize/`.
-- **Pruebas en dos niveles:**
-  - unitarias de los casos de uso con puertos falsos, que no tocan el sistema;
-  - de integración por adaptador, que se corren en el laptop.
+- **Dependencies point inward.** Adapters know the ports, and use cases know the ports and the core. The core knows no one.
+- **A port is created only where a test needs a stand-in:** files (with the path check already applied), clock, process control, registry, power, device probe (GPU, disk, power, Windows version), memory (measure and purge), configuration and the change journal. There is no interface per class.
+- **Static classes become objects** that receive their ports in the constructor. Everything is assembled in one place (`main`, the so-called *composition root*).
+- **Shared types** (hardware profile, policy, detected game) move to `src/model/`. This breaks the cycle between `detect/` and `optimize/`.
+- **Tests on two levels:**
+  - unit tests of the use cases with fake ports, which do not touch the system;
+  - integration tests per adapter, run on the laptop.
 
-  `test_main.cpp` se reparte por módulo. Hecho en la fase R1 (2026-11-09): `tests/integration/`, un archivo por
-  módulo, con el `main` propio (no doctest) para conservar el orden y la salida; doctest se valorará con las pruebas
-  unitarias de R2.
+  `test_main.cpp` is split by module. This was done in phase R1 (2026-11-09): `tests/integration/`, one file per module, with its own `main` (not doctest, a C++ test framework) to keep the order and the output. doctest will be evaluated with the unit tests of R2.
 
-## Alternativas
+## Alternatives
 
-| Opción | A favor | En contra |
+| Option | In favor | Against |
 |---|---|---|
-| **No hacer nada** | Sin riesgo ni esfuerzo | Siguen las pruebas sobre el registro real, el ciclo y las reglas imposibles de probar sin tocar el sistema |
-| **Solo mover carpetas** | Barato y mecánico | No arregla nada de fondo: las decisiones siguen mezcladas con Windows |
-| **Hexagonal ligera** (elegida) | Reglas en Rust probadas con ejemplos, casos de uso probables sin tocar el sistema, sin ciclos | Pide unas 10 interfaces nuevas, todas pequeñas y cambiar las clases estáticas por objetos |
-| **Hexagonal completa** (una interfaz por cada servicio y DI en todas partes) | Máxima flexibilidad | Mucho código repetido para una persona; viola KISS y YAGNI |
-| **Todo en Rust** | Un solo lenguaje | Reescribe 15 000 líneas, la GUI incluida, y obliga a repetir todas las mediciones |
+| **Do nothing** | No risk and no effort | Tests keep touching the real registry and power plan, and rules stay impossible to test without touching the system |
+| **Only move folders** | Cheap and mechanical | Fixes nothing at the root: decisions stay mixed with Windows |
+| **Light hexagonal** (chosen) | Rules in Rust tested with examples, use cases testable without touching the system, no cycles | Needs about 10 new small interfaces, and turning static classes into objects |
+| **Full hexagonal** (one interface per service and DI everywhere) | Maximum flexibility | Much repeated code for one person; goes against KISS (keep it simple) and YAGNI (you aren't going to need it) |
+| **Everything in Rust** | One language | Rewrites 15,000 lines, the GUI included, and forces repeating all the measurements |
 
-## Consecuencias
+## Consequences
 
-- Las mejoras se hacen **por piezas** (patrón *strangler*), dentro de las fases del plan maestro (material de trabajo, fuera del repo). En cada fase, la decisión pasa al núcleo y la acción se pone detrás de su puerto.
-- Mover archivos y cambiar lógica van siempre en **commits distintos**.
-- La regla "las dependencias apuntan hacia dentro" la comprueba un script en el CI (`scripts/check_layers.sh`). La cabecera del puente C++ ↔ Rust se genera desde Rust con cbindgen, para que los dos lados no se separen.
-- El consumo en reposo tiene que seguir por debajo de 15 MB. Las llamadas virtuales cuestan nanosegundos, así que no lo afectan, pero se mide al final.
-- **Se revisa esta decisión** si hacen falta más de 12 puertos en total, o una sola fase necesita más de 2 nuevos, o si el consumo en reposo pasa de 15 MB.
-- **Revisado el 2026-11-09:** se llegó a 11 puertos al añadir configuración y diario de cambios, y bajó a 10 al quitar la captura de fotogramas (fase 6). La decisión se mantiene porque cada puerto sustituye una prueba que tocaba el sistema real. Nuevo límite: 12.
+- Improvements are made **in pieces** (the *strangler* pattern: the new code grows around the old and replaces it bit by bit), within the phases of the master plan (working material, outside the repository). In each phase the decision moves into the core and the action goes behind its port.
+- Moving files and changing logic always go in **separate commits**.
+- The rule "dependencies point inward" is checked by a script in CI (`scripts/check_layers.sh`). The header of the C++ ↔ Rust bridge is generated from Rust with cbindgen (a tool that writes C headers from Rust code), so the two sides cannot drift apart.
+- Idle use must stay below 15 MB. Virtual calls cost nanoseconds, so they do not affect it, but it is measured at the end.
+- **This decision is reviewed** if more than 12 ports are needed in total, if a single phase needs more than 2 new ones, or if idle use goes above 15 MB.
+- **Reviewed 2026-11-09:** it reached 11 ports when configuration and the change journal were added, and dropped to 10 when frame capture was removed (phase 6). The decision stands, because each port replaces a test that touched the real system. New limit: 12.

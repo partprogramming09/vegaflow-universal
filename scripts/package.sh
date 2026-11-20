@@ -1,6 +1,6 @@
 #!/bin/bash
 # Builds dist/VegaFlow-<version>-win-x64.zip from the cross-compiled daemon and scripts/package/.
-# The version comes from rust/vegaflow-core/Cargo.toml and must match src/ui/app_identity.hpp and the top CHANGELOG entry.
+# The version comes from rust/vegaflow-core/Cargo.toml and must match src/ui/app_identity.hpp and CHANGELOG.md must have an entry for it.
 # Needs what scripts/build-cross.sh needs (mingw-w64, the Rust target) plus zip and shasum.
 set -euo pipefail
 cd "$(dirname "$0")/.."

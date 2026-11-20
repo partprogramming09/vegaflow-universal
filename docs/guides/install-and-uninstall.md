@@ -1,150 +1,168 @@
-# Instalar y desinstalar VegaFlow
+# Install and uninstall VegaFlow
 
-**Lector:** quien instala VegaFlow en un equipo Windows y quien comprueba el paquete antes de entregarlo.
+**In short:** VegaFlow comes as a `.zip` file with the program and two PowerShell scripts, `install.ps1` and `uninstall.ps1`. The installer first checks every file against a list of SHA-256 hashes (a fingerprint that changes if a file changes), then copies the program into a folder that only administrators can write. Uninstalling gives back the Windows settings that VegaFlow changed *before* it deletes anything. For example, `install.ps1` run as administrator puts VegaFlow in `C:\Program Files\VegaFlow` and does not start it with Windows; if you later run `uninstall.ps1`, the power plan goes back to its original value.
 
-**Lo esencial:** el paquete es un `.zip` con el daemon y dos scripts de PowerShell. `install.ps1` comprueba que ningún archivo esté alterado, copia el daemon a una carpeta que solo los administradores pueden escribir y, si ya había una instalación, primero devuelve sus cambios. `uninstall.ps1` devuelve los cambios al sistema **antes** de borrar nada. Los dos admiten `-DryRun`, que muestra los pasos sin cambiar nada.
+**Reader:** people
 
-**Ejemplo.** Descargas `VegaFlow-0.1.0-win-x64.zip`, lo descomprimes, abres PowerShell como administrador y ejecutas `install.ps1`. VegaFlow queda en `C:\Program Files\VegaFlow`, aparece en «Agregar o quitar programas» y en el menú Inicio, y no arranca solo con Windows (eso se pide con `-Autostart`). Si luego lo quitas con `uninstall.ps1`, el plan de energía y los ajustes de Windows que VegaFlow hubiera cambiado vuelven a su valor original.
+## Requirements
 
-## Requisitos
+- Windows 10 or 11, 64-bit, and PowerShell.
+- A PowerShell console **run as administrator**. Both scripts require it and fail without it.
+- The package is **not signed**, so Windows may show a warning when you open it. That is why it is worth checking the hash (step 1). Signing and other installer formats are outside the current scope.
 
-- Windows 10 u 11 de 64 bits y PowerShell.
-- Una consola de PowerShell **como administrador**: los dos scripts lo exigen y fallan si no.
-- El paquete **no está firmado**: Windows puede mostrar un aviso al abrirlo. Por eso conviene verificar el hash (paso 1). La firma y otros formatos de instalador están fuera del alcance actual.
+If PowerShell blocks the scripts because of its execution policy (the setting that decides which scripts may run), start them like this: `powershell -ExecutionPolicy Bypass -File .\install.ps1`.
 
-Si PowerShell bloquea los scripts por su política de ejecución, lánzalos así: `powershell -ExecutionPolicy Bypass -File .\install.ps1`.
+## Step 1 of 5: verify the zip
 
-## Paso 1 de 5: verificar el zip
-
-Junto al zip va su `.sha256`, con el formato de `shasum`: el hash, dos espacios y el nombre del archivo.
+Next to the zip is its `.sha256` file, in the format `shasum` writes: the hash, two spaces, and the file name.
 
 ```powershell
 $esperado = (Get-Content .\VegaFlow-0.1.0-win-x64.zip.sha256).Split(' ')[0]
 (Get-FileHash .\VegaFlow-0.1.0-win-x64.zip -Algorithm SHA256).Hash -ieq $esperado
 ```
 
-Deberías ver `True`. Si ves `False`, no lo instales: descarga el zip otra vez.
+You should see `True`. If you see `False`, don't install it: download the zip again.
 
-Este hash solo prueba que el zip es el que corresponde a ese `.sha256`. El zip y el `.sha256` se publican como archivos adjuntos de la misma página de release de GitHub, así que la comprobación detecta una descarga dañada, pero no protege si alguien cambia los dos archivos de esa página. El zip no está firmado; para esa garantía haría falta un certificado de firma de código.
+This hash only proves that the zip matches its `.sha256` file. Both files are published as attachments on the same GitHub release page (checked with `gh release view v0.1.0`; they are uploaded by hand, since there is no release workflow under `.github/workflows/`). So the check catches a damaged download, but it does not protect you if someone changes both files on that page. The zip is not signed; that guarantee would need a *code-signing certificate* (a certificate that proves who published the program).
 
-**Solo el ejecutable.** El release también trae `vegaflow_daemon.exe` suelto, con su `.sha256` (el mismo archivo que va en el zip). Ejecutado desde una carpeta donde pueden escribir cuentas sin permisos de administrador (Descargas, el escritorio), VegaFlow muestra un aviso, usa los valores de fábrica y no guarda configuración: es una forma de probarlo, no de instalarlo. Para que guarde su configuración hay que instalarlo con `install.ps1`.
+**Only the executable.** The release also includes a loose `vegaflow_daemon.exe` with its own `.sha256`, the same file that is inside the zip (checked with `gh release view v0.1.0`; it is uploaded by hand, since `scripts/package.sh` does not create a separate copy). If you run it from a folder where standard accounts can write (Downloads, the desktop), VegaFlow shows a warning, uses its factory values and saves no configuration. It is a way to try it, not to install it. To keep its configuration, install it with `install.ps1`. See [`security.md`](./security.md), point 5.
 
-## Paso 2 de 5: descomprimir
+## Step 2 of 5: unzip
 
-El zip contiene una carpeta `VegaFlow-0.1.0-win-x64` con:
+The zip contains a folder `VegaFlow-0.1.0-win-x64` with:
 
-| Archivo | Para qué sirve |
+| File | What it is for |
 | --- | --- |
-| `vegaflow_daemon.exe` | El programa |
-| `install.ps1`, `uninstall.ps1` | Instalar y desinstalar |
-| `config/config.json` | La configuración de fábrica |
-| `VERSION` | La versión (0.1.0) |
-| `SHA256SUMS` | El hash de cada archivo; `install.ps1` lo comprueba |
-| `LICENSE`, `CHANGELOG.md`, `README.md` | Licencia, historial de versiones y documentación |
+| `vegaflow_daemon.exe` | The program |
+| `install.ps1`, `uninstall.ps1` | Install and uninstall |
+| `config/config.json` | The factory configuration |
+| `VERSION` | The version (0.1.0) |
+| `SHA256SUMS` | The hash of each file; `install.ps1` checks them |
+| `LICENSE`, `CHANGELOG.md`, `README.md` | License, version history and documentation |
 
-## Paso 3 de 5: ver qué haría, sin instalar (`-DryRun`)
+## Step 3 of 5: see what it would do, without installing (`-DryRun`)
 
 ```powershell
 .\install.ps1 -DryRun
 ```
 
-Deberías ver líneas con el prefijo `[dry-run]`: primero `Paquete 0.1.0 verificado (SHA-256 de 9 archivos).` y después cada paso. No se crea ninguna carpeta ni se toca Windows. Aun así verifica los hashes: si el paquete está alterado, falla aquí.
+You should see lines starting with the prefix `[dry-run]`. The first one is `Paquete 0.1.0 verificado (SHA-256 de 8 archivos).` (the messages the scripts print are in Spanish), followed by each step. No folder is created and Windows is not touched. Even so, the script checks the hashes, so if the package has been altered, it fails here.
 
-## Paso 4 de 5: instalar
+## Step 4 of 5: install
 
 ```powershell
 .\install.ps1
 ```
 
-| Parámetro | Qué hace |
+| Parameter | What it does |
 | --- | --- |
-| `-InstallDir <ruta>` | Carpeta de destino. Por defecto, `C:\Program Files\VegaFlow` |
-| `-Autostart` | Crea la tarea `VegaFlow`, que arranca el daemon al iniciar sesión (nivel más alto, solo el daemon). **Desactivada de fábrica** |
-| `-NoShell` | No registra «Agregar o quitar programas», ni el acceso del menú Inicio, ni la tarea |
-| `-DryRun` | Muestra los pasos sin cambiar nada |
+| `-InstallDir <path>` | Destination folder. Default: `C:\Program Files\VegaFlow`. It must be inside Program Files, unless you use `-AllowOutsideProgramFiles` |
+| `-Autostart` | Creates the task `VegaFlow`, which starts the daemon when you sign in (highest level, daemon only). **Off by default.** Cannot be combined with `-NoShell` |
+| `-NoShell` | Does not register Add/Remove Programs, the Start menu shortcut or the task |
+| `-AllowOutsideProgramFiles` | Allows a folder outside Program Files. Only use it for a parent folder that no standard user can write: whoever can rename the folder can put their own program where the shortcut and the task point |
+| `-DryRun` | Shows the steps without changing anything |
 
-Qué hace, en orden:
+What it does, in order:
 
-| Paso | Qué ocurre | Si falla |
+| Step | What happens | If it fails |
 | --- | --- | --- |
-| 1. Paquete | Comprueba el SHA-256 de cada archivo contra `SHA256SUMS` | No copia nada |
-| 2. Carpeta | Pide una ruta absoluta. Rechaza la raíz de una unidad, `SystemRoot`, `ProgramFiles` y `ProgramData` a secas, y cualquier carpeta que exista, no esté vacía y no sea una instalación de VegaFlow (una carpeta que solo tiene `config` y `logs`, por ejemplo tras `-KeepConfig`, sí vale) | No toca la carpeta |
-| 3. Instalación previa | Si ya había una, para sus procesos y ejecuta `vegaflow_daemon.exe --restore-registry` para devolver sus cambios | Si ese comando falla, no reemplaza nada |
-| 4. Archivos | Copia el daemon, `uninstall.ps1`, `VERSION` y `config\config.json`; fija los permisos y escribe `install.json`, la lista de lo instalado; ejecuta `--version` y comprueba que coincide con el paquete | Error con el motivo |
-| 5. Windows | Registra «Agregar o quitar programas» y el acceso del menú Inicio (abre `--gui`); con `-Autostart`, la tarea | — |
+| 1. Package | Checks the SHA-256 of each file against `SHA256SUMS` | Copies nothing |
+| 2. Folder | Asks for an absolute path with a drive letter. It must be inside Program Files unless `-AllowOutsideProgramFiles` is given. It rejects a drive root, `SystemRoot`, `ProgramFiles` and `ProgramData` themselves, and any folder that exists, is not empty and is not a VegaFlow installation. A folder that only holds `config` and `logs` (for example after `-KeepConfig`) is fine. A link named `config` or `logs` is not | Doesn't touch the folder |
+| 3. Previous install | If there is one, it stops its processes and runs `vegaflow_daemon.exe --restore-registry` to give back its changes | If that command fails, nothing is replaced |
+| 4. Files | Sets the permissions, writes `install.json` (the list of what was installed), creates `config\` and `logs\`, copies the daemon, `uninstall.ps1`, `VERSION` and `config\config.json` (an existing `config.json` is kept if an administrator owns it), checks the hashes of the copies, and runs `--version` to confirm it matches the package | Stops with the reason |
+| 5. Windows | Registers Add/Remove Programs and the Start menu shortcut (it opens `--gui`); with `-Autostart`, also the task | — |
 
-Sobre los permisos: se fijan por identificador de seguridad (SID) para que funcionen en un Windows en cualquier idioma. SYSTEM y Administradores tienen control total, Users solo lectura, y el propietario es Administradores. Un `config.json` que ya existía **se conserva solo si su dueño es SYSTEM o Administradores**: uno plantado por otra cuenta no se hereda, porque el daemon aplica la misma regla al leerlo (ver [`security.md`](./security.md), punto 5).
+Permissions are set by **SID** (a security identifier, a number that Windows uses for each account and group), so they work on Windows in any language. SYSTEM and Administrators get full control, Users get read and execute only, and the owner is Administrators. An existing `config.json` is **kept only if its owner is SYSTEM or Administrators**. A file planted by another account is not inherited, because the daemon applies the same rule when it reads it (see [`security.md`](./security.md), point 5).
 
-La entrada de «Agregar o quitar programas» tiene nombre fijo: si instalas en dos carpetas, apunta a la última.
+The Add/Remove Programs entry has a fixed name. If you install into two folders, it points to the last one.
 
-## Paso 5 de 5: comprobar
+## Step 5 of 5: check
 
 ```powershell
 & "C:\Program Files\VegaFlow\vegaflow_daemon.exe" --version
 ```
 
-Deberías ver `VegaFlow Universal 0.1.0`.
+You should see `VegaFlow Universal 0.1.0`.
 
-## Desinstalar
+## Uninstall
 
-Desde «Agregar o quitar programas», o con el script que se copió a la carpeta de instalación:
+Use Add/Remove Programs, or run the script that was copied into the install folder:
 
 ```powershell
 & "C:\Program Files\VegaFlow\uninstall.ps1"
 ```
 
-| Parámetro | Qué hace |
+| Parameter | What it does |
 | --- | --- |
-| `-InstallDir <ruta>` | Carpeta a desinstalar. Por defecto, la del propio script |
-| `-KeepConfig` | Conserva la carpeta `config\` (`config.json` y lo que el daemon guarda allí) |
-| `-DryRun` | Muestra los pasos sin cambiar nada |
+| `-InstallDir <path>` | Folder to uninstall. Default: the script's own folder. Must be an absolute path with a drive letter |
+| `-KeepConfig` | Keeps the `config\` folder (`config.json` and whatever the daemon saves there) |
+| `-Force` | Deletes even if giving the changes back failed. The registry backups stay in `HKLM\SOFTWARE\VegaFlow\RegBackup` |
+| `-DryRun` | Shows the steps without changing anything |
 
-Qué devuelve y qué borra, en orden:
+What it gives back and what it deletes, in order:
 
-1. **Solo actúa en una carpeta de VegaFlow:** tiene que contener `vegaflow_daemon.exe` e `install.json`. Si no, no borra nada.
-2. **Para el daemon** de esa carpeta.
-3. **Devuelve los cambios al sistema** con `--restore-registry` (lo que está en el diario de cambios y en las copias de `SOFTWARE\VegaFlow\RegBackup`). **Si falla, no borra nada** y dice por qué, para no perder la copia de los valores originales; revisa la salida y vuelve a ejecutarlo.
-4. **Quita solo lo que apunta a esa carpeta:** la entrada de «Agregar o quitar programas», el acceso del menú Inicio y la tarea `VegaFlow`.
-5. **Borra** los archivos que lista `install.json`, `logs\` y `config\` (salvo con `-KeepConfig`). `install.json` y `uninstall.ps1` van al final, para poder repetir si algo se interrumpe. Si la carpeta queda vacía, la borra; si queda algo, lo lista.
+1. **It acts only on a VegaFlow folder.** The folder must contain `install.json`, the mark that the installer leaves. If it doesn't, nothing is deleted. If `config\` or `logs\` is a link instead of a folder, it stops.
+2. **It stops the daemon** in that folder.
+3. **It gives the changes back to the system** with `--restore-registry`: the entries in the change journal (the log of changes VegaFlow made) and the copies under `SOFTWARE\VegaFlow\RegBackup`. **If that fails, it deletes nothing** and says why, so the copies of the original values are not lost. Read the output and run it again. With `-Force` it deletes anyway. If `vegaflow_daemon.exe` is missing, it warns and goes on without giving anything back.
+4. **It removes only what points to that folder:** the Add/Remove Programs entry, the Start menu shortcut and the `VegaFlow` task.
+5. **It deletes** `logs\` and `config\` (unless `-KeepConfig`), then `VERSION` and `vegaflow_daemon.exe`. `install.json` and `uninstall.ps1` go last, so the script can run again if anything was interrupted. The list of files is fixed inside the script; it is not read from `install.json`. If the folder ends up empty, the script removes it. If anything is left, the script lists it.
 
-Para reinstalar encima de una carpeta que dejó `-KeepConfig`, ejecuta `install.ps1 -InstallDir` con esa misma ruta: conserva el `config.json` si sigue siendo de un administrador.
+To reinstall over a folder that `-KeepConfig` left behind, run `install.ps1` from the package with `-InstallDir` set to that same path. It keeps `config.json` if an administrator still owns it.
 
-## Errores frecuentes
+## Common errors
 
-| Mensaje (resumido) | Causa y qué hacer |
+| Message (summarized) | Cause and what to do |
 | --- | --- |
-| `... no coincide con SHA256SUMS: el paquete está dañado o fue modificado. No se instaló nada.` | Un archivo cambió. Descarga el zip otra vez y verifícalo (paso 1) |
-| `Falta SHA256SUMS` o `Falta <archivo>` | El paquete está incompleto: descomprime el zip entero |
-| `InstallDir no puede ser ...` | Usa una subcarpeta propia, no la raíz ni `Program Files` a secas |
-| `... existe, no está vacía y no es una instalación de VegaFlow. No se toca.` | Elige otra carpeta |
-| `--restore-registry ... terminó con código N` (al instalar o desinstalar) | No pudo devolver los cambios anteriores y se detuvo antes de borrar o reemplazar nada. Lee la salida, corrige y vuelve a ejecutar |
-| `... no parece una instalación de VegaFlow` | La carpeta no tiene `vegaflow_daemon.exe` o `install.json`: revisa `-InstallDir` |
-| Error de `#requires -RunAsAdministrator` | Abre PowerShell como administrador |
+| `... no coincide con SHA256SUMS: el paquete está dañado. No se instaló nada.` | A file changed. Download the zip again and verify it (step 1) |
+| `Falta SHA256SUMS` or `Falta <file>` | The package is incomplete: unzip the whole zip |
+| `InstallDir no puede ser ...` | Use your own subfolder, not the root or `Program Files` itself |
+| `InstallDir debe estar dentro de Program Files ...` | Use a folder inside Program Files. Only if no standard user can write to the parent folder, add `-AllowOutsideProgramFiles` |
+| `... existe, no está vacía y no es una instalación de VegaFlow. No se toca.` | Choose another folder |
+| `Ya existe una tarea 'VegaFlow' que no es de VegaFlow. No se reemplaza.` | With `-Autostart`, a different task already uses that name. Rename or remove it, then install again |
+| `-Autostart no se puede combinar con -NoShell.` | Remove one of the two parameters |
+| `--restore-registry ... terminó con código N` (on install or uninstall) | Earlier changes could not be given back, so it stopped before deleting or replacing anything. Read the output, fix the cause and run again |
+| `... no parece una instalación de VegaFlow (falta install.json)` | The folder has no `install.json`: check `-InstallDir` |
+| `#requires -RunAsAdministrator` error | Open PowerShell as administrator |
 
-## Probar el paquete de extremo a extremo
+## Test the package end to end
 
-`tests/package/package_tests.ps1` instala, aplica un cambio real, desinstala y compara el sistema con el de antes. Solo corre en un Windows real, como administrador, y cambia por unos segundos `OverlayTestMode` (con `--mpo-disable`), así que no se ejecuta con un juego abierto.
+`tests/package/package_tests.ps1` installs, applies a real change, uninstalls, and compares the system with its earlier state. It only runs on a real Windows machine, as administrator. For a few seconds it changes `OverlayTestMode` (with `--mpo-disable`), a Windows graphics setting (MPO, multiplane overlay), so don't run it while a game is open.
 
 ```powershell
-# Carpeta temporal: instala en C:\ProgramData\vf-pkgtest-<8 caracteres> y la borra al final
+# Temporary folder: installs into C:\ProgramData\vf-pkgtest-<8 characters> and deletes it at the end
 .\tests\package\package_tests.ps1 -PackageDir .\dist\VegaFlow-0.1.0-win-x64
 
-# Instalación real: prueba también «Agregar o quitar programas» y el acceso de Inicio
+# Real installation: also tests the Add/Remove Programs entry and the Start menu shortcut
 .\tests\package\package_tests.ps1 -PackageDir .\dist\VegaFlow-0.1.0-win-x64 -InstallDir 'C:\Program Files\VegaFlow' -Shell
 ```
 
-`-PackageDir` es la carpeta ya descomprimida, no el zip. Con `-Shell` la carpeta de destino no debe existir y no puede haber otra entrada VegaFlow en «Agregar o quitar programas»: desinstala antes si la hay.
+`-PackageDir` is the folder that is already unzipped, not the zip. The target folder must not exist, with or without `-Shell`. With `-Shell`, there must also be no other VegaFlow entry in Add/Remove Programs: uninstall first if there is one.
 
-Qué comprueba, en diez grupos: `-DryRun` no cambia nada; un paquete con el `.exe` alterado se rechaza antes de copiar; la instalación deja los archivos, `--version` correcto, propietario Administradores y Users sin escritura; reinstalar conserva el `config.json` del administrador; un cambio real (`--mpo-disable`) pone `OverlayTestMode` en 5 y guarda su copia; desinstalar con `-DryRun` no toca nada; desinstalar con `-KeepConfig` devuelve el valor de antes y guarda la configuración; reinstalar sobre esa carpeta y desinstalar del todo borra la carpeta; carpetas ajenas y `C:\Program Files` a secas se rechazan sin tocar nada; y al final el plan de energía, `OverlayTestMode`, la entrada, el acceso y la tarea quedan como al empezar. Termina con código 0 solo si todo pasó.
+What it checks, in groups numbered 1 to 10 (with 8b and 8c) in the script:
 
-Resultado en el laptop de pruebas (2026-11-14): `38 PASSED, 0 FAILED` con la carpeta temporal y `41 PASSED, 0 FAILED` con `C:\Program Files\VegaFlow` y `-Shell`.
+- `-DryRun` changes nothing (1).
+- A package with an altered `.exe` is rejected before anything is copied (2).
+- The install puts the files in place, `--version` is correct, the owner is Administrators, and Users cannot write (3).
+- Reinstalling keeps the administrator's `config.json` (4).
+- A real change (`--mpo-disable`) sets `OverlayTestMode` to 5 and keeps a copy of the original value (5).
+- Uninstalling with `-DryRun` changes nothing (6).
+- Uninstalling with `-KeepConfig` restores the earlier value and keeps the configuration (7).
+- Reinstalling over that folder and uninstalling fully deletes the folder. A name with `..` in `install.json` cannot delete files outside it. A corrupt journal stops the uninstall and deletes nothing (8).
+- Rejected paths and combinations: outside Program Files without `-AllowOutsideProgramFiles`, `-Autostart` with `-NoShell`, and a relative path (8b).
+- A link named `logs` stops the uninstall, and the link's target is not touched (8c).
+- Folders that hold someone else's files are not touched, and `C:\Program Files` itself is rejected (9).
+- At the end, the power plan, `OverlayTestMode`, the Add/Remove entry, the shortcut and the task are as they were at the start (10).
 
-## Generar el paquete
+The script exits with code 0 only if every check passed.
 
-Se hace desde un Mac o Linux con `scripts/package.sh`; está en [`build-and-test.md`](./build-and-test.md).
+Result recorded on the test laptop on 2026-11-14 (commit `1ef00a8`; not re-run for this page, and the script has gained checks since). The script prints `PACKAGE TESTS: N PASSED, M FAILED`. The temporary-folder run gave `38 PASSED, 0 FAILED`, and the run with `C:\Program Files\VegaFlow` and `-Shell` gave `41 PASSED, 0 FAILED`.
 
-## Documentos relacionados
+## Build the package
 
-- Qué hace el daemon una vez instalado: [`usage-and-features.md`](./usage-and-features/).
-- Cómo devuelve `--restore-registry` los cambios y qué es el diario: [`security.md`](./security.md).
-- Historial de versiones: [`../../CHANGELOG.md`](https://github.com/partprogramming09/vegaflow-universal/blob/main/CHANGELOG.md).
+It is built on a Mac or Linux with `scripts/package.sh`. See [`build-and-test.md`](./build-and-test.md).
+
+## Related documents
+
+- What the daemon does once installed: [`usage-and-features/daemon-and-cli.md`](./usage-and-features/daemon-and-cli.md).
+- How `--restore-registry` gives changes back and what the journal is: [`security.md`](./security.md).
+- Version history: [`CHANGELOG.md`](https://github.com/partprogramming09/vegaflow-universal/blob/main/CHANGELOG.md).
