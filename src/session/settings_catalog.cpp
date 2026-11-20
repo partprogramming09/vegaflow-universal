@@ -4,7 +4,7 @@ namespace vegaflow {
 
 namespace {
 
-// Evidence: docs/mediciones/estado-de-verificacion.md. Nothing is Gain yet: the only measured gain is process
+// Evidence: docs/measurements/verification-status.md. Nothing is Gain yet: the only measured gain is process
 // isolation, which is not a row here. shortcut: evidence is per machine, not per class of machine; per class when
 // there is more than one measured class. A row that bundles several writes is NoEffect only if every write was measured.
 // target/change are checked against what the optimizer writes (src/optimize/graphics/*.cpp); keep them in step.

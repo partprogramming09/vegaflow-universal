@@ -2,7 +2,7 @@
 
 **Lector:** personas. Fecha: 2026-11-08 (propuesta). Estado: **aceptado** el 2026-11-14.
 
-**Evidencia de la aceptación (2026-11-14):** fases 1 a 8 y R3 hechas; `scripts/check_layers.sh` pasa (272 includes, capas respetadas) y `src/session/` ya no llama a Win32. Resultado en [`docs/arquitectura/modulos.md`](../arquitectura/modulos.md).
+**Evidencia de la aceptación (2026-11-14):** fases 1 a 8 y R3 hechas; `scripts/check_layers.sh` pasa (272 includes, capas respetadas) y `src/session/` ya no llama a Win32. Resultado en [`modules.md`](../guides/modules.md).
 
 ## Contexto
 
@@ -74,7 +74,7 @@ Las reglas de la decisión:
 
 ## Consecuencias
 
-- Las mejoras se hacen **por piezas** (patrón *strangler*), dentro de las fases del plan [`docs/plan/maestro/`](../plan/maestro/README.md). En cada fase, la decisión pasa al núcleo y la acción se pone detrás de su puerto.
+- Las mejoras se hacen **por piezas** (patrón *strangler*), dentro de las fases del plan maestro (material de trabajo, fuera del repo). En cada fase, la decisión pasa al núcleo y la acción se pone detrás de su puerto.
 - Mover archivos y cambiar lógica van siempre en **commits distintos**.
 - La regla "las dependencias apuntan hacia dentro" la comprueba un script en el CI (`scripts/check_layers.sh`). La cabecera del puente C++ ↔ Rust se genera desde Rust con cbindgen, para que los dos lados no se separen.
 - El consumo en reposo tiene que seguir por debajo de 15 MB. Las llamadas virtuales cuestan nanosegundos, así que no lo afectan, pero se mide al final.

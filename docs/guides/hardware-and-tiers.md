@@ -9,9 +9,8 @@ Fuentes: `src/detect/hardware_profiler.cpp:268` (asigna 0 antes del `switch` por
 
 VegaFlow está optimizado a nivel de microarquitectura para APUs (Accelerated Processing Units) de AMD, con el banco de pruebas principal centrado en el procesador **AMD Ryzen 5 4600H** (6 núcleos, 12 hilos, arquitectura Zen 2 a 3.0 GHz base / 4.0 GHz boost) acoplado a gráficos integrados **AMD Radeon RX Vega 6** (6 Compute Units / 384 Stream Processors a 1500 MHz, arquitectura GCN 5.0).
 
-![Arquitectura UMA: la CPU Zen 2 y la iGPU Vega 6 pasan por el mismo Infinity Fabric e IMC, en doble canal DDR4-3200, a 16 GB de memoria compartida; la BIOS informa de 512 MB dedicados, pero la GPU puede usar hasta 8192 MB](../diagrams/arquitectura-uma.png)
+![Arquitectura UMA: la CPU Zen 2 y la iGPU Vega 6 pasan por el mismo Infinity Fabric e IMC, en doble canal DDR4-3200, a 16 GB de memoria compartida; la BIOS informa de 512 MB dedicados, pero la GPU puede usar hasta 8192 MB](./img/arquitectura-uma.png)
 
-[Ver el diagrama a pantalla completa](../diagrams/arquitectura-uma.html)
 
 ### 2.1. El Cuello de Botella de la Memoria UMA (Unified Memory Architecture)
 A diferencia de una tarjeta gráfica dedicada que cuenta con su propio bus GDDR6 de 128 o 256 bits (ancho de banda de 200 a 500+ GB/s), la APU comparte la memoria RAM del sistema a través de un bus DDR4 de 128 bits dual-channel con un ancho de banda teórico de ~42 GB/s.
@@ -111,7 +110,7 @@ Aunque **VegaFlow Universal** nació como un framework de optimización para arq
 
 ### 2. Arquitectura del Subsistema `ApuCapabilityGuard`
 
-Se introduce una estructura determinista de clasificación y políticas en [`src/model/hardware.hpp`](../../src/model/hardware.hpp) (tipos; la detección en `src/detect/hardware_profiler.cpp`) e [`src/optimize/graphics/graphics_optimizer.hpp`](../../src/optimize/graphics/graphics_optimizer.hpp) que actúa como **única fuente de verdad** para los límites de DX11, DX12, memoria UMA y energía.
+Se introduce una estructura determinista de clasificación y políticas en [`src/model/hardware.hpp`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/model/hardware.hpp) (tipos; la detección en `src/detect/hardware_profiler.cpp`) e [`src/optimize/graphics/graphics_optimizer.hpp`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/optimize/graphics/graphics_optimizer.hpp) que actúa como **única fuente de verdad** para los límites de DX11, DX12, memoria UMA y energía.
 
 #### 2.1. Enumeración de Tiers (`ApuTier`) y Generación de Arquitectura (`GpuArchitectureGen`)
 
@@ -211,23 +210,23 @@ struct ApuOptimizationPolicy {
 ### 4. Integración en los Módulos Existentes
 
 #### 4.1. `HardwareProfiler` y `SystemInfo`
-- En [`src/model/hardware.hpp`](../../src/model/hardware.hpp) y [`src/detect/hardware_profiler.cpp`](../../src/detect/hardware_profiler.cpp):
+- En [`src/model/hardware.hpp`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/model/hardware.hpp) y [`src/detect/hardware_profiler.cpp`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/detect/hardware_profiler.cpp):
   - Añadir `ApuTier`, `GpuArchitectureGen` y `ApuOptimizationPolicy`.
   - Añadir campos `arch_gen` y `apu_tier` a `SystemHardwareProfile`.
   - Implementar `HardwareProfiler::BuildOptimizationPolicy(const SystemHardwareProfile& profile, uint64_t live_dxgi_local_budget_bytes = 0)` y funciones auxiliares `ApuTierToString` y `ArchGenToString`.
-- En [`src/session/system_info.cpp`](../../src/session/system_info.cpp) e [`src/session/system_info.hpp`](../../src/session/system_info.hpp):
+- En [`src/session/system_info.cpp`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/session/system_info.cpp) e [`src/session/system_info.hpp`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/session/system_info.hpp):
   - En `GatherGpu()`: Reemplazar el sufijo fijo `" (Vega 6 / GCN 5.0)"` por el sufijo real según `arch_gen` (ej. mantiene `" (Vega 6 / GCN 5.0)"` cuando es Renoir 4600H / GCN5 para preservar compatibilidad total con los reportes actuales, pero muestra `" (RDNA 2 UMA)"`, `" (RDNA 3/3.5 UMA)"` o `" (Intel Xe/Arc UMA)"` en otros equipos).
   - En `GatherCpu()`: Ajustar `boost_target_ghz` y `stapm_target` según la política (`boost_target_ghz` y cadena `stapm_target` en `src/session/system_info.cpp`: Tier 1 `3.5 GHz` con `"Smart Uncapped Boost"`; Tier 2 `4.0 GHz` con `"4.0 GHz Smart Uncapped"`; Tier 3 y 4 `4.4 GHz` con `"Dynamic Boost (Efficient Aggressive / Uncapped Guard)"`).
   - Exportar en `SystemInfo::ToJson()` un bloque adicional `"apu_guard"` con `tier`, `guard_mode`, `safe_vram_pool_mb`, `dx12_async_compute_allowed`, `dxvk_compiler_threads` y `tessellation_cap`.
 
 #### 4.2. `DxvkManager` (Especialización DirectX 11 -> Vulkan)
-- En [`src/optimize/dxvk_manager.cpp`](../../src/optimize/dxvk_manager.cpp):
+- En [`src/optimize/dxvk_manager.cpp`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/optimize/dxvk_manager.cpp):
   - `DeployDxvk()` y `ConfigureApuProfile()` reciben la política ya calculada (`const ApuOptimizationPolicy&`; desde la fase R2 no detectan el hardware en cada llamada: el daemon la construye una vez al arrancar).
   - Escribir `dxvk.numCompilerThreads`, `dxgi.maxDeviceMemory` y `dxgi.maxSharedMemory` usando los valores de la política (`policy.dxvk_compiler_threads`, `policy.safe_vram_pool_mb`, `policy.safe_shared_pool_mb`).
   - En `ValidateDxvkApuProfile()`: Aceptar como válido cualquier `compilerThreads` entre `1` y `16` que coincida con la política del sistema (en el Ryzen 5 4600H seguirá siendo `6`, pasando el Test 24 sin cambios).
 
 #### 4.3. `SteamEngineOptimizer` (Especialización DirectX 11 y DirectX 12 en Motores)
-- En [`src/optimize/steam/`](../../src/optimize/steam/):
+- En [`src/optimize/steam/`](https://github.com/partprogramming09/vegaflow-universal/tree/main/src/optimize/steam):
   - En `ApplyEngineUmaPreset()`:
     - Consultar la política `ApuOptimizationPolicy`.
     - Si `vram_pool_mb == 0`, usar `policy.safe_vram_pool_mb`. Si el usuario o llamador pasa un `vram_pool_mb` explícito, acotarlo con el Guard si estamos en `Tier1_EntryUMA` para nunca exceder la reserva del SO.
@@ -235,7 +234,7 @@ struct ApuOptimizationPolicy {
     - **DirectX 12 Guard:** Si `policy.disable_dx12_async_compute == true` (Tier 1 y Tier 2), escribir `r.RDG.AsyncCompute=0` y `D3D12.AsyncCompute=0`. Si es `false` (**Tier 3 Advanced APU Guard**), escribir `r.RDG.AsyncCompute=1` y `D3D12.AsyncCompute=1` para permitir que los motores RDNA2/RDNA3 aprovechen sus colas de cómputo asíncrono en DX12.
 
 #### 4.4. `GraphicsOptimizer` (Límites de Driver, Teselación y STAPM)
-- En [`src/optimize/graphics/`](../../src/optimize/graphics/):
+- En [`src/optimize/graphics/`](https://github.com/partprogramming09/vegaflow-universal/tree/main/src/optimize/graphics):
   - En `SetApuPowerMode(ApuPowerMode::GpuPrioritySustained)`:
     - Consultar `policy.cpu_stapm_cap_mhz`.
     - Copia `cpu_max_freq = policy.cpu_stapm_cap_mhz`. Hoy vale `0` en todos los tiers, es decir, sin techo (así lo comenta `hardware.hpp`: *Uncapped*). El código no distingue tiers en este punto.
@@ -244,7 +243,7 @@ struct ApuOptimizationPolicy {
     - Usar `policy.amd_tessellation_cap` (`8`, `16` o `32`) en lugar de forzar `16` en todas las generaciones.
 
 #### 4.5. Guard Reactivo en Tiempo Real (`MemoryManager::EvaluateUmaPressureGuard`)
-- En [`src/optimize/memory_manager.hpp`](../../src/optimize/memory_manager.hpp) y [`src/optimize/memory_manager.cpp`](../../src/optimize/memory_manager.cpp):
+- En [`src/optimize/memory_manager.hpp`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/optimize/memory_manager.hpp) y [`src/optimize/memory_manager.cpp`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/optimize/memory_manager.cpp):
   - Añadir estructura `UmaGuardStatus`:
     ```cpp
     struct UmaGuardStatus {

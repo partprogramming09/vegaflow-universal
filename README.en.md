@@ -26,11 +26,11 @@ On an APU the CPU and the iGPU share the RAM and the thermal budget, and the sys
 - **Reversible:** every change keeps a copy (`.vegaflow.bak`, or the original registry value); `--restore-registry` brings them all back.
 - **Lightweight:** no heavy frameworks; Win32/GDI GUI and under 15 MB at rest.
 
-Each feature is described in [`docs/guias/uso-y-funciones.md`](docs/guias/uso-y-funciones.md) (Spanish).
+Each feature is described in [`docs/guides/usage-and-features.md`](docs/guides/usage-and-features.md) (Spanish).
 
 ## Measured results
 
-The figures come from PresentMon, with their method and limits, in [`docs/mediciones/`](docs/mediciones/); what is still unmeasured is in [`estado-de-verificacion.md`](docs/mediciones/estado-de-verificacion.md). In short: in Octopath Traveler II the UMA preset in `Engine.ini` gave +40% average FPS in the overworld (one non-interleaved capture, cause not isolated); in Zenless Zone Zero the daemon did not change the FPS (58.57 to 58.89, no effect) and there was no anti-cheat ban.
+The figures come from PresentMon, with their method and limits, in [`docs/measurements/`](docs/measurements/); what is still unmeasured is in [`verification-status.md`](docs/measurements/verification-status.md). In short: in Octopath Traveler II the UMA preset in `Engine.ini` gave +40% average FPS in the overworld (one non-interleaved capture, cause not isolated); in Zenless Zone Zero the daemon did not change the FPS (58.57 to 58.89, no effect) and there was no anti-cheat ban.
 
 ## Install
 
@@ -41,7 +41,7 @@ The `VegaFlow-0.1.0-win-x64.zip` package holds the daemon and two PowerShell scr
 .\install.ps1            # installs into C:\Program Files\VegaFlow
 ```
 
-`install.ps1` checks the SHA-256 of every file before copying. `uninstall.ps1` gives the system back VegaFlow's changes before it deletes anything. VegaFlow does not start with Windows unless you ask for it with `-Autostart`. The package is not code-signed: check its hash. Full guide: [install and uninstall](docs/guias/instalar-y-desinstalar.md) (in Spanish).
+`install.ps1` checks the SHA-256 of every file before copying. `uninstall.ps1` gives the system back VegaFlow's changes before it deletes anything. VegaFlow does not start with Windows unless you ask for it with `-Autostart`. The package is not code-signed: check its hash. Full guide: [install and uninstall](docs/guides/install-and-uninstall.md) (in Spanish).
 
 ## Build and use
 
@@ -53,7 +53,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1 -RunTests
 
 From a Mac or Linux you can cross-compile (`scripts/build-cross.sh`, needs mingw-w64) and test the `.exe` files on a Windows machine. The rules written in Rust can be tested on any system: `cargo test --manifest-path rust/vegaflow-core/Cargo.toml`.
 
-Guides: [build and test](docs/guias/compilar-y-probar.md) and [using the daemon](docs/guias/uso-y-funciones.md) (Spanish).
+Guides: [build and test](docs/guides/build-and-test.md) and [using the daemon](docs/guides/usage-and-features.md) (Spanish).
 
 ## Repository layout
 
@@ -78,7 +78,7 @@ docs/               all the documentation (see docs/README.md)
 
 ## Documentation
 
-Start with [`docs/README.md`](docs/README.md): a "What do you want to do?" table points you to the document you need. What is still to be done is in [`docs/plan/`](docs/plan/).
+Start with [`docs/README.md`](docs/guides/index.md): a "What do you want to do?" table points you to the document you need.
 
 ## Safety
 

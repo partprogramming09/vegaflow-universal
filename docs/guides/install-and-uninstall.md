@@ -10,7 +10,7 @@
 
 - Windows 10 u 11 de 64 bits y PowerShell.
 - Una consola de PowerShell **como administrador**: los dos scripts lo exigen y fallan si no.
-- El paquete **no está firmado**: Windows puede mostrar un aviso al abrirlo. Por eso conviene verificar el hash (paso 1). La firma y otros formatos de instalador están en [`plan/maestro/fuera-del-plan.md`](../plan/maestro/fuera-del-plan.md).
+- El paquete **no está firmado**: Windows puede mostrar un aviso al abrirlo. Por eso conviene verificar el hash (paso 1). La firma y otros formatos de instalador están fuera del alcance actual.
 
 Si PowerShell bloquea los scripts por su política de ejecución, lánzalos así: `powershell -ExecutionPolicy Bypass -File .\install.ps1`.
 
@@ -73,7 +73,7 @@ Qué hace, en orden:
 | 4. Archivos | Copia el daemon, `uninstall.ps1`, `VERSION` y `config\config.json`; fija los permisos y escribe `install.json`, la lista de lo instalado; ejecuta `--version` y comprueba que coincide con el paquete | Error con el motivo |
 | 5. Windows | Registra «Agregar o quitar programas» y el acceso del menú Inicio (abre `--gui`); con `-Autostart`, la tarea | — |
 
-Sobre los permisos: se fijan por identificador de seguridad (SID) para que funcionen en un Windows en cualquier idioma. SYSTEM y Administradores tienen control total, Users solo lectura, y el propietario es Administradores. Un `config.json` que ya existía **se conserva solo si su dueño es SYSTEM o Administradores**: uno plantado por otra cuenta no se hereda, porque el daemon aplica la misma regla al leerlo (ver [`arquitectura/seguridad.md`](../arquitectura/seguridad.md), punto 5).
+Sobre los permisos: se fijan por identificador de seguridad (SID) para que funcionen en un Windows en cualquier idioma. SYSTEM y Administradores tienen control total, Users solo lectura, y el propietario es Administradores. Un `config.json` que ya existía **se conserva solo si su dueño es SYSTEM o Administradores**: uno plantado por otra cuenta no se hereda, porque el daemon aplica la misma regla al leerlo (ver [`security.md`](./security.md), punto 5).
 
 La entrada de «Agregar o quitar programas» tiene nombre fijo: si instalas en dos carpetas, apunta a la última.
 
@@ -141,10 +141,10 @@ Resultado en el laptop de pruebas (2026-11-14): `38 PASSED, 0 FAILED` con la car
 
 ## Generar el paquete
 
-Se hace desde un Mac o Linux con `scripts/package.sh`; está en [`compilar-y-probar.md`](compilar-y-probar.md).
+Se hace desde un Mac o Linux con `scripts/package.sh`; está en [`build-and-test.md`](./build-and-test.md).
 
 ## Documentos relacionados
 
-- Qué hace el daemon una vez instalado: [`uso-y-funciones.md`](uso-y-funciones.md).
-- Cómo devuelve `--restore-registry` los cambios y qué es el diario: [`../arquitectura/seguridad.md`](../arquitectura/seguridad.md).
-- Historial de versiones: [`../../CHANGELOG.md`](../../CHANGELOG.md).
+- Qué hace el daemon una vez instalado: [`usage-and-features.md`](./usage-and-features.md).
+- Cómo devuelve `--restore-registry` los cambios y qué es el diario: [`security.md`](./security.md).
+- Historial de versiones: [`../../CHANGELOG.md`](https://github.com/partprogramming09/vegaflow-universal/blob/main/CHANGELOG.md).

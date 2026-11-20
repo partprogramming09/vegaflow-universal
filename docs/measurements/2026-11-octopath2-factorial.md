@@ -18,15 +18,15 @@ Para validar el comportamiento en un escenario comercial complejo, se ejecutó u
 La siguiente secuencia documental ilustra el proceso completo de carga y los estados de renderizado medidos directamente en la sesión de juego:
 
 ````carousel
-![Pantalla de Título - Octopath Traveler II (60 FPS)](../assets/octopath2/01_titulo.png)
+![Pantalla de Título - Octopath Traveler II (60 FPS)](./assets/octopath2/01_titulo.png)
 <!-- slide -->
-![Menú Principal - Selección de Continuar Partida](../assets/octopath2/02_menu_continuar.png)
+![Menú Principal - Selección de Continuar Partida](./assets/octopath2/02_menu_continuar.png)
 <!-- slide -->
-![Pantalla de Carga - Autoguardado (Tierras Radiantes: Llanuras de Nueva Delsta - Nv. 18 Hikari)](../assets/octopath2/03_carga_autoguardado.png)
+![Pantalla de Carga - Autoguardado (Tierras Radiantes: Llanuras de Nueva Delsta - Nv. 18 Hikari)](./assets/octopath2/03_carga_autoguardado.png)
 <!-- slide -->
-![❌ ANTES: Escena Nocturna de Fábrica + Sin Daemon -> 29 FPS | 1,025.0 MB VRAM Saturada | 3.49 GHz CPU](../assets/octopath2/04_ingame_fabrica_29fps.png)
+![❌ ANTES: Escena Nocturna de Fábrica + Sin Daemon -> 29 FPS | 1,025.0 MB VRAM Saturada | 3.49 GHz CPU](./assets/octopath2/04_ingame_fabrica_29fps.png)
 <!-- slide -->
-![✅ DESPUÉS: Preset UMA/CSM=2 + VegaFlow -> 43 FPS (+48% instantáneo) | 945.0 MB VRAM (-80 MB) | Reloj CPU Sostenido](../assets/octopath2/05_ingame_vegaflow_43fps.png)
+![✅ DESPUÉS: Preset UMA/CSM=2 + VegaFlow -> 43 FPS (+48% instantáneo) | 945.0 MB VRAM (-80 MB) | Reloj CPU Sostenido](./assets/octopath2/05_ingame_vegaflow_43fps.png)
 ````
 
 ---
@@ -62,7 +62,7 @@ Para cuantificar el aporte individual exacto de cada mecanismo bajo condiciones 
 | **`all` (Sinergia Total)** | **Afinidad + EcoQoS + I/O NT + Preset UMA** | **`34.78 FPS`** | **+117.2%** | **`26.19 FPS`** | **+136.8%** | **`24.36 FPS`** | **`2.215 ms` (-63.4%)** |
 
 > [!WARNING]
-> **Límites de esta tabla.** La genera [`scripts/remote/run_octo_factors.ps1`](../../scripts/remote/run_octo_factors.ps1): una sola captura de 20 s por condición (4 s de calentamiento), en orden fijo `base`, `aff`, `eco`, `io`, `all`, sin intercalar ni repetir. A estos FPS, 20 s son unos 320 cuadros: el 1% Low sale de unos 3 y el 0.1% Low de uno solo, así que esas columnas son ruido según los umbrales del plan (al menos 5 capturas por condición, orden ABBA y 120 s para el 1% Low). Los porcentajes de `io` y `eco` no pasan esos umbrales; lo que se sostiene es el efecto grande de `aff`, medido aparte con el protocolo completo. El script no aplica el preset UMA a `all`: esa fila solo combina afinidad, EcoQoS y prioridad de E/S. La explicación por fallos de página de la sección 2.5 es una hipótesis, no está aislada.
+> **Límites de esta tabla.** La genera [`scripts/remote/run_octo_factors.ps1`](https://github.com/partprogramming09/vegaflow-universal/blob/main/scripts/remote/run_octo_factors.ps1): una sola captura de 20 s por condición (4 s de calentamiento), en orden fijo `base`, `aff`, `eco`, `io`, `all`, sin intercalar ni repetir. A estos FPS, 20 s son unos 320 cuadros: el 1% Low sale de unos 3 y el 0.1% Low de uno solo, así que esas columnas son ruido según los umbrales del plan (al menos 5 capturas por condición, orden ABBA y 120 s para el 1% Low). Los porcentajes de `io` y `eco` no pasan esos umbrales; lo que se sostiene es el efecto grande de `aff`, medido aparte con el protocolo completo. El script no aplica el preset UMA a `all`: esa fila solo combina afinidad, EcoQoS y prioridad de E/S. La explicación por fallos de página de la sección 2.5 es una hipótesis, no está aislada.
 
 ````carousel
 ```
@@ -105,7 +105,7 @@ Un hallazgo empírico de alto valor de ingeniería se manifiesta al comparar el 
 * En `drawstress.exe`, la prioridad de E/S produjo un impacto de **`+0.0%`**, dado que dicho binario ocupaba solo `2 MB` y residía en su totalidad en memoria sin realizar lecturas a disco ni paginación.
 * En **Octopath Traveler II**, el motor Unreal Engine 4 mantenía un **Working Set de `2,340 MB`** con un uso de memoria global del sistema al **71% (`10.9 GB / 15.4 GB`)**, mientras que la memoria gráfica UMA solicitaba **`945 MB`** sobre los `495 MB` dedicados en BIOS (desbordando activamente hacia la RAM del sistema).
 * Bajo esta condición, los 6 workers de fondo provocaban fallos de página (*hard and soft page faults*) constantes e intercalaban lecturas en el controlador de almacenamiento NVMe. Esto generaba contención en el hilo de carga asíncrona de texturas y geometría de Unreal Engine (*Async Loading Thread*).
-* Al invocar [`NtSetInformationProcess`](../../src/optimize/cpu_orchestrator.cpp#L170-L330) con `IoPriorityVeryLow` (nivel 0), el kernel relega las solicitudes de disco y fallos de página de los procesos de fondo a la cola de menor prioridad del driver de almacenamiento, garantizando paso expedito al streaming de texturas del juego. Como resultado directo, el **`1% Low` aumentó de `11.06` a `14.30 FPS` (+29.3%)** y el jitter se redujo en un **`-24.4%`** sin necesidad de tocar la afinidad de la CPU.
+* Al invocar [`NtSetInformationProcess`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/optimize/cpu_orchestrator.cpp#L170-L330) con `IoPriorityVeryLow` (nivel 0), el kernel relega las solicitudes de disco y fallos de página de los procesos de fondo a la cola de menor prioridad del driver de almacenamiento, garantizando paso expedito al streaming de texturas del juego. Como resultado directo, el **`1% Low` aumentó de `11.06` a `14.30 FPS` (+29.3%)** y el jitter se redujo en un **`-24.4%`** sin necesidad de tocar la afinidad de la CPU.
 
 ---
 

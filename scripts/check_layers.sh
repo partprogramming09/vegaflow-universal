@@ -1,5 +1,5 @@
 #!/bin/bash
-# Checks that every #include "folder/..." in src/ respects the layer table in docs/plan/maestro/arquitectura.md (section 3b):
+# Checks that every #include "folder/..." in src/ respects the layer table in docs/guides/modules.md ("Tabla de capas"):
 # a folder may only include the folders listed for it. Exits 1 and lists every broken include.
 # Runs in CI (.github/workflows/ci.yml). Bash 3.2 compatible (macOS).
 set -u
@@ -7,7 +7,7 @@ cd "$(dirname "$0")/.." || exit 2
 
 # Folders each layer may include (its own folder is always allowed).
 # "Migration" entries are the old folders (detect/, optimize/): they go away phase by phase
-# (docs/plan/maestro/) and must be removed from these lists when they do.
+# and must be removed from these lists when they do.
 allowed() {
     case "$1" in
     app) echo "session ui model windows bridge detect optimize" ;;

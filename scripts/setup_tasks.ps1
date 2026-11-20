@@ -59,7 +59,7 @@ $settingsLong = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -
 function Register-VegaTask($name, $scriptArgs, $log, $script = 'tweaks_state.ps1', $taskSettings = $settings) {
     $cmd = "& '$dir\$script' $scriptArgs *> '$dir\$log'"
     # Hidden: a visible console over a fullscreen game takes it out of exclusive fullscreen (Legacy Flip -> Independent Flip)
-    # and skews every "daemon on" measurement (docs/mediciones/2026-11-09-diagnostico-laptop.md).
+    # and skews every "daemon on" measurement (docs/measurements/2026-11-09-diagnostico-laptop.md).
     $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -Command `"$cmd`""
     Register-ScheduledTask -TaskName $name -Action $action -Principal $principal -Settings $taskSettings -Force | Out-Null
 }

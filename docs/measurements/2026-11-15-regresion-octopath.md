@@ -23,5 +23,5 @@ En la tanda B las capturas con el daemon encendido dieron 43,13 · 43,07 · 43,0
 - Cada tanda son 3 capturas de **un solo lanzamiento** del juego, no 3 lanzamientos.
 - **SCSKiller en las tandas A y B.** La línea base dice «sin SCSKiller»; en A y B su `d3d11.dll` volvió a la carpeta del juego a las 02:23:20 porque el programa seguía abierto. La tanda C se repitió con el programa cerrado, el archivo renombrado y comprobado 15 s después: el resultado es el mismo (PASS, +0,84 % en FPS medio), así que SCSKiller no explica la diferencia. El 1 % Low queda por encima de la línea base en B y en C (+12 % y +15 %); no se investigó por qué.
 - La tanda C aplicó el preset copiando el `Engine.ini` de la tanda B, no con el botón de la GUI.
-- Windows 10.0.26300; PresentMon 2.6 según `docs/mediciones/2026-11-ab-daemon.md`.
+- Windows 10.0.26300; PresentMon 2.6 según `docs/measurements/2026-11-ab-daemon.md`.
 - No se probó nada sobre Zenless Zone Zero.

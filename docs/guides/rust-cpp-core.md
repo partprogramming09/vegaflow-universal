@@ -6,16 +6,15 @@
 
 Para garantizar que el propio software de optimización no introduzca latencia ni compita por la memoria del sistema, toda la lógica algorítmica y de evaluación en tiempo real fue desarrollada en **Rust**, compilada como `staticlib` sin dependencia de la biblioteca estándar de C runtime (CRT) en el bucle caliente, operando exclusivamente sobre estructuras POD (*Plain Old Data*) `#[repr(C)]` ubicadas en la pila:
 
-![Las cuatro capas del daemon: C++20 llama al núcleo Rust por el puente C rust_bridge.h; Rust lee y purga la memoria en el kernel NT y C++ aplica directamente CPU Sets, EcoQoS y prioridad de E/S](../diagrams/puente-cpp-rust.png)
+![Las cuatro capas del daemon: C++20 llama al núcleo Rust por el puente C rust_bridge.h; Rust lee y purga la memoria en el kernel NT y C++ aplica directamente CPU Sets, EcoQoS y prioridad de E/S](./img/puente-cpp-rust.png)
 
-[Ver el diagrama a pantalla completa](../diagrams/puente-cpp-rust.html)
 
 ### Módulos del Núcleo Rust:
-* **[`cpu_governor.rs`](../../rust/vegaflow-core/src/policy/cpu_governor.rs):** Recibe la lista plana de identificadores de CPU Sets del sistema, calcula los índices de pertenencia a complejos de núcleos y determina si un proceso ruidoso debe ingresar o salir del estado de confinamiento mediante un algoritmo de histéresis sin asignaciones dinámicas.
-* **[`uma_memory.rs`](../../rust/vegaflow-core/src/policy/uma_memory.rs) y [`nt_memory.rs`](../../rust/vegaflow-core/src/nt_memory.rs):** `nt_memory.rs` enlaza directamente contra `ntdll.dll` (solo en Windows: en otros sistemas esas llamadas devuelven error y el núcleo se puede compilar y probar igual) invocando `NtQuerySystemInformation(SystemMemoryListInformation)`; `uma_memory.rs` es solo la regla. Evalúa en microsegundos si el subsistema de memoria compartida supera el umbral crítico (`>= 85%` de presupuesto o `< 1536 MB` de RAM física disponible), gobernando la purga selectiva de la lista de espera (*Standby List*) únicamente cuando el bus de disco opera en reposo (`< 15 MB/s`).
-* **[`apu_tier.rs`](../../rust/vegaflow-core/src/policy/apu_tier.rs):** Decide el Tier de la APU (1 a 4) a partir de la arquitectura de memoria, la generación de la GPU, la RAM y los núcleos físicos. Es una decisión pura sobre números: el mismo archivo de vectores (`tests/vectors/apu_tier.tsv`) lo comprueban Rust y la prueba 32 de C++.
-* **[`path_policy.rs`](../../rust/vegaflow-core/src/policy/path_policy.rs):** Decide por qué una ruta canónica está prohibida (raíz de disco, archivos críticos de arranque, carpetas de Windows, Common Files, System Volume Information) o si está permitida por la blacklist. Trabaja con UTF-16 ya en minúsculas, tal como lo tiene C++, así que no cambia mayúsculas ni puede discrepar con texto no ASCII. Se comprueba con `tests/vectors/sandbox_blacklist.tsv`.
-* **[`sandbox_core.rs`](../../rust/vegaflow-core/src/policy/sandbox_core.rs):** Recorre la ruta en bytes UTF-8 (tiempo proporcional a su longitud) y responde sí o no: si contiene la firma de un anti-trampas comercial (`vf_rust_has_anticheat_signature`) o si el nombre del archivo es uno de arranque del sistema (`vf_rust_is_critical_system_filename`). Quien decide bloquear es `SandboxGuard` en C++.
+* **[`cpu_governor.rs`](https://github.com/partprogramming09/vegaflow-universal/blob/main/rust/vegaflow-core/src/policy/cpu_governor.rs):** Recibe la lista plana de identificadores de CPU Sets del sistema, calcula los índices de pertenencia a complejos de núcleos y determina si un proceso ruidoso debe ingresar o salir del estado de confinamiento mediante un algoritmo de histéresis sin asignaciones dinámicas.
+* **[`uma_memory.rs`](https://github.com/partprogramming09/vegaflow-universal/blob/main/rust/vegaflow-core/src/policy/memory_purge.rs) y [`nt_memory.rs`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/memory.cpp):** `nt_memory.rs` enlaza directamente contra `ntdll.dll` (solo en Windows: en otros sistemas esas llamadas devuelven error y el núcleo se puede compilar y probar igual) invocando `NtQuerySystemInformation(SystemMemoryListInformation)`; `uma_memory.rs` es solo la regla. Evalúa en microsegundos si el subsistema de memoria compartida supera el umbral crítico (`>= 85%` de presupuesto o `< 1536 MB` de RAM física disponible), gobernando la purga selectiva de la lista de espera (*Standby List*) únicamente cuando el bus de disco opera en reposo (`< 15 MB/s`).
+* **[`apu_tier.rs`](https://github.com/partprogramming09/vegaflow-universal/blob/main/rust/vegaflow-core/src/policy/apu_tier.rs):** Decide el Tier de la APU (1 a 4) a partir de la arquitectura de memoria, la generación de la GPU, la RAM y los núcleos físicos. Es una decisión pura sobre números: el mismo archivo de vectores (`tests/vectors/apu_tier.tsv`) lo comprueban Rust y la prueba 32 de C++.
+* **[`path_policy.rs`](https://github.com/partprogramming09/vegaflow-universal/blob/main/rust/vegaflow-core/src/policy/path_policy.rs):** Decide por qué una ruta canónica está prohibida (raíz de disco, archivos críticos de arranque, carpetas de Windows, Common Files, System Volume Information) o si está permitida por la blacklist. Trabaja con UTF-16 ya en minúsculas, tal como lo tiene C++, así que no cambia mayúsculas ni puede discrepar con texto no ASCII. Se comprueba con `tests/vectors/sandbox_blacklist.tsv`.
+* **[`sandbox_core.rs`](https://github.com/partprogramming09/vegaflow-universal/blob/main/rust/vegaflow-core/src/policy/sandbox_core.rs):** Recorre la ruta en bytes UTF-8 (tiempo proporcional a su longitud) y responde sí o no: si contiene la firma de un anti-trampas comercial (`vf_rust_has_anticheat_signature`) o si el nombre del archivo es uno de arranque del sistema (`vf_rust_is_critical_system_filename`). Quien decide bloquear es `SandboxGuard` en C++.
 
 ---
 
@@ -23,9 +22,8 @@ Para garantizar que el propio software de optimización no introduzca latencia n
 
 El diagrama de secuencia describe el ciclo de vida continuo del servicio desde su arranque en sesión elevada hasta la terminación de la aplicación:
 
-![Secuencia del daemon en 15 pasos entre juego, usuario, daemon C++20, núcleo Rust y kernel NT: arranque y partición de CPU, bucle de reposo cada 1.5 s, comprobación de anti-cheat al abrir el juego, confinamiento o liberación de procesos de fondo y purga de memoria durante la partida, y RestoreAll al cerrarlo](../diagrams/ciclo-de-vida-daemon.png)
+![Secuencia del daemon en 15 pasos entre juego, usuario, daemon C++20, núcleo Rust y kernel NT: arranque y partición de CPU, bucle de reposo cada 1.5 s, comprobación de anti-cheat al abrir el juego, confinamiento o liberación de procesos de fondo y purga de memoria durante la partida, y RestoreAll al cerrarlo](./img/ciclo-de-vida-daemon.png)
 
-[Ver el diagrama a pantalla completa](../diagrams/ciclo-de-vida-daemon.html)
 
 ---
 
@@ -69,9 +67,8 @@ La migración progresiva hacia una **arquitectura híbrida Rust + C++20** median
 
 ### 2. Arquitectura del Subsistema Híbrido (`rust/vegaflow-core`)
 
-![Binario único vegaflow_daemon.exe: MemoryManager, HardwareProfiler, CpuOrchestrator y SandboxGuard de la capa C++20 llaman por rust_bridge.h a uma_memory.rs, cpu_governor.rs y sandbox_core.rs del crate rust/vegaflow-core](../diagrams/subsistema-hibrido.png)
+![Binario único vegaflow_daemon.exe: MemoryManager, HardwareProfiler, CpuOrchestrator y SandboxGuard de la capa C++20 llaman por rust_bridge.h a uma_memory.rs, cpu_governor.rs y sandbox_core.rs del crate rust/vegaflow-core](./img/subsistema-hibrido.png)
 
-[Ver el diagrama a pantalla completa](../diagrams/subsistema-hibrido.html)
 
 #### 2.1. Configuración del Crate (`rust/vegaflow-core/Cargo.toml`)
 - **Nombre del paquete:** `vegaflow-core` (`lib` name: `vegaflow_core`).

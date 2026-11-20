@@ -98,7 +98,7 @@ void Test61() {
                      !recommended_in_catalog,
                  "Test 61.5: only measured gain is Recommended and only measured loss is Not recommended; nothing is Recommended yet");
 
-    // 6. Measurements recorded in docs/mediciones/estado-de-verificacion.md are carried: no effect for
+    // 6. Measurements recorded in docs/measurements/verification-status.md are carried: no effect for
     //    Win32PrioritySeparation and GameDVR. The power profile bundles a frequency cap nobody measured, so it is not NoEffect.
     const auto* prio = vegaflow::FindSetting("priority_separation");
     const auto* dvr = vegaflow::FindSetting("game_dvr");
@@ -148,7 +148,7 @@ void Test61() {
                  "Test 61.9: a dedicated AMD GPU gets the driver profile but not the shared-memory VRAM row; no empty families");
 
     // 10. The settings the daemon applies without being asked are pinned here, because "unmeasured stays off by default"
-    //     is the project rule and these break it today (pending decision in docs/plan/maestro/14-fase-g.md). Changing
+    //     is the project rule and these break it today (pending decision of the GUI phase). Changing
     //     this list must be a deliberate edit of this test.
     std::set<std::string> by_default;
     for (const auto& s : vegaflow::SettingsCatalog()) {

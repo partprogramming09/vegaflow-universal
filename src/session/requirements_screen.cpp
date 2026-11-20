@@ -29,7 +29,7 @@ RequirementsScreenModel BuildRequirementsScreen(const SystemInfoSnapshot& s, boo
     if (s.os_kernel.build_number == 0) {
         win.detail = "Hace falta Windows 10 versión 1709 o posterior, de 64 bits. No se pudo leer qué versión tienes.";
     } else if (s.os_kernel.build_number < kWindows10_1709) {
-        // Limited, not Missing: that VegaFlow starts on 1709 is not measured (docs/mediciones/estado-de-verificacion.md), and the build is
+        // Limited, not Missing: that VegaFlow starts on 1709 is not measured (docs/measurements/verification-status.md), and the build is
         // below the one that has the energy-saving call, so some things will not work.
         win.state = RequirementState::Limited;
         win.detail = "Hace falta Windows 10 versión 1709 o posterior, de 64 bits. Tienes " + version + ", que es anterior: VegaFlow no se probó ahí y le faltan llamadas de Windows que usa.";

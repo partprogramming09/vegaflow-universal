@@ -4,9 +4,8 @@
 
 ## 2. Módulos Principales de VegaFlow
 
-![Módulos principales de VegaFlow: la detección no invasiva pasa al Anti-Cheat Sentinel; sin anti-cheat se aplican optimizaciones a nivel motor y con anti-cheat optimizaciones no invasivas, y ambas ramas terminan en el subsistema central de rendimiento del kernel y el sistema operativo](../diagrams/modulos-principales.png)
+![Módulos principales de VegaFlow: la detección no invasiva pasa al Anti-Cheat Sentinel; sin anti-cheat se aplican optimizaciones a nivel motor y con anti-cheat optimizaciones no invasivas, y ambas ramas terminan en el subsistema central de rendimiento del kernel y el sistema operativo](./img/modulos-principales.png)
 
-[Ver el diagrama a pantalla completa](../diagrams/modulos-principales.html)
 
 ### 2.1. DXGI Hardware Flip Model Presentation Upgrade
 - Interviene en `HKCU\Software\Microsoft\DirectX\UserGpuPreferences` registrando las directivas `AutoFlipModel=1;DirectFlip=1;TurboSync=1;SwapEffectUpgradeEnable=1;GpuPreference=2;`.
@@ -62,7 +61,7 @@
 - **Perfil de Energía APU Térmicamente Eficiente:** Limita el modo boost agresivo de la CPU y estabiliza frecuencias en 3.2 GHz, cediendo ~20W de presupuesto térmico continuo a la GPU integrada para mantener sus 1500 MHz de forma ininterrumpida.
 
 ### 2.6. Subsistema SandboxGuard (Aislamiento de Archivos & Cuarentena Anti-Cheat)
-El subsistema [`SandboxGuard`](../../src/windows/sandbox_guard.hpp) implementa una arquitectura estricta de aislamiento de archivos con modelo de confianza cero (**Zero-Trust File Access**):
+El subsistema [`SandboxGuard`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/sandbox_guard.hpp) implementa una arquitectura estricta de aislamiento de archivos con modelo de confianza cero (**Zero-Trust File Access**):
 - **Normalización Canónica Antifraude:** Neutraliza ataques o desbordamientos por *Path Traversal* (`..`, `.`, dobles barras invertidas y symlinks). Combina la API Win32 `GetFullPathNameW` con `std::filesystem::weakly_canonical` para resolver de forma anticipada enlaces simbólicos y junctions antes de cualquier chequeo de acceso.
 - **Whitelist Estricta vs Blacklist Inviolable:**
   - *Blacklist (Prioridad Máxima):* Bloqueo categórico de escrituras en la raíz de unidades (`C:\`, `D:\`) y archivos hijo directos (`C:\bootmgr`), archivos de paginación (`pagefile.sys`, `hiberfil.sys`, `swapfile.sys`), carpetas del núcleo del sistema operativo (`C:\Windows`, `System32`, `SysWOW64`, `WinSxS`), `Program Files\Common Files` y `System Volume Information`.
@@ -73,7 +72,7 @@ El subsistema [`SandboxGuard`](../../src/windows/sandbox_guard.hpp) implementa u
 - **Auditoría Forense en Tiempo Real:** Cada rechazo de acceso se almacena en memoria con sello de tiempo milimétrico (`timestamp_ms`), código de infracción (`SandboxDenialReason`) y mensaje descriptivo para diagnóstico.
 
 ### 2.7. Subsistema SystemInfo (Telemetría de Hardware & Exportación JSON)
-El subsistema [`SystemInfo`](../../src/session/system_info.hpp) desacopla la detección profunda de hardware y sistema operativo en un módulo autónomo y de alta precisión:
+El subsistema [`SystemInfo`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/session/system_info.hpp) desacopla la detección profunda de hardware y sistema operativo en un módulo autónomo y de alta precisión:
 - **Detección de CPU Zen 2:** Extrae el *Brand String* mediante instrucciones `CPUID` nativas (*AMD Ryzen 5 4600H with Radeon Graphics*), calcula topología de 6 núcleos físicos / 12 lógicos, arquitectura Renoir de 7nm, tamaño de caché L3 de 8 MB y frecuencia objetivo de boost a 4.0 GHz, sin tope STAPM (`cpu_stapm_cap_mhz = 0`).
 - **Topología de Gráficos & Memoria UMA (Vega 6):** Contrasta el reporte ficticio de BIOS (512 MB) con la memoria UMA compartida real del sistema (~7.7 GB) y sondea presupuestos dinámicos de VRAM en tiempo real mediante `IDXGIAdapter3::QueryVideoMemoryInfo`.
 - **Topología de Memoria RAM por Firmware (SMBIOS Type 17):** Inspecciona las tablas SMBIOS `RSMB` (`GetSystemFirmwareTable`), identificando la presencia de 2 módulos DIMM poblados y verificando el bus de 128 bits en **Dual-Channel** (~42 GB/s de ancho de banda). Presenta desglose de memoria libre real, Standby List y páginas modificadas.
@@ -81,15 +80,15 @@ El subsistema [`SystemInfo`](../../src/session/system_info.hpp) desacopla la det
 - **Exportación CLI Estándar JSON:** Soporta el comando `--system-info`, emitiendo la totalidad del perfil de hardware y sistema en formato JSON estándar para consumo externo.
 
 ### 2.8. Rediseño Visual de la GUI (Clean Slate / Nordic Dark Mode)
-La interfaz gráfica Win32/GDI ([`gui_window.cpp`](../../src/ui/gui_window.cpp)) ha sido completamente renovada bajo estándares ergonómicos y de diseño moderno de instrumentación:
+La interfaz gráfica Win32/GDI ([`gui_window.cpp`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/ui/gui_window.cpp)) ha sido completamente renovada bajo estándares ergonómicos y de diseño moderno de instrumentación:
 - **Paleta Slate/Zinc Neutra:** Se sustituyeron los gradientes chillones por tonalidades carbón elegantes (`#111317` fondo principal, `#16191E` barra lateral, `#1B1E24` tarjetas, bordes finos `#2B303C` de 1px) y acentos cromáticos sobrios y moderados (Azul acero `#3B82F6`, Verde esmeralda `#10B981`, Ámbar `#F59E0B`, Rojo crítico `#EF4444`).
 - **Geometría y Espaciados Simétricos:** Márgenes exteriores exactos de 16px, gutters uniformes de 12px entre tarjetas y divisores horizontales nítidos de 1px.
 - **Subtítulos Técnicos Educativos:** Cada tarjeta de telemetría y control interactivo incorpora micro-subtítulos explicativos que educan al usuario sobre el impacto físico real en el silicio (mitigación de contención L3 en CCX, erradicación de texturas borrosas en UMA, latencia de interrupciones DPC en kernel NT).
-- **Pantallas (versión 0.2.0):** el menú lateral tiene ocho entradas y hay una novena pantalla que cuelga de Configuración. Todas, salvo la 3, son pantallas nuevas de la fase G: botones y campos nativos de Windows (se recorren con Tab), textos en español claro y sin prometer mejoras. Cada pantalla lee un «modelo» ya preparado por la capa `session/` (ver [módulos](../arquitectura/modulos.md#33b-la-capa-session-y-las-pantallas)) y no decide nada.
+- **Pantallas (versión 0.2.0):** el menú lateral tiene ocho entradas y hay una novena pantalla que cuelga de Configuración. Todas, salvo la 3, son pantallas nuevas de la fase G: botones y campos nativos de Windows (se recorren con Tab), textos en español claro y sin prometer mejoras. Cada pantalla lee un «modelo» ya preparado por la capa `session/` (ver [módulos](./modules.md#33b-la-capa-session-y-las-pantallas)) y no decide nada.
 
   | Entrada del menú | Qué responde |
   |---|---|
-  | 1. Inicio | ¿Hay un juego abierto? Tu equipo en tres líneas, la memoria gráfica compartida y los programas de fondo. Tres botones: «Ver todo el detalle» (lleva a Tu equipo), «Liberar memoria ahora» y «Elegir qué se frena» (lleva a Programas). Al final, «¿Algo va mal?»: «Devolver todo a como estaba» y «Copiar informe» (texto plano con versión, equipo, memoria y los últimos 30 cambios; el nombre de usuario de Windows se cambia por <usuario> en toda ruta) |
+  | 1. Inicio | ¿Hay un juego abierto? Tu equipo en tres líneas, la memoria gráfica compartida y los programas de fondo. Tres botones: «Ver todo el detalle» (lleva a Tu equipo), «Liberar memoria ahora» y «Elegir qué se frena» (lleva a Programas). Al final, «¿Algo va mal?»: «Devolver todo a como estaba» y «Copiar informe» (texto plano con versión, equipo, memoria y los últimos 30 cambios; el nombre de usuario de Windows se cambia por `<usuario>` en toda ruta) |
   | 2. Ajustes del sistema | Cada ajuste de Windows que VegaFlow puede cambiar, con su estado real activado o de fábrica, si está medido o «Sin medir», un ⓘ con el cambio exacto y un aviso aparte para las funciones experimentales. Solo salen las familias que sirven en tu gráfica |
   | 3. Memoria UMA & Núcleos CPU | Sigue en el dibujo antiguo (GDI): no se ha rehecho |
   | 4. Juegos | Una fila por juego de Steam. «Ver cambios» muestra el archivo, la copia y las líneas que escribe el perfil. Botones: «Aplicar perfil», «Volver al archivo original», «Me fue mal en este juego» (lo excluye), «Volver a incluir», «Instalar DXVK» o «Quitar DXVK» y «Buscar juegos de nuevo» |

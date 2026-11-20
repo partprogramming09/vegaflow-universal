@@ -12,7 +12,7 @@ namespace vegaflow {
 
 enum class SettingFamily { SharedMemory, AmdDriver, Windows };
 
-// What docs/mediciones/estado-de-verificacion.md records for the setting on the test machine.
+// What docs/measurements/verification-status.md records for the setting on the test machine.
 enum class Evidence { NotMeasured, NoEffect, Gain, Loss };
 
 struct SettingSpec {

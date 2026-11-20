@@ -29,9 +29,8 @@ En sistemas contemporáneos donde conviven aplicaciones en primer plano (juegos 
 
 Este comportamiento provoca un fenómeno físico destructivo sobre la memoria caché y el despachador de gráficos:
 
-![Sin aislamiento: los núcleos principales 0-2, los secundarios 3-5 y el procesador gráfico comparten el bus de interconexión, punto de contención hacia la memoria RAM o VRAM, con desalojos de L3, robo de cuotas y latencia de draw calls](../diagrams/sin-aislamiento.png)
+![Sin aislamiento: los núcleos principales 0-2, los secundarios 3-5 y el procesador gráfico comparten el bus de interconexión, punto de contención hacia la memoria RAM o VRAM, con desalojos de L3, robo de cuotas y latencia de draw calls](./img/sin-aislamiento.png)
 
-[Ver el diagrama a pantalla completa](../diagrams/sin-aislamiento.html)
 
 ### Mecanismos de Degradación del Rendimiento
 1. **Contaminación y Desalojo de Caché L3 (*Cache Thrashing*):**  
@@ -47,13 +46,12 @@ Este comportamiento provoca un fenómeno físico destructivo sobre la memoria ca
 
 VegaFlow erradica la contención de silicio erigiendo **cuatro barreras simultáneas** implementadas mediante llamadas directas a las interfaces de programación nativas de Windows NT:
 
-![Aislada: la jaula del último núcleo físico (afinidad 0xC00) confina los procesos de fondo con CPU Sets, EcoQoS y prioridad de E/S y de memoria; el ahorro de 3W a 5W vuelve al juego, y la barrera 4 fija FlipQueueSize = 1 y ASPM = 0 en el registro](../diagrams/aislada-4-barreras.png)
+![Aislada: la jaula del último núcleo físico (afinidad 0xC00) confina los procesos de fondo con CPU Sets, EcoQoS y prioridad de E/S y de memoria; el ahorro de 3W a 5W vuelve al juego, y la barrera 4 fija FlipQueueSize = 1 y ASPM = 0 en el registro](./img/aislada-4-barreras.png)
 
-[Ver el diagrama a pantalla completa](../diagrams/aislada-4-barreras.html)
 
 ### Detalle de las 4 Barreras:
 1. **Barrera 1 — Confinamiento Espacial de CPU (`SetProcessDefaultCpuSets` / `SetProcessAffinityMask`):**  
-   El orquestador en [`cpu_orchestrator.cpp`](../../src/optimize/cpu_orchestrator.cpp) y el evaluador en [`cpu_governor.rs`](../../rust/vegaflow-core/src/policy/cpu_governor.rs) analizan la topología física. En lugar de encerrar al juego (lo cual le restaba rendimiento multihilo), **el juego se mantiene libre en todos los núcleos disponibles**, mientras que los procesos clasificados como ruidosos que superan el umbral de actividad (`>= 0.5` procesadores lógicos) se confinan estrictamente al último núcleo físico (hilos lógicos 10 y 11, máscara `0xC00` en procesadores de 6 núcleos / 12 hilos). La liberación se rige por **histéresis** determinista (liberación solo si desciende de `0.25`), previniendo vibración en el planificador.
+   El orquestador en [`cpu_orchestrator.cpp`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/optimize/cpu_orchestrator.cpp) y el evaluador en [`cpu_governor.rs`](https://github.com/partprogramming09/vegaflow-universal/blob/main/rust/vegaflow-core/src/policy/cpu_governor.rs) analizan la topología física. En lugar de encerrar al juego (lo cual le restaba rendimiento multihilo), **el juego se mantiene libre en todos los núcleos disponibles**, mientras que los procesos clasificados como ruidosos que superan el umbral de actividad (`>= 0.5` procesadores lógicos) se confinan estrictamente al último núcleo físico (hilos lógicos 10 y 11, máscara `0xC00` en procesadores de 6 núcleos / 12 hilos). La liberación se rige por **histéresis** determinista (liberación solo si desciende de `0.25`), previniendo vibración en el planificador.
 2. **Barrera 2 — Eficiencia Energética Forzada (`EcoQoS` Power Throttling):**  
    Mediante la API `SetProcessInformation(ProcessPowerThrottling)` con la bandera `PROCESS_POWER_THROTTLING_EXECUTION_SPEED`, el kernel de Windows fuerza a la CPU a ejecutar dichos procesos en sus estados de energía más eficientes (*Energy Performance Preference* - EPP alto), reduciendo el calor generado y transfiriendo presupuesto térmico al juego.
 3. **Barrera 3 — Prioridad de Entrada/Salida y Paginación NT (`NtSetInformationProcess`):**  
@@ -112,17 +110,17 @@ VegaFlow Universal ha alcanzado la madurez de su núcleo de optimización y arqu
 
 #### 1.1. Arquitectura Modular Limpia y Pipeline de Compilación
 - **Desacoplamiento Estructural:** El código base se organiza en dominios modulares por función, con cada `.hpp` junto a su `.cpp`:
-  - [`src/detect/`](../../src/detect): hardware, topología de CPU y detección de juegos.
-  - [`src/optimize/`](../../src/optimize): Orquestación de CPU, optimizadores gráficos y de temporizador NT, DXVK, gestión de memoria UMA y presets de motores.
-  - [`src/safety/`](../../src/safety): Subsistema Zero-Trust `SandboxGuard` y telemetría matemática de frametimes.
-  - [`src/ui/`](../../src/ui): Ventana nativa Win32/GDI en modo Slate/Zinc Dark, pestañas y componentes.
-  - [`src/windows/`](../../src/windows): llamadas indocumentadas NTDLL y privilegios de seguridad.
-  - [`src/app/`](../../src/app) y [`src/bridge/`](../../src/bridge): punto de entrada del daemon y contrato C++ ↔ Rust.
-- **Automatización de Build:** Script [`scripts/build.ps1`](../../scripts/build.ps1) con detección inteligente del compilador MinGW-w64 `g++` (en PATH o en Scoop), flags C++20 con enlace estático total (`-static -static-libgcc -static-libstdc++`) y ejecución opcional de pruebas con `-RunTests`.
+  - [`src/detect/`](https://github.com/partprogramming09/vegaflow-universal/tree/main/src/detect): hardware, topología de CPU y detección de juegos.
+  - [`src/optimize/`](https://github.com/partprogramming09/vegaflow-universal/tree/main/src/optimize): Orquestación de CPU, optimizadores gráficos y de temporizador NT, DXVK, gestión de memoria UMA y presets de motores.
+  - [`src/windows/sandbox_guard.hpp`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/sandbox_guard.hpp): Subsistema Zero-Trust `SandboxGuard` y telemetría matemática de frametimes.
+  - [`src/ui/`](https://github.com/partprogramming09/vegaflow-universal/tree/main/src/ui): Ventana nativa Win32/GDI en modo Slate/Zinc Dark, pestañas y componentes.
+  - [`src/windows/`](https://github.com/partprogramming09/vegaflow-universal/tree/main/src/windows): llamadas indocumentadas NTDLL y privilegios de seguridad.
+  - [`src/app/`](https://github.com/partprogramming09/vegaflow-universal/tree/main/src/app) y [`src/bridge/`](https://github.com/partprogramming09/vegaflow-universal/tree/main/src/bridge): punto de entrada del daemon y contrato C++ ↔ Rust.
+- **Automatización de Build:** Script [`scripts/build.ps1`](https://github.com/partprogramming09/vegaflow-universal/blob/main/scripts/build.ps1) con detección inteligente del compilador MinGW-w64 `g++` (en PATH o en Scoop), flags C++20 con enlace estático total (`-static -static-libgcc -static-libstdc++`) y ejecución opcional de pruebas con `-RunTests`.
 - **Control de Versiones y Limpieza:** Directorio `build/` libre de residuos (`*.o`, `*.old*`, logs) y `.gitignore` estandarizado.
 
 #### 1.2. Motor Universal de Clasificación y Guards (`ApuCapabilityGuard`)
-Especificado en [`hardware-y-tiers.md`](hardware-y-tiers.md) e implementado en [`src/detect/hardware_profiler.cpp`](../../src/detect/hardware_profiler.cpp):
+Especificado en [`hardware-y-tiers.md`](./hardware-and-tiers.md) e implementado en [`src/detect/hardware_profiler.cpp`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/detect/hardware_profiler.cpp):
 1. **Tier 1: Entry UMA (`Survival Guard`):**
    - Destinado a APUs con $\le$ 8–9 GB de RAM o $\le$ 4 núcleos físicos (Vega 3/6/8 básica, Athlon Mobile, Intel Gen 9–11 UHD).
    - Impone techo rígido de textura en Unreal Engine (1536 a 2048 MB) para evitar caídas OOM, limita DXVK a 3 hilos de compilación, teselación a 8x y sin tope de frecuencia STAPM (`cpu_stapm_cap_mhz = 0`).
@@ -145,7 +143,7 @@ Especificado en [`hardware-y-tiers.md`](hardware-y-tiers.md) e implementado en [
 - **Cobertura de Pruebas:** **57 de 57 pruebas unitarias e integradas C++20 y 252 pruebas Rust (`cargo test`) pasando en verde** (`TEST RESULTS: 57 PASSED, 0 FAILED`, 2026-11-14).
 
 #### 1.5. Núcleo Híbrido Rust FFI (`vegaflow-core`)
-Implementado en el crate estático [`rust/vegaflow-core/`](../../rust/vegaflow-core) y enlazado sin sobrecarga vía C ABI ([`src/bridge/rust_bridge.h`](../../src/bridge/rust_bridge.h)):
+Implementado en el crate estático [`rust/vegaflow-core/`](https://github.com/partprogramming09/vegaflow-universal/tree/main/rust/vegaflow-core) y enlazado sin sobrecarga vía C ABI ([`src/bridge/rust_bridge.h`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/bridge/rust_bridge.h)):
 - **Evaluador de Presión UMA (`rust/vegaflow-core/src/policy/uma_memory.rs`):** Función `vf_rust_evaluate_uma_pressure`: regla determinista sin asignación dinámica de memoria (Zero-Allocation) que verifica la saturación local DXGI y la reserva del sistema operativo. La lectura y la purga de las listas Standby de NT (`vf_rust_query_nt_memory_lists`, `vf_rust_purge_nt_standby_list`) están en `rust/vegaflow-core/src/nt_memory.rs`.
 - **Topología L3 y Gobernanza de CPU (`rust/vegaflow-core/src/policy/cpu_governor.rs`):** Función `vf_rust_partition_cpu_topology` para aislar hilos del juego en la caché L3 principal para arquitecturas simétricas o heterogéneas (Zen 2/3/4/5 y procesadores híbridos), junto con la máquina de estados e histéresis `vf_rust_eval_bg_confinement` (umbrales de 0.50 y 0.25 núcleos lógicos).
 - **Scanner Anti-Cheat y Blindaje de Archivos (`rust/vegaflow-core/src/policy/sandbox_core.rs`):** Detección formal y sin falsos positivos de firmas de Anti-Cheat de kernel (`vf_rust_has_anticheat_signature`) y protección estricta contra modificaciones accidentales a binarios de arranque del sistema (`vf_rust_is_critical_system_filename`).

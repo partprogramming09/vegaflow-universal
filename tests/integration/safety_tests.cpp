@@ -259,7 +259,7 @@ bool MakeJunction(const std::filesystem::path& link, const std::filesystem::path
 
 void Test41() {
     // -------------------------------------------------------------------------
-    // Test 41: each whitelist flaw of the old SandboxGuard is refused (docs/arquitectura/seguridad.md)
+    // Test 41: each whitelist flaw of the old SandboxGuard is refused (docs/guides/security.md)
     // -------------------------------------------------------------------------
     using vegaflow::SandboxAction;
     using vegaflow::SandboxGuard;

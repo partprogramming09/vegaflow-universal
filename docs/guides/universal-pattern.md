@@ -12,9 +12,8 @@ La evidencia física y arquitectónica demuestra que **el patrón de contención
 
 Independientemente de que el procesador sea AMD o Intel, o de que los gráficos se procesen en una GPU integrada (iGPU), dedicada interna (dGPU) o externa (eGPU), existen **cuatro leyes físicas universales de la arquitectura de Von Neumann moderna** que gobiernan el rendimiento:
 
-![Las cuatro fuentes universales de contención: jerarquía de memoria y vaciado de TLB, latencia de despacho D3D/Vulkan, cola de E/S y fallos de página, y presupuesto energético y térmico compartido](../diagrams/fuentes-de-contencion.png)
+![Las cuatro fuentes universales de contención: jerarquía de memoria y vaciado de TLB, latencia de despacho D3D/Vulkan, cola de E/S y fallos de página, y presupuesto energético y térmico compartido](./img/fuentes-de-contencion.png)
 
-[Ver el diagrama a pantalla completa](../diagrams/fuentes-de-contencion.html)
 
 1. **Contención de Caché de Último Nivel (LLC / L3 Thrashing) y Vaciado de TLB:**  
    En cualquier procesador x86-64, la caché L3 es compartida por múltiples núcleos o por un complejo de núcleos (*Core Complex* - CCX). Cuando hilos de fondo son intercalados por el planificador, expulsan las líneas de datos y de instrucciones del bucle de renderizado. Un fallo en L3 obliga a una transacción completa en el bus de memoria física, multiplicando la latencia de acceso por un factor de **`7x` a `9x`**. Asimismo, el cambio de contexto entre procesos distintos invalida las entradas del búfer de traducción de direcciones (*Translation Lookaside Buffer* - TLB), forzando recorridos costosos de las tablas de páginas (*Page Table Walks*).
@@ -31,9 +30,8 @@ Independientemente de que el procesador sea AMD o Intel, o de que los gráficos 
 
 A pesar de que el problema de contención es universal, la anatomía interna de los procesadores AMD e Intel impone retos específicos:
 
-![Topología de AMD Ryzen (APU monolítica con L3 compacta y bus FCLK compartido con la iGPU; desktop multi-CCD con CCD 0 y CCD 1 unidos por el I/O Die y penalización Cross-CCD de ~70+ ns) frente a Intel Core híbrido, donde P-Cores, E-Cores y la Smart Cache L3 comparten un mismo Ring Bus](../diagrams/topologia-amd-intel.png)
+![Topología de AMD Ryzen (APU monolítica con L3 compacta y bus FCLK compartido con la iGPU; desktop multi-CCD con CCD 0 y CCD 1 unidos por el I/O Die y penalización Cross-CCD de ~70+ ns) frente a Intel Core híbrido, donde P-Cores, E-Cores y la Smart Cache L3 comparten un mismo Ring Bus](./img/topologia-amd-intel.png)
 
-[Ver el diagrama a pantalla completa](../diagrams/topologia-amd-intel.html)
 
 ### A. Anatomía en Procesadores AMD Ryzen:
 1. **APUs Monolíticas (Familias *Renoir*, *Lucienne*, *Cezanne*, *Barcelo*, *Rembrandt*, *Phoenix*, *Hawk Point*):**  
@@ -75,13 +73,11 @@ A pesar de que el problema de contención es universal, la anatomía interna de 
 | **🖥️ Gráfica Dedicada Interna (dGPU)** *(NVIDIA RTX, AMD Radeon RX por PCIe x16)* | Bus PCIe x8/x16 dedicado (latencia de nanosegundos, VRAM GDDR6 propia >250 GB/s) | La dGPU no sufre por VRAM, pero queda en inanición (*GPU Starvation*) si la CPU interrumpe el despacho de comandos. | Las optimizaciones UMA se desactivan automáticamente (`Pass-Through Guard`). Se mantiene el aislamiento espacial y de E/S. | ✅ **Impacto Alto en Fluidez (+20% a +50% en 1% Low):** Elimina micro-tirones en títulos competitivos y mundos abiertos. |
 | **🔌 Gráfica Externa por Cable (eGPU)** *(Caja externa vía Thunderbolt 3/4, USB4 u OCuLink)* | Enlace PCIe encapsulado sobre cable (limitado a PCIe x4 ~32 Gbps reales y alta latencia de paquetes) | Cada cuadro requiere transferencias DMA continuas por el cable. Las interrupciones de CPU en la laptop provocan caídas severas de enlace. | Se activan el aislamiento de CPU, prioridad de E/S NT y se fija en registro `PCIe ASPM = 0` y `FlipQueueSize = 1`. | 🔥 **Impacto Crítico (+40% a +75% en 1% Low):** Mantiene el túnel Thunderbolt despierto sin pausas de ahorro energético. |
 
-![Barras del incremento del 1% Low al aislar con carga de fondo: APU integrada (UMA) 136.8, gráfica externa (eGPU TB4) 65.0 y gráfica dedicada (dGPU PCIe) 42.0, en escala de 0 a 160](../diagrams/impacto-aislamiento-1-low.png)
+![Barras del incremento del 1% Low al aislar con carga de fondo: APU integrada (UMA) 136.8, gráfica externa (eGPU TB4) 65.0 y gráfica dedicada (dGPU PCIe) 42.0, en escala de 0 a 160](./img/impacto-aislamiento-1-low.png)
 
-[Ver el diagrama a pantalla completa](../diagrams/impacto-aislamiento-1-low.html)
 
-![Secuencia en dos casos con ruido de fondo, CPU, bus y GPU: sin aislamiento, el ruido interrumpe a la CPU, el enlace se queda sin datos 8-15 ms y el cuadro llega tarde; con VegaFlow el ruido queda en el último núcleo y la CPU mantiene un flujo continuo hacia la GPU](../diagrams/inanicion-gpu-secuencia.png)
+![Secuencia en dos casos con ruido de fondo, CPU, bus y GPU: sin aislamiento, el ruido interrumpe a la CPU, el enlace se queda sin datos 8-15 ms y el cuadro llega tarde; con VegaFlow el ruido queda en el último núcleo y la CPU mantiene un flujo continuo hacia la GPU](./img/inanicion-gpu-secuencia.png)
 
-[Ver el diagrama a pantalla completa](../diagrams/inanicion-gpu-secuencia.html)
 
 ---
 
@@ -105,7 +101,7 @@ A pesar de que el problema de contención es universal, la anatomía interna de 
 
 ## 3.5 Qué decide el código en cada equipo (fases 3 y 7)
 
-**Lo esencial:** el patrón es universal, pero lo que VegaFlow hace depende de dos reglas escritas en Rust, sin llamadas a Windows y con los mismos casos de prueba en Rust y en C++: **qué clase de gráfica hay** ([`device_profile.rs`](../../rust/vegaflow-core/src/policy/device_profile.rs), fase 3) y **cómo se reparten los núcleos** ([`cpu_governor.rs`](../../rust/vegaflow-core/src/policy/cpu_governor.rs), fase 7). Las tablas 3.1 y 3.2 dicen qué se espera por familia; esta sección dice qué hace el código hoy.
+**Lo esencial:** el patrón es universal, pero lo que VegaFlow hace depende de dos reglas escritas en Rust, sin llamadas a Windows y con los mismos casos de prueba en Rust y en C++: **qué clase de gráfica hay** ([`device_profile.rs`](https://github.com/partprogramming09/vegaflow-universal/blob/main/rust/vegaflow-core/src/policy/device_profile.rs), fase 3) y **cómo se reparten los núcleos** ([`cpu_governor.rs`](https://github.com/partprogramming09/vegaflow-universal/blob/main/rust/vegaflow-core/src/policy/cpu_governor.rs), fase 7). Las tablas 3.1 y 3.2 dicen qué se espera por familia; esta sección dice qué hace el código hoy.
 
 > [!NOTE]
 > Dos puntos de las tablas 3.1 y 3.2 no coinciden con el código y están pendientes de decidir si se corrige el texto o el código: el código no tiene una regla propia para procesadores X3D (reparte por caché y núcleo, sin saber cuál lleva la V-Cache), y en una eGPU lo que es propio de ella (ajustes de streaming) solo se activa con una opción experimental. Las cifras de impacto de esas tablas no llevan fuente enlazada en este documento.
@@ -126,7 +122,7 @@ La regla recibe lo que la sonda leyó (gráficas, RAM, núcleos, energía, arqui
    | Sin DXCore | Desconocida |
 
 2. **Qué gráfica manda** si hay varias: la preferencia de la persona (ahorro: la primera integrada; alto rendimiento: la externa y luego la dedicada); sin preferencia, externa, dedicada, integrada y, si ninguna encaja, la primera.
-3. **Generación y nivel:** solo en las integradas se identifica la generación (Vega, RDNA2, RDNA3 o superior, Intel UHD, Intel Xe/Arc), primero por el identificador PCI exacto, luego por el nombre del driver y, como último recurso, por la familia y el modelo de CPU. Con eso, `apu_tier.rs` da el nivel de 1 a 4 (dedicada y NVIDIA son nivel 4; ver [`hardware-y-tiers.md`](hardware-y-tiers.md)). El nivel fija además el pool seguro de VRAM, el tope de teselación y los hilos de DXVK.
+3. **Generación y nivel:** solo en las integradas se identifica la generación (Vega, RDNA2, RDNA3 o superior, Intel UHD, Intel Xe/Arc), primero por el identificador PCI exacto, luego por el nombre del driver y, como último recurso, por la familia y el modelo de CPU. Con eso, `apu_tier.rs` da el nivel de 1 a 4 (dedicada y NVIDIA son nivel 4; ver [`hardware-y-tiers.md`](./hardware-and-tiers.md)). El nivel fija además el pool seguro de VRAM, el tope de teselación y los hilos de DXVK.
 4. **Qué se activa según la conexión:**
 
    | Decisión | Integrada | Dedicada | Externa | Desconocida |
@@ -143,11 +139,10 @@ La regla recibe lo que la sonda leyó (gráficas, RAM, núcleos, energía, arqui
 
 Términos: un **CPU Set** es la unidad de CPU que Windows permite asignar a un proceso (normalmente un hilo lógico). Windows agrupa los hilos lógicos en **grupos de procesadores** de hasta 64. La **caché de último nivel** (LLC, la L3) puede estar repartida en bloques (CCX o CCD en AMD). La **clase de eficiencia** es un número que Windows da a cada núcleo: mayor, más rápido.
 
-**Ejemplo.** Un Ryzen 5 4600H tiene 6 núcleos y 12 hilos en dos bloques de L3 de 3 núcleos cada uno. El caso `ryzen_4600h_6c12t` de [`tests/vectors/cpu_topology.tsv`](../../tests/vectors/cpu_topology.tsv) da: el fondo toma los dos hilos del último núcleo (CPU Sets 266 y 267) y el juego los ocho de los núcleos 1 a 4 (258 a 265), dejando libre el núcleo 0.
+**Ejemplo.** Un Ryzen 5 4600H tiene 6 núcleos y 12 hilos en dos bloques de L3 de 3 núcleos cada uno. El caso `ryzen_4600h_6c12t` de [`tests/vectors/cpu_topology.tsv`](https://github.com/partprogramming09/vegaflow-universal/blob/main/tests/vectors/cpu_topology.tsv) da: el fondo toma los dos hilos del último núcleo (CPU Sets 266 y 267) y el juego los ocho de los núcleos 1 a 4 (258 a 265), dejando libre el núcleo 0.
 
-![Cómo se reparten los núcleos: híbrida (juego en P-cores, fondo en E-cores sin los de bajo consumo), varios bloques de caché con isla compacta o bloques simétricos, y monolítica](../diagrams/reparto-de-nucleos.png)
+![Cómo se reparten los núcleos: híbrida (juego en P-cores, fondo en E-cores sin los de bajo consumo), varios bloques de caché con isla compacta o bloques simétricos, y monolítica](./img/reparto-de-nucleos.png)
 
-[Ver el diagrama a pantalla completa](../diagrams/reparto-de-nucleos.html)
 
 Reglas, en este orden:
 

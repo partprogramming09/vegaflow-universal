@@ -6,11 +6,10 @@
 
 **Lo esencial:** cada carpeta de `src/` solo puede incluir a las que están debajo de ella. Desde R3, los casos de uso de `session/` no llaman a funciones de Win32: piden esas lecturas a `windows/`.
 
-**Ejemplo.** `--status` muestra cuántos procesos tienen el modo de ahorro (EcoQoS). Antes, `session/` hacía ese recorrido de procesos con llamadas de Windows. Ahora `session/reports.cpp` llama a `CountEcoQoSProcesses()` y quien habla con Windows es [`src/windows/system_counters.cpp`](../../src/windows/system_counters.cpp). Así el código de `session/` se lee sin saber nada de Win32.
+**Ejemplo.** `--status` muestra cuántos procesos tienen el modo de ahorro (EcoQoS). Antes, `session/` hacía ese recorrido de procesos con llamadas de Windows. Ahora `session/reports.cpp` llama a `CountEcoQoSProcesses()` y quien habla con Windows es [`src/windows/system_counters.cpp`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/system_counters.cpp). Así el código de `session/` se lee sin saber nada de Win32.
 
-![Capas del código de VegaFlow: app/ usa ui/ y session/; session/ pide sus lecturas de Windows a windows/ y habla con los puertos; windows/ implementa los puertos y llama al núcleo Rust por bridge/; model/ lo usan todas las capas](../diagrams/capas-del-codigo.png)
+![Capas del código de VegaFlow: app/ usa ui/ y session/; session/ pide sus lecturas de Windows a windows/ y habla con los puertos; windows/ implementa los puertos y llama al núcleo Rust por bridge/; model/ lo usan todas las capas](./img/capas-del-codigo.png)
 
-[Ver el diagrama a pantalla completa](../diagrams/capas-del-codigo.html)
 
 Términos: un **puerto** es una interfaz pequeña (por ejemplo, «leer y escribir el registro») que las pruebas pueden sustituir por una versión falsa; un **adaptador** es la versión real, que llama a Windows.
 
@@ -23,13 +22,28 @@ Términos: un **puerto** es una interfaz pequeña (por ejemplo, «leer y escribi
 | Conversión UTF-8 ↔ UTF-16 (`text_convert`) | de `session/` a `windows/text_convert.*` |
 | Versión (0.1.0), clase y título de ventana, id del comando de la bandeja y la línea «procesador \| gráfica» | `ui/app_identity.hpp` |
 
+### Tabla de capas
+
+Cada carpeta de `src/` solo puede incluir las que se listan (la suya siempre). Es la misma tabla que la función `allowed()` de `scripts/check_layers.sh`; si cambia una, cambia la otra.
+
+| Carpeta | Puede incluir |
+| --- | --- |
+| `app/` (entradas) | `session/`, `ui/`, `model/`, `windows/`, `bridge/`, `detect/`, `optimize/` |
+| `ui/` (GUI) | `session/`, `model/` |
+| `session/` (casos de uso) | `model/`, `ports/`, `bridge/`; durante la migración, también `detect/`, `optimize/` y `windows/` |
+| `ports/` (interfaces) | `model/` |
+| `windows/` (adaptadores) | `ports/`, `model/`, `bridge/` |
+| `detect/` (migración) | `model/`, `windows/`, `bridge/` |
+| `optimize/` (migración) | `model/`, `ports/`, `windows/`, `bridge/` |
+| `model/`, `bridge/` | nada |
+
 Lo que comprueba el repositorio:
-- `scripts/check_layers.sh` revisa cada `#include` de `src/` contra la tabla de capas del [plan maestro](../plan/maestro/arquitectura.md): 272 includes comprobados, capas respetadas (2026-11-14). Corre en el CI.
+- `scripts/check_layers.sh` revisa cada `#include` de `src/` contra la tabla de capas de abajo: 272 includes comprobados, capas respetadas (2026-11-14). Corre en el CI.
 - `session/` todavía incluye cabeceras de `windows/`, `detect/` y `optimize/`. El script las permite como **migración** (están marcadas así en su tabla) hasta que cada pieza pase detrás de un puerto; lo que ya no hay en `session/` son las llamadas a Win32.
 - Las pruebas que tocan el registro real están solo en `tests/integration/`; `tests/unit/` usa puertos falsos. Suite de C++ en el laptop de pruebas, 2026-11-14: `57 PASSED, 0 FAILED`.
 
 ### 3.2. Subsistema `SystemInfo`: Telemetría Desacoplada y Detección de Hardware
-Implementado en [`src/session/system_info.hpp`](../../src/session/system_info.hpp) y [`src/session/system_info.cpp`](../../src/session/system_info.cpp), este módulo aísla toda la lógica de recopilación de hardware y sistema operativo en una biblioteca reutilizable. Las lecturas que necesitan Windows (L3, ranuras DIMM, conteos) están en [`src/windows/system_counters.cpp`](../../src/windows/system_counters.cpp):
+Implementado en [`src/session/system_info.hpp`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/session/system_info.hpp) y [`src/session/system_info.cpp`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/session/system_info.cpp), este módulo aísla toda la lógica de recopilación de hardware y sistema operativo en una biblioteca reutilizable. Las lecturas que necesitan Windows (L3, ranuras DIMM, conteos) están en [`src/windows/system_counters.cpp`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/system_counters.cpp):
 - **Detección de CPU**:
   - Lectura de marca mediante la instrucción x86 `CPUID` (registros EAX, EBX, ECX, EDX) reportando el procesador completo (e.g. *AMD Ryzen 5 4600H with Radeon Graphics*).
   - Conteo riguroso de núcleos físicos (6) y procesadores lógicos (12) mediante `GetLogicalProcessorInformationEx`.
@@ -52,12 +66,12 @@ Implementado en [`src/session/system_info.hpp`](../../src/session/system_info.hp
   - Función `SystemInfo::ToJson()` que exporta toda la telemetría en un esquema estructurado para interoperabilidad con scripts, frontends web o herramientas CLI externas (`--system-info`).
 
 ### 3.3. Arquitectura y Rediseño Visual de la GUI (Clean Slate / Nordic Dark Mode)
-Implementado en [`src/ui/gui_window.hpp`](../../src/ui/gui_window.hpp) y [`src/ui/gui_window.cpp`](../../src/ui/gui_window.cpp):
+Implementado en [`src/ui/gui_window.hpp`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/ui/gui_window.hpp) y [`src/ui/gui_window.cpp`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/ui/gui_window.cpp):
 - **Cero Dependencias & Ultra Bajo Consumo**: GUI construida enteramente sobre la API pura de Win32/GDI con doble búfer (`BitBlt`), sin marcos pesados (Qt, WPF, Electron). Consume menos de **15 MB de RAM privada** y **0.0% de CPU** en reposo. Al detectar un juego en primer plano, la interfaz suspende sus llamadas gráficas de telemetría para ceder el 100% de los ciclos a la GPU.
-- **Identidad de la ventana (R3):** [`src/ui/app_identity.hpp`](../../src/ui/app_identity.hpp) guarda en un solo sitio la versión, la clase y el título de la ventana (`VegaFlowUniversalWindow`, «VegaFlow Universal») y la línea «procesador | gráfica» (`FormatHardwareLine`). Esa línea nunca toma el nombre de otro equipo: lo que no se pudo leer sale como «Procesador no identificado» o «Gráfica no identificada», y una línea de más de 65 bytes se corta con «...» sin partir un carácter UTF-8. La GUI ya no promete mejoras en sus textos. Los textos de las pantallas nuevas están en un solo archivo, [`src/ui/texts.hpp`](../../src/ui/texts.hpp).
-- **Pantallas (fase G, versión 0.2.0):** el menú lateral tiene ocho entradas y una novena pantalla cuelga de Configuración. Las pantallas nuevas son Inicio, Ajustes del sistema, Juegos, Historial, Configuración, Programas, Tu equipo y Requisitos y advertencias (esta última sin entrada propia: se abre desde Configuración). **La tercera, «Memoria UMA & Núcleos CPU», sigue en el dibujo antiguo (GDI) de `gui_tabs.cpp`.** Cada pantalla nueva tiene su `src/ui/<nombre>_view.*` (dibuja y crea los controles) y su modelo en `src/session/<nombre>_screen.*` (decide qué se muestra). Qué hace cada una, para quien usa el programa: [guía de uso](../guias/uso-y-funciones.md), sección 2.8.
+- **Identidad de la ventana (R3):** [`src/ui/app_identity.hpp`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/ui/app_identity.hpp) guarda en un solo sitio la versión, la clase y el título de la ventana (`VegaFlowUniversalWindow`, «VegaFlow Universal») y la línea «procesador | gráfica» (`FormatHardwareLine`). Esa línea nunca toma el nombre de otro equipo: lo que no se pudo leer sale como «Procesador no identificado» o «Gráfica no identificada», y una línea de más de 65 bytes se corta con «...» sin partir un carácter UTF-8. La GUI ya no promete mejoras en sus textos. Los textos de las pantallas nuevas están en un solo archivo, [`src/ui/texts.hpp`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/ui/texts.hpp).
+- **Pantallas (fase G, versión 0.2.0):** el menú lateral tiene ocho entradas y una novena pantalla cuelga de Configuración. Las pantallas nuevas son Inicio, Ajustes del sistema, Juegos, Historial, Configuración, Programas, Tu equipo y Requisitos y advertencias (esta última sin entrada propia: se abre desde Configuración). **La tercera, «Memoria UMA & Núcleos CPU», sigue en el dibujo antiguo (GDI) de `gui_tabs.cpp`.** Cada pantalla nueva tiene su `src/ui/<nombre>_view.*` (dibuja y crea los controles) y su modelo en `src/session/<nombre>_screen.*` (decide qué se muestra). Qué hace cada una, para quien usa el programa: [guía de uso](./usage-and-features.md), sección 2.8.
 - **Controles nativos:** los botones, interruptores y campos son controles `BUTTON` y `EDIT` de Windows dibujados por el programa (owner-draw), así que tienen foco, orden de Tab y nombre accesible; las tarjetas, barras y etiquetas siguen siendo GDI. Un botón dibujado así se activa con la barra espaciadora, no con Intro. Las piezas comunes (crear el control, colocarlo dentro del área con desplazamiento, el marco con el anillo de foco) están en `src/ui/native_controls.*`.
-- **Sin escalado por DPI propio:** la ventana pide a Windows el modo «sin reconocer DPI, GDI escalado» (el diseño usa píxeles fijos) y Windows la amplía con texto nítido. La ventana se ajusta al área de trabajo. Se vio a 125 % y 150 % (ver [estado de verificación](../mediciones/estado-de-verificacion.md)).
+- **Sin escalado por DPI propio:** la ventana pide a Windows el modo «sin reconocer DPI, GDI escalado» (el diseño usa píxeles fijos) y Windows la amplía con texto nítido. La ventana se ajusta al área de trabajo. Se vio a 125 % y 150 % (ver [estado de verificación](../measurements/verification-status.md)).
 - **Paleta Slate / Zinc Neutra ("Clean Slate / Nordic Dark Mode")**:
   - Fondo principal: `#111317` (`RGB(17, 19, 23)`).
   - Barra lateral: `#16191E` (`RGB(22, 25, 30)`).
@@ -72,7 +86,7 @@ Implementado en [`src/ui/gui_window.hpp`](../../src/ui/gui_window.hpp) y [`src/u
   - Divisores horizontales internos de 1px (`CLR_CARD_BORDER`).
 - **Subtítulos Técnicos Educativos**:
   - Cada tarjeta y control dispone de descripciones breves que instruyen al usuario sobre el impacto físico de la optimización (aislamiento de CCX para evitar contención de caché L3, supresión del límite de 512 MB de UMA en AMD para evitar texturas borrosas en UE4/UE5, y nota explícita en `OverlayTestMode`/MPO indicando que no está documentado por Microsoft y permanece apagado por defecto).
-- **Qué pantalla es cuál** (índice del menú; la descripción de cada una está en la [guía de uso](../guias/uso-y-funciones.md), sección 2.8): 0 Inicio (`home_view`), 1 Ajustes del sistema (`settings_view`), 2 Memoria UMA & Núcleos CPU (GDI antiguo, `gui_tabs.cpp`), 3 Juegos (`games_view`), 4 Historial (`history_view`), 5 Configuración (`config_view`), 6 Programas (`programs_view`), 7 Tu equipo (`equipment_view`) y 8 Requisitos (`requirements_view`, colgada de Configuración). El «Dashboard Central» de 0.1.0 (pestaña 0) ya no existe.
+- **Qué pantalla es cuál** (índice del menú; la descripción de cada una está en la [guía de uso](./usage-and-features.md), sección 2.8): 0 Inicio (`home_view`), 1 Ajustes del sistema (`settings_view`), 2 Memoria UMA & Núcleos CPU (GDI antiguo, `gui_tabs.cpp`), 3 Juegos (`games_view`), 4 Historial (`history_view`), 5 Configuración (`config_view`), 6 Programas (`programs_view`), 7 Tu equipo (`equipment_view`) y 8 Requisitos (`requirements_view`, colgada de Configuración). El «Dashboard Central» de 0.1.0 (pestaña 0) ya no existe.
 - **Ajustes del sistema** muestra solo las familias que sirven en el equipo detectado (`AmdDriverTweaks` solo en GPUs AMD sin bloqueo de driver; `PowerModeTweaks` solo cuando aplica la política de energía). La lista sale del catálogo `src/session/settings_catalog.*`, que decide qué fila existe, si es experimental y qué evidencia tiene.
 
 ### 3.3b. La capa `session/` y las pantallas
@@ -89,14 +103,14 @@ Implementado en [`src/ui/gui_window.hpp`](../../src/ui/gui_window.hpp) y [`src/u
 | `ConfigActions` (`config_actions.*`) | Las ediciones de Configuración y Programas: cada una se aplica a una copia, la valida la misma regla con la que el daemon lee `config.json`, y la configuración en memoria solo cambia si el archivo se escribió. Una edición rechazada deja archivo y pantalla como estaban |
 | `RestoreAllMessage` (`restore.*`) | La frase tras «Devolver todo»: el resumen del diario si había entradas; si no, cuántos valores guardados del registro se devolvieron; si no, que no había nada que cambiar. Es una función pura con su prueba |
 
-**Reglas de capas** (las comprueba [`scripts/check_layers.sh`](../../scripts/check_layers.sh), que corre en el CI): `ui/` solo puede incluir `session/` y `model/`; `session/` incluye `model/`, `ports/` y `bridge/` y, mientras dure la migración, `windows/`, `detect/` y `optimize/`; `app/` puede incluir todo para armar las piezas.
+**Reglas de capas** (las comprueba [`scripts/check_layers.sh`](https://github.com/partprogramming09/vegaflow-universal/blob/main/scripts/check_layers.sh), que corre en el CI): `ui/` solo puede incluir `session/` y `model/`; `session/` incluye `model/`, `ports/` y `bridge/` y, mientras dure la migración, `windows/`, `detect/` y `optimize/`; `app/` puede incluir todo para armar las piezas.
 
 **Lo que sigue en `src/app/gui_mode.cpp`, y por qué.** `gui_mode.cpp` arma los objetos, los conecta a los botones y guarda el estado de la sesión. Siguen ahí, a propósito:
 - El **sondeo de telemetría** (`on_PollTelemetry`): devuelve un `GuiDashboardData`, una estructura que vive en `ui/`, y `session/` no puede incluir `ui/`.
 - **Purgar memoria, aislar procesos de fondo, restaurar la afinidad y el sondeo del historial:** llaman directamente a clases que tocan Windows y para las que no hay versión falsa; moverlas a `session/` no permitiría probarlas sin Windows.
 
 ### 3.4. Suite Moderna para Juegos 3D (EcoQoS, Jerarquía I/O NT y DirectFlip)
-Implementada de forma coordinada en [`src/optimize/cpu_orchestrator.cpp`](../../src/optimize/cpu_orchestrator.cpp), [`src/optimize/graphics/`](../../src/optimize/graphics/), [`src/app/main.cpp`](../../src/app/main.cpp) y [`src/ui/gui_window.cpp`](../../src/ui/gui_window.cpp):
+Implementada de forma coordinada en [`src/optimize/cpu_orchestrator.cpp`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/optimize/cpu_orchestrator.cpp), [`src/optimize/graphics/`](https://github.com/partprogramming09/vegaflow-universal/tree/main/src/optimize/graphics), [`src/app/main.cpp`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/app/main.cpp) y [`src/ui/gui_window.cpp`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/ui/gui_window.cpp):
 
 1. **Background EcoQoS (Power Throttling en Procesos de Fondo)**:
    - **Explicación técnica y física:** En procesadores con arquitectura APU como el Ryzen 5 4600H, el presupuesto térmico STAPM (Skin Temperature Aware Power Management) está limitado dinámicamente entre 35W y 45W para todo el encapsulado. Cuando procesos secundarios (navegadores web, launchers, Discord, tareas de indexación) ejecutan ráfagas de cómputo en núcleos Zen 2 a voltajes altos, sustraen entre 3W y 5W de este presupuesto unificado. La unidad SMU de AMD se ve forzada a reducir la frecuencia de la GPU Vega 6 a 1100–1200 MHz para mantenerse dentro del umbral térmico.
@@ -136,7 +150,7 @@ Implementada de forma coordinada en [`src/optimize/cpu_orchestrator.cpp`](../../
    - Esto habilita la promoción directa a **DirectFlip** en Windows 11, desacoplando la swap chain de la cola de copiado de DWM. El motor gráfico proyecta sus fotogramas directamente a la controladora de vídeo, logrando **0ms de latencia de entrada adicional** (equivalente a pantalla completa exclusiva) preservando la comodidad de la multitarea borderless y la compatibilidad con superposiciones de sistema.
 
 ### 3.5. Suite de Silicio APU & Blindaje de Memoria de Kernel NT (DisablePagingExecutive & Smart Tessellation 16x)
-Implementada en [`src/optimize/graphics/`](../../src/optimize/graphics/), [`src/app/main.cpp`](../../src/app/main.cpp) y [`src/ui/gui_window.cpp`](../../src/ui/gui_window.cpp):
+Implementada en [`src/optimize/graphics/`](https://github.com/partprogramming09/vegaflow-universal/tree/main/src/optimize/graphics), [`src/app/main.cpp`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/app/main.cpp) y [`src/ui/gui_window.cpp`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/ui/gui_window.cpp):
 
 1. **Blindaje de Memoria de Kernel NT (`DisablePagingExecutive=1` & `LargeSystemCache=0`)**:
    - **Explicación técnica y física:** En sistemas APU con arquitectura de memoria unificada (UMA), Windows NT por defecto traslada al archivo de paginación (`pagefile.sys`) el código ejecutable de drivers y subsistemas del kernel inactivos temporalmente. Cuando la GPU integrada Vega 6 o el pipeline D3D demanda recursos de inmediato, un fallo de página duro (*hard page fault*) al disco NVMe provoca un congelamiento perceptible (micro-stutter) de 50 a 200 ms.

@@ -13,7 +13,7 @@ VegaFlow Universal está escrito en **C++20 estándar** con enlace estático en 
 
 ### 5.2. Compilación Automatizada (PowerShell)
 
-El proyecto incluye el script automatizado [`scripts/build.ps1`](../../scripts/build.ps1), el cual detecta automáticamente MinGW g++ (en PATH o en Scoop), gestiona las rutas modulares y permite compilar ambos ejecutables y opcionalmente ejecutar la suite de pruebas:
+El proyecto incluye el script automatizado [`scripts/build.ps1`](https://github.com/partprogramming09/vegaflow-universal/blob/main/scripts/build.ps1), el cual detecta automáticamente MinGW g++ (en PATH o en Scoop), gestiona las rutas modulares y permite compilar ambos ejecutables y opcionalmente ejecutar la suite de pruebas:
 
 ```powershell
 # Compilar vegaflow_daemon.exe y vegaflow_tests.exe:
@@ -99,7 +99,7 @@ scripts/package.sh                     # genera dist/VegaFlow-<versión>-win-x64
 
 Antes de compilar, el script exige que la versión coincida en tres sitios: `rust/vegaflow-core/Cargo.toml`, `src/ui/app_identity.hpp` y la entrada más reciente de `CHANGELOG.md`; si no, se detiene. Después compila con `build-cross.sh`, reúne en `dist/` el daemon, `install.ps1` y `uninstall.ps1` (fuente: `scripts/package/`), `config/config.json`, `VERSION`, la licencia, el `CHANGELOG.md` y los dos README, escribe `SHA256SUMS` con el hash de cada archivo, y comprime todo. `dist/` no se sube a git.
 
-Para comprobar el paquete se usa `tests/package/package_tests.ps1`, que instala, aplica un cambio real, desinstala y compara el sistema; se corre como administrador en un Windows real. Cómo usarlo, qué comprueba y su resultado están en [`instalar-y-desinstalar.md`](instalar-y-desinstalar.md).
+Para comprobar el paquete se usa `tests/package/package_tests.ps1`, que instala, aplica un cambio real, desinstala y compara el sistema; se corre como administrador en un Windows real. Cómo usarlo, qué comprueba y su resultado están en [`instalar-y-desinstalar.md`](./install-and-uninstall.md).
 
 ---
 
