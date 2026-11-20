@@ -17,7 +17,7 @@ Terceros: repo público; la documentación publicada (`README.md`, `docs/guides/
 
 ## Compilar y probar
 
-Solo en Windows (MinGW-w64 g++ 13+ y cargo con el objetivo `x86_64-pc-windows-gnu`); desde este Mac se corre por `scripts/remote/`. En este Mac `cargo test` del núcleo Rust también corre (fuera de Windows las llamadas a `ntdll` devuelven error a propósito).
+Solo en Windows (MinGW-w64 g++ 13+ y cargo con el objetivo `x86_64-pc-windows-gnu`); desde este Mac se corre por `scripts/remote/`. En este Mac `cargo test` del núcleo Rust también corre: el núcleo no llama a Windows (las llamadas a `ntdll` y DXGI viven en C++, `src/windows/memory.cpp`).
 
     powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1 -RunTests    # compila el daemon y las pruebas y corre las 57 de C++
 

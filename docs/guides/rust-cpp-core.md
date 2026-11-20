@@ -103,7 +103,7 @@ The header `rust_bridge.h` is written by hand (it is not generated with cbindgen
       1. Counts the unique physical cores, detects SMT (`logical > physical`) and multiple L3 islands (`has_multiple_ccx`).
       2. Selects the background cores:
          - Hybrid topology (`min_eff != max_eff`): threads with `efficiency_class < max_eff` go to the background.
-         - Asymmetric L3 islands (`has_multiple_ccx`, and the secondary island has $\le 33\%$ of the total threads): the whole secondary island goes to the background.
+         - Asymmetric L3 islands (`has_multiple_ccx`, and the secondary island has ≤ 33% of the total threads): the whole secondary island goes to the background.
          - Symmetric L3 islands or a single CCX: if `physical_cores >= 4`, the last complete physical core (all its SMT threads) goes to the background; if `physical_cores < 4`, only the last logical processor (`1` thread) goes to the background.
       3. DPC/ISR shield: if `physical_cores >= 4`, the lowest physical core (`Core 0`) is excluded from `game_cpu_set_ids` (unless that would leave the game with no threads).
       4. Orders `game_cpu_set_ids`, prioritizing the main L3 island (`primary_llc`) to minimize inter-CCX latency.

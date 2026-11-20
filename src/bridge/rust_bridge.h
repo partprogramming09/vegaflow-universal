@@ -428,9 +428,10 @@ bool vf_rust_evaluate_device_profile(
 );
 
 /* Layout check for the structs above (this header is written by hand). Writes, for each struct in the order
-   VfUmaTelemetryInput, VfUmaGuardDecision, VfNtMemoryListSample, VfCpuCoreEntry, VfTopologyPartitionOut,
-   VfTierInput, VfAllowedRoot, VfConfigSettings, VfConfigLoad, VfAceEntry, VfIniKv, VfGpuAdapterInput,
-   VfDeviceProfileInput, VfDeviceProfileDecision: its size, its alignment and the offset and size of each field in declaration order. Writes at most `cap`
+   VfMemoryPurgeInput, VfMemoryPurgeDecision, VfCpuCoreEntry, VfTopologyPartitionOut, VfTierInput, VfAllowedRoot,
+   VfConfigSettings, VfConfigLoad, VfAceEntry, VfIniKv, VfGpuAdapterInput, VfDeviceProfileInput,
+   VfDeviceProfileDecision, VfProcessCategoryActions, VfProcessDecision, VfProcessPolicyConfig,
+   VfProcessExceptionEntry, VfProcessClassifyInput (the order of vf_rust_bridge_layout in rust/vegaflow-core/src/ffi.rs): its size, its alignment and the offset and size of each field in declaration order. Writes at most `cap`
    numbers and returns how many there are in total. Checked by C++ Test 34. */
 size_t vf_rust_bridge_layout(size_t* out, size_t cap);
 

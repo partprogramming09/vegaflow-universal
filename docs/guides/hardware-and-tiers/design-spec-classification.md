@@ -38,7 +38,7 @@ A deterministic classification and policy structure is introduced in [`src/model
 
 ```cpp
 enum class ApuTier : uint8_t {
-    Tier1_EntryUMA = 1,      // APUs <= 8GB RAM o <= 4 núcleos físicos (Vega 3/6/8 mobile entry, Athlon, UHD)
+    Tier1_EntryUMA = 1,      // APUs <= 8GB RAM or <= 4 physical cores (Vega 3/6/8 mobile entry, Athlon, UHD)
     Tier2_MidVegaUMA = 2,    // APUs 12-20GB RAM GCN5/Vega o Zen2/Zen3 6C-8C (Ryzen 4600H, 5500U, 5600G/H)
     Tier3_AdvancedUMA = 3,   // APUs RDNA2/RDNA3/RDNA3.5 (680M, 780M, 890M), Intel Arc/Xe, o UMA >= 24GB RAM
     Tier4_DiscreteOrCustom = 4 // Sistemas con dGPU dedicada (> 2GB VRAM dedicada) o arquitectura desconocida
@@ -51,7 +51,7 @@ enum class GpuArchitectureGen : uint8_t {
     AMD_RDNA3_Plus = 3,      // Radeon 740M / 760M / 780M / 880M / 890M (RDNA 3 / 3.5)
     Intel_Gen9_11_UHD = 4,   // Intel UHD Graphics (Skylake - Comet Lake)
     Intel_Xe_Arc = 5,        // Intel Iris Xe / Arc Integrated (Tiger Lake - Lunar Lake)
-    Discrete_GPU = 6         // Tarjetas gráficas dedicadas (AMD RX / NVIDIA GTX-RTX / Intel Arc dGPU)
+    Discrete_GPU = 6         // Dedicated graphics cards (AMD RX / NVIDIA GTX-RTX / Intel Arc dGPU)
 };
 ```
 
@@ -91,24 +91,24 @@ struct ApuOptimizationPolicy {
     std::string guard_mode_name;         // "Survival Guard", "Sweet-Spot Guard", "Do-No-Harm Guard", "Pass-Through Guard"
 
     // --- Guard de Memoria UMA (DX11 & DX12) ---
-    uint32_t os_reserve_floor_mb = 4096; // Colchón intocable para el kernel NT y page tables
+    uint32_t os_reserve_floor_mb = 4096; // Untouchable cushion for the NT kernel and page tables
     uint32_t safe_vram_pool_mb = 4096;   // PoolSize para UE4/UE5, DXVK maxDeviceMemory y VRAM Override
     uint32_t safe_shared_pool_mb = 8192; // dxgi.maxSharedMemory en DXVK
     double runtime_pressure_threshold = 0.85; // Disparo del Runtime Guard al 85% del budget DXGI
 
-    // --- Especialización DirectX 11 ---
-    uint32_t dxvk_compiler_threads = 6;  // Hilos asíncronos de compilación de shaders
+    // --- DirectX 11 specialisation ---
+    uint32_t dxvk_compiler_threads = 6;  // Asynchronous shader compilation threads
     uint32_t amd_tessellation_cap = 16;  // 8x (Tier1), 16x (Tier2), 32x (Tier3), 64x (Tier4)
     uint32_t max_anisotropy = 4;         // 2x (Tier1), 4x (Tier2), 8x (Tier3), 16x (Tier4)
     bool recommend_dxvk_gplasync = true; // True en GCN5/Vega (sin GPL nativo), False por defecto en RDNA3+ con GPL nativo
 
-    // --- Especialización DirectX 12 ---
+    // --- DirectX 12 specialisation ---
     bool disable_dx12_async_compute = true; // True en Tier1/Tier2 (<=8 CUs), False en Tier3/Tier4 (Do-No-Harm Guard)
     uint32_t ue_max_csm_resolution = 1024;  // 512 (Tier1), 1024 (Tier2), 2048 (Tier3/4)
     uint32_t ue_max_shadow_cascades = 2;    // 1 (Tier1), 2 (Tier2), 3 (Tier3), 4 (Tier4)
     bool disable_volumetric_fog = true;     // True en Tier1/2, False en Tier3/4
 
-    // --- Guard Térmico y de Reloj CPU (STAPM) ---
+    // --- Thermal and CPU clock guard (STAPM) ---
     uint32_t cpu_stapm_cap_mhz = 3400;   // Valor por defecto del struct; BuildOptimizationPolicy lo fija a 0 (sin techo) en todos los tiers
     bool apply_uma_vram_reg_override = true; // False en Tier4 (GPU dedicada)
 };

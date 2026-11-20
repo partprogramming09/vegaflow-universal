@@ -39,13 +39,13 @@ The [`SandboxGuard`](https://github.com/partprogramming09/vegaflow-universal/blo
 To keep compatibility across the AMD and Intel processor range without applying harmful generic recipes, VegaFlow introduces the `ApuCapabilityGuard` subsystem (`HardwareProfiler::BuildOptimizationPolicy`):
 
 1. **Tier 1: Entry UMA [Survival Guard]:**
-   - **Target:** entry-level APUs with $\le$ 9 GB of RAM or $\le$ 4 physical cores (basic Vega 3/6/8, Athlon Mobile, Intel Gen 9–11 UHD).
+   - **Target:** entry-level APUs with ≤ 9 GB of RAM or ≤ 4 physical cores (basic Vega 3/6/8, Athlon Mobile, Intel Gen 9–11 UHD).
    - **Defense:** strictly limits the Unreal Engine texture pool to between 1536 and 2048 MB, to avoid catastrophic out-of-memory (OOM) crashes; caps DXVK at 3 shader-compilation threads; sets tessellation to 8x; disables `AsyncCompute` in DX12; no STAPM frequency cap (`cpu_stapm_cap_mhz = 0`).
 2. **Tier 2: Mid Vega UMA [Sweet-Spot Guard]:**
    - **Target:** GCN 5 / Vega APUs with 12–20 GB of RAM, or Zen 2/Zen 3 CPUs with 6C–8C (Ryzen 5 4600H, 5500U, 5600H).
    - **Policies (100% backward compatible with the test bench):** VRAM pool at 4096 MB; 6 dedicated threads for DXVK; tessellation 16x; `disable_dx12_async_compute = true`; no STAPM frequency cap (`cpu_stapm_cap_mhz = 0`).
 3. **Tier 3: Advanced UMA [Do-No-Harm Guard]:**
-   - **Target:** modern RDNA 2, RDNA 3 and RDNA 3.5 APUs (Radeon 680M, 780M, 890M, Strix Point), Intel Xe/Arc UMA, or setups with $\ge$ 22 GB of RAM.
+   - **Target:** modern RDNA 2, RDNA 3 and RDNA 3.5 APUs (Radeon 680M, 780M, 890M, Strix Point), Intel Xe/Arc UMA, or setups with ≥ 22 GB of RAM.
    - **Do-No-Harm Guard:** **keeps modern asynchronous compute intact** (`D3D12.AsyncCompute=1` and `r.RDG.AsyncCompute=1`); **does not throttle the CPU clock** (`cpu_stapm_cap_mhz = 0`); assigns a generous, adaptive UMA pool of between 4096 and 8192 MB, set to 30% of RAM; tessellation up to 32x.
 4. **Tier 4: Discrete / Custom [Pass-Through Guard]:**
    - **Target:** dedicated GPUs (any GPU that is not integrated) or discrete architectures. It runs in transparent mode, without interfering with the dedicated driver stack.

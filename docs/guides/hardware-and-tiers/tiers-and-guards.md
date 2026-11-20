@@ -11,13 +11,13 @@
 To go beyond support for the Ryzen 5 4600H alone without introducing regressions or degrading newer silicon, VegaFlow includes a deterministic 4-level classifier (`ApuTier`) managed by `HardwareProfiler::BuildOptimizationPolicy()`:
 
 1. **`Tier1_EntryUMA` [Survival Guard]:**
-   - **Target hardware:** APUs with RAM $\le$ 8–9 GB or $\le$ 4 physical cores (basic Vega 3/6/8, Athlon Mobile, Intel Gen 9–11 UHD).
+   - **Target hardware:** APUs with RAM ≤ 8–9 GB or ≤ 4 physical cores (basic Vega 3/6/8, Athlon Mobile, Intel Gen 9–11 UHD).
    - **Directives:** strict VRAM texture pool ceiling between 1536 and 2048 MB (`safe_vram_pool_mb`) to avoid out-of-memory (OOM) system crashes; 3 compile threads in DXVK; AMD tessellation limit at 8x; `disable_dx12_async_compute = true`; no STAPM frequency cap (`cpu_stapm_cap_mhz = 0`).
 2. **`Tier2_MidVegaUMA` [Sweet-Spot Guard]:**
    - **Target hardware:** Vega/GCN5 APUs with 12–20 GB of RAM, or Zen 2/Zen 3 processors with 6C–8C (Ryzen 5 4600H, 5500U, 5600H).
    - **Directives (100% backwards compatible with the test machine):** VRAM pool at 4096 MB; 6 dedicated compile threads in DXVK-GPLAsync; tessellation limit at 16x; `disable_dx12_async_compute = true`; no STAPM frequency cap (`cpu_stapm_cap_mhz = 0`).
 3. **`Tier3_AdvancedUMA` [Do-No-Harm Guard]:**
-   - **Target hardware:** modern RDNA2/RDNA3/RDNA3.5 APUs (Radeon 680M, 780M, 890M, Strix Point) and Intel Xe/Arc UMA, or UMA systems with $\ge$ 22 GB of RAM.
+   - **Target hardware:** modern RDNA2/RDNA3/RDNA3.5 APUs (Radeon 680M, 780M, 890M, Strix Point) and Intel Xe/Arc UMA, or UMA systems with ≥ 22 GB of RAM.
    - **Directives ("Do-No-Harm"):** keeps modern asynchronous compute intact (`D3D12.AsyncCompute=1` and `r.RDG.AsyncCompute=1`); **does not throttle the CPU** (`cpu_stapm_cap_mhz = 0`); assigns a generous, adaptive UMA pool of 6144 to 8192 MB; tessellation allowed up to 32x; 6 to 8 threads in DXVK.
 4. **`Tier4_DiscreteOrCustom` [Pass-Through Guard]:**
    - **Target hardware:** dedicated GPUs (more than 2 GB of dedicated VRAM) or discrete architectures.

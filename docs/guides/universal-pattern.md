@@ -106,8 +106,9 @@ Although the contention problem is universal, the internal anatomy of AMD and In
 
 **The essentials:** the pattern is universal, but what VegaFlow does depends on two rules written in Rust, with no Windows calls and with the same test cases in Rust and C++: **what kind of graphics card is present** ([`device_profile.rs`](https://github.com/partprogramming09/vegaflow-universal/blob/main/rust/vegaflow-core/src/policy/device_profile.rs), phase 3) and **how the cores are split** ([`cpu_governor.rs`](https://github.com/partprogramming09/vegaflow-universal/blob/main/rust/vegaflow-core/src/policy/cpu_governor.rs), phase 7). Tables 3.1 and 3.2 say what is expected per family; this section says what the code does today.
 
-> [!NOTE]
-> Two points in tables 3.1 and 3.2 do not match the code, and are pending a decision on whether to correct the text or the code: the code has no rule of its own for X3D processors (it splits by cache and core, without knowing which one carries the V-Cache), and on an eGPU what is specific to it (streaming settings) is only activated with an experimental option. The impact figures in those tables do not have a linked source in this document.
+::: info
+Two points in tables 3.1 and 3.2 do not match the code, and are pending a decision on whether to correct the text or the code: the code has no rule of its own for X3D processors (it splits by cache and core, without knowing which one carries the V-Cache), and on an eGPU what is specific to it (streaming settings) is only activated with an experimental option. The impact figures in those tables do not have a linked source in this document.
+:::
 
 ### Phase 3: machine profile and GPU connection type
 
