@@ -532,7 +532,7 @@ bool RevertProcessStateEntry(const JournalEntry& e, std::string* out_err) {
 #pragma GCC diagnostic pop
 #endif
     if (pfnNtSetInfo) {
-        ULONG io_normal = 1;
+        ULONG io_normal = 2; // IO_PRIORITY_HINT IoPriorityNormal (1 is Low)
         pfnNtSetInfo(hProc.get(), 33 /* ProcessIoPriorityInformationClass */, &io_normal, sizeof(io_normal));
     }
     return true;

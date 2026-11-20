@@ -127,5 +127,6 @@ void Test90();
 void Test91();
 void Test92();
 void Test93();
+void Test94();
 
 } // namespace vftest
