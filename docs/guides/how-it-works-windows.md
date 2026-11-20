@@ -112,11 +112,11 @@ The command: `--restore-registry` is read at [cli.cpp:67](https://github.com/par
 
 [change_journal.cpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/change_journal.cpp) is the log that lets VegaFlow undo its changes after a crash.
 
-- **Where.** A file named `config\change_journal.vfj` next to the executable (`JournalFilePath`, `:635`).
-- **How it is saved.** Each save writes the whole file through `Replace`, which goes through `SafeReplaceFile` and renames a temporary file over it (`PersistLocked`, `:700-721`). The file is replaced in one step, not written in place.
-- **Session markers.** `BeginSession` (`:847`) marks a run as active. `EndSessionClean` (`:855`) clears it. If the last run was not closed, the streak goes up (`:839-841`). Two unclean exits in a row turn on safe mode (`:843`).
-- **Undo.** `WindowsSystemUndo::RevertEntry` (`:979`) undoes each entry by its kind: registry, power plan, memory compression, process state, DXGI preference, game file or restore point. A restore point is created with `SRSetRestorePointW` from `srclient.dll` (`CreateRestorePoint`, `:1000-1011`).
-- **History.** Completed entries are capped at 200 (`kMaxHistoryEntries`, `:33`).
+- **Where.** A file named `config\change_journal.vfj` next to the executable (`JournalFilePath`, `:626`).
+- **How it is saved.** Each save writes the whole file through `Replace`, which goes through `SafeReplaceFile` and renames a temporary file over it (`PersistLocked`, `:691-712`). The file is replaced in one step, not written in place.
+- **Session markers.** `BeginSession` (`:838`) marks a run as active. `EndSessionClean` (`:846`) clears it. If the last run was not closed, the streak goes up (`:830-832`). Two unclean exits in a row turn on safe mode (`:843`).
+- **Undo.** `WindowsSystemUndo::RevertEntry` (`:970`) undoes each entry by its kind: registry, power plan, memory compression, process state, DXGI preference, game file or restore point. A restore point is created with `SRSetRestorePointW` from `srclient.dll` (`CreateRestorePoint`, `:1000-1011`).
+- **History.** Completed entries are capped at 200 (`kMaxHistoryEntries`, `:34`).
 
 ### Smaller files
 
