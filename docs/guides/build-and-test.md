@@ -26,7 +26,7 @@ The project includes the script [`scripts/build.ps1`](https://github.com/partpro
 powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
 
 # Build and run the C++ suite right away (the last recorded run, 2026-11-19, printed
-# `TEST RESULTS: 315 PASSED, 0 FAILED`; the number grows with each new test, so don't copy it from here):
+# `TEST RESULTS: 316 PASSED, 0 FAILED`; the number grows with each new test, so don't copy it from here):
 powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1 -RunTests
 ```
 
@@ -96,7 +96,7 @@ Every change to the repository must be checked by running `build/vegaflow_tests.
 The suite prints one `[PASS]` or `[FAIL]` line per test and ends with a summary. The last line should read as follows (last recorded run, 2026-11-19):
 
 ```
-TEST RESULTS: 315 PASSED, 0 FAILED
+TEST RESULTS: 316 PASSED, 0 FAILED
 ```
 
 Where each test lives:
