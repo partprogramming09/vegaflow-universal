@@ -180,11 +180,13 @@ void Test95() {
     reg.DeleteValue(RegHive::CurrentUser, ugp_key, exe, false);
     reg.DeleteValue(RegHive::CurrentUser, layers_key, exe, false);
     std::filesystem::remove_all(root, ec);
+    RegValue left;
+    const bool clean = !reg.ReadValue(RegHive::CurrentUser, ugp_key, exe, left) && !reg.ReadValue(RegHive::CurrentUser, layers_key, exe, left);
 
-    RecordResult(seeded && applied && merged && one_entry && reverted,
+    RecordResult(seeded && applied && merged && one_entry && reverted && clean,
                  "Test 95: Real Flip write keeps user prefs and flags, journals once, and reverts exactly",
                  "seed: " + Pass(seeded) + ", applied: " + Pass(applied) + ", merged: " + Pass(merged) +
-                     ", entries=" + std::to_string(journal.Entries().size()) + ", reverted: " + Pass(reverted));
+                     ", entries=" + std::to_string(journal.Entries().size()) + ", reverted: " + Pass(reverted) + ", clean: " + Pass(clean));
 }
 
 } // namespace vftest
