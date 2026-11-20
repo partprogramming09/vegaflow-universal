@@ -120,8 +120,10 @@ int main(int argc, char* argv[]) {
             if (hExisting) {
                 PostMessageW(hExisting, RegisterWindowMessageW(vegaflow::ui::kRestoreWindowMessage), 0, 0);
                 SetForegroundWindow(hExisting);
+                std::cout << "[INFO] VegaFlow Universal is already running. Focusing existing instance.\n";
+            } else {
+                std::cout << "[INFO] VegaFlow Universal is already running in the background (no window to show).\n";
             }
-            std::cout << "[INFO] VegaFlow Universal is already running. Focusing existing instance.\n";
             CloseHandle(g_single_instance_mutex);
             g_single_instance_mutex = nullptr;
             return 0;
@@ -180,6 +182,8 @@ int main(int argc, char* argv[]) {
     }
 
     const bool safe_mode = opts.observe_flag || (!journal_eval.corrupt && journal_eval.safe_mode);
+    const std::string safe_reason = opts.observe_flag ? "pedido con --observe: solo observar"
+                                                      : "se detectaron 2 o más cierres anormales seguidos";
     JournalSessionGuard session_guard;
     if (!journal_eval.corrupt) {
         if (!safe_mode && !opts.dry_run_flag && vegaflow::session::ShouldOfferRestorePoint(journal)) {
@@ -228,7 +232,7 @@ int main(int argc, char* argv[]) {
     CpuOrchestrator cpu_orchestrator;
 
     if (opts.monitor_flag) {
-        RunMonitorDashboard(config, hw, cpu_orchestrator, mem_mgr, opts.once_flag);
+        RunMonitorDashboard(config, hw, cpu_orchestrator, mem_mgr, opts.once_flag, safe_mode, safe_reason);
         if (g_single_instance_mutex) {
             CloseHandle(g_single_instance_mutex);
             g_single_instance_mutex = nullptr;
@@ -240,5 +244,5 @@ int main(int argc, char* argv[]) {
         return RunGuiMode(config, config_store, hw, cpu_orchestrator, mem_mgr, safe_mode, journal_warning);
     }
 
-    return RunDaemon(config, hw, cpu_orchestrator, mem_mgr, priv, opts.once_flag, safe_mode);
+    return RunDaemon(config, hw, cpu_orchestrator, mem_mgr, priv, opts.once_flag, safe_mode, safe_reason);
 }

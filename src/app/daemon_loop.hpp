@@ -1,6 +1,8 @@
 #pragma once
 // Default mode: the background daemon loop (or a single cycle with --once). Returns the process exit code.
 
+#include <string>
+
 #include "windows/privileges.hpp"
 #include "session/config.hpp"
 #include "detect/hardware_profiler.hpp"
@@ -16,6 +18,7 @@ int RunDaemon(
     vegaflow::MemoryManager& mem_mgr,
     const vegaflow::PrivilegeStatus& priv,
     bool once_mode,
-    bool safe_mode = false);
+    bool safe_mode = false,
+    const std::string& safe_reason = {});
 
 } // namespace vegaflow::app

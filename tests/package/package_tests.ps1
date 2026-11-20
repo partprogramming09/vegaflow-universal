@@ -95,6 +95,21 @@ foreach ($opt in '--dxvk-install', '--dxvk-remove') {
 # An empty path is a missing one. '""' is how Windows PowerShell 5.1 hands an empty argument to a program.
 $r = Invoke-Exe @('--dry-run', '--dxvk-install', '""')
 Check '--dxvk-install con ruta vacía se rechaza (código 2)' ($r.Code -eq 2 -and $r.Output -notmatch '\[DXVK\]') "código $($r.Code): $($r.Output)"
+# A dry run isolates nothing: it must say what it would do.
+$r = Invoke-Exe @('--dry-run', '--once')
+Check 'dry-run no dice que aisló' ($r.Output -notmatch 'Isolated in dry-run' -and $r.Output -match 'would be isolated') $r.Output
+# --observe is safe mode by choice: the notice must not blame crashes.
+$r = Invoke-Exe @('--observe', '--once')
+Check '--observe explica su modo seguro' ($r.Code -eq 0 -and $r.Output -match '--observe' -and $r.Output -notmatch 'cierres anormales') $r.Output
+# The monitor must honour safe mode too.
+$r = Invoke-Exe @('--observe', '--monitor', '--once')
+Check '--monitor respeta el modo seguro' ($r.Code -eq 0 -and $r.Output -match 'MODO SEGURO') $r.Output
+# A second start while a windowless instance runs must not claim to focus a window.
+$first = Start-Process -FilePath $exe -ArgumentList '--observe' -PassThru -WindowStyle Hidden
+Start-Sleep -Seconds 3
+$r = Invoke-Exe @('--observe')
+Stop-Process -Id $first.Id -Force -ErrorAction SilentlyContinue
+Check 'segundo arranque sin ventana lo dice' ($r.Code -eq 0 -and $r.Output -match 'already running' -and $r.Output -notmatch 'Focusing') $r.Output
 # Already elevated (this runs as Administrator), --elevate must not swallow --dry-run.
 $r = Invoke-Exe @('--elevate', '--dry-run')
 Check '--elevate --dry-run simula' ($r.Code -eq 0 -and $r.Output -match 'DRY-RUN SIMULATION') "código $($r.Code)"
