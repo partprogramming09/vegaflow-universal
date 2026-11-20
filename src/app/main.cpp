@@ -10,6 +10,7 @@
 #include <cctype>
 #include <iostream>
 #include <string>
+#include <vector>
 
 #include "detect/hardware_profiler.hpp"
 #include "optimize/graphics/graphics_optimizer.hpp"
@@ -26,6 +27,7 @@
 #include "ui/app_identity.hpp"
 #include "windows/text_convert.hpp"
 #include "windows/change_journal.hpp"
+#include "windows/command_line.hpp"
 #include "windows/config_location.hpp"
 #include "windows/power.hpp"
 #include "windows/registry.hpp"
@@ -93,6 +95,15 @@ struct JournalSessionGuard {
 int main(int argc, char* argv[]) {
     SetUnhandledExceptionFilter(VegaFlowCrashHandler);
     SetConsoleOutputCP(CP_UTF8);
+
+    // The CRT hands argv over in the ANSI code page; the parser and Utf8ToWide expect UTF-8.
+    std::vector<std::string> utf8_args = vegaflow::Utf8Args(GetCommandLineW());
+    std::vector<char*> utf8_argv;
+    for (auto& a : utf8_args) utf8_argv.push_back(a.data());
+    if (!utf8_argv.empty()) {
+        argc = static_cast<int>(utf8_argv.size());
+        argv = utf8_argv.data();
+    }
 
     CliOptions opts;
     if (const auto exit_code = ParseCommandLine(argc, argv, opts)) return *exit_code;

@@ -37,4 +37,20 @@ void Test97() {
                      vegaflow::app::WideToUtf8(plain) + "]");
 }
 
+// Windows itself (CommandLineToArgvW, through Utf8Args) must read back every forwarded argument unchanged, and a
+// path with "ñ" must reach the parser as UTF-8.
+void Test98() {
+    const std::vector<const char*> cases = {"C:\\My Game\\bin", "C:\\My Game\\", "", "a\\\"b", "C:\\Juegos\\A\xC3\xB1o", "--dry-run"};
+    std::vector<char*> argv = {const_cast<char*>("vf.exe"), const_cast<char*>("--elevate")};
+    for (const char* c : cases) argv.push_back(const_cast<char*>(c));
+    const std::wstring line = L"vf.exe " + vegaflow::BuildForwardedArgs(static_cast<int>(argv.size()), argv.data());
+    const std::vector<std::string> back = vegaflow::Utf8Args(line.c_str());
+    bool same = back.size() == cases.size() + 1;
+    for (size_t i = 0; same && i < cases.size(); ++i) same = back[i + 1] == cases[i];
+    std::string got;
+    for (const auto& a : back) got += "[" + a + "]";
+    RecordResult(same, "Test 98: the elevated instance reads back each argument unchanged, a path with an accent included",
+                 "read back " + std::to_string(back.size()) + " of " + std::to_string(cases.size() + 1) + ": " + got);
+}
+
 } // namespace vftest

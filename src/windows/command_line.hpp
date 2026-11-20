@@ -1,11 +1,33 @@
 #pragma once
 // The command line handed to the elevated instance (--elevate relaunches through UAC with the same flags).
 
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#include <shellapi.h>
+
 #include <string>
+#include <vector>
 
 #include "windows/text_convert.hpp"
 
 namespace vegaflow {
+
+// The arguments of `command_line` (as GetCommandLineW gives it) in UTF-8. main()'s argv comes in the ANSI code page,
+// so a path with "ñ" or an accent would not survive Utf8ToWide.
+inline std::vector<std::string> Utf8Args(const wchar_t* command_line) {
+    std::vector<std::string> out;
+    int count = 0;
+    LPWSTR* wide = CommandLineToArgvW(command_line, &count);
+    if (!wide) return out;
+    for (int i = 0; i < count; ++i) out.push_back(app::WideToUtf8(wide[i]));
+    LocalFree(wide);
+    return out;
+}
 
 // One argument quoted so CommandLineToArgvW reads it back whole: backslashes are doubled only before a quote
 // (embedded or the closing one), and an embedded quote becomes \".
