@@ -1,0 +1,6 @@
+allowBuilds:
+  esbuild: true
+# VitePress 1.6.4 pins vite 5 / esbuild 0.21, which carry dev-server advisories (pnpm audit, 2026-11-19)
+overrides:
+  vite: ^6.4.4
+  esbuild: ^0.25.0
