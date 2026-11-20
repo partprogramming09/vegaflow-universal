@@ -24,7 +24,7 @@ Some names in this page were updated to match the code. Each correction is marke
   - `DeployDxvk()` and `ConfigureApuProfile()` receive the policy already calculated (`const ApuOptimizationPolicy&`; since phase R2 they do not detect the hardware on each call: the daemon builds it once at startup).
   - Write `dxvk.numCompilerThreads`, `dxgi.maxDeviceMemory` and `dxgi.maxSharedMemory` using the policy values (`policy.dxvk_compiler_threads`, `policy.safe_vram_pool_mb`, `policy.safe_shared_pool_mb`).
   - In `ValidateDxvkApuProfile()`: accept as valid any `compilerThreads` between `1` and `16` (on the Ryzen 5 4600H it stays `6`, passing the DXVK profile check in `tests/integration/dxvk_tests.cpp` unchanged).
-    > Note: the design said the value must match the system policy. The current check only tests the range `1` to `16` (`src/optimize/dxvk_manager.cpp:600`); it does not compare the value with the policy.
+    > Note: the design said the value must match the system policy. The current check only tests the range `1` to `16` (`src/optimize/dxvk_manager.cpp:615`); it does not compare the value with the policy.
 
 ### 4.3. `SteamEngineOptimizer` (DirectX 11 and DirectX 12 specialization in engines)
 - In [`src/optimize/steam/`](https://github.com/partprogramming09/vegaflow-universal/tree/main/src/optimize/steam):

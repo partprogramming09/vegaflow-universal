@@ -74,22 +74,22 @@ Read rules and the anti-cheat list in [security.md](./security.md). This page on
 
 Keys and values are changed only inside the roots listed in [reg_restore_scope.hpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/reg_restore_scope.hpp) (for example `Software\Microsoft\DirectX` and the game-bar settings).
 
-1. **Save first.** Before the first change to a value, `RegBackupValue` ([registry.cpp:132](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/registry.cpp)) creates a record under `SOFTWARE\VegaFlow\RegBackup` (the root is at `registry.cpp:16`). The record holds the key, the value name, the hive (HKLM or HKCU), whether the value existed, its type and its data.
-2. **Keep only the first.** If the record already exists, the function returns (`registry.cpp:140`). The original value is therefore never overwritten by a second change.
-3. **Name the record by a hash.** The record name is a number computed from hive, key and value name (`RegBackupRecordName`, `registry.cpp:103`).
-4. **Journal, then write.** `WriteValue` ([registry.cpp:366](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/registry.cpp)) calls the backup at `:390` and the journal entry at `:391` before it writes the value.
-5. **Restore.** `RegRestoreRecord` (`registry.cpp:227`) reads the record and refuses it unless its key is one VegaFlow edits, in the same hive (`:248`). The record is read from HKCU, which any user can write, so its target is never trusted as stored. It then writes the saved value back, or deletes the value if it did not exist. The record is deleted only after success (`:270`).
-6. **Restore everything.** `RestoreAllBackups` (`registry.cpp:466`) runs the restore for every record in both hives.
+1. **Save first.** Before the first change to a value, `RegBackupValue` ([registry.cpp:146](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/registry.cpp)) creates a record under `SOFTWARE\VegaFlow\RegBackup` (the root is at `registry.cpp:16`). The record holds the key, the value name, the hive (HKLM or HKCU), whether the value existed, its type and its data.
+2. **Keep only the first.** If the record already exists, the function returns (`registry.cpp:155`). The original value is therefore never overwritten by a second change.
+3. **Name the record by a fixed hash.** The record name is `v2-` plus an FNV-1a hash (a simple checksum that gives the same number on every compiler) of hive, key and value name in lower case (`RegBackupRecordName`, `reg_restore_scope.hpp:28`; used at `registry.cpp:103`). Records written by older builds used `std::hash`, which another compiler may compute differently; they are still looked up under their old name before a new record is written and when restoring (`registry.cpp:118`, `:475`), so the first saved original is never replaced by an already changed value. The old lookup only works while `std::hash` gives the same number as the build that wrote the record.
+4. **Journal, then write.** `WriteValue` ([registry.cpp:381](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/registry.cpp)) calls the backup at `:405` and the journal entry at `:406` before it writes the value.
+5. **Restore.** `RegRestoreRecord` (`registry.cpp:242`) reads the record and refuses it unless its key is one VegaFlow edits, in the same hive (`:263`). The record is read from HKCU, which any user can write, so its target is never trusted as stored. It then writes the saved value back, or deletes the value if it did not exist. The record is deleted only after success (`:285`).
+6. **Restore everything.** `RestoreAllBackups` (`registry.cpp:482`) runs the restore for every record in both hives.
 
-The command: `--restore-registry` is read at [cli.cpp:64](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/app/cli.cpp). It runs the journal first, then `RestoreAllBackups` (`cli.cpp:295`). The exit code is 0 only if every change came back (`cli.cpp:303`).
+The command: `--restore-registry` is read at [cli.cpp:67](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/app/cli.cpp). It runs the journal first, then `RestoreAllBackups` (`cli.cpp:284`). The exit code is 0 only if every change came back (`cli.cpp:292`).
 
 ### Process control: priorities, EcoQoS and CPU sets
 
 [process_control.cpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/process_control.cpp) has two jobs: boost the game, and slow down the background programs.
 
-- **Game (`BoostGameProcess`, line 136).** It raises the priority class to High, or to Above Normal for DirectX 12 and Vulkan (`:174`). It sets the power-throttling state of the game to off (`:181`), sets memory priority to Normal, and applies the game's CPU sets with `SetProcessDefaultCpuSets` (`:201`). With `dry_run` it only reports what it would do (`:168`).
-- **Background (`ApplyBackgroundPolicy`, line 255).** It first checks that the process is still the one it found (creation time, so a recycled process id is never touched). Then it turns on power throttling with `EXECUTION_SPEED` (`:301`). This is the mechanism behind EcoQoS, the name the test suite uses for it (Test 19). The `Throttle` action also lowers memory priority, sets I/O priority to 0 (`:315`) and confines the process to the background CPU sets (`:324`).
-- **A Windows call declared by hand.** The I/O priority uses `NtSetInformationProcess` (class 33). The code declares its function type itself (`process_control.cpp:22`) and finds the function at run time with `GetProcAddress` on `ntdll.dll` (`:49-51`). If the function is missing, the step is skipped and the rest still runs.
+- **Game (`BoostGameProcess`, line 139).** It raises the priority class to High, or to Above Normal for DirectX 12 and Vulkan (`:177`). It sets the power-throttling state of the game to off (`:184`), sets memory priority to Normal, makes sure its I/O priority is not below Normal (2, `:196`), and applies the game's CPU sets with `SetProcessDefaultCpuSets` (`:204`). With `dry_run` it only reports what it would do (`:171`). The I/O priority values are named once (`kIoPriorityVeryLow = 0`, `kIoPriorityNormal = 2`, `:22-23`); restoring a process puts Normal back (`:250`, `:394`), not 1, which Windows reads as Low.
+- **Background (`ApplyBackgroundPolicy`, line 258).** It first checks that the process is still the one it found (creation time, so a recycled process id is never touched). Then it turns on power throttling with `EXECUTION_SPEED` (`:304`). This is the mechanism behind EcoQoS, the name the test suite uses for it (Test 19). The `Throttle` action also lowers memory priority, sets I/O priority to 0, VeryLow (`:318`) and confines the process to the background CPU sets (`:327`).
+- **A Windows call declared by hand.** The I/O priority uses `NtSetInformationProcess` (class 33). The code declares its function type itself (`process_control.cpp:25`) and finds the function at run time with `GetProcAddress` on `ntdll.dll` (`:52-55`). If the function is missing, the step is skipped and the rest still runs.
 
 ### Memory: telemetry, DXGI budget and the standby purge
 
@@ -142,7 +142,7 @@ Tests put fakes in place of them:
 | DeviceProbe | `FakeDeviceProbe` | [fake_device_probe.hpp:12](https://github.com/partprogramming09/vegaflow-universal/blob/main/tests/unit/fake_device_probe.hpp) |
 | ChangeJournal, SystemUndoPort, Clock | `FakeSystemUndo`, `FakeWallClock` | [fake_change_journal.hpp:13, :23](https://github.com/partprogramming09/vegaflow-universal/blob/main/tests/unit/fake_change_journal.hpp) |
 | MemoryProbe, MemoryControl | `FakeMemoryProbe`, `FakeMemoryControl` | [memory_purge_unit_tests.cpp:28, :67](https://github.com/partprogramming09/vegaflow-universal/blob/main/tests/unit/memory_purge_unit_tests.cpp) |
-| ProcessControl | `FakeProcessControl` | [process_class_unit_tests.cpp:92](https://github.com/partprogramming09/vegaflow-universal/blob/main/tests/unit/process_class_unit_tests.cpp) |
+| ProcessControl | `FakeProcessControl` | [process_class_unit_tests.cpp:93](https://github.com/partprogramming09/vegaflow-universal/blob/main/tests/unit/process_class_unit_tests.cpp) |
 
 The clock is injected, so the purge cooldown can be tested without waiting (Test 37). `SandboxGuard` is not behind a port; its tests run the real checks, with the test hook described above.
 
@@ -167,9 +167,9 @@ The code does not say why the NT functions are loaded by name instead of being l
 - **The standby purge is not allowed.** The result says `Standby List purge skipped (requires Administrator / --elevate)` and sets `privilege_missing`. The purge is skipped and reported; nothing else in the program stops.
 - **An NT function is missing.** The purge reports `NtSetSystemInformation not available in ntdll.dll`. The I/O priority step is skipped without a message.
 - **A registry restore points at a key VegaFlow never edits.** The restore returns `false`. The record stays in place (it is deleted only after a successful restore), so nothing is lost.
-- **Some values could not be restored.** `--restore-registry` prints `Se devolvieron X de Y` (X of Y restored) and exits with code 1 (`cli.cpp:301-303`).
-- **The journal is corrupt.** The command prints `Diario de cambios corrupto (...); restaurando copias de respaldo del registro directamente` and restores from the registry backups directly (`cli.cpp:284-285`). At startup the program warns and tells the user to run `--restore-registry` (`main.cpp:144`).
-- **The program crashed during a session.** The next start reports `Se detectó un cierre anterior no limpio` (an unclean previous exit) and offers to undo the changes (`main.cpp:159-176`). Two unclean exits in a row start safe mode (`change_journal.cpp:843`).
+- **Some values could not be restored.** `--restore-registry` prints `Se devolvieron X de Y` (X of Y restored) and exits with code 1 (`cli.cpp:290-292`).
+- **The journal is corrupt.** The command prints `Diario de cambios corrupto (...); restaurando copias de respaldo del registro directamente` and restores from the registry backups directly (`cli.cpp:273-274`). At startup the program warns and tells the user to run `--restore-registry` (`main.cpp:158`).
+- **The program crashed during a session.** The next start reports `Se detectó un cierre anterior no limpio` (an unclean previous exit) and offers to undo the changes (`main.cpp:173-190`). Two unclean exits in a row start safe mode (`change_journal.cpp:834`).
 - **DXCore is missing.** The probe falls back to DXGI (`device_probe.cpp:398-403`), so the hardware report still appears.
 
 ## Evidence that it works this way
@@ -182,9 +182,11 @@ All lines below were run on the test laptop on 2026-11-20 and are trimmed from t
 | 3, Rust rules | Suite, Test 33 | `[PASS] Test 33: SandboxGuard blacklist matches the shared vector file (52 vectors, 0 mismatches)` |
 | 6, junctions and swaps | Suite, Test 41 and Test 42 | `[PASS] Test 41: SandboxGuard refuses each old whitelist flaw (flaws 1-5, junctions (inside and as a root), \\?\ and UNC checked)` and `[PASS] Test 42: SandboxGuard checks the opened file, not only the path it validated (write, overwrite, copy, remove and read refused after the swap)` |
 | Registry save and restore | Suite, Test 29 (`tests/integration/graphics_tests.cpp`) and Test 30 | `[PASS] Test 29: Registry changes restore the original values (GameDVR applied: PASS, restored by toggle: PASS, restored by RestoreAll: PASS)` and `[PASS] Test 30: HKLM tweaks restore the original values (RestoreAllRegistryBackups: PASS, GPU Priority untouched: PASS, values identical: PASS)` |
-| Restore only own keys | Suite, Test 89 (`tests/unit/reg_restore_scope_unit_tests.cpp`) | `[PASS] Test 89: RegBackup restore is limited to VegaFlow's own keys in the record's hive (Real=OK, CrossHive=OK, Unknown=OK, Lookalike=OK, WrongHive=OK, Slash=OK, DotDot=OK, Empty=OK)` |
+| Restore only own keys | Suite, Test 89 (`tests/unit/reg_restore_scope_unit_tests.cpp`) | `[PASS] Test 89: RegBackup restore is limited to VegaFlow's own keys in the record's hive (Real=OK, CrossHive=OK, Unknown=OK, Lookalike=OK, WrongHive=OK, Slash=OK, DotDot=OK, Empty=OK, StableName=OK)` |
+| Records from older builds | Suite, Test 95 (`tests/integration/reg_backup_name_tests.cpp`) | `[PASS] Test 95: a RegBackup record under the older name is still found and restored (names differ: yes, second backup avoided: yes, restored: yes, value after restore: 7 (7 = original))` |
+| I/O priority restored to Normal | Suite, Test 94 (`tests/integration/io_priority_tests.cpp`) | `[PASS] Test 94: restore puts I/O priority back to Normal (lowered to: 0, after background restore: 2, after game restore: 2, after crash recovery: 2 (2 = Normal, 1 = Low))` |
 | Process: EcoQoS and I/O | Suite, Test 19 | `[PASS] Test 19: Modern 3D Gaming Suite (EcoQoS Background Throttling, I/O Priority Hierarchy, ...) (EcoQoS (Dry/Exec): PASS, I/O & Memory Priority NT: PASS (IoVeryLow 0, MemLow 2), ...` |
-| Process: PID safety | Suite, Test 55 | `[PASS] Test 55: CpuOrchestrator PID+FILETIME safety, game switch restore, and ExcludeGameAndRevert (Switch=OK, RecycledPidSafe=OK, EcoOnly=OK, DoNotTouch=OK, ExcludeAndReload=OK)` |
+| Process: PID safety | Suite, Test 55 | `[PASS] Test 55: CpuOrchestrator PID+FILETIME safety, game switch restore, and the GUI's game exclusion (Switch=OK, RecycledPidSafe=OK, EcoOnly=OK, DoNotTouch=OK, ExcludeAndReload=OK)` |
 | CPU sets | Suite, Test 2 | `[PASS] Test 2: HardwareProfiler universal hardware & CPU set detection (RAM: 15788 MB, Cores: 6P/12L, Game Sets: 8, Bg Sets: 2, Disjoint Sets: YES)` |
 | Standby list purge | Suite, Test 23 (`tests/integration/memory_tests.cpp`) | `[PASS] Test 23: Memory Manager Standby List Purge & UMA Bus Prioritizer (Dry-Run: PASS, Query (Standby: 283 MiB, Free: 7210 MiB): PASS, Permissions: ELEVATED (Purge OK), Footprint: 2308 KB (Zero-Overhead KPI < 15MB: PASS))` |
 | Purge cooldown (injected clock) | Suite, Test 37 | `[PASS] Test 37: the purge cooldown follows the injected clock (real purge: PASS, +10 s blocked (80s remaining): PASS, +91 s released: PASS, ...)` |
@@ -193,7 +195,7 @@ All lines below were run on the test laptop on 2026-11-20 and are trimmed from t
 | Journal crash recovery | Suite, Test 49 and Test 50 | `[PASS] Test 49: Change journal atomic writes, crash recovery, Safe Mode, and corrupt handling (fresh: PASS, crash1: PASS, ..., safe mode: PASS, corrupt: PASS, ...)` and `[PASS] Test 50: Real disk FileChangeJournal + WindowsSystemUndo restores HKCU registry and game INI after crash (setup: PASS, restored 2/2: PASS, HKCU==123: PASS, INI exact: PASS)` |
 | `--system-info` JSON | `vegaflow_daemon.exe --system-info` | The JSON excerpt in "A concrete example" |
 | `--status` lines | `vegaflow_daemon.exe --status` | The lines in "A concrete example" |
-| Whole suite | `scripts/build.ps1 -RunTests` | `TEST RESULTS: 315 PASSED, 0 FAILED` |
+| Whole suite | `scripts/build.ps1 -RunTests` | `TEST RESULTS: 320 PASSED, 0 FAILED` |
 | `--restore-registry` run from the command line | not run | not reproduced |
 | Standby purge without Administrator | not run | not reproduced |
 | The exact refusal message of a write | not run; Test 17 shows PASS only | not reproduced |
@@ -206,7 +208,7 @@ From the folder that holds `vegaflow_daemon.exe`, in PowerShell:
 .\vegaflow_daemon.exe --system-info
 ```
 
-The command prints the JSON and exits (`cli.cpp:128-131`). Look at `active_game_cpu_sets`, `dxgi_budget` and `valid`.
+The command prints the JSON and exits (`cli.cpp:135-138`). Look at `active_game_cpu_sets`, `dxgi_budget` and `valid`.
 
 ## Related
 

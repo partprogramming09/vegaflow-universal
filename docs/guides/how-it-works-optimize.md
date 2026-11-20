@@ -29,7 +29,7 @@ Real output from the test laptop (Windows 11 build 26300, run on 2026-11-20). No
 ```text
 [3/4] [DRY-RUN] CPU Orchestrator Evaluation:
   -> Background Processes Found: 22 PIDs
-  -> Background Sets to confine: 2 core IDs (Isolated in dry-run: 22 targets)
+  -> Background Sets to confine: 2 core IDs (would be isolated: 22 background processes; nothing changed)
 [4/4] [DRY-RUN] Memory Manager Evaluation:
   -> Standby Purge Triggered : NO
   -> Background Trim Count   : 0
@@ -40,7 +40,7 @@ What it means:
 
 - **22 PIDs** (process numbers) are background programs. They are candidates for confinement.
 - **2 core IDs** (266 and 267, from `--system-info`) are the background set: the two threads of one physical core. On a chip with four or more physical cores, the Rust partition gives the background set one core's threads (`rust/vegaflow-core/src/policy/cpu_governor.rs:117-118`).
-- **"Isolated in dry-run: 22 targets"** means the 22 processes *would* be confined. Nothing was changed.
+- **"would be isolated: 22 background processes; nothing changed"** means the 22 processes *would* be confined. A simulation changes nothing.
 - **Memory:** 7250 MB of free RAM is above the 1200 MB floor, and 276 MB of standby memory is below the 1500 MB needed for a purge. So nothing is purged.
 
 ## How it works, step by step
@@ -55,7 +55,7 @@ The CPU lever and the memory lever run on each session cycle. The file and regis
 | 2 | [cpu_orchestrator.cpp:65-100](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/optimize/cpu_orchestrator.cpp#L65-L100) | `UpdateBackgroundLoad`: CPU time per process, turned into "logical CPUs used" | The decision needs a load number. Samples are taken at least 1 s apart (`cpu_orchestrator.cpp:14`, `:69`) |
 | 3 | [cpu_governor.rs:354-360](https://github.com/partprogramming09/vegaflow-universal/blob/main/rust/vegaflow-core/src/policy/cpu_governor.rs#L354-L360) | `eval_bg_confinement`: on at 0.50 logical CPUs, off below 0.25 | The Rust core decides. The gap between the two numbers stops the state from flipping on every sample |
 | 4 | [cpu_orchestrator.cpp:270-273](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/optimize/cpu_orchestrator.cpp#L270-L273) | `bg_sets` is the background set when confinement is on, empty when off; `SetModifiedBackgroundCpuSets` applies it | A process only gets the set while the load says it is needed |
-| 5 | [process_control.cpp:255-333](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/process_control.cpp#L255-L333) | `ApplyBackgroundPolicy`: EcoQoS (Windows' efficiency mode) for every target; `Throttle` also sets low memory priority, very low I/O priority and the CPU set | Each process gets the smallest change its policy allows. `DoNotTouch` and `BoostAsGame` are skipped (`cpu_orchestrator.cpp:288-297`) |
+| 5 | [process_control.cpp:258-336](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/process_control.cpp#L258-L336) | `ApplyBackgroundPolicy`: EcoQoS (Windows' efficiency mode) for every target; `Throttle` also sets low memory priority, very low I/O priority and the CPU set | Each process gets the smallest change its policy allows. `DoNotTouch` and `BoostAsGame` are skipped (`cpu_orchestrator.cpp:288-297`) |
 | 6 | [memory_manager.cpp:103-126](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/optimize/memory_manager.cpp#L103-L126) | Telemetry and game disk rate packed into `VfMemoryPurgeInput`, then `vf_rust_evaluate_memory_purge` | The memory decision is in Rust (`rust/vegaflow-core/src/policy/memory_purge.rs:49-100`), so the rule is tested without Windows |
 | 7 | [memory_manager.cpp:128-167](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/optimize/memory_manager.cpp#L128-L167) | Cooldown and disk gates, then trim of background working sets (`:160-161`) and the standby purge (`:166-167`) | Purges are rate-limited (90 s cooldown) and held back while the game loads assets. The purge itself is `NtSetSystemInformation`, class 80, command 4 (`src/windows/memory.cpp:26-27`) |
 | 8 | [cpu_orchestrator.cpp:365-384](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/optimize/cpu_orchestrator.cpp#L365-L384) | `RestoreAll`: restore each tracked process, then clear the list; the destructor calls it too (`:31-33`) | Nothing stays changed after the game closes or the daemon stops |
@@ -87,20 +87,20 @@ How they talk: the session and the GUI call `CpuOrchestrator` and `MemoryManager
 - **Two thresholds for CPU confinement.** It turns on at 0.50 logical CPUs and off only below 0.25. Our reading: a single number would flip the state on every sample when the load hovers near it.
 - **One cooldown for purges.** Standby purges and UMA trims share a 90 s cooldown (`memory_manager.cpp:163-164`, `rust/.../memory_purge.rs:122-124`), so the two paths cannot run back to back.
 - **Dry run still reads pressure.** In dry run the cooldown is ignored, so the report shows the real pressure (`memory_manager.cpp:273-275`).
-- **Identity before every change.** A process is changed only if its ID and creation time still match (`cpu_orchestrator.cpp:39-40`, `:248`; `process_control.cpp:292`). A recycled ID belongs to another program.
-- **Refuse, do not hide.** DXVK on an anti-cheat game returns an explicit error (`dxvk_manager.cpp:191-196`), and the engine presets set `blocked_by_anticheat` (`engine_presets.cpp:215-217`).
-- **Remove only what VegaFlow wrote.** A game that ships its own `d3d11.dll` with no VegaFlow marker is left alone (`dxvk_manager.cpp:352-357`).
+- **Identity before every change.** A process is changed only if its ID and creation time still match (`cpu_orchestrator.cpp:39-40`, `:251`; `process_control.cpp:295`). A recycled ID belongs to another program.
+- **Refuse, do not hide.** DXVK on an anti-cheat game returns an explicit error (`dxvk_manager.cpp:198-203`), and the engine presets set `blocked_by_anticheat` (`engine_presets.cpp:215-217`).
+- **Remove only what VegaFlow wrote.** A game that ships its own `d3d11.dll` with no VegaFlow marker is left alone (`dxvk_manager.cpp:367-372`).
 - **Alternatives discarded:** no code comment, ADR or doc in the repo records the rejected options for these levers. Pending confirmation (see the report).
 
 ## What happens when it fails
 
 | Situation | What the code does | What the user sees (text from the code) |
 |---|---|---|
-| DXVK on an anti-cheat game | Refused before any file is touched (`dxvk_manager.cpp:191-196`) | "Bloqueado: El juego utiliza Anti-Cheat (EAC/BattlEye/etc.) y no es seguro inyectar DXVK" |
-| The user's `dxvk.conf` cannot be copied | Stops before any change (`dxvk_manager.cpp:223-227`) | "No se pudo guardar una copia del dxvk.conf que ya había; el juego quedó intacto" |
+| DXVK on an anti-cheat game | Refused before any file is touched (`dxvk_manager.cpp:198-203`) | "Bloqueado: El juego utiliza Anti-Cheat (EAC/BattlEye/etc.) y no es seguro inyectar DXVK" |
+| The user's `dxvk.conf` cannot be copied | Stops before any change (`dxvk_manager.cpp:234-238`) | "No se pudo guardar una copia del dxvk.conf que ya había; el juego quedó intacto" |
 | `Engine.ini` backup cannot be made | No change (`engine_presets.cpp:252-256`) | "No se pudo crear la copia de seguridad .vegaflow.bak; juego intacto" |
 | `Engine.ini` has a broken VegaFlow block | File left as it is (`engine_presets.cpp:276-279`) | "Marcador de bloque VegaFlow incompleto en Engine.ini; archivo intacto" |
-| DXVK removal while the game is open | The DLL stays, with its backup (`dxvk_manager.cpp:386-389`) | "No se pudo quitar DXVK del todo: ¿el juego está abierto? ..." |
+| DXVK removal while the game is open | The DLL stays, with its backup (`dxvk_manager.cpp:401-404`) | "No se pudo quitar DXVK del todo: ¿el juego está abierto? ..." |
 | Purge without administrator rights | Background working sets are trimmed; the standby purge is skipped (`memory_manager.cpp:171-174`) | "Standby List purge skipped (requires Administrator / --elevate)" |
 | Purge within the cooldown | Nothing runs (`memory_manager.cpp:128-132`) | "Skipped due to cooldown (Ns remaining)" |
 | Game reads faster than the limit (15 MB/s by default) | Purge is skipped (`memory_manager.cpp:134-140`) | "Skipped due to game disk I/O read peak" |
@@ -116,7 +116,7 @@ Only lines from the evidence files are pasted here, trimmed where long. The suit
 | Step | Command or action | Real output |
 |---|---|---|
 | 1-2 | `vegaflow_daemon.exe --system-info` | `"physical_cores": 6,` / `"logical_processors": 12,` / `"active_background_cpu_sets": [266, 267],` |
-| 3-5 | `vegaflow_daemon.exe --dry-run --once` (background part) | `-> Background Processes Found: 22 PIDs` / `-> Background Sets to confine: 2 core IDs (Isolated in dry-run: 22 targets)` |
+| 3-5 | `vegaflow_daemon.exe --dry-run --once` (background part) | `-> Background Processes Found: 22 PIDs` / `-> Background Sets to confine: 2 core IDs (would be isolated: 22 background processes; nothing changed)` |
 | 6-7 | `vegaflow_daemon.exe --dry-run --once` (memory part) | `-> Standby Purge Triggered : NO` / `-> Background Trim Count   : 0` / `-> Evaluation Reason : Thresholds not met: Free/Zero=7250MB (min 1200MB), Standby=276MB (min 1500MB)` |
 | 6 | `vegaflow_daemon.exe --status` | `Live DXGI Budget Pressure  : 0% (Threshold: 85% -> HEALTHY)` |
 | 2-5 | Suite, Test 6 | `[PASS] Test 6: CpuOrchestrator dry-run optimization and state restoration (Dry-Run Target PID: 18188, Game Handle: Full Access, State Restore: OK)` |
@@ -130,7 +130,7 @@ Only lines from the evidence files are pasted here, trimmed where long. The suit
 | DXVK | Suite, Test 16 | `[PASS] Test 16: DXVK Manager Module (Deployment, Async GPL, AntiCheat Safety, Backup & Removal) (Assets: PASS, AC Protection: PASS, Deployment & Conf: PASS, Backup & Restore: PASS, Logs & Conf Cleaned: PASS)` |
 | DXVK | Suite, Test 71 and Test 72.3 | `[PASS] Test 71: a user's dxvk.conf is backed up once before DXVK writes its own, and restored on removal` / `[PASS] Test 72.3: DXVK is not deployed to an anti-cheat game` |
 | Steam | Suite, Test 13 and Test 43 | `[PASS] Test 13: SteamEngineOptimizer Engine Detection, Safe Backup & Restore (UE Detection: PASS, Backup Created: PASS, Preset Applied: PASS, Restored & Bak Cleared: PASS, AntiCheat Blocking: PASS)` / `[PASS] Test 43: engine presets create no folder outside the allowed ones (Unreal detected: yes, preset applied: no, folder created: no)` |
-| all | Suite total | `TEST RESULTS: 315 PASSED, 0 FAILED` |
+| all | Suite total | `TEST RESULTS: 320 PASSED, 0 FAILED` |
 
 Not reproduced:
 - The `r.Streaming.PoolSize` value written to a real `Engine.ini` on the laptop. The value (4096 MB on Tier 2 with visual cuts) is read from `engine_presets.cpp:155-164`; no run on a real game folder is in the evidence.

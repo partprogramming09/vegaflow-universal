@@ -2,7 +2,7 @@
 
 A Windows daemon written in C++20, with a hybrid Rust core, that optimizes games on AMD APUs (test bench: Ryzen 5 4600H with Radeon Vega 6). It isolates background processes, applies profiles according to the APU tier, and uses DXVK-GPLAsync. It never injects anything into games that use anti-cheat. Current version: **0.1.0** ([`CHANGELOG.md`](CHANGELOG.md)).
 
-![Language](https://img.shields.io/badge/C%2B%2B20%20%2B%20Rust-blue.svg) ![Platform](https://img.shields.io/badge/Windows%2010%20%7C%2011%20x64-0078D6.svg) ![Tests](https://img.shields.io/badge/tests-316%20C%2B%2B%20%7C%20258%20Rust-success.svg)
+![Language](https://img.shields.io/badge/C%2B%2B20%20%2B%20Rust-blue.svg) ![Platform](https://img.shields.io/badge/Windows%2010%20%7C%2011%20x64-0078D6.svg) ![Tests](https://img.shields.io/badge/tests-320%20C%2B%2B%20%7C%20258%20Rust-success.svg)
 
 **In short:** on a laptop with an AMD APU, the processor and the graphics share the same memory and the same heat budget, so a browser or an updater running in the background steals time from the game. VegaFlow notices when a game is in front, moves the background programs out of its way, and puts everything back when you stop playing. For example, in Octopath Traveler II its memory preset gave +40% average FPS in the overworld (one capture, cause not isolated; see [Measured results](#measured-results)).
 
@@ -53,7 +53,7 @@ The program runs on Windows only. It is built with MinGW-w64 g++ 13+ and cargo w
 
 | Command | Where | Last real result |
 | --- | --- | --- |
-| `powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1 -RunTests` | Windows | builds the daemon and runs the C++ suite: `TEST RESULTS: 316 PASSED, 0 FAILED` (2026-11-20) |
+| `powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1 -RunTests` | Windows | builds the daemon and runs the C++ suite: `TEST RESULTS: 320 PASSED, 0 FAILED` (2026-11-20) |
 | `cargo test --manifest-path rust/vegaflow-core/Cargo.toml` | any OS | 258 passed, 0 failed (2026-11-20, macOS) |
 | `bash scripts/check_layers.sh` | any OS | `[OK] layers respected (389 includes checked)` |
 | `pnpm install && pnpm docs:build` | any OS | builds this documentation as a site |
