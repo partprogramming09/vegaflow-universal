@@ -21,6 +21,7 @@
 #include <sstream>
 
 #include "windows/config_location.hpp"
+#include "windows/reg_restore_scope.hpp"
 #include "windows/unique_handle.hpp"
 
 namespace vegaflow {
@@ -320,17 +321,6 @@ bool DecodeHexBytes(const std::string& hex, std::vector<BYTE>& out) {
     return true;
 }
 
-std::wstring ToLowerW(std::wstring_view str) {
-    std::wstring out;
-    out.reserve(str.size());
-    for (wchar_t ch : str) out.push_back(static_cast<wchar_t>(std::towlower(ch)));
-    return out;
-}
-
-std::wstring RegBackupRecordNameLocal(int hive, const std::wstring& subkey, const wchar_t* name) {
-    const std::wstring id = std::to_wstring(hive) + L"|" + ToLowerW(subkey) + L"|" + ToLowerW(name ? name : L"");
-    return std::to_wstring(std::hash<std::wstring>{}(id));
-}
 
 bool RevertRegistryEntry(const JournalEntry& e, std::string* out_err) {
     HKEY root = (e.hive == 0) ? HKEY_LOCAL_MACHINE : HKEY_CURRENT_USER;
@@ -370,10 +360,11 @@ bool RevertRegistryEntry(const JournalEntry& e, std::string* out_err) {
         return false;
     }
 
-    // Remove matching legacy RegBackup key if present so both stay consistent.
-    const std::wstring bak_path = std::wstring(L"SOFTWARE\\VegaFlow\\RegBackup\\") +
-                                  RegBackupRecordNameLocal(e.hive, e.subkey, e.value_name.c_str());
-    RegDeleteKeyW(root, bak_path.c_str());
+    // Remove the matching RegBackup record, under its current or its older name, so both stay consistent.
+    for (const std::wstring& record : {RegBackupRecordName(e.hive, e.subkey, e.value_name),
+                                       LegacyRegBackupRecordName(e.hive, e.subkey, e.value_name)}) {
+        RegDeleteKeyW(root, (std::wstring(L"SOFTWARE\\VegaFlow\\RegBackup\\") + record).c_str());
+    }
     return true;
 }
 
