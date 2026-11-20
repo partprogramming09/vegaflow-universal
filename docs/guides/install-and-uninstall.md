@@ -6,7 +6,7 @@
 
 ## Requirements
 
-- Windows 10 or 11, 64-bit, and PowerShell.
+- Windows 10 version 1709 (build 16299) or later, or Windows 11, 64-bit, and PowerShell. That is the minimum the "Requirements and warnings" screen checks (`src/session/requirements_screen.cpp:7`, the first build with the EcoQoS call); start-up on 1709 itself is not measured.
 - A PowerShell console **run as administrator**. Both scripts require it and fail without it.
 - The package is **not signed**, so Windows may show a warning when you open it. That is why it is worth checking the hash (step 1). Signing and other installer formats are outside the current scope.
 
@@ -155,7 +155,7 @@ What it checks, in groups numbered 1 to 10 (with 8b and 8c) in the script:
 
 The script exits with code 0 only if every check passed.
 
-Result recorded on the test laptop on 2026-11-14 (commit `1ef00a8`; not re-run for this page, and the script has gained checks since). The script prints `PACKAGE TESTS: N PASSED, M FAILED`. The temporary-folder run gave `38 PASSED, 0 FAILED`, and the run with `C:\Program Files\VegaFlow` and `-Shell` gave `41 PASSED, 0 FAILED`.
+The script prints `PACKAGE TESTS: N PASSED, M FAILED`. Last run on the test laptop, 2026-11-20, temporary folder, without `-Shell`: `PACKAGE TESTS: 50 PASSED, 0 FAILED`. The run with `C:\Program Files\VegaFlow` and `-Shell` was last recorded on 2026-11-14 (`41 PASSED, 0 FAILED`, commit `1ef00a8`), before the script gained its newer checks.
 
 ## Build the package
 

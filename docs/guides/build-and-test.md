@@ -15,6 +15,7 @@ A *toolchain* is the set of tools that compile and link the code.
 - **Compiler:** GCC 13 or newer (MinGW-w64, the Windows build of the GCC compiler), with full C++20 support. The Mac cross-compiler used on 2026-11-20 is `x86_64-w64-mingw32-g++ (GCC) 16.2.0`.
 - **System libraries required** (the `-l` flags tell the linker which Windows libraries to use):
   `-lntdll -ldxgi -ladvapi32 -lpsapi -luser32 -lole32 -lgdi32 -lshell32 -ldwmapi -lws2_32 -luserenv -lbcrypt`
+  `-lntdll` is needed even though the C++ code loads its `Nt*` functions at run time: the Rust standard library inside `libvegaflow_core.a` imports `NtCreateFile`, `NtWriteFile` and `RtlNtStatusToDosError` directly (checked with `nm -u` and `objdump -p` on 2026-11-20).
 
 ### 5.2. Automated build (PowerShell)
 
