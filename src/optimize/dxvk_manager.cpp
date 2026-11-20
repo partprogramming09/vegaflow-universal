@@ -43,11 +43,11 @@ std::filesystem::path ResolveGameDirectory(const std::wstring& game_exe_path) {
     return p.parent_path();
 }
 
-// A simulation checks the folder too, so it never promises a change it could not make.
-bool GameDirectoryExists(const std::wstring& game_exe_path) {
+// A simulation checks what the real run would: the folder exists and may be changed (allowed, no anti-cheat).
+bool DryRunTargetOk(FileSystem& fs, const std::wstring& game_exe_path) {
     const std::filesystem::path dir = ResolveGameDirectory(game_exe_path);
     std::error_code ec;
-    return !dir.empty() && std::filesystem::is_directory(dir, ec);
+    return !dir.empty() && std::filesystem::is_directory(dir, ec) && fs.CanModifyGameDir(dir);
 }
 
 bool CheckIfExeIs64Bit(const std::filesystem::path& exe_path, bool fallback) {
@@ -203,8 +203,8 @@ bool DxvkManager::DeployDxvk(
     }
 
     if (dry_run) {
-        if (!GameDirectoryExists(game_exe_path)) {
-            if (out_message) *out_message = "Error: la carpeta del juego no existe [DRY-RUN]";
+        if (!DryRunTargetOk(fs_, game_exe_path)) {
+            if (out_message) *out_message = "Error: la carpeta del juego no existe o no se puede modificar (anti-cheat o fuera de lo permitido) [DRY-RUN]";
             return false;
         }
         if (out_message) {
@@ -332,8 +332,8 @@ bool DxvkManager::RemoveDxvk(
     std::string* out_message) {
 
     if (dry_run) {
-        if (!GameDirectoryExists(game_exe_path)) {
-            if (out_message) *out_message = "Error: la carpeta del juego no existe [DRY-RUN]";
+        if (!DryRunTargetOk(fs_, game_exe_path)) {
+            if (out_message) *out_message = "Error: la carpeta del juego no existe o no se puede modificar (anti-cheat o fuera de lo permitido) [DRY-RUN]";
             return false;
         }
         if (out_message) {

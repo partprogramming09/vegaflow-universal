@@ -100,6 +100,14 @@ void Test16() {
         std::string missing_msg;
         bool dry_missing_refused = !RealDxvk().DeployDxvk(missing_exe, DetectedPolicy(), false, true, true, &missing_msg)
                                    && !RealDxvk().RemoveDxvk(missing_exe, true, &missing_msg);
+        // Nor on a folder with an anti-cheat, which the real run would refuse (the CLI passes has_anticheat=false).
+        const std::filesystem::path ac_dir = temp_base / "ac_game";
+        std::filesystem::create_directories(ac_dir / "EasyAntiCheat", ec);
+        std::ofstream(ac_dir / "game.exe", std::ios::binary) << "MZ";
+        bool dry_anticheat_refused =
+            !RealDxvk().DeployDxvk((ac_dir / "game.exe").wstring(), DetectedPolicy(), false, true, true, &missing_msg)
+            && !RealDxvk().RemoveDxvk((ac_dir / "game.exe").wstring(), true, &missing_msg);
+        dry_missing_refused = dry_missing_refused && dry_anticheat_refused;
 
         // 4. Pre-existing custom DLL backup test
         std::filesystem::path d3d11_file = temp_base / "d3d11.dll";
@@ -188,7 +196,7 @@ void Test16() {
 
         std::string details = "Assets: " + std::string(assets_found ? (using_stand_ins ? "PASS (stand-in files)" : "PASS") : "FAIL") + ", "
             + "AC Protection: " + std::string(ac_blocked && ac_msg_ok ? "PASS" : "FAIL") + ", "
-            + "Dry-run on missing folder refused: " + std::string(dry_missing_refused ? "PASS" : "FAIL") + ", "
+            + "Dry-run refused (missing folder, anti-cheat): " + std::string(dry_missing_refused ? "PASS" : "FAIL") + ", "
             + "Deployment & Conf: " + std::string(deploy_ok && conf_content_ok ? "PASS" : "FAIL") + ", "
             + "Backup & Restore: " + std::string(bak_exists && original_restored ? "PASS" : "FAIL") + ", "
             + "Logs & Conf Cleaned: " + std::string(conf_deleted && logs_deleted ? "PASS" : "FAIL");

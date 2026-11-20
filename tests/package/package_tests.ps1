@@ -92,6 +92,12 @@ foreach ($opt in '--dxvk-install', '--dxvk-remove') {
     $r = Invoke-Exe @('--dry-run', $opt, '--version')
     Check "$opt sin ruta se rechaza (código 2)" ($r.Code -eq 2 -and $r.Output -notmatch '\[DXVK\]') "código $($r.Code): $($r.Output)"
 }
+# An empty path is a missing one. '""' is how Windows PowerShell 5.1 hands an empty argument to a program.
+$r = Invoke-Exe @('--dry-run', '--dxvk-install', '""')
+Check '--dxvk-install con ruta vacía se rechaza (código 2)' ($r.Code -eq 2 -and $r.Output -notmatch '\[DXVK\]') "código $($r.Code): $($r.Output)"
+# Already elevated (this runs as Administrator), --elevate must not swallow --dry-run.
+$r = Invoke-Exe @('--elevate', '--dry-run')
+Check '--elevate --dry-run simula' ($r.Code -eq 0 -and $r.Output -match 'DRY-RUN SIMULATION') "código $($r.Code)"
 $acl = Get-Acl $InstallDir
 Check 'propietario: Administradores' ($acl.GetOwner([System.Security.Principal.SecurityIdentifier]).Value -eq 'S-1-5-32-544')
 # WriteData 0x2, AppendData 0x4, WriteExtendedAttributes 0x10, WriteAttributes 0x100, Delete 0x10000, ChangePermissions 0x40000, TakeOwnership 0x80000

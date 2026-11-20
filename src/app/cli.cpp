@@ -139,7 +139,8 @@ std::optional<int> RunOneShotCommand(const CliOptions& opts, int argc, char* arg
 
     // If not running as Administrator and not a simulated run (--dry-run),
     // relaunch immediately with elevated privileges via UAC (runas) to open natively as Administrator.
-    if (!opts.dry_run_flag && !opts.status_flag && !vegaflow::PrivilegeManager::IsProcessElevated()) {
+    // The flags handed to the elevated instance, without --elevate; a value with spaces keeps its quotes.
+    auto forwarded_args = [&]() {
         std::wstring forward_args;
         for (int j = 1; j < argc; ++j) {
             std::string a = argv[j];
@@ -152,6 +153,10 @@ std::optional<int> RunOneShotCommand(const CliOptions& opts, int argc, char* arg
                 }
             }
         }
+        return forward_args;
+    };
+    if (!opts.dry_run_flag && !opts.status_flag && !vegaflow::PrivilegeManager::IsProcessElevated()) {
+        std::wstring forward_args = forwarded_args();
         if (forward_args.empty()) {
             forward_args = L"--gui";
         }
@@ -163,15 +168,7 @@ std::optional<int> RunOneShotCommand(const CliOptions& opts, int argc, char* arg
     if (opts.elevate_flag) {
         if (!vegaflow::PrivilegeManager::IsProcessElevated()) {
             std::cout << "[INFO] Requesting UAC Administrator elevation for VegaFlow...\n";
-            std::wstring forward_args;
-            for (int j = 1; j < argc; ++j) {
-                std::string a = argv[j];
-                if (a != "--elevate" && a != "-e") {
-                    if (!forward_args.empty()) forward_args += L" ";
-                    forward_args += Utf8ToWide(a);
-                }
-            }
-            bool ok = vegaflow::PrivilegeManager::RelaunchAsAdmin(forward_args, opts.dry_run_flag);
+            bool ok = vegaflow::PrivilegeManager::RelaunchAsAdmin(forwarded_args(), opts.dry_run_flag);
             if (ok) {
                 std::cout << "[INFO] Elevated instance launched. Terminating standard process.\n";
                 return 0;
@@ -184,7 +181,7 @@ std::optional<int> RunOneShotCommand(const CliOptions& opts, int argc, char* arg
             if (!opts.gui_flag && !opts.status_flag && !opts.purge_now_flag && !opts.monitor_flag && !opts.mpo_disable_flag && !opts.mpo_restore_flag
                 && !opts.shader_cache_force_flag && !opts.shader_cache_default_flag && !opts.mem_compression_off_flag && !opts.mem_compression_on_flag
                 && !opts.apu_gpu_priority_flag && !opts.apu_balanced_flag && !opts.vram_override_flag && !opts.vram_restore_flag && !opts.restore_registry_flag
-                && !opts.recover_flag && !opts.create_restore_point_flag && !opts.once_flag
+                && !opts.recover_flag && !opts.create_restore_point_flag && !opts.once_flag && !opts.dry_run_flag
                 && opts.dxvk_install_path.empty() && opts.dxvk_remove_path.empty()) {
                 return 0;
             }
