@@ -4,7 +4,7 @@
 
 It reads the flags first, then loads the settings, then checks whether the last run ended cleanly. Only after that does it start the chosen mode.
 
-The one thing not to forget: `--dry-run` only simulates, but it is ignored when `--monitor` is added, and a misspelled flag silently starts the background loop, which changes the system when it runs as Administrator.
+The one thing not to forget: `--dry-run` only simulates and wins over every other mode, and a misspelled flag stops the program with exit code 2 instead of starting the background loop (both since the 2026-11-20 fix).
 
 **Reader:** people and agents. **Last review:** 2026-11-20. **Explains:** `src/app/`. **Answers:** what happens when VegaFlow starts, and which flag sends it to which mode?
 
@@ -110,9 +110,9 @@ These rows come from reading the code. Only the rows listed in the evidence sect
 
 | Situation | What the code does | What you see |
 | --- | --- | --- |
-| A misspelled flag, such as `--dryrun` | `ParseCommandLine` has no branch for unknown arguments, so it ignores them (`cli.cpp:29`). The default loop starts. | The background loop starts. If it runs as Administrator, it applies its changes. |
 | `--dry-run` with `--monitor` | Since the 2026-11-20 fix, `--dry-run` wins: it simulates once and exits (checked by `tests/package/package_tests.ps1`). Before, the monitor ran the real tick. | A simulation, never a live monitor. |
 | A mistyped or unknown option (`--dryrun`) | Since the 2026-11-20 fix, `ParseCommandLine` prints `[ERROR] Unknown option or missing value` and exits with code 2. Before, it was ignored and the real daemon started. | The program stops; nothing changes. |
+| `--dxvk-install` or `--dxvk-remove` with no path, or followed by another option | Since the 2026-11-20 fix, the next option is not taken as the path: the same error and exit code 2. A dry run of either on a folder that does not exist now fails instead of reporting success. | The program stops; nothing changes. |
 | `--dry-run` with `--gui` | The simulation runs and returns before the window is created. | The simulation text, and no window. |
 | UAC refused on the automatic restart | `RelaunchAsAdmin` returns false and the process keeps running without Administrator rights (`cli.cpp:152-155`). | The loop prints that it runs without Administrator rights and that the standby purge needs admin (`daemon_loop.cpp:114-115`). |
 | Settings folder writable by ordinary accounts | Factory values are used and nothing is saved (`main.cpp:106-108`). | The first line of the example above. |
