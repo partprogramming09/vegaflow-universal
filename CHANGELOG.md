@@ -39,6 +39,11 @@ New native GUI (Win32, owner-draw controls reachable with Tab). Not tagged yet: 
 - Memory percent on Inicio is computed in 128 bits; path comparisons fold case the Windows way.
 
 ### Fixed
+- At start (not in `--observe` or safe mode), values that still hold the exact 0.1.x string
+  `SwapEffectUpgradeEnable=1;GpuPreference=2;AutoHDREnable=0;` lose its GPU and HDR part and keep the Flip switch; each
+  change is journaled and can be undone from Historial.
+- Listing a registry key's string values no longer stops at the first value longer than the buffer; that value is
+  skipped and the rest are still read.
 - Turning VRAM reporting off no longer writes an invented 512 MB: it puts back only the saved original.
 - DXVK: a failed backup of the game's own `d3d11.dll`/`dxgi.dll` now stops the install instead of overwriting them; a
   failed copy undoes the half install; removal keeps the `.original.bak` until the original is back and says so when the
@@ -67,9 +72,6 @@ New native GUI (Win32, owner-draw controls reachable with Tab). Not tagged yet: 
 - Tab 2 (Memoria UMA & Núcleos CPU) is still the old GDI view.
 - "Devolver todo a como estaba" writes Windows defaults without a prior copy for several settings.
 - The UMA guard reads a per-process DXGI counter, so it may never see a game's memory use.
-- Games where 0.1.x already wrote `GpuPreference=2;AutoHDREnable=0;` keep those values: the new Flip code sees the
-  game as already done and writes nothing. They go back only through the change journal (Historial) if that entry is
-  still there, or by hand in Windows graphics settings.
 - Not built yet: pause VegaFlow per game, welcome screen, panic hotkey, controller input, dry-run preview, copyable
   report, exit warning. Configuración saves at once, but the daemon reads interval and memory limits at start.
 - See `docs/mediciones/estado-de-verificacion.md` for what is measured and what is not.

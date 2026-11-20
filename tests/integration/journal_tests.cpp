@@ -134,6 +134,26 @@ void Test50() {
                      ", HKCU==123: " + Pass(restored_dword == 123) + ", INI exact: " + Pass(reread_ini == orig_ini));
 }
 
+// A string value too long for the enumeration buffer must be skipped, not end the listing: the 0.1.x migration walks
+// every UserGpuPreferences value with EnumStringValues.
+void Test98() {
+    using namespace vegaflow;
+    const std::wstring key = L"Software\\VegaFlow\\TestEnumLong";
+    RegDeleteTreeW(HKEY_CURRENT_USER, key.c_str());
+    WindowsRegistryPort reg;
+    const bool seeded = reg.WriteValue(RegHive::CurrentUser, key, L"a_long", RegValue::MakeString(std::wstring(3000, L'x')), false) &&
+                        reg.WriteValue(RegHive::CurrentUser, key, L"b_short", RegValue::MakeString(L"short"), false) &&
+                        reg.WriteValue(RegHive::CurrentUser, key, L"c_exact", RegValue::MakeString(std::wstring(1023, L'y')), false);
+    bool has_short = false, exact_ok = false;
+    for (const auto& [name, data] : reg.EnumStringValues(RegHive::CurrentUser, key)) {
+        has_short = has_short || (name == L"b_short" && data == L"short");
+        exact_ok = exact_ok || (name == L"c_exact" && data == std::wstring(1023, L'y'));
+    }
+    RegDeleteTreeW(HKEY_CURRENT_USER, key.c_str());
+    RecordResult(seeded && has_short && exact_ok, "Test 98: EnumStringValues skips an over-long value and keeps listing the rest",
+                 "seed: " + Pass(seeded) + ", short after long: " + Pass(has_short) + ", 1023 chars exact: " + Pass(exact_ok));
+}
+
 // E1.4: the real Flip write keeps the user's GPU choice and Layers flags, journals once, and the journal puts both back exactly.
 void Test95() {
     using namespace vegaflow;

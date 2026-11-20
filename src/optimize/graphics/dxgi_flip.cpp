@@ -89,6 +89,29 @@ bool DxgiFlipTweaks::ApplyFlipModelUpgrade(
     return layers_ok;
 }
 
+size_t DxgiFlipTweaks::MigrateLegacyPreferences(bool dry_run) {
+    // shortcut: matches the exact contiguous string 0.1.x wrote; a user who typed the same three keys in that order
+    // loses GPU/HDR too (undoable from the journal). Widen only if another legacy layout turns up.
+    const std::wstring legacy = L"swapeffectupgradeenable=1;gpupreference=2;autohdrenable=0;";
+    size_t changed = 0;
+    for (const auto& [exe, prefs] : reg_.EnumStringValues(RegHive::CurrentUser, kUserGpuPrefsPath)) {
+        const auto pos = ToLower(prefs).find(legacy);
+        if (pos == std::wstring::npos) {
+            continue;
+        }
+        std::wstring migrated = prefs;
+        migrated.replace(pos, legacy.size(), L"SwapEffectUpgradeEnable=1;");
+        ++changed;
+        if (dry_run) {
+            continue;
+        }
+        const uint64_t j_id = reg_.BeginDxgiPreferenceChange(exe, migrated, "Quitar GpuPreference/AutoHDR de VegaFlow 0.1.x");
+        const bool ok = reg_.WriteValue(RegHive::CurrentUser, kUserGpuPrefsPath, exe, RegValue::MakeString(migrated), false);
+        reg_.EndDxgiPreferenceChange(j_id, ok);
+    }
+    return changed;
+}
+
 bool DxgiFlipTweaks::QueryUserGpuPreferences(const std::wstring& exe_full_path, std::wstring& out_prefs) {
     out_prefs.clear();
     if (exe_full_path.empty()) {

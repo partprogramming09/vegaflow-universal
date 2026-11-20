@@ -49,6 +49,7 @@ int RunDaemon(
         std::cout << "[WARN] MODO SEGURO ACTIVO: VegaFlow detect\u00f3 2 o m\u00e1s cierres anormales seguidos. "
                   << "Arrancando sin aplicar ajustes del sistema. Usa --restore-registry si necesitas revertir.\n";
     } else {
+        gfx.DxgiFlip().MigrateLegacyPreferences(false);
         gfx.Display().SetGameDvrCaptureDisabled(true, false);
         if (gfx.PowerMode()) {
             gfx.PowerMode()->SetApuLaptopPowerProfile(true, policy, false);

@@ -122,6 +122,8 @@ public:
         bool dry_run = false,
         std::wstring* out_effective_preference = nullptr);
     bool QueryUserGpuPreferences(const std::wstring& exe_full_path, std::wstring& out_prefs);
+    // Takes the GPU and HDR part out of values that still hold the exact 0.1.x signature; returns how many it changed.
+    size_t MigrateLegacyPreferences(bool dry_run = false);
     bool HasFlipModelUpgrade(const std::wstring& exe_full_path);
 
 private:

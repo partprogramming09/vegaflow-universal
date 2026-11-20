@@ -86,4 +86,48 @@ void Test94() {
                      ", Layers=" + (layers_ok ? "OK" : "FAIL") + ", Dry=" + (dry_ok ? "OK" : "FAIL") + ", Partial=" + (partial_ok ? "OK" : "FAIL"));
 }
 
+// 0.1.x wrote "SwapEffectUpgradeEnable=1;GpuPreference=2;AutoHDREnable=0;" for every game: the migration takes out only
+// that exact signature's GPU and HDR part, journaled, and leaves anything the user or Windows wrote.
+void Test97() {
+    using vegaflow::RegHive;
+    using vegaflow::RegValue;
+    const std::wstring legacy = L"SwapEffectUpgradeEnable=1;GpuPreference=2;AutoHDREnable=0;";
+    auto seeded = [&]() {
+        FakeRegistryPort reg;
+        reg.SeedValue(RegHive::CurrentUser, kUgp, L"C:\\a.exe", RegValue::MakeString(legacy));
+        reg.SeedValue(RegHive::CurrentUser, kUgp, L"C:\\b.exe", RegValue::MakeString(L"AppStatus=4096;" + legacy));
+        reg.SeedValue(RegHive::CurrentUser, kUgp, L"C:\\c.exe", RegValue::MakeString(L"GpuPreference=2;"));
+        reg.SeedValue(RegHive::CurrentUser, kUgp, L"C:\\d.exe", RegValue::MakeString(L"AutoHDREnable=0;SwapEffectUpgradeEnable=1;GpuPreference=2;"));
+        reg.SeedValue(RegHive::CurrentUser, kUgp, L"C:\\e.exe", RegValue::MakeString(L"AppStatus=0;"));
+        return reg;
+    };
+    auto value = [](FakeRegistryPort& reg, const std::wstring& exe) {
+        RegValue v;
+        return reg.ReadValue(RegHive::CurrentUser, kUgp, exe, v) ? v.str : L"<none>";
+    };
+
+    FakeRegistryPort reg = seeded();
+    vegaflow::DxgiFlipTweaks flip(reg);
+    const size_t migrated = flip.MigrateLegacyPreferences(false);
+    const bool values_ok = value(reg, L"C:\\a.exe") == L"SwapEffectUpgradeEnable=1;" &&
+                           value(reg, L"C:\\b.exe") == L"AppStatus=4096;SwapEffectUpgradeEnable=1;" &&
+                           value(reg, L"C:\\c.exe") == L"GpuPreference=2;" &&
+                           value(reg, L"C:\\d.exe") == L"AutoHDREnable=0;SwapEffectUpgradeEnable=1;GpuPreference=2;" &&
+                           value(reg, L"C:\\e.exe") == L"AppStatus=0;";
+    const bool journaled = reg.dxgi_journal_results == std::vector<bool>{true, true};
+    const size_t writes_after = reg.writes.size();
+    const bool second_noop = flip.MigrateLegacyPreferences(false) == 0 && reg.writes.size() == writes_after;
+
+    FakeRegistryPort dry = seeded();
+    const bool dry_ok = vegaflow::DxgiFlipTweaks(dry).MigrateLegacyPreferences(true) == 2 && dry.writes.empty();
+    FakeRegistryPort empty;
+    const bool empty_ok = vegaflow::DxgiFlipTweaks(empty).MigrateLegacyPreferences(false) == 0;
+
+    const bool ok = migrated == 2 && values_ok && journaled && second_noop && dry_ok && empty_ok;
+    RecordResult(ok, "Test 97: the 0.1.x GPU/HDR signature is migrated away, journaled, and nothing else is touched",
+                 "Migrated=" + std::to_string(migrated) + ", Values=" + (values_ok ? "OK" : "FAIL") + ", Journal=" +
+                     (journaled ? "OK" : "FAIL") + ", Repeat=" + (second_noop ? "OK" : "FAIL") + ", Dry=" + (dry_ok ? "OK" : "FAIL") +
+                     ", Empty=" + (empty_ok ? "OK" : "FAIL"));
+}
+
 } // namespace vftest

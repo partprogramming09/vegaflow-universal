@@ -63,6 +63,7 @@ int RunGuiMode(
     std::string active_game_api;
     HWND active_game_hwnd = nullptr;
     if (!safe_mode) {
+        gfx.DxgiFlip().MigrateLegacyPreferences(false);
         gfx.Display().SetGameDvrCaptureDisabled(true, false);
         if (gfx.PowerMode()) {
             gfx.PowerMode()->SetApuLaptopPowerProfile(true, policy, false);
