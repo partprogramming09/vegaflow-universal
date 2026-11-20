@@ -33,7 +33,7 @@ int RunDaemon(
     bool safe_mode) {
     using namespace vegaflow;
     // Built once from the boot profile, the same way each optimizer used to rebuild it on every call.
-    const ApuOptimizationPolicy policy = HardwareProfiler::BuildOptimizationPolicy(hw);
+    ApuOptimizationPolicy policy = HardwareProfiler::BuildOptimizationPolicy(hw);
     SafeFileSystem file_system; // the real FileSystem port (SandboxGuard)
     WindowsRegistryPort reg;
     WindowsPowerPort power;
@@ -130,9 +130,17 @@ int RunDaemon(
             break;
         } else if (wait_res == WAIT_OBJECT_0 + 1) {
             if (!safe_mode) {
+                const uint64_t prev_sig = hw.adapter_signature;
+                const uint8_t prev_pref = hw.user_gpu_pref;
                 RunSingleIteration(
                     config, file_system, hw, cpu_orchestrator, mem_mgr,
                     game_active, active_game_pid, active_game_exe, active_game_api, active_game_hwnd);
+                // The iteration re-reads the hardware when the adapters change; the tweaks and telemetry follow it.
+                if (hw.adapter_signature != prev_sig || hw.user_gpu_pref != prev_pref) {
+                    policy = HardwareProfiler::BuildOptimizationPolicy(hw);
+                    gfx.Rebind(hw, policy);
+                    mem_mgr.SetTargetLuid(hw.primary_gpu.luid);
+                }
             }
         } else {
             break;

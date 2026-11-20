@@ -223,4 +223,115 @@ void Test93() {
                  ", no invented restore: " + (no_invented ? "PASS" : "FAIL"));
 }
 
+void Test99() {
+    // E1.2: GraphicsOptimizer::Rebind follows a GPU change: UMA override of the old iGPU is restored first, power state survives.
+    namespace v = vegaflow;
+    const std::wstring cls = L"SYSTEM\\CurrentControlSet\\Control\\Class\\{4d36e968-e325-11ce-bfc1-08002be10318}\\";
+    const std::wstring dx = L"SOFTWARE\\Microsoft\\DirectX\\";
+    const uint64_t orig = 512ULL * 1024ULL * 1024ULL;
+    auto seed = [&](FakeRegistryPort& reg) {
+        reg.SeedValue(v::RegHive::LocalMachine, cls + L"0000", L"MatchingDeviceId", v::RegValue::MakeString(L"PCI\\VEN_1002&DEV_1636"));
+        reg.SeedValue(v::RegHive::LocalMachine, cls + L"0000", L"HardwareInformation.MemorySize", v::RegValue::MakeDword(static_cast<uint32_t>(orig)));
+        reg.SeedValue(v::RegHive::LocalMachine, cls + L"0000", L"HardwareInformation.qwMemorySize", v::RegValue::MakeQword(orig));
+        reg.SeedValue(v::RegHive::LocalMachine, cls + L"0001", L"MatchingDeviceId", v::RegValue::MakeString(L"PCI\\VEN_1002&DEV_73BF"));
+        reg.SeedValue(v::RegHive::LocalMachine, dx + L"A", L"VendorId", v::RegValue::MakeDword(0x1002));
+        reg.SeedValue(v::RegHive::LocalMachine, dx + L"A", L"DeviceId", v::RegValue::MakeDword(0x1636));
+        reg.SeedValue(v::RegHive::LocalMachine, dx + L"A", L"DedicatedVideoMemory", v::RegValue::MakeQword(orig));
+        reg.SeedValue(v::RegHive::LocalMachine, dx + L"B", L"VendorId", v::RegValue::MakeDword(0x1002));
+        reg.SeedValue(v::RegHive::LocalMachine, dx + L"B", L"DeviceId", v::RegValue::MakeDword(0x73BF));
+    };
+    auto gpu_hw = [](uint32_t device_id, uint64_t luid, v::GpuConnection conn) {
+        v::SystemHardwareProfile hw{};
+        hw.primary_gpu.vendor = v::GpuVendor::AMD;
+        hw.primary_gpu.device_id = device_id;
+        hw.primary_gpu.luid = luid;
+        hw.primary_gpu.connection = conn;
+        return hw;
+    };
+    auto qword = [&](FakeRegistryPort& reg, const std::wstring& key, const std::wstring& name) {
+        v::RegValue val;
+        return reg.ReadValue(v::RegHive::LocalMachine, key, name, val) ? val.qword : 0ULL;
+    };
+    auto written_under = [](const FakeRegistryPort& reg, const std::wstring& needle) {
+        for (const auto& w : reg.writes) {
+            if (FakeRegistryPort::Lower(w.subkey).find(FakeRegistryPort::Lower(needle)) != std::wstring::npos) return true;
+        }
+        return false;
+    };
+    const auto igpu = gpu_hw(0x1636, 11, v::GpuConnection::Integrated);
+    const auto egpu = gpu_hw(0x73BF, 22, v::GpuConnection::External);
+    v::ApuOptimizationPolicy pol{};
+    pol.block_driver_tweaks = false;
+    pol.force_high_perf_power_plan = true;
+
+    // 1. Integrated -> external -> integrated, mid game session (power profile applied).
+    FakeRegistryPort reg;
+    FakePowerPort power;
+    seed(reg);
+    const auto power_before = power.current;
+    v::GraphicsOptimizer gfx(igpu, pol, reg, &power);
+    gfx.AmdDriver()->ApplyVramReportingOverride(4096, false);
+    gfx.PowerMode()->SetApuLaptopPowerProfile(true, pol, false);
+    const v::PowerModeTweaks* power_obj = gfx.PowerMode();
+
+    const auto to_egpu = gfx.Rebind(egpu, pol);
+    const bool uma_restored = qword(reg, cls + L"0000", L"HardwareInformation.qwMemorySize") == orig &&
+                              qword(reg, dx + L"A", L"DedicatedVideoMemory") == orig;
+    reg.writes.clear();
+    const bool egpu_blocked = gfx.AmdDriver() && !gfx.AmdDriver()->ApplyVramReportingOverride(4096, false) && reg.writes.empty();
+    const bool power_kept = gfx.PowerMode() == power_obj && gfx.PowerMode()->IsApuPowerModeApplied();
+
+    const auto to_igpu = gfx.Rebind(igpu, pol);
+    reg.writes.clear();
+    const bool igpu_target = gfx.AmdDriver() && gfx.AmdDriver()->ApplyVramReportingOverride(4096, false) &&
+                             written_under(reg, L"\\0000") && !written_under(reg, L"\\0001");
+    gfx.AmdDriver()->RestoreVramReporting(false);
+    gfx.PowerMode()->SetApuLaptopPowerProfile(false, pol, false);
+    const bool session_end_ok = !gfx.PowerMode()->IsApuPowerModeApplied() &&
+                                power.current.ac == power_before.ac && power.current.dc == power_before.dc;
+    const bool round_trip = to_egpu.rebuilt && !to_egpu.uma_restore_failed && uma_restored && egpu_blocked && power_kept &&
+                            to_igpu.rebuilt && igpu_target && session_end_ok;
+
+    // 2. Two calls in a row with the same adapter: the second one changes nothing.
+    reg.writes.clear();
+    const auto same = gfx.Rebind(igpu, pol);
+    const bool repeat_noop = !same.rebuilt && reg.writes.empty();
+
+    // 3. dry_run reports the change but writes nothing and keeps the old target.
+    FakeRegistryPort d;
+    seed(d);
+    v::GraphicsOptimizer dgfx(igpu, pol, d, nullptr);
+    dgfx.AmdDriver()->ApplyVramReportingOverride(4096, false);
+    d.writes.clear();
+    const auto dry = dgfx.Rebind(egpu, pol, true);
+    const bool dry_ok = dry.rebuilt && d.writes.empty() &&
+                        qword(d, dx + L"A", L"DedicatedVideoMemory") == 4096ULL * 1024ULL * 1024ULL &&
+                        !dgfx.Rebind(igpu, pol, true).rebuilt;
+
+    // 4. Partial UMA restore failure (DirectX key refuses): reported, and the optimizer still moves to the new adapter.
+    FakeRegistryPort f;
+    seed(f);
+    v::GraphicsOptimizer fgfx(igpu, pol, f, nullptr);
+    fgfx.AmdDriver()->ApplyVramReportingOverride(4096, false);
+    f.fail_restore_subkeys.insert(FakeRegistryPort::Lower(dx + L"A"));
+    const auto partial = fgfx.Rebind(egpu, pol);
+    f.writes.clear();
+    const bool partial_ok = partial.rebuilt && partial.uma_restore_failed &&
+                            fgfx.AmdDriver() && !fgfx.AmdDriver()->ApplyVramReportingOverride(4096, false);
+
+    // 5. AMD -> Intel: the AMD tweaks go away.
+    FakeRegistryPort n;
+    seed(n);
+    v::GraphicsOptimizer ngfx(igpu, pol, n, nullptr);
+    v::SystemHardwareProfile intel{};
+    intel.primary_gpu.vendor = v::GpuVendor::Intel;
+    const bool intel_ok = ngfx.Rebind(intel, pol).rebuilt && ngfx.AmdDriver() == nullptr;
+
+    const bool ok = round_trip && repeat_noop && dry_ok && partial_ok && intel_ok;
+    auto pf = [](bool b) { return b ? "PASS" : "FAIL"; };
+    RecordResult(ok, "Test 99: GraphicsOptimizer::Rebind follows a GPU change",
+                 std::string("iGPU->eGPU->iGPU: ") + pf(round_trip) + ", repeat: " + pf(repeat_noop) + ", dry_run: " + pf(dry_ok) +
+                 ", partial restore: " + pf(partial_ok) + ", to Intel: " + pf(intel_ok));
+}
+
 } // namespace vftest

@@ -1,4 +1,5 @@
 #include "optimize/graphics/graphics_internal.hpp"
+#include "windows/change_journal.hpp"
 
 #include <cstring>
 
@@ -120,6 +121,9 @@ GraphicsOptimizer::GraphicsOptimizer(
     RegistryPort& registry,
     PowerPort* power)
     : registry_(registry),
+      power_(power),
+      gpu_(hw.primary_gpu),
+      policy_(policy),
       kernel_(registry),
       mmcss_(registry),
       display_(registry),
@@ -131,6 +135,53 @@ GraphicsOptimizer::GraphicsOptimizer(
     if (power != nullptr && policy.force_high_perf_power_plan) {
         power_mode_.emplace(*power);
     }
+}
+
+GraphicsOptimizer::RebindResult GraphicsOptimizer::Rebind(
+    const SystemHardwareProfile& hw, const ApuOptimizationPolicy& policy, bool dry_run) {
+    RebindResult result{};
+    const GpuProfile& g = hw.primary_gpu;
+    const bool same_gpu = g.vendor == gpu_.vendor && g.device_id == gpu_.device_id && g.luid == gpu_.luid &&
+                          g.connection == gpu_.connection;
+    const bool same_policy = policy.block_driver_tweaks == policy_.block_driver_tweaks &&
+                             policy.force_high_perf_power_plan == policy_.force_high_perf_power_plan;
+    result.rebuilt = !(same_gpu && same_policy);
+    if (!result.rebuilt || dry_run) {
+        return result;
+    }
+
+    // The VRAM override belongs to the old iGPU: put it back before the tweaks point elsewhere.
+    if (amd_driver_ && gpu_.connection == GpuConnection::Integrated) {
+        amd_driver_->RestoreVramReporting(false);
+        uint32_t driver_mb = 0;
+        uint64_t dxgi_bytes = 0;
+        amd_driver_->QueryVramReporting(driver_mb, dxgi_bytes);
+        // shortcut: "still overridden" = still at the pool size; misses an original that equals the pool size.
+        const uint64_t pool_bytes = static_cast<uint64_t>(policy_.safe_vram_pool_mb) * 1024ULL * 1024ULL;
+        result.uma_restore_failed = driver_mb == policy_.safe_vram_pool_mb || dxgi_bytes == pool_bytes;
+    }
+
+    amd_driver_.reset();
+    if (g.vendor == GpuVendor::AMD && !policy.block_driver_tweaks) {
+        amd_driver_.emplace(registry_, g.device_id, g.connection == GpuConnection::Integrated);
+    }
+    // PowerModeTweaks keeps the saved plan: only drop it (after restoring) when the new policy no longer wants it.
+    if (power_mode_ && !policy.force_high_perf_power_plan) {
+        if (power_mode_->IsApuPowerModeApplied()) {
+            power_mode_->SetApuLaptopPowerProfile(false, policy_, false);
+        }
+        power_mode_.reset();
+    } else if (!power_mode_ && power_ != nullptr && policy.force_high_perf_power_plan) {
+        power_mode_.emplace(*power_);
+    }
+
+    if (ChangeJournal* j = GetActiveChangeJournal()) {
+        j->RecordAuditEvent("GPU", "Cambio de GPU principal: ajustes reorientados",
+                            result.uma_restore_failed ? "No se pudo devolver la VRAM de la iGPU anterior; usa --restore-registry." : "");
+    }
+    gpu_ = g;
+    policy_ = policy;
+    return result;
 }
 
 SystemGraphicsTweaksState GraphicsOptimizer::QuerySystemGraphicsTweaks() {

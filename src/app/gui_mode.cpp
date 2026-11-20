@@ -49,7 +49,7 @@ int RunGuiMode(
     const std::string& journal_warning) {
     using namespace vegaflow;
     // Built once from the boot profile, the same way each optimizer used to rebuild it on every call.
-    const ApuOptimizationPolicy policy = HardwareProfiler::BuildOptimizationPolicy(hw);
+    ApuOptimizationPolicy policy = HardwareProfiler::BuildOptimizationPolicy(hw);
     SafeFileSystem file_system;
     WindowsRegistryPort reg;
     WindowsPowerPort power;
@@ -130,10 +130,21 @@ int RunGuiMode(
     callbacks.on_PollTelemetry = [&]() -> GuiDashboardData {
         std::function<void(const std::string&)> audit_fn = AddAuditLog;
         if (!safe_mode) {
+            const uint64_t prev_sig = hw.adapter_signature;
+            const uint8_t prev_pref = hw.user_gpu_pref;
             RunSingleIteration(
                 config, file_system, hw, cpu_orchestrator, mem_mgr,
                 game_active, active_game_pid, active_game_exe, active_game_api, active_game_hwnd,
                 &active_game_full_path, &cached_noisy_count, &audit_fn);
+            // The iteration re-reads the hardware when the adapters change; the tweaks, telemetry and screens follow it.
+            if (hw.adapter_signature != prev_sig || hw.user_gpu_pref != prev_pref) {
+                policy = HardwareProfiler::BuildOptimizationPolicy(hw);
+                gfx.Rebind(hw, policy);
+                mem_mgr.SetTargetLuid(hw.primary_gpu.luid);
+                game_actions.SetPolicy(policy);
+                settings_actions.SetPolicy(policy);
+                cached_tweaks = gfx.QuerySystemGraphicsTweaks();
+            }
         }
 
         if (!game_active) {

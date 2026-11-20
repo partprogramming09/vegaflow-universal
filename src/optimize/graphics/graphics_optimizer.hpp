@@ -178,8 +178,18 @@ public:
     SystemGraphicsTweaksState QuerySystemGraphicsTweaks();
     bool RestoreAllRegistryBackups(size_t* out_reverted = nullptr, size_t* out_total = nullptr);
 
+    struct RebindResult {
+        bool rebuilt = false;            // the target GPU or its policy changed (with dry_run: would change)
+        bool uma_restore_failed = false; // the old iGPU still reports the overridden VRAM size
+    };
+    // Aims the tweaks at a new primary GPU: puts back the old iGPU's VRAM override first; the power state is kept.
+    RebindResult Rebind(const SystemHardwareProfile& hw, const ApuOptimizationPolicy& policy, bool dry_run = false);
+
 private:
     RegistryPort& registry_;
+    PowerPort* power_ = nullptr;
+    GpuProfile gpu_;
+    ApuOptimizationPolicy policy_;
     std::optional<AmdDriverTweaks> amd_driver_;
     KernelSchedulerTweaks kernel_;
     MmcssTweaks mmcss_;
