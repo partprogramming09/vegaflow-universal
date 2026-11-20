@@ -1,0 +1,9 @@
+block,condition,frames,avg_fps,low1_fps,present_mode
+A1,A,3780,30.27,26.34,Hardware: Legacy Flip
+A1,A,3784,30.31,26.99,Hardware: Legacy Flip
+B1,B,3773,30.21,25.39,Hardware: Independent Flip
+B1,B,3778,30.26,27.47,Hardware: Independent Flip
+B2,B,3776,30.24,24.19,Hardware: Independent Flip
+B2,B,3788,30.33,27.82,Hardware: Independent Flip
+A2,A,3725,29.83,22.79,Hardware: Legacy Flip
+A2,A,3763,30.13,27.06,Hardware: Legacy Flip
