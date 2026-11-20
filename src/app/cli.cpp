@@ -22,6 +22,7 @@
 #include "session/reports.hpp"
 #include "session/run_cycle.hpp"
 #include "ui/app_identity.hpp"
+#include "windows/command_line.hpp"
 #include "windows/text_convert.hpp"
 
 namespace vegaflow::app {
@@ -139,22 +140,7 @@ std::optional<int> RunOneShotCommand(const CliOptions& opts, int argc, char* arg
 
     // If not running as Administrator and not a simulated run (--dry-run),
     // relaunch immediately with elevated privileges via UAC (runas) to open natively as Administrator.
-    // The flags handed to the elevated instance, without --elevate; a value with spaces keeps its quotes.
-    auto forwarded_args = [&]() {
-        std::wstring forward_args;
-        for (int j = 1; j < argc; ++j) {
-            std::string a = argv[j];
-            if (a != "--elevate" && a != "-e") {
-                if (!forward_args.empty()) forward_args += L" ";
-                if (a.find(' ') != std::string::npos) {
-                    forward_args += L"\"" + Utf8ToWide(a) + L"\"";
-                } else {
-                    forward_args += Utf8ToWide(a);
-                }
-            }
-        }
-        return forward_args;
-    };
+    auto forwarded_args = [&]() { return vegaflow::BuildForwardedArgs(argc, argv); };
     if (!opts.dry_run_flag && !opts.status_flag && !vegaflow::PrivilegeManager::IsProcessElevated()) {
         std::wstring forward_args = forwarded_args();
         if (forward_args.empty()) {
