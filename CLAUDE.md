@@ -1,7 +1,5 @@
 # VegaFlow Universal
 
-agentes-externos: abierto
-
 Daemon de Windows en C++20 con núcleo híbrido en Rust (`rust/vegaflow-core`) que optimiza juegos en APUs AMD (banco de pruebas: Ryzen 5 4600H + Vega 6). Aislamiento de procesos de fondo, perfiles por nivel de APU (`ApuCapabilityGuard`), DXVK-GPLAsync y telemetría de frametimes, sin inyectar nada en juegos con anti-cheat.
 
 ## Dónde está cada cosa
@@ -12,6 +10,8 @@ Daemon de Windows en C++20 con núcleo híbrido en Rust (`rust/vegaflow-core`) q
 - `scripts/`: `build.ps1`, `package.sh` (arma el zip con `install.ps1` y `uninstall.ps1` de `scripts/package/`; su prueba: `tests/package/package_tests.ps1`), `bench.ps1` (PresentMon), `ab_loop_task.ps1` (A/B intercalado), `tweaks_state.ps1`, `remote/` (trabajos remotos con WinBridge).
 
 ## Modo de los docs
+
+Tipo: abierto
 
 Terceros: repo público, la documentación va en español y los README también en inglés.
 
