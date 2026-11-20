@@ -41,6 +41,7 @@ New native GUI (Win32, owner-draw controls reachable with Tab). Not tagged yet: 
 ### Fixed
 - Restoring a game or a background process set its I/O priority to 1, which Windows reads as Low (IO_PRIORITY_HINT: 0 VeryLow, 1 Low, 2 Normal), so every program VegaFlow had confined kept a low disk priority. It now goes back to Normal (2); crash recovery too. C++ Test 94 checks it on Windows.
 - `--dry-run` with `--monitor` now only simulates; before, the monitor ran the real cycle. An unknown or mistyped option (`--dryrun`) now stops with exit code 2 instead of being ignored and starting the real daemon. Checked by `tests/package/package_tests.ps1` (52 passed on the test laptop, 2026-11-20).
+- `--dxvk-install` and `--dxvk-remove` no longer take the next option as their path (`--dxvk-install --dry-run` used `--dry-run` as the folder and dropped the simulation); a missing path exits with code 2. A dry run of either now fails when the game folder does not exist instead of reporting success. Checked by the package test (54 passed) and C++ Test 16.
 - Turning VRAM reporting off no longer writes an invented 512 MB: it puts back only the saved original.
 - DXVK: a failed backup of the game's own `d3d11.dll`/`dxgi.dll` now stops the install instead of overwriting them; a
   failed copy undoes the half install; removal keeps the `.original.bak` until the original is back and says so when the

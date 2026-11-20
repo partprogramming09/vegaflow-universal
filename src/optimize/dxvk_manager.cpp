@@ -43,6 +43,13 @@ std::filesystem::path ResolveGameDirectory(const std::wstring& game_exe_path) {
     return p.parent_path();
 }
 
+// A simulation checks the folder too, so it never promises a change it could not make.
+bool GameDirectoryExists(const std::wstring& game_exe_path) {
+    const std::filesystem::path dir = ResolveGameDirectory(game_exe_path);
+    std::error_code ec;
+    return !dir.empty() && std::filesystem::is_directory(dir, ec);
+}
+
 bool CheckIfExeIs64Bit(const std::filesystem::path& exe_path, bool fallback) {
     std::ifstream f(exe_path, std::ios::binary);
     if (!f.is_open()) return fallback;
@@ -196,6 +203,10 @@ bool DxvkManager::DeployDxvk(
     }
 
     if (dry_run) {
+        if (!GameDirectoryExists(game_exe_path)) {
+            if (out_message) *out_message = "Error: la carpeta del juego no existe [DRY-RUN]";
+            return false;
+        }
         if (out_message) {
             *out_message = "DXVK Vulkan desplegado con éxito (GPL activo en 6 hilos) [DRY-RUN]";
         }
@@ -321,6 +332,10 @@ bool DxvkManager::RemoveDxvk(
     std::string* out_message) {
 
     if (dry_run) {
+        if (!GameDirectoryExists(game_exe_path)) {
+            if (out_message) *out_message = "Error: la carpeta del juego no existe [DRY-RUN]";
+            return false;
+        }
         if (out_message) {
             *out_message = "DXVK removido: El juego vuelve al driver DirectX 11 de Windows [DRY-RUN]";
         }

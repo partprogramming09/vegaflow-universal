@@ -87,6 +87,11 @@ Check 'una opción desconocida se rechaza (código 2) y no sigue' ($r.Code -eq 2
 # --dry-run with --monitor must simulate, never run the real monitor cycle.
 $r = Invoke-Exe @('--dry-run', '--monitor', '--once')
 Check '--dry-run --monitor solo simula' ($r.Code -eq 0 -and $r.Output -match 'DRY-RUN SIMULATION' -and $r.Output -notmatch 'LIVE TELEMETRY DASHBOARD') $r.Output
+# An option that needs a path must not take the next option as that path (--dxvk-install --dry-run lost the simulation).
+foreach ($opt in '--dxvk-install', '--dxvk-remove') {
+    $r = Invoke-Exe @('--dry-run', $opt, '--version')
+    Check "$opt sin ruta se rechaza (código 2)" ($r.Code -eq 2 -and $r.Output -notmatch '\[DXVK\]') "código $($r.Code): $($r.Output)"
+}
 $acl = Get-Acl $InstallDir
 Check 'propietario: Administradores' ($acl.GetOwner([System.Security.Principal.SecurityIdentifier]).Value -eq 'S-1-5-32-544')
 # WriteData 0x2, AppendData 0x4, WriteExtendedAttributes 0x10, WriteAttributes 0x100, Delete 0x10000, ChangePermissions 0x40000, TakeOwnership 0x80000

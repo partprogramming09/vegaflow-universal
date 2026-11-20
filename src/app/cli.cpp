@@ -27,6 +27,8 @@
 namespace vegaflow::app {
 
 std::optional<int> ParseCommandLine(int argc, char* argv[], CliOptions& opts) {
+    // A path value must be there and must not be the next option (--dxvk-install --dry-run lost the simulation).
+    auto has_value = [&](int i) { return i + 1 < argc && argv[i + 1][0] != '\0' && argv[i + 1][0] != '-'; };
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
         if (arg == "--status" || arg == "-s") {
@@ -67,9 +69,9 @@ std::optional<int> ParseCommandLine(int argc, char* argv[], CliOptions& opts) {
             opts.recover_flag = true;
         } else if (arg == "--create-restore-point") {
             opts.create_restore_point_flag = true;
-        } else if (arg == "--dxvk-install" && i + 1 < argc) {
+        } else if (arg == "--dxvk-install" && has_value(i)) {
             opts.dxvk_install_path = argv[++i];
-        } else if (arg == "--dxvk-remove" && i + 1 < argc) {
+        } else if (arg == "--dxvk-remove" && has_value(i)) {
             opts.dxvk_remove_path = argv[++i];
         } else if (arg == "--monitor" || arg == "-m") {
             opts.monitor_flag = true;
