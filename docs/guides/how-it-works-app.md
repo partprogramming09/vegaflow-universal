@@ -75,7 +75,7 @@ How to read it, line by line:
 | [`session/reports.cpp`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/session/reports.cpp) | `PrintStatusReport` (line 86), `ExecutePurgeNow` (263) and `ExecuteDryRun` (291). |
 | [`session/run_cycle.cpp`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/session/run_cycle.cpp) | `RunSingleIteration` (line 147): one evaluation tick. The loop, the window and the monitor all call it, and it hands the work to `RunGameSessionCycle` in [`game_session.cpp`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/session/game_session.cpp). |
 
-**How they talk.** `main` creates the long-lived objects once (hardware profile, memory manager, CPU orchestrator, settings) and passes them by reference to the mode. Each mode keeps its own state, such as the ID of the game being optimized. The app layer may include everything, because its job is to assemble the pieces; the rule is on the [GUI and session](./modules/gui-and-session.md) page.
+**How they talk.** `main` creates the long-lived objects once (hardware profile, memory manager, CPU orchestrator, settings) and passes them by reference to the mode. Each mode keeps its own state, such as the ID of the game being optimized. The app layer may include everything, because its job is to assemble the pieces; the rule is on the [code layers](./modules/layers.md) page.
 
 ### The modes
 
@@ -155,7 +155,7 @@ The first prints the version and exits. The second only simulates and changes no
 
 - [Using the daemon and the command line](./usage-and-features/daemon-and-cli.md): what each flag does, from the user's side.
 - [Modules](./modules/) and [Code layers](./modules/layers.md): where `app/` sits among the other folders.
-- [GUI and session](./modules/gui-and-session.md): how the window's buttons reach the session code.
+- [How ui/ works](./how-it-works-ui.md) and [How session/ works](./how-it-works-session.md): how the window's buttons reach the session code.
 - [System info](./modules/system-info.md): what `--system-info` reports.
 - [Security](./security.md): the sandbox every file and process operation passes through.
 - [Safety and tiers](./usage-and-features/safety-and-tiers.md): which changes apply on which hardware.

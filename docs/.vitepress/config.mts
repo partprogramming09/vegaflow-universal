@@ -69,8 +69,6 @@ export default defineConfig({
               items: [
                 { text: 'Code layers', link: '/guides/modules/layers' },
                 { text: 'SystemInfo', link: '/guides/modules/system-info' },
-                { text: 'GUI and session', link: '/guides/modules/gui-and-session' },
-                { text: 'Game optimizations', link: '/guides/modules/game-optimizations' },
                 { text: 'Repository tree', link: '/guides/modules/repo-tree' },
               ],
             },

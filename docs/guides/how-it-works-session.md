@@ -136,8 +136,8 @@ The last line should read `TEST RESULTS: 315 PASSED, 0 FAILED`. The number grows
 ## Related
 
 - [Code layers](./modules/layers.md): which folder may use which, and the migration exceptions.
-- [GUI and session layer](./modules/gui-and-session.md): the other side of the screens, the views that draw them.
-- [Game optimizations](./modules/game-optimizations.md): what the profiles change in each game.
+- [How ui/ works](./how-it-works-ui.md): the other side of the screens, the views that draw them, and the list of screens.
+- [How optimize/ works](./how-it-works-optimize.md) and [Windows and driver tweaks](./usage-and-features/tweaks.md): what the profiles change in each game.
 - [Rust and C++ core](./rust-cpp-core.md): how C++ calls the Rust rules.
 - [Security](./security.md): why the files of games with anti-cheat are never touched.
 - [Safety and tiers](./usage-and-features/safety-and-tiers.md) and [tweaks](./usage-and-features/tweaks.md): what the person sees and can undo.

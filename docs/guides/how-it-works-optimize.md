@@ -147,7 +147,7 @@ Read the `[3/4]` and `[4/4]` blocks. Nothing is written in dry run.
 
 ## Related
 
-- [Game optimizations (user view of the same levers)](./modules/game-optimizations.md) and [Windows and driver tweaks](./usage-and-features/tweaks.md): what each switch does for the user.
+- [Windows and driver tweaks](./usage-and-features/tweaks.md): what each switch does, from the user's side.
 - [How windows/ works](./how-it-works-windows.md): the registry backup, the journal and the ports that this module calls.
 - [How session/ works](./how-it-works-session.md): who calls these levers, and when.
 - [Rust and C++ core](./rust-cpp-core.md) and [Security](./security.md): the bridge and the anti-cheat rules.

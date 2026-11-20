@@ -20,7 +20,7 @@ Start here. Each page answers one question: find yours.
 | Know what each module does or where a file lives | [Modules](./modules/) |
 | Support other hardware (Intel, AMD multi-CCD, dGPU, eGPU) | [Universal pattern](./universal-pattern.md), section 3.5 |
 | Follow one module from start to end (`app/`, `session/`, `optimize/`, `windows/`, `ui/`) | [app](./how-it-works-app.md), [session](./how-it-works-session.md), [optimize](./how-it-works-optimize.md), [windows](./how-it-works-windows.md), [ui](./how-it-works-ui.md) |
-| Change or redesign the GUI | [GUI and session](./modules/gui-and-session.md) (how a screen is split between `ui/` and `session/`) |
+| Change or redesign the GUI | [How ui/ works](./how-it-works-ui.md) (how a screen is split between `ui/` and `session/`, and the list of screens) |
 | See figures and how they were measured | [Measurements](../measurements/verification-status.md) |
 | Use the measurement scripts or the remote jobs | [`scripts/README.md`](https://github.com/partprogramming09/vegaflow-universal/blob/main/scripts/README.md) |
 

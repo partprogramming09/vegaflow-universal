@@ -8,8 +8,7 @@ This section explains how the code is organized and where each piece lives. Each
 
 - [Code layers](./layers.md): which folders may use which, and what moved in phase R3 (2026-11-14).
 - [SystemInfo and hardware telemetry](./system-info.md): section 3.2, how VegaFlow reads the machine.
-- [GUI and session layer](./gui-and-session.md): sections 3.3 and 3.3b, the window and the screen models.
-- [Game optimizations](./game-optimizations.md): sections 3.4 and 3.5, the changes made for games.
+- The window, the screen models and the game optimizations are explained module by module in [How ui/ works](../how-it-works-ui.md), [How session/ works](../how-it-works-session.md) and [How optimize/ works](../how-it-works-optimize.md); what each tweak does for the user is in [Windows and driver tweaks](../usage-and-features/tweaks.md).
 - [Repository tree](./repo-tree.md): section 4, folder by folder.
 
 ## How the layers fit together

@@ -8,9 +8,9 @@ For example, the game gets the fastest CPU cores, while browsers and other backg
 
 ### 2.1. DXGI Hardware Flip Model Presentation Upgrade
 
-- It writes the directives `AutoFlipModel=1;DirectFlip=1;TurboSync=1;SwapEffectUpgradeEnable=1;GpuPreference=2;` to `HKCU\Software\Microsoft\DirectX\UserGpuPreferences`.
+- It writes the directives `SwapEffectUpgradeEnable=1;GpuPreference=2;AutoHDREnable=0;AutoFlipModel=1;DirectFlip=1;` to `HKCU\Software\Microsoft\DirectX\UserGpuPreferences` (`TurboSync` is not one of them: the AMD driver tweak sets it in the driver's `UMD` subkey).
 - It makes DirectX 11 games use the **Hardware Flip Model** swap chain (the queue that hands finished frames to the screen) and moves them straight to **DirectFlip** mode on Windows 11. This skips the intermediate composition surface and the copy queue of DWM (the Windows desktop window manager).
-- **Benefit:** it cuts input lag by between 15 and 25 ms, reaching 0 ms of extra composition latency in full screen without borders. It also removes composition micro-stutter and prevents dropped frames caused by blocked buffers.
+- **Expected benefit (not measured here):** it should cut the extra composition latency in full screen without borders. It also removes composition micro-stutter and prevents dropped frames caused by blocked buffers.
 
 ### 2.2. UMA Engine Memory & Texture Streamer
 
@@ -63,7 +63,7 @@ Built in at a low level to fix, at the root, the latency, storage-contention and
    - **NT mechanism:** through calls to `NtSetInformationProcess(ProcessIoPriorityInformationClass = 33)`, VegaFlow keeps the 3D game at `IoPriorityNormal` (2; in Windows' `IO_PRIORITY_HINT`, 3 is High) and confines background processes to `IoPriorityVeryLow` (0). With the background at VeryLow, the game's mesh and texture reads go ahead of background disk work. At the same time, `MEMORY_PRIORITY_LOW` (2) is set on background processes, to prevent active graphics resources from being pushed out to the pagefile.
 3. **DirectFlip & AutoFlip Model Upgrade:**
    - **Technical explanation:** in traditional windowed or borderless modes, the system compositor (DWM) copies each frame to an intermediate surface. This adds between 15 and 30 ms of input delay and periodic micro-stutter.
-   - **DXGI writes:** VegaFlow writes the directives `AutoFlipModel=1;DirectFlip=1;TurboSync=1;SwapEffectUpgradeEnable=1;GpuPreference=2;` to `HKCU\Software\Microsoft\DirectX\UserGpuPreferences`. On Windows 11 this allows direct promotion to **DirectFlip** mode, which skips DWM's copy queue entirely and reaches an **input latency of 0 ms** in full screen without borders.
+   - **DXGI writes:** VegaFlow writes the directives `SwapEffectUpgradeEnable=1;GpuPreference=2;AutoHDREnable=0;AutoFlipModel=1;DirectFlip=1;` to `HKCU\Software\Microsoft\DirectX\UserGpuPreferences` (`TurboSync` is not one of them: the AMD driver tweak sets it in the driver's `UMD` subkey). On Windows 11 this allows direct promotion to **DirectFlip** mode, which skips DWM's copy queue entirely and is meant to remove that extra copy in full screen without borders (the latency gain is **not measured** here).
 
 ### 2.10. APU Silicon Suite & NT Kernel Memory Shield (DisablePagingExecutive and Smart Tessellation 16x)
 

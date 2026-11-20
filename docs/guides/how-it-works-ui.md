@@ -61,9 +61,11 @@ The step numbers match the diagram. Steps 1 and 2 run once. Steps 3 to 5 repeat 
 | `<name>_view.cpp` and `.hpp` (home, settings, games, history, config, programs, equipment, requirements) | One view per screen. Each has `Refresh` (creates the native buttons once), `Show`, `Paint`, `DrawItem` (draws a button), `Command` (reacts to it) and, for long screens, `Scroll`. Home is the example: [home_view.cpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/ui/home_view.cpp) |
 | [texts.hpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/ui/texts.hpp) | The Spanish texts of the newer screens, in one file "so they can be translated without touching the drawing code" (`:2`) |
 | [app_identity.hpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/ui/app_identity.hpp) | The version (`kVersion`, `:11`), the window class (`:13`), the title, the tray command id (`:18`), the restore message (`:22`) and `FormatHardwareLine` (`:26`), which builds "CPU | GPU" and cuts a line longer than 65 bytes |
-| [session/home_screen.cpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/session/home_screen.cpp) and the other `session/*_screen.cpp` | The models. They take plain inputs and return plain data. Reading the list of screens: [GUI and session](./modules/gui-and-session.md) |
+| [session/home_screen.cpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/session/home_screen.cpp) and the other `session/*_screen.cpp` | The models. They take plain inputs and return plain data. The list of screens is just below |
 
-How they talk: the window holds one `GuiWindowState` (`gui_components.hpp:115`) with the telemetry, the models and the native control handles. A view reads its model from that state, paints it, and calls the app only through `GuiCallbacks`. The app's side is wired in [gui_mode.cpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/app/gui_mode.cpp) (`:129` for the telemetry, `:278` for the purge).
+**Which screen is which** (menu index; what each one is for, from the person's side, is in the [usage guide](./usage-and-features/system-info-and-gui.md)): 0 Home (`home_view`), 1 System settings (`settings_view`), 2 UMA memory & CPU cores (old GDI, `gui_tabs.cpp`), 3 Games (`games_view`), 4 History (`history_view`), 5 Settings (`config_view`), 6 Programs (`programs_view`), 7 Your machine (`equipment_view`) and 8 Requirements (`requirements_view`, opened from Settings, with no menu entry of its own). These screens arrive with phase G, planned for version 0.2.0 (not released yet: the binary still reports 0.1.0, see `--version` below). The colours of all of them are constants in [gui_components.hpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/ui/gui_components.hpp) (`CLR_BG_MAIN` and the lines after it, `:73`).
+
+How they talk: the window holds one `GuiWindowState` (`gui_components.hpp:115`) with the telemetry, the models and the native control handles. A view reads its model from that state, paints it, and calls the app only through `GuiCallbacks`. The app's side is wired in [gui_mode.cpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/app/gui_mode.cpp) (`:129` for the telemetry, `:278` for the purge). Those few actions stay in `app/` on purpose: the telemetry poll returns a `ui/` structure, which `session/` may not include, and purge, isolate, restore affinity and the history poll call Windows classes that have no fake, so moving them would not make them testable.
 
 ## Why it was built this way
 
@@ -120,7 +122,6 @@ Compare the Home card "Memoria del equipo" with the formula above: the percent m
 
 ## Related
 
-- [GUI and session](./modules/gui-and-session.md): the two layers and the list of screens.
 - [How session/ works](./how-it-works-session.md): where the models and the rules come from.
 - [How app/ works](./how-it-works-app.md): the entry point that starts the window and wires the callbacks.
 - [Code layers](./modules/layers.md): what `ui/` may include.
