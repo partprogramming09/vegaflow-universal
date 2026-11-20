@@ -264,7 +264,7 @@ void RunGameSessionCycle(
 
             const bool is_dx12 = (game.api == RenderApi::DirectX12 || game.api == RenderApi::Vulkan);
             env.SetDynamicPrioritySeparation(is_dx12 ? 0x26 : 0x28);
-            env.SetGameDvrAndFseOptimized(true);
+            env.SetGameDvrCaptureDisabled(true);
             if (static_policy.force_high_perf_power_plan) {
                 env.SetApuLaptopPowerProfile(true, static_policy);
             }

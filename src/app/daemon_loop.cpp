@@ -49,7 +49,7 @@ int RunDaemon(
         std::cout << "[WARN] MODO SEGURO ACTIVO: VegaFlow detect\u00f3 2 o m\u00e1s cierres anormales seguidos. "
                   << "Arrancando sin aplicar ajustes del sistema. Usa --restore-registry si necesitas revertir.\n";
     } else {
-        gfx.Display().SetGameDvrAndFseOptimized(true, false);
+        gfx.Display().SetGameDvrCaptureDisabled(true, false);
         if (gfx.PowerMode()) {
             gfx.PowerMode()->SetApuLaptopPowerProfile(true, policy, false);
         }
@@ -68,7 +68,7 @@ int RunDaemon(
             if (gfx.PowerMode() && gfx.PowerMode()->IsApuPowerModeApplied()) {
                 gfx.PowerMode()->SetApuLaptopPowerProfile(false, policy, false);
             }
-            gfx.Display().SetGameDvrAndFseOptimized(false, false);
+            gfx.Display().SetGameDvrCaptureDisabled(false, false);
             gfx.RestoreAllRegistryBackups();
         }
         return 0;
@@ -148,7 +148,7 @@ int RunDaemon(
         if (gfx.PowerMode()) {
             gfx.PowerMode()->SetApuLaptopPowerProfile(false, policy, false);
         }
-        gfx.Display().SetGameDvrAndFseOptimized(false, false);
+        gfx.Display().SetGameDvrCaptureDisabled(false, false);
         // Restores the registry (GameDVR, AMD driver, MPO, MMCSS, priority, paging) to its state before VegaFlow.
         const bool registry_restored = gfx.RestoreAllRegistryBackups();
         std::cout << "[INFO] Registry values restored to their original state: " << (registry_restored ? "yes" : "partially or not (see --restore-registry)") << "\n";

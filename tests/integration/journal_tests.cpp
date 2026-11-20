@@ -12,7 +12,9 @@
 #include <filesystem>
 #include <string>
 
+#include "optimize/graphics/graphics_optimizer.hpp"
 #include "session/restore.hpp"
+#include "windows/registry.hpp"
 #include "windows/change_journal.hpp"
 #include "ports/clock.hpp"
 #include "windows/safe_file_system.hpp"
@@ -130,6 +132,59 @@ void Test50() {
                  "Test 50: Real disk FileChangeJournal + WindowsSystemUndo restores HKCU registry and game INI after crash",
                  "setup: " + Pass(reg_setup_ok && file_setup_ok) + ", restored 2/2: " + Pass(rep.all_succeeded) +
                      ", HKCU==123: " + Pass(restored_dword == 123) + ", INI exact: " + Pass(reread_ini == orig_ini));
+}
+
+// E1.4: the real Flip write keeps the user's GPU choice and Layers flags, journals once, and the journal puts both back exactly.
+void Test95() {
+    using namespace vegaflow;
+    std::error_code ec;
+    const std::filesystem::path root = std::filesystem::temp_directory_path(ec) / L"vegaflow_flip_journal";
+    std::filesystem::remove_all(root, ec);
+    std::filesystem::create_directories(root, ec);
+
+    const std::wstring exe = L"C:\\Games\\VegaFlowTest\\FlipJournal.exe";
+    const wchar_t* ugp_key = L"Software\\Microsoft\\DirectX\\UserGpuPreferences";
+    const wchar_t* layers_key = L"Software\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Layers";
+    const std::wstring ugp_orig = L"GpuPreference=1;AutoHDREnable=1;";
+    const std::wstring layers_orig = L"~ RUNASADMIN";
+
+    WindowsRegistryPort reg;
+    const bool seeded = reg.WriteValue(RegHive::CurrentUser, ugp_key, exe, RegValue::MakeString(ugp_orig), false) &&
+                        reg.WriteValue(RegHive::CurrentUser, layers_key, exe, RegValue::MakeString(layers_orig), false);
+
+    SafeFileSystem fs;
+    SteadyClock clock;
+    WindowsSystemUndo undo(fs);
+    FileChangeJournal journal(fs, clock, (root / L"change_journal.vfj").wstring());
+    journal.Load();
+    journal.BeginSession();
+    ChangeJournal* previous = GetActiveChangeJournal();
+    SetActiveChangeJournal(&journal);
+
+    DxgiFlipTweaks flip(reg);
+    const bool applied = flip.ApplyFlipModelUpgrade(exe, false) && flip.ApplyFlipModelUpgrade(exe, false);
+    SetActiveChangeJournal(previous);
+
+    RegValue ugp_now, layers_now;
+    reg.ReadValue(RegHive::CurrentUser, ugp_key, exe, ugp_now);
+    reg.ReadValue(RegHive::CurrentUser, layers_key, exe, layers_now);
+    const bool merged = ugp_now.str == ugp_orig + L"SwapEffectUpgradeEnable=1;" && layers_now.str == L"~ RUNASADMIN HIGHDPIAWARE";
+    const bool one_entry = journal.Entries().size() == 1;
+
+    const auto rep = session::RestoreAllRecordedChanges(journal, undo, false);
+    RegValue ugp_back, layers_back;
+    reg.ReadValue(RegHive::CurrentUser, ugp_key, exe, ugp_back);
+    reg.ReadValue(RegHive::CurrentUser, layers_key, exe, layers_back);
+    const bool reverted = rep.all_succeeded && ugp_back.str == ugp_orig && layers_back.str == layers_orig;
+
+    reg.DeleteValue(RegHive::CurrentUser, ugp_key, exe, false);
+    reg.DeleteValue(RegHive::CurrentUser, layers_key, exe, false);
+    std::filesystem::remove_all(root, ec);
+
+    RecordResult(seeded && applied && merged && one_entry && reverted,
+                 "Test 95: Real Flip write keeps user prefs and flags, journals once, and reverts exactly",
+                 "seed: " + Pass(seeded) + ", applied: " + Pass(applied) + ", merged: " + Pass(merged) +
+                     ", entries=" + std::to_string(journal.Entries().size()) + ", reverted: " + Pass(reverted));
 }
 
 } // namespace vftest

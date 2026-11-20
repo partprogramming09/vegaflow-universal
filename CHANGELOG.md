@@ -45,9 +45,20 @@ New native GUI (Win32, owner-draw controls reachable with Tab). Not tagged yet: 
   game (open, with the DLLs loaded) blocks it; a game's own DLLs with no VegaFlow marker are never deleted, also from
   `--dxvk-remove`.
 
+- Windowed-game Flip upgrade (E1.4): writes only `SwapEffectUpgradeEnable=1` into the game's `UserGpuPreferences`, so
+  the user's `GpuPreference` and `AutoHDREnable` stay as they were (it used to force high-performance GPU and HDR off);
+  `HIGHDPIAWARE` is appended to the game's `AppCompatFlags\Layers` instead of replacing its other flags, and skipped when
+  another DPI mode is set; applying it again writes nothing and adds no second journal entry.
+- Game Bar capture off no longer turns Fullscreen Optimizations off. The four `GameDVR_*FSE*` values are now a hidden,
+  unmeasured compatibility row in Ajustes ("apagar las optimizaciones de pantalla completa", for old DX9/DX10 games) that
+  the daemon never applies by itself; turning it off puts back only the saved originals.
+
 ### Removed
 - Unreachable handlers for the old "apply preset" and "elevate" buttons (a posted `WM_COMMAND` could have reached
   them) and the unused in-memory audit list.
+- `ApplyDirectFlipUpgrade` (`AutoFlipModel=1;DirectFlip=1`, keys with no official source) and
+  `RemoveFlipModelUpgrade`, which deleted the whole per-game values; neither had a caller outside the tests. Undo goes
+  through the change journal, which puts back the exact previous values.
 
 ### Known limits
 - The window does no DPI scaling of its own (fixed pixels): Windows enlarges it. Checked with screenshots at 125 % and 150 % (not 175 %). Screen readers were not tested.

@@ -63,7 +63,7 @@ int RunGuiMode(
     std::string active_game_api;
     HWND active_game_hwnd = nullptr;
     if (!safe_mode) {
-        gfx.Display().SetGameDvrAndFseOptimized(true, false);
+        gfx.Display().SetGameDvrCaptureDisabled(true, false);
         if (gfx.PowerMode()) {
             gfx.PowerMode()->SetApuLaptopPowerProfile(true, policy, false);
         }
@@ -251,7 +251,7 @@ int RunGuiMode(
         data.ecoqos_processes_count = game_active ? cpu_orchestrator.GetThrottledBackgroundCount() : CountEcoQoSProcesses();
         data.io_priority_active = game_active;
         data.directflip_active = game_active
-            ? (gfx.DxgiFlip().HasDirectFlipUpgrade(active_game_full_path) || gfx.DxgiFlip().HasDirectFlipUpgrade(active_game_exe))
+            ? (gfx.DxgiFlip().HasFlipModelUpgrade(active_game_full_path) || gfx.DxgiFlip().HasFlipModelUpgrade(active_game_exe))
             : (CountDirectFlipConfiguredGames() > 0);
 
         data.daemon_private_ws_kb = daemon_ws / 1024;
@@ -412,7 +412,7 @@ int RunGuiMode(
         if (gfx.PowerMode() && gfx.PowerMode()->IsApuPowerModeApplied()) {
             gfx.PowerMode()->SetApuLaptopPowerProfile(false, policy, false);
         }
-        gfx.Display().SetGameDvrAndFseOptimized(false, false);
+        gfx.Display().SetGameDvrCaptureDisabled(false, false);
         gfx.RestoreAllRegistryBackups();
     }
     if (g_single_instance_mutex) {

@@ -82,7 +82,8 @@ void SettingsActions::ResetAll(size_t* reverted, size_t* total) {
     }
     gfx.KernelScheduler().SetMemoryCompressionEnabled(true, false);
     gfx.Mmcss().SetGamingProfileOptimized(false, false);
-    gfx.Display().SetGameDvrAndFseOptimized(false, false);
+    gfx.Display().SetGameDvrCaptureDisabled(false, false);
+    gfx.Display().SetFullscreenOptimizationsDisabled(false, false);
     if (gfx.PowerMode()) gfx.PowerMode()->SetApuLaptopPowerProfile(false, d_.policy, false);
     gfx.KernelScheduler().SetDynamicPrioritySeparation(0x02, false);
     gfx.KernelScheduler().SetKernelMemoryPagingShield(false, false);
@@ -123,9 +124,14 @@ std::string SettingsActions::Set(const std::string& id, bool turn_on) {
         msg = ok ? (turn_on ? "Núcleo de Windows fijado en la RAM" : "Núcleo de Windows devuelto al comportamiento normal")
                  : "No se pudo cambiar el blindaje del núcleo (hace falta ser administrador)";
     } else if (id == "game_dvr") {
-        const bool ok = gfx.Display().SetGameDvrAndFseOptimized(turn_on, false);
+        const bool ok = gfx.Display().SetGameDvrCaptureDisabled(turn_on, false);
         msg = ok ? (turn_on ? "Grabación de Xbox Game Bar apagada" : "Grabación de Xbox Game Bar devuelta a Windows")
                  : "No se pudo cambiar la grabación de Game Bar";
+    } else if (id == "fse_compat") {
+        const bool ok = gfx.Display().SetFullscreenOptimizationsDisabled(turn_on, false);
+        msg = ok ? (turn_on ? "Optimizaciones de pantalla completa apagadas (modo compatibilidad)"
+                            : "Optimizaciones de pantalla completa devueltas a como estaban")
+                 : "No se pudieron cambiar las optimizaciones de pantalla completa";
     } else {
         msg = "Este ajuste no tiene interruptor";
     }

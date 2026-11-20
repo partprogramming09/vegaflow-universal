@@ -54,61 +54,27 @@ void DisplayTweaks::QueryMpoState(bool& out_disabled, uint32_t& out_overlay_test
     }
 }
 
-bool DisplayTweaks::SetGameDvrAndFseOptimized(bool optimize, bool dry_run) {
+bool DisplayTweaks::SetGameDvrCaptureDisabled(bool disable, bool dry_run) {
     if (dry_run) {
         return true;
     }
 
-    static constexpr const wchar_t* kStoreValues[] = {
-        L"GameDVR_Enabled",
-        L"GameDVR_FSEBehaviorMode",
-        L"GameDVR_HonorUserFSEBehaviorMode",
-        L"GameDVR_DXGIHonorFSEWindowsCompatible",
-        L"GameDVR_EFSEFeatureFlags"
+    struct Item { const wchar_t* path; const wchar_t* name; const char* reason; };
+    static constexpr Item kItems[] = {
+        {kGameConfigStorePath, L"GameDVR_Enabled", "Desactivar GameDVR"},
+        {kGameDvrPath, L"AppCaptureEnabled", "Desactivar GameDVR (AppCapture)"},
     };
-
-    const uint32_t vals[5] = {
-        optimize ? 0u : 1u,
-        optimize ? 2u : 0u,
-        optimize ? 1u : 0u,
-        optimize ? 1u : 0u,
-        0u
-    };
-
+    const uint32_t val = disable ? 0u : 1u;
     bool success = true;
-    for (size_t i = 0; i < 5; ++i) {
-        if (!reg_.WriteValue(
-                RegHive::CurrentUser,
-                kGameConfigStorePath,
-                kStoreValues[i],
-                RegValue::MakeDword(vals[i]),
-                optimize,
-                "Desactivar GameDVR / FSE",
-                std::to_string(vals[i]))) {
+    for (const Item& it : kItems) {
+        if (!reg_.WriteValue(RegHive::CurrentUser, it.path, it.name, RegValue::MakeDword(val), disable, it.reason,
+                             std::to_string(val))) {
             success = false;
         }
-    }
-    if (!optimize) {
-        for (const wchar_t* n : kStoreValues) {
-            reg_.RestoreBackedUpValue(RegHive::CurrentUser, kGameConfigStorePath, n);
+        if (!disable) {
+            reg_.RestoreBackedUpValue(RegHive::CurrentUser, it.path, it.name);
         }
     }
-
-    const uint32_t app_capture = optimize ? 0u : 1u;
-    if (!reg_.WriteValue(
-            RegHive::CurrentUser,
-            kGameDvrPath,
-            L"AppCaptureEnabled",
-            RegValue::MakeDword(app_capture),
-            optimize,
-            "Desactivar GameDVR (AppCapture)",
-            std::to_string(app_capture))) {
-        success = false;
-    }
-    if (!optimize) {
-        reg_.RestoreBackedUpValue(RegHive::CurrentUser, kGameDvrPath, L"AppCaptureEnabled");
-    }
-
     return success;
 }
 
@@ -119,6 +85,38 @@ bool DisplayTweaks::QueryGameDvrDisabled() {
         return val.dword == 0u;
     }
     return false;
+}
+
+bool DisplayTweaks::SetFullscreenOptimizationsDisabled(bool disable, bool dry_run) {
+    static constexpr const wchar_t* kNames[] = {
+        L"GameDVR_FSEBehaviorMode",
+        L"GameDVR_HonorUserFSEBehaviorMode",
+        L"GameDVR_DXGIHonorFSEWindowsCompatible",
+        L"GameDVR_EFSEFeatureFlags",
+    };
+    static constexpr uint32_t kDisabled[] = {2u, 1u, 1u, 0u};
+    if (dry_run) {
+        return true;
+    }
+
+    bool success = true;
+    for (size_t i = 0; i < 4; ++i) {
+        if (disable) {
+            success = reg_.WriteValue(RegHive::CurrentUser, kGameConfigStorePath, kNames[i], RegValue::MakeDword(kDisabled[i]),
+                                      true, "Compatibilidad: desactivar optimizaciones de pantalla completa",
+                                      std::to_string(kDisabled[i])) && success;
+        } else {
+            // Only the saved original goes back; without a backup the user's value is left alone.
+            reg_.RestoreBackedUpValue(RegHive::CurrentUser, kGameConfigStorePath, kNames[i]);
+        }
+    }
+    return success;
+}
+
+bool DisplayTweaks::QueryFullscreenOptimizationsDisabled() {
+    RegValue val;
+    return reg_.ReadValue(RegHive::CurrentUser, kGameConfigStorePath, L"GameDVR_FSEBehaviorMode", val) &&
+           val.type == RegValueType::Dword && val.dword == 2u;
 }
 
 } // namespace vegaflow

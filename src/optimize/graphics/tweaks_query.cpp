@@ -141,6 +141,7 @@ SystemGraphicsTweaksState GraphicsOptimizer::QuerySystemGraphicsTweaks() {
     state.win32_priority_separation = kernel_.QueryDynamicPrioritySeparation();
     state.mmcss_gaming_optimized = mmcss_.QueryGamingProfileOptimized();
     state.gamedvr_disabled = display_.QueryGameDvrDisabled();
+    state.fse_disabled = display_.QueryFullscreenOptimizationsDisabled();
     state.kernel_paging_shield_active = kernel_.QueryKernelMemoryPagingShield();
     mmcss_.QueryTaskTweaks(state.mmcss_scheduling_category, state.mmcss_sfio_priority, state.mmcss_clock_rate);
 

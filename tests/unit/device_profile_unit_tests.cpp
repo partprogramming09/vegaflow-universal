@@ -115,7 +115,7 @@ public:
     }
 
     void SetDynamicPrioritySeparation(uint32_t) override {}
-    void SetGameDvrAndFseOptimized(bool) override {}
+    void SetGameDvrCaptureDisabled(bool) override {}
 
     void SetApuLaptopPowerProfile(bool optimize, const vegaflow::ApuOptimizationPolicy& static_policy) override {
         if (optimize) {
