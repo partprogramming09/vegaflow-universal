@@ -58,7 +58,7 @@ VegaFlow can run as a background service, as a console tool, or as a native desk
   Windows Memory Compression : DISABLED (Zero CPU Spikes / Low Latency)
   Kernel Memory Paging Shield: ACTIVE (DisablePagingExecutive=1, RAM Lock)
   AMD Tessellation Limiter   : 16x (Over-Geometry Capped)
-  DirectFlip / AutoFlip Model: READY (AutoFlipModel=1 & DirectFlip=1 Injection on Launch)
+  Windowed Flip Model        : READY (SwapEffectUpgradeEnable=1 on Launch)
 ```
 
 ##### 2. Exporting telemetry and specifications as JSON:

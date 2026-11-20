@@ -8,9 +8,9 @@ For example, the game gets the fastest CPU cores, while browsers and other backg
 
 ### 2.1. DXGI Hardware Flip Model Presentation Upgrade
 
-- It writes the directives `SwapEffectUpgradeEnable=1;GpuPreference=2;AutoHDREnable=0;AutoFlipModel=1;DirectFlip=1;` to `HKCU\Software\Microsoft\DirectX\UserGpuPreferences` (`TurboSync` is not one of them: the AMD driver tweak sets it in the driver's `UMD` subkey).
-- It makes DirectX 11 games use the **Hardware Flip Model** swap chain (the queue that hands finished frames to the screen) and moves them straight to **DirectFlip** mode on Windows 11. This skips the intermediate composition surface and the copy queue of DWM (the Windows desktop window manager).
-- **Expected benefit (not measured here):** it should cut the extra composition latency in full screen without borders. It also removes composition micro-stutter and prevents dropped frames caused by blocked buffers.
+- It adds only `SwapEffectUpgradeEnable=1` to the game's value in `HKCU\Software\Microsoft\DirectX\UserGpuPreferences`; anything else there (`GpuPreference`, `AutoHDREnable`) stays as it was. This is what turns on "Optimizations for windowed games": DirectX 10 and 11 games in a window move from the blt model to the flip model.
+- It appends `HIGHDPIAWARE` to the game's flags in `AppCompatFlags\Layers` without removing the others, and skips it when another DPI mode is already set.
+- **Benefit:** not measured in this project (see the verification status page). Undo it from Historial or "Devolver todo".
 
 ### 2.2. UMA Engine Memory & Texture Streamer
 
@@ -61,9 +61,9 @@ Built in at a low level to fix, at the root, the latency, storage-contention and
 2. **NT I/O Priority and Memory Hierarchy:**
    - **Technical explanation:** modern 3D games continuously stream models and high-resolution textures from the NVMe SSD into shared memory (UMA) and the GPU buffer. When background applications compete for the file I/O bus or cause contention in the memory manager, severe stutter and frametime spikes of 50 to 150 ms appear.
    - **NT mechanism:** through calls to `NtSetInformationProcess(ProcessIoPriorityInformationClass = 33)`, VegaFlow keeps the 3D game at `IoPriorityNormal` (2; in Windows' `IO_PRIORITY_HINT`, 3 is High) and confines background processes to `IoPriorityVeryLow` (0). With the background at VeryLow, the game's mesh and texture reads go ahead of background disk work. At the same time, `MEMORY_PRIORITY_LOW` (2) is set on background processes, to prevent active graphics resources from being pushed out to the pagefile.
-3. **DirectFlip & AutoFlip Model Upgrade:**
-   - **Technical explanation:** in traditional windowed or borderless modes, the system compositor (DWM) copies each frame to an intermediate surface. This adds between 15 and 30 ms of input delay and periodic micro-stutter.
-   - **DXGI writes:** VegaFlow writes the directives `SwapEffectUpgradeEnable=1;GpuPreference=2;AutoHDREnable=0;AutoFlipModel=1;DirectFlip=1;` to `HKCU\Software\Microsoft\DirectX\UserGpuPreferences` (`TurboSync` is not one of them: the AMD driver tweak sets it in the driver's `UMD` subkey). On Windows 11 this allows direct promotion to **DirectFlip** mode, which skips DWM's copy queue entirely and is meant to remove that extra copy in full screen without borders (the latency gain is **not measured** here).
+3. **Windowed flip model:**
+   - In a window, the compositor (DWM) copies each frame of a game that presents with the blt model.
+   - VegaFlow adds only `SwapEffectUpgradeEnable=1` to the game's value in `HKCU\Software\Microsoft\DirectX\UserGpuPreferences` (the user's GPU and HDR choice do not change) so Windows moves it to the flip model. Effect not measured here.
 
 ### 2.10. APU Silicon Suite & NT Kernel Memory Shield (DisablePagingExecutive and Smart Tessellation 16x)
 
