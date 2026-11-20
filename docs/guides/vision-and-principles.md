@@ -34,7 +34,7 @@ Modern systems run foreground applications (3D games, simulators) next to many b
 
 This behaviour causes a destructive physical effect on the cache and on the graphics dispatcher:
 
-![Without isolation: main cores 0-2, secondary cores 3-5 and the graphics processor share the interconnect bus, the contention point toward RAM or VRAM, with L3 evictions, quantum theft and draw-call latency](./img/sin-aislamiento.png)
+![Background apps share CPU cores, L3 cache and the memory bus with the game's render thread, so the thread that sends commands to the GPU is interrupted and the GPU runs out of work.](./img/no-isolation.png)
 
 ### Mechanisms of performance degradation
 
@@ -48,7 +48,7 @@ This behaviour causes a destructive physical effect on the cache and on the grap
 
 VegaFlow removes silicon contention by building **four simultaneous barriers**, implemented with direct calls to the native Windows NT interfaces:
 
-![Isolated: the last physical core cage (affinity 0xC00) confines background processes with CPU Sets, EcoQoS and I/O and memory priority; the 3W to 5W saving goes back to the game, and barrier 4 sets FlipQueueSize = 1 and ASPM = 0 in the registry](./img/aislada-4-barreras.png)
+![Background processes are confined to the last physical core by barriers 1 to 3, while the game keeps the other cores; barrier 4 sets FlipQueueSize = 1 and ASPM = 0 in the display adapter registry key.](./img/isolated-four-barriers.png)
 
 ### Details of the 4 barriers
 

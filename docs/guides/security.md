@@ -8,7 +8,7 @@
 
 VegaFlow Universal enforces a strict, inviolable security policy: **under no circumstances will DLLs be injected or files of games protected by anti-cheat systems be modified.** Every operation on disk and on processes is governed by an isolation and containment model formalized in the [`SandboxGuard`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/sandbox_guard.hpp) module.
 
-![Decision matrix: with anti-cheat, a non-invasive path that only changes Windows settings and forbids modifying or injecting files; without anti-cheat, the full path with DXVK, engine presets and memory purge](./img/matriz-seguridad-anticheat.png)
+![If an anti-cheat is detected, VegaFlow runs the non-invasive path, which changes only Windows settings and forbids modifying or injecting game files; otherwise it runs the full path, which adds DXVK-GPLAsync, engine presets and memory purge.](./img/anticheat-safety-matrix.png)
 
 
 ### Signatures monitored in real time:

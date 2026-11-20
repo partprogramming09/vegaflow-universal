@@ -10,7 +10,7 @@
 
 **Example.** `--status` shows how many processes have power-saving mode (EcoQoS) on. Before, `session/` walked the process list with Windows calls itself. Now `session/reports.cpp` calls `CountEcoQoSProcesses()`, and the one that talks to Windows is [`src/windows/system_counters.cpp`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/system_counters.cpp). That way the `session/` code reads without knowing anything about Win32.
 
-![VegaFlow code layers: app/ uses ui/ and session/; session/ asks windows/ for its Windows readings and talks to the ports; windows/ implements the ports and calls the Rust core through bridge/; model/ is used by all the layers](../img/capas-del-codigo.png)
+![A stack of src/ folders, from app/ at the top to model/ at the bottom, with arrows for the main may-include relations; session/ holds the use cases and is highlighted.](../img/code-layers.png)
 
 Terms: a **port** is a small interface (for example, "read and write the registry") that the tests can replace with a fake version; an **adapter** is the real version, which calls Windows.
 

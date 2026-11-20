@@ -9,7 +9,7 @@ For example, it can move browsers and other background programs to the last CPU 
 
 ## 2. VegaFlow's main modules
 
-![VegaFlow's main modules: non-invasive detection passes to the Anti-Cheat Sentinel; without anti-cheat, engine-level optimizations are applied, and with anti-cheat, non-invasive optimizations; both branches end in the central performance subsystem of the kernel and the operating system](../img/modulos-principales.png)
+![Detection feeds the Rust core, which decides; the C++ layer then acts through four modules, every disk and process write passes SandboxGuard, and the GUI and command line sit on top.](../img/main-modules.png)
 
 The features are split across four pages. The section numbers (2.1 to 2.11 and 5) are kept, so a reference to a section still matches.
 

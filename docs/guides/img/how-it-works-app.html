@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>How VegaFlow starts</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&family=Noto+Serif:ital@0;1&family=Noto+Sans+KR:wght@400;500;600&family=Noto+Serif+KR:wght@400&family=Noto+Sans+TC:wght@400;500;600&family=Noto+Serif+TC:wght@400&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:   #f5f5f5;   /* white-smoke */
+      --color-ink:     #2d3142;   /* jet-black */
+      --color-muted:   #4f5d75;   /* blue-slate */
+      --color-accent:  #bf4520;   /* burnt-tangerine */
+      --font-sans:     'Geist', system-ui, sans-serif;
+      --font-serif:    'Instrument Serif', 'Noto Serif', 'Noto Serif KR', serif;
+      --font-mono:     'Geist Mono', ui-monospace, monospace;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-paper);
+      color: var(--color-ink);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem 2rem;
+    }
+
+    .frame { max-width: 1200px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.66rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      margin-bottom: 0.5rem;
+    }
+
+    h1 {
+      font-family: var(--font-serif);
+      font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem);
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      color: var(--color-ink);
+      margin-bottom: 1.5rem;
+    }
+
+    /* The viewBox is 800 wide; the page shows it at 700 px so every 14 px label stays legible. */
+    svg { width: 700px; max-width: 100%; height: auto; display: block; }
+    @media print {
+      .diagram-container { overflow-x: visible; }
+    }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Flowchart · Diagram Design</p>
+    <h1>How VegaFlow starts</h1>
+
+    <div class="diagram-container">
+      <svg viewBox="0 0 800 1100" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="how-it-works-app-title how-it-works-app-desc">
+        <title id="how-it-works-app-title">How VegaFlow starts: from flags to the chosen mode</title>
+        <desc id="how-it-works-app-desc">Flowchart of VegaFlow's start-up: flags and one-shot commands come first, then elevation, settings, dry-run, the single-instance lock and the unclean-run check, and finally one of three modes is chosen.</desc>
+        <defs>
+          <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/></marker>
+          <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bf4520"/></marker>
+          <marker id="arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#2e5aa8"/></marker>
+        </defs>
+
+        <rect width="100%" height="100%" fill="#f5f5f5"/>
+
+        <!-- Arrows first, then nodes -->
+        <g fill="none" stroke="#4f5d75" stroke-width="1" marker-end="url(#arrow)">
+          <path d="M280 100 V140"/>
+          <path d="M280 228 V272"/>
+          <path d="M416 184 H560"/>
+          <path d="M416 316 H560"/>
+          <path d="M280 360 V404"/>
+          <path d="M280 464 V508"/>
+          <path d="M416 552 H560"/>
+          <path d="M280 596 V640"/>
+          <path d="M416 684 H560"/>
+          <path d="M280 728 V772"/>
+          <path d="M280 860 V904"/>
+          <path d="M416 816 H592 Q600 816 600 824 V926 Q600 934 592 934 H400"/>
+          <path d="M280 964 V1008"/>
+        </g>
+
+        <!-- Step 1 -->
+        <rect x="160" y="40" width="240" height="60" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <text x="280" y="66" fill="#2d3142" font-size="14" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">1. Read flags</text>
+        <text x="280" y="86" fill="#4f5d75" font-size="14" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">ParseCommandLine</text>
+
+        <!-- Step 2 decision -->
+        <polygon points="280,140 416,184 280,228 144,184" fill="#ffffff" stroke="#4f5d75" stroke-width="1"/>
+        <text x="280" y="189" fill="#2d3142" font-size="14" font-weight="500" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">2. One-shot command?</text>
+
+        <!-- Step 3 decision -->
+        <polygon points="280,272 416,316 280,360 144,316" fill="#ffffff" stroke="#4f5d75" stroke-width="1"/>
+        <text x="280" y="321" fill="#2d3142" font-size="14" font-weight="500" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">3. Not admin?</text>
+
+        <!-- Step 4 -->
+        <rect x="160" y="404" width="240" height="60" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <text x="280" y="430" fill="#2d3142" font-size="14" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">4. Load config.json</text>
+        <text x="280" y="450" fill="#4f5d75" font-size="14" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">config\config.json</text>
+
+        <!-- Step 5 decision -->
+        <polygon points="280,508 416,552 280,596 144,552" fill="#ffffff" stroke="#4f5d75" stroke-width="1"/>
+        <text x="280" y="557" fill="#2d3142" font-size="14" font-weight="500" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">5. Dry-run?</text>
+
+        <!-- Step 6 decision -->
+        <polygon points="280,640 416,684 280,728 144,684" fill="#ffffff" stroke="#4f5d75" stroke-width="1"/>
+        <text x="280" y="689" fill="#2d3142" font-size="14" font-weight="500" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">6. Lock already held?</text>
+
+        <!-- Step 7 decision -->
+        <polygon points="280,772 416,816 280,860 144,816" fill="#ffffff" stroke="#4f5d75" stroke-width="1"/>
+        <text x="280" y="821" fill="#2d3142" font-size="14" font-weight="500" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">7. Last run unclean?</text>
+
+        <!-- Step 8 -->
+        <rect x="160" y="904" width="240" height="60" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <text x="280" y="930" fill="#2d3142" font-size="14" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">8. Begin session journal</text>
+        <text x="280" y="950" fill="#4f5d75" font-size="14" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">BeginSession()</text>
+
+        <!-- Step 9 (accent) -->
+        <rect x="100" y="1008" width="360" height="72" rx="6" fill="rgba(191,69,32,0.08)" stroke="#bf4520" stroke-width="1.2"/>
+        <text x="280" y="1036" fill="#2d3142" font-size="14" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">9. Choose mode</text>
+        <text x="280" y="1060" fill="#4f5d75" font-size="14" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">--monitor · --gui · background loop</text>
+
+        <!-- Yes labels (opaque masks, 8px gap above the arrow) -->
+        <rect x="470" y="158" width="36" height="18" rx="2" fill="#f5f5f5"/>
+        <text x="488" y="171" fill="#4f5d75" font-size="14" font-weight="500" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">YES</text>
+        <rect x="470" y="290" width="36" height="18" rx="2" fill="#f5f5f5"/>
+        <text x="488" y="303" fill="#4f5d75" font-size="14" font-weight="500" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">YES</text>
+        <rect x="470" y="526" width="36" height="18" rx="2" fill="#f5f5f5"/>
+        <text x="488" y="539" fill="#4f5d75" font-size="14" font-weight="500" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">YES</text>
+        <rect x="470" y="658" width="36" height="18" rx="2" fill="#f5f5f5"/>
+        <text x="488" y="671" fill="#4f5d75" font-size="14" font-weight="500" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">YES</text>
+        <rect x="486" y="790" width="36" height="18" rx="2" fill="#f5f5f5"/>
+        <text x="504" y="803" fill="#4f5d75" font-size="14" font-weight="500" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">YES</text>
+
+        <!-- Exit and branch outcomes, placed past the arrow tips -->
+        <text x="572" y="189" fill="#4f5d75" font-size="14" font-family="'Geist', system-ui, sans-serif">run it, then exit</text>
+        <text x="572" y="321" fill="#4f5d75" font-size="14" font-family="'Geist', system-ui, sans-serif">relaunch via UAC</text>
+        <text x="572" y="557" fill="#4f5d75" font-size="14" font-family="'Geist', system-ui, sans-serif">simulate, then exit</text>
+        <text x="572" y="689" fill="#4f5d75" font-size="14" font-family="'Geist', system-ui, sans-serif">exit, focus first copy</text>
+        <text x="608" y="875" fill="#4f5d75" font-size="14" font-family="'Geist', system-ui, sans-serif">offer restore</text>
+
+        <!-- NO labels beside the vertical branches -->
+        <text x="288" y="255" fill="#4f5d75" font-size="14" font-weight="500" font-family="'Geist Mono', ui-monospace, monospace">NO</text>
+        <text x="288" y="387" fill="#4f5d75" font-size="14" font-weight="500" font-family="'Geist Mono', ui-monospace, monospace">NO</text>
+        <text x="288" y="623" fill="#4f5d75" font-size="14" font-weight="500" font-family="'Geist Mono', ui-monospace, monospace">NO</text>
+        <text x="288" y="755" fill="#4f5d75" font-size="14" font-weight="500" font-family="'Geist Mono', ui-monospace, monospace">NO</text>
+        <text x="288" y="887" fill="#4f5d75" font-size="14" font-weight="500" font-family="'Geist Mono', ui-monospace, monospace">NO</text>
+      </svg>
+    </div>
+  </div>
+</body>
+</html>

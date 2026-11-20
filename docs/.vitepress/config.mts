@@ -78,6 +78,16 @@ export default defineConfig({
             { text: 'ADR 0001: Rust decides, C++ acts', link: '/adr/0001-nucleo-que-decide-y-puertos' },
           ],
         },
+        {
+          text: 'Module by module',
+          items: [
+            { text: 'app/: start-up and modes', link: '/guides/how-it-works-app' },
+            { text: 'session/: use cases', link: '/guides/how-it-works-session' },
+            { text: 'optimize/: the levers', link: '/guides/how-it-works-optimize' },
+            { text: 'windows/: Windows calls', link: '/guides/how-it-works-windows' },
+            { text: 'ui/: the window', link: '/guides/how-it-works-ui' },
+          ],
+        },
       ],
       '/adr/': [{ text: 'Decisions', items: [{ text: 'ADR 0001', link: '/adr/0001-nucleo-que-decide-y-puertos' }] }],
       '/measurements/': [

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The 4 universal sources of contention</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper: #f5f5f5; --color-ink: #2d3142; --color-muted: #4f5d75; --color-accent: #bf4520;
+      --font-sans: 'Geist', system-ui, sans-serif; --font-serif: 'Instrument Serif', serif; --font-mono: 'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400; letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    .scroll { overflow-x: auto; }
+    svg { width: 100%; max-width: 700px; display: block; }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Universal pattern · VegaFlow Universal</p>
+    <h1>The 4 universal sources of contention</h1>
+    <div class="scroll">
+    <svg viewBox="0 0 800 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="contention-sources-title contention-sources-desc">
+      <title id="contention-sources-title">The 4 universal sources of contention</title>
+      <desc id="contention-sources-desc">Four sources of contention between a game and background work, on any CPU and graphics setup: shared L3 cache and memory, GPU command dispatch, storage I/O queue, and the shared power and thermal budget.</desc>
+      <rect width="100%" height="100%" fill="#f5f5f5"/>
+
+      <!-- 01 Shared cache and memory (accent) -->
+      <rect x="40" y="40" width="348" height="128" rx="6" fill="#ffffff" stroke="#bf4520" stroke-width="1.2"/>
+      <text x="64" y="76" fill="#2d3142" font-size="14" font-family="'Geist Mono', monospace" letter-spacing="0.14em">01</text>
+      <text x="64" y="106" fill="#2d3142" font-size="18" font-weight="600" font-family="'Geist', sans-serif">Shared L3 cache and memory</text>
+      <text x="64" y="136" fill="#4f5d75" font-size="14" font-family="'Geist', sans-serif">Other threads evict game data</text>
+
+      <!-- 02 GPU command dispatch -->
+      <rect x="412" y="40" width="348" height="128" rx="6" fill="#ffffff" stroke="#bfc0c0" stroke-width="1"/>
+      <text x="436" y="76" fill="#4f5d75" font-size="14" font-family="'Geist Mono', monospace" letter-spacing="0.14em">02</text>
+      <text x="436" y="106" fill="#2d3142" font-size="18" font-weight="600" font-family="'Geist', sans-serif">GPU command dispatch</text>
+      <text x="436" y="136" fill="#4f5d75" font-size="14" font-family="'Geist', sans-serif">Late command lists starve the GPU</text>
+
+      <!-- 03 Storage I/O -->
+      <rect x="40" y="192" width="348" height="128" rx="6" fill="#ffffff" stroke="#bfc0c0" stroke-width="1"/>
+      <text x="64" y="228" fill="#4f5d75" font-size="14" font-family="'Geist Mono', monospace" letter-spacing="0.14em">03</text>
+      <text x="64" y="258" fill="#2d3142" font-size="18" font-weight="600" font-family="'Geist', sans-serif">Storage I/O queue</text>
+      <text x="64" y="288" fill="#4f5d75" font-size="14" font-family="'Geist', sans-serif">Background I/O delays textures</text>
+
+      <!-- 04 Shared power and thermal budget -->
+      <rect x="412" y="192" width="348" height="128" rx="6" fill="#ffffff" stroke="#bfc0c0" stroke-width="1"/>
+      <text x="436" y="228" fill="#4f5d75" font-size="14" font-family="'Geist Mono', monospace" letter-spacing="0.14em">04</text>
+      <text x="436" y="258" fill="#2d3142" font-size="18" font-weight="600" font-family="'Geist', sans-serif">Shared power budget</text>
+      <text x="436" y="288" fill="#4f5d75" font-size="14" font-family="'Geist Mono', monospace">AMD STAPM/PPT, Intel PL1/PL2</text>
+    </svg>
+    </div>
+  </div>
+</body>
+</html>

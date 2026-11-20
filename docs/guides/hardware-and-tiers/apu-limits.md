@@ -8,7 +8,7 @@
 
 VegaFlow is optimized at the microarchitecture level for AMD APUs (Accelerated Processing Units, a processor and a graphics chip on one chip), with the main test machine centered on the **AMD Ryzen 5 4600H** processor (6 cores, 12 threads, Zen 2 architecture at 3.0 GHz base / 4.0 GHz boost) paired with the built-in **AMD Radeon RX Vega 6** graphics (6 Compute Units / 384 Stream Processors at 1500 MHz, GCN 5.0 architecture).
 
-![UMA architecture: the Zen 2 CPU and the Vega 6 iGPU go through the same Infinity Fabric and IMC, in dual-channel DDR4-3200, with 16 GB of shared memory; the BIOS reports 512 MB dedicated, but the GPU can use up to 8192 MB](../img/arquitectura-uma.png)
+![On the test APU, the Zen 2 CPU and the Vega 6 iGPU reach the same system RAM over one shared dual-channel DDR4 bus, so the 512 MB of dedicated VRAM reported by the BIOS is not a real limit.](../img/uma-architecture.png)
 
 
 ### 2.1. The UMA (Unified Memory Architecture) memory bottleneck

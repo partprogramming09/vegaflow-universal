@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CPU topology: AMD Ryzen vs. Intel Core</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper: #f5f5f5; --color-ink: #2d3142; --color-muted: #4f5d75; --color-accent: #bf4520;
+      --font-sans: 'Geist', system-ui, sans-serif; --font-serif: 'Instrument Serif', serif; --font-mono: 'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400; letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    .scroll { overflow-x: auto; }
+    svg { width: 700px; max-width: 100%; height: auto; display: block; }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Universal pattern · VegaFlow Universal</p>
+    <h1>CPU topology: AMD Ryzen vs. Intel Core</h1>
+    <div class="scroll">
+    <svg viewBox="0 0 800 512" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="amd-intel-topology-title amd-intel-topology-desc">
+      <title id="amd-intel-topology-title">CPU topology: AMD Ryzen vs. Intel Core</title>
+      <desc id="amd-intel-topology-desc">Three CPU layouts and where VegaFlow puts background work: on the last core of the single shared L3 of an AMD APU, on the secondary CCD's L3 island of an AMD desktop chip, and on the E-cores of an Intel hybrid chip.</desc>
+      <defs>
+        <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto-start-reverse"><polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/></marker>
+        <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto-start-reverse"><polygon points="0 0, 8 3, 0 6" fill="#bf4520"/></marker>
+        <marker id="arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto-start-reverse"><polygon points="0 0, 8 3, 0 6" fill="#2e5aa8"/></marker>
+      </defs>
+
+      <rect width="100%" height="100%" fill="#f5f5f5"/>
+
+      <!-- ================= COLUMN CONTAINERS ================= -->
+      <rect x="32" y="24" width="224" height="440" rx="8" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.30)" stroke-width="1"/>
+      <rect x="288" y="24" width="224" height="440" rx="8" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.30)" stroke-width="1"/>
+      <rect x="544" y="24" width="224" height="440" rx="8" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.30)" stroke-width="1"/>
+
+      <!-- Column headings -->
+      <text x="48" y="52" fill="#2d3142" font-size="16" font-weight="600" font-family="'Geist', sans-serif">AMD APU (one die)</text>
+      <text x="48" y="74" fill="#4f5d75" font-size="14" font-family="'Geist', sans-serif">CPU + iGPU, one die</text>
+      <text x="304" y="52" fill="#2d3142" font-size="16" font-weight="600" font-family="'Geist', sans-serif">AMD desktop / HX</text>
+      <text x="304" y="74" fill="#4f5d75" font-size="14" font-family="'Geist', sans-serif">Two L3 islands</text>
+      <text x="560" y="52" fill="#2d3142" font-size="16" font-weight="600" font-family="'Geist', sans-serif">Intel Core hybrid</text>
+      <text x="560" y="74" fill="#4f5d75" font-size="14" font-family="'Geist', sans-serif">P-cores + E-cores</text>
+
+      <!-- ================= COLUMN 1: AMD APU ================= -->
+      <rect x="48" y="96" width="192" height="200" rx="6" fill="rgba(45,49,66,0.03)" stroke="#4f5d75" stroke-width="1"/>
+      <!-- cores; last core carries the background -->
+      <rect x="64" y="112" width="34" height="34" rx="4" fill="#ffffff" stroke="#4f5d75" stroke-width="1"/>
+      <text x="81" y="134" fill="#2d3142" font-size="14" font-family="'Geist Mono', monospace" text-anchor="middle">C0</text>
+      <rect x="106" y="112" width="34" height="34" rx="4" fill="#ffffff" stroke="#4f5d75" stroke-width="1"/>
+      <text x="123" y="134" fill="#2d3142" font-size="14" font-family="'Geist Mono', monospace" text-anchor="middle">C1</text>
+      <rect x="148" y="112" width="34" height="34" rx="4" fill="#ffffff" stroke="#4f5d75" stroke-width="1"/>
+      <text x="165" y="134" fill="#2d3142" font-size="14" font-family="'Geist Mono', monospace" text-anchor="middle">C2</text>
+      <rect x="190" y="112" width="34" height="34" rx="4" fill="rgba(191,69,32,0.08)" stroke="#bf4520" stroke-width="1.2"/>
+      <text x="207" y="134" fill="#bf4520" font-size="14" font-family="'Geist Mono', monospace" text-anchor="middle">C3</text>
+      <!-- shared L3 -->
+      <rect x="64" y="160" width="160" height="40" rx="6" fill="#ffffff" stroke="#4f5d75" stroke-width="1"/>
+      <text x="144" y="185" fill="#2d3142" font-size="14" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Shared L3</text>
+      <!-- iGPU on the same die -->
+      <rect x="64" y="216" width="160" height="40" rx="6" fill="#ffffff" stroke="#4f5d75" stroke-width="1"/>
+      <text x="144" y="241" fill="#2d3142" font-size="14" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">iGPU</text>
+      <text x="48" y="380" fill="#bf4520" font-size="14" font-weight="600" font-family="'Geist', sans-serif">Background: last core</text>
+
+      <!-- ================= COLUMN 2: AMD desktop ================= -->
+      <!-- CCD 0 -->
+      <rect x="304" y="96" width="192" height="80" rx="6" fill="#ffffff" stroke="#4f5d75" stroke-width="1"/>
+      <text x="400" y="124" fill="#2d3142" font-size="16" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">CCD 0</text>
+      <text x="400" y="148" fill="#4f5d75" font-size="14" font-family="'Geist', sans-serif" text-anchor="middle">L3 island</text>
+      <!-- I/O die -->
+      <rect x="344" y="204" width="112" height="36" rx="6" fill="#ffffff" stroke="#4f5d75" stroke-width="1"/>
+      <text x="400" y="227" fill="#2d3142" font-size="14" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">I/O die</text>
+      <!-- CCD 1 (secondary, carries the background) -->
+      <rect x="304" y="268" width="192" height="80" rx="6" fill="rgba(191,69,32,0.08)" stroke="#bf4520" stroke-width="1.2"/>
+      <text x="400" y="296" fill="#2d3142" font-size="16" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">CCD 1</text>
+      <text x="400" y="320" fill="#2d3142" font-size="14" font-family="'Geist', sans-serif" text-anchor="middle">secondary island</text>
+      <!-- connectors: CCD 0 <-> I/O die <-> CCD 1 -->
+      <line x1="400" y1="176" x2="400" y2="204" stroke="#4f5d75" stroke-width="1.2" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+      <line x1="400" y1="240" x2="400" y2="268" stroke="#4f5d75" stroke-width="1.2" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+      <text x="304" y="380" fill="#bf4520" font-size="14" font-weight="600" font-family="'Geist', sans-serif">Background: CCD 1</text>
+      <text x="304" y="404" fill="#4f5d75" font-size="14" font-family="'Geist', sans-serif">One CCD may carry</text>
+      <text x="304" y="424" fill="#4f5d75" font-size="14" font-family="'Geist', sans-serif">3D V-Cache (X3D)</text>
+
+      <!-- ================= COLUMN 3: Intel hybrid ================= -->
+      <!-- P-cores -->
+      <rect x="560" y="96" width="192" height="56" rx="6" fill="#ffffff" stroke="#4f5d75" stroke-width="1"/>
+      <text x="656" y="129" fill="#2d3142" font-size="16" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">P-cores</text>
+      <!-- shared L3 -->
+      <rect x="560" y="184" width="192" height="40" rx="6" fill="#ffffff" stroke="#4f5d75" stroke-width="1"/>
+      <text x="656" y="209" fill="#2d3142" font-size="14" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Shared L3</text>
+      <!-- E-core clusters (carry the background) -->
+      <rect x="560" y="272" width="192" height="56" rx="6" fill="rgba(191,69,32,0.08)" stroke="#bf4520" stroke-width="1.2"/>
+      <text x="656" y="305" fill="#2d3142" font-size="16" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">E-core clusters</text>
+      <!-- connectors: P-cores <-> L3 <-> E-cores -->
+      <line x1="656" y1="152" x2="656" y2="184" stroke="#4f5d75" stroke-width="1.2" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+      <line x1="656" y1="224" x2="656" y2="272" stroke="#4f5d75" stroke-width="1.2" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+      <text x="560" y="380" fill="#bf4520" font-size="14" font-weight="600" font-family="'Geist', sans-serif">Background: E-cores</text>
+
+      <!-- ================= FOOTNOTE ================= -->
+      <text x="32" y="496" fill="#4f5d75" font-size="14" font-family="'Geist', sans-serif">The code has no X3D rule: it splits cores by cache and core.</text>
+    </svg>
+    </div>
+  </div>
+</body>
+</html>

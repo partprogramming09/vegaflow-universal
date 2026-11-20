@@ -27,9 +27,9 @@ Implemented in a coordinated way in [`src/optimize/cpu_orchestrator.cpp`](https:
      PFN_NtSetInformationProcess pfnNtSetInformationProcess = 
          (PFN_NtSetInformationProcess)GetProcAddress(GetModuleHandleW(L"ntdll.dll"), "NtSetInformationProcess");
      
-     // 1. 3D game process: IoPriorityHigh (2) and MemoryPriorityNormal (5)
-     ULONG io_high = 2; // IoPriorityHigh
-     pfnNtSetInformationProcess(hGame, ProcessIoPriorityInformationClass /* 33 */, &io_high, sizeof(io_high));
+     // 1. 3D game process: IoPriorityNormal (2) and MemoryPriorityNormal (5)
+     ULONG io_normal = 2; // IO_PRIORITY_HINT: 0 VeryLow, 1 Low, 2 Normal, 3 High
+     pfnNtSetInformationProcess(hGame, ProcessIoPriorityInformationClass /* 33 */, &io_normal, sizeof(io_normal));
      
      // 2. Background processes: IoPriorityVeryLow (0) and MemoryPriorityLow (2)
      ULONG io_very_low = 0; // IoPriorityVeryLow

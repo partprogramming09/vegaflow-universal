@@ -16,7 +16,7 @@ The physical and architectural evidence shows that **the contention pattern is u
 
 Regardless of whether the processor is AMD or Intel, or whether graphics run on an integrated GPU (iGPU), an internal dedicated GPU (dGPU) or an external GPU (eGPU), there are **four universal physical laws of modern von Neumann architecture** that govern performance:
 
-![The four universal sources of contention: memory hierarchy and TLB flushing, D3D/Vulkan dispatch latency, I/O queue and page faults, and shared energy and thermal budget](./img/fuentes-de-contencion.png)
+![Four sources of contention between a game and background work, on any CPU and graphics setup: shared L3 cache and memory, GPU command dispatch, storage I/O queue, and the shared power and thermal budget.](./img/contention-sources.png)
 
 
 1. **Last-Level Cache Contention (LLC / L3 Thrashing) and TLB Flushing:**  
@@ -34,7 +34,7 @@ Regardless of whether the processor is AMD or Intel, or whether graphics run on 
 
 Although the contention problem is universal, the internal anatomy of AMD and Intel processors poses specific challenges:
 
-![AMD Ryzen topology (monolithic APU with a compact L3 and an FCLK bus shared with the iGPU; desktop multi-CCD with CCD 0 and CCD 1 linked by the I/O Die and a Cross-CCD penalty of ~70+ ns) versus hybrid Intel Core, where P-Cores, E-Cores and the Smart Cache L3 share one Ring Bus](./img/topologia-amd-intel.png)
+![Three CPU layouts and where VegaFlow puts background work: on the last core of the single shared L3 of an AMD APU, on the secondary CCD's L3 island of an AMD desktop chip, and on the E-cores of an Intel hybrid chip.](./img/amd-intel-topology.png)
 
 
 ### A. Anatomy of AMD Ryzen Processors:
@@ -77,9 +77,7 @@ Although the contention problem is universal, the internal anatomy of AMD and In
 | **🖥️ Internal Dedicated Graphics (dGPU)** *(NVIDIA RTX, AMD Radeon RX over PCIe x16)* | Dedicated PCIe x8/x16 bus (nanosecond latency, own GDDR6 VRAM >250 GB/s) | The dGPU does not suffer from VRAM, but it starves (*GPU Starvation*) if the CPU interrupts command dispatch. | UMA optimizations are switched off automatically (`Pass-Through Guard`). Spatial and I/O isolation is kept. | ✅ **High impact on smoothness (+20% to +50% in 1% Low):** removes micro-stutter in competitive titles and open worlds. |
 | **🔌 External Cable Graphics (eGPU)** *(External enclosure via Thunderbolt 3/4, USB4 or OCuLink)* | PCIe link encapsulated over cable (limited to about PCIe x4 ~32 Gbps real, with high packet latency) | Each frame requires continuous DMA transfers over the cable. CPU interrupts on the laptop cause severe link drops. | CPU isolation and NT I/O priority are activated, and the registry is set to `PCIe ASPM = 0` and `FlipQueueSize = 1`. | 🔥 **Critical impact (+40% to +75% in 1% Low):** keeps the Thunderbolt tunnel awake, without power-saving pauses. |
 
-![Bars of the 1% Low increase when isolating under background load: integrated APU (UMA) 136.8, external graphics (eGPU TB4) 65.0 and dedicated graphics (dGPU PCIe) 42.0, on a 0 to 160 scale](./img/impacto-aislamiento-1-low.png)
-
-![Sequence in two cases with background noise, CPU, bus and GPU: without isolation, the noise interrupts the CPU, the link runs out of data for 8–15 ms and the frame arrives late; with VegaFlow the noise stays on the last core and the CPU keeps a continuous flow to the GPU](./img/inanicion-gpu-secuencia.png)
+![Sequence of two cases: without isolation, a background app interrupts the CPU, commands stop reaching the GPU and the frame arrives late; with VegaFlow, the background app stays on the last core and the CPU keeps a steady flow of commands to the GPU.](./img/gpu-starvation-sequence.png)
 
 
 ---
@@ -145,7 +143,7 @@ Terms: a **CPU Set** is the unit of CPU that Windows lets a process be assigned 
 
 **Example.** A Ryzen 5 4600H has 6 cores and 12 threads, in two L3 blocks of 3 cores each. The case `ryzen_4600h_6c12t` in [`tests/vectors/cpu_topology.tsv`](https://github.com/partprogramming09/vegaflow-universal/blob/main/tests/vectors/cpu_topology.tsv) gives: the background takes the two threads of the last core (CPU Sets 266 and 267), and the game takes the eight of cores 1 to 4 (258 to 265), leaving core 0 free.
 
-![How the cores are split: hybrid (game on P-cores, background on E-cores without the low-power ones), several cache blocks with a compact island or symmetric blocks, and monolithic](./img/reparto-de-nucleos.png)
+![Flowchart of how the rule splits one processor group's cores between the game and the background, based on hybrid P and E cores, cache blocks, and physical core count.](./img/core-split.png)
 
 
 Rules, in this order:

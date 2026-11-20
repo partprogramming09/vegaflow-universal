@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Anti-cheat safety matrix</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper: #f5f5f5; --color-ink: #2d3142; --color-muted: #4f5d75; --color-accent: #bf4520;
+      --font-sans: 'Geist', system-ui, sans-serif; --font-serif: 'Instrument Serif', serif; --font-mono: 'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400; letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    .scroll { overflow-x: auto; }
+    svg { width: 100%; min-width: 700px; display: block; }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Security · VegaFlow Universal</p>
+    <h1>Anti-cheat safety matrix</h1>
+    <div class="scroll">
+    <svg viewBox="0 0 800 432" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="anticheat-safety-matrix-title anticheat-safety-matrix-desc">
+      <title id="anticheat-safety-matrix-title">Anti-cheat safety matrix</title>
+      <desc id="anticheat-safety-matrix-desc">If an anti-cheat is detected, VegaFlow runs the non-invasive path, which changes only Windows settings and forbids modifying or injecting game files; otherwise it runs the full path, which adds DXVK-GPLAsync, engine presets and memory purge.</desc>
+      <defs>
+        <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/></marker>
+      </defs>
+      <rect width="100%" height="100%" fill="#f5f5f5"/>
+
+      <!-- Arrows first, then nodes -->
+      <path d="M240,76 L216,76 A8,8 0 0 0 208,84 L208,160" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <path d="M560,76 L584,76 A8,8 0 0 1 592,84 L592,160" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+      <!-- Decision -->
+      <rect x="240" y="40" width="320" height="72" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+      <text x="400" y="70" fill="#2d3142" font-size="16" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Anti-cheat detected?</text>
+      <text x="400" y="92" fill="#4f5d75" font-size="14" font-family="'Geist Mono', monospace" text-anchor="middle">scans game folder (4 levels)</text>
+
+      <!-- Edge labels: opaque masks, 8px gap above the vertical segments -->
+      <rect x="160" y="116" width="40" height="16" fill="#f5f5f5"/>
+      <text x="180" y="129" fill="#2d3142" font-size="14" font-weight="600" font-family="'Geist Mono', monospace" text-anchor="middle">YES</text>
+      <rect x="600" y="116" width="40" height="16" fill="#f5f5f5"/>
+      <text x="620" y="129" fill="#4f5d75" font-size="14" font-family="'Geist Mono', monospace" text-anchor="middle">NO</text>
+
+      <!-- Non-invasive path (YES) -->
+      <rect x="32" y="160" width="352" height="96" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+      <text x="48" y="188" fill="#2d3142" font-size="16" font-weight="600" font-family="'Geist', sans-serif">Non-invasive path</text>
+      <text x="48" y="216" fill="#4f5d75" font-size="14" font-family="'Geist Mono', monospace">1. DXGI Flip Model (registry)</text>
+      <text x="48" y="240" fill="#4f5d75" font-size="14" font-family="'Geist Mono', monospace">2. CPU Sets (cooperative)</text>
+
+      <!-- Forbidden (accent) -->
+      <rect x="32" y="272" width="352" height="88" rx="6" fill="rgba(191,69,32,0.08)" stroke="#bf4520" stroke-width="1.2"/>
+      <text x="48" y="296" fill="#bf4520" font-size="14" font-weight="600" font-family="'Geist Mono', monospace" letter-spacing="0.12em">FORBIDDEN</text>
+      <text x="48" y="320" fill="#2d3142" font-size="14" font-weight="600" font-family="'Geist', sans-serif">Modify, copy, delete or inject</text>
+      <text x="48" y="344" fill="#2d3142" font-size="14" font-weight="600" font-family="'Geist', sans-serif">game files (SandboxGuard)</text>
+
+      <!-- Full path (NO) -->
+      <rect x="416" y="160" width="352" height="200" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+      <text x="432" y="188" fill="#2d3142" font-size="16" font-weight="600" font-family="'Geist', sans-serif">Full path</text>
+      <text x="432" y="216" fill="#4f5d75" font-size="14" font-family="'Geist Mono', monospace">1. DXGI Flip Model (registry)</text>
+      <text x="432" y="240" fill="#4f5d75" font-size="14" font-family="'Geist Mono', monospace">2. CPU Sets (cooperative)</text>
+      <text x="432" y="264" fill="#4f5d75" font-size="14" font-family="'Geist Mono', monospace">3. DXVK-GPLAsync in game folder</text>
+      <text x="432" y="288" fill="#4f5d75" font-size="14" font-family="'Geist Mono', monospace">4. Engine.ini / boot.config presets</text>
+      <text x="460" y="312" fill="#4f5d75" font-size="14" font-family="'Geist Mono', monospace">with .vegaflow.bak copies</text>
+      <text x="432" y="336" fill="#4f5d75" font-size="14" font-family="'Geist Mono', monospace">5. Smart memory purge</text>
+
+      <!-- Takeaway -->
+      <text x="32" y="400" fill="#4f5d75" font-size="14" font-style="italic" font-family="'Geist', sans-serif">With anti-cheat, only Windows settings change. No game file is touched.</text>
+    </svg>
+    </div>
+  </div>
+</body>
+</html>

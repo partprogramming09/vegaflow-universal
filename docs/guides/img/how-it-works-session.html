@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>How the session layer works, step by step</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&family=Noto+Serif:ital@0;1&family=Noto+Sans+KR:wght@400;500;600&family=Noto+Serif+KR:wght@400&family=Noto+Sans+TC:wght@400;500;600&family=Noto+Serif+TC:wght@400&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:   #f5f5f5;
+      --color-ink:     #2d3142;
+      --color-muted:   #4f5d75;
+      --color-accent:  #bf4520;
+      --font-sans:     'Geist', system-ui, sans-serif;
+      --font-serif:    'Instrument Serif', 'Noto Serif', 'Noto Serif KR', serif;
+      --font-mono:     'Geist Mono', ui-monospace, monospace;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-paper);
+      color: var(--color-ink);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem 2rem;
+    }
+
+    .frame { max-width: 1200px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.66rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      margin-bottom: 0.5rem;
+    }
+
+    h1 {
+      font-family: var(--font-serif);
+      font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem);
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      color: var(--color-ink);
+      margin-bottom: 1.5rem;
+    }
+
+    /* The viewBox is 800 wide and is shown at 700 px, so 14 px labels render at about 12 px. */
+    svg { width: 700px; max-width: 100%; display: block; }
+    @media print {
+      .diagram-container { overflow-x: visible; }
+    }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Process · Diagram Design</p>
+    <h1>How the session layer works, step by step</h1>
+
+    <div class="diagram-container">
+      <svg viewBox="0 0 800 768" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="how-it-works-session-title how-it-works-session-desc">
+        <title id="how-it-works-session-title">How the session layer works, step by step</title>
+        <desc id="how-it-works-session-desc">Nine steps the session layer takes, from reading config.json at start to saving a setting, including finding a game, applying its profile, and restoring the system when the game ends.</desc>
+        <defs>
+          <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/></marker>
+          <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bf4520"/></marker>
+        </defs>
+
+        <rect width="100%" height="100%" fill="#f5f5f5"/>
+
+        <!-- Connectors first, so they sit behind the nodes -->
+        <line x1="400" y1="96" x2="400" y2="120" stroke="#4f5d75" stroke-width="1" marker-end="url(#arrow)"/>
+        <line x1="400" y1="176" x2="400" y2="200" stroke="#4f5d75" stroke-width="1" marker-end="url(#arrow)"/>
+        <line x1="400" y1="256" x2="400" y2="280" stroke="#4f5d75" stroke-width="1" marker-end="url(#arrow)"/>
+        <line x1="400" y1="336" x2="400" y2="360" stroke="#4f5d75" stroke-width="1" marker-end="url(#arrow)"/>
+        <line x1="400" y1="416" x2="400" y2="440" stroke="#bf4520" stroke-width="1.2" marker-end="url(#arrow-accent)"/>
+        <line x1="400" y1="496" x2="400" y2="520" stroke="#bf4520" stroke-width="1.2" marker-end="url(#arrow-accent)"/>
+        <line x1="400" y1="576" x2="400" y2="600" stroke="#4f5d75" stroke-width="1" marker-end="url(#arrow)"/>
+        <line x1="400" y1="656" x2="400" y2="680" stroke="#4f5d75" stroke-width="1" marker-end="url(#arrow)"/>
+
+        <!-- Step 1 -->
+        <rect x="160" y="40" width="480" height="56" rx="6" fill="#f5f5f5"/>
+        <rect x="160" y="40" width="480" height="56" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <text x="188" y="73" fill="#4f5d75" font-size="16" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">1</text>
+        <text x="216" y="64" fill="#2d3142" font-size="16" font-weight="600" font-family="'Geist', sans-serif">Read config.json</text>
+        <text x="216" y="84" fill="#4f5d75" font-size="14" font-family="'Geist', sans-serif">Factory values if the folder is not trusted</text>
+
+        <!-- Step 2 -->
+        <rect x="160" y="120" width="480" height="56" rx="6" fill="#f5f5f5"/>
+        <rect x="160" y="120" width="480" height="56" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <text x="188" y="153" fill="#4f5d75" font-size="16" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">2</text>
+        <text x="216" y="144" fill="#2d3142" font-size="16" font-weight="600" font-family="'Geist', sans-serif">Offer to undo leftovers</text>
+        <text x="216" y="164" fill="#4f5d75" font-size="14" font-family="'Geist', sans-serif">Changes started but never closed</text>
+
+        <!-- Step 3 -->
+        <rect x="160" y="200" width="480" height="56" rx="6" fill="#f5f5f5"/>
+        <rect x="160" y="200" width="480" height="56" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <text x="188" y="233" fill="#4f5d75" font-size="16" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">3</text>
+        <text x="216" y="224" fill="#2d3142" font-size="16" font-weight="600" font-family="'Geist', sans-serif">Every tick: run one cycle</text>
+        <text x="216" y="244" fill="#4f5d75" font-size="14" font-family="'Geist', sans-serif">One poll every 1.5 s by default</text>
+
+        <!-- Step 4 -->
+        <rect x="160" y="280" width="480" height="56" rx="6" fill="#f5f5f5"/>
+        <rect x="160" y="280" width="480" height="56" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <text x="188" y="313" fill="#4f5d75" font-size="16" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">4</text>
+        <text x="216" y="304" fill="#2d3142" font-size="16" font-weight="600" font-family="'Geist', sans-serif">Find the game</text>
+        <text x="216" y="324" fill="#4f5d75" font-size="14" font-family="'Geist', sans-serif">Cached game, or detected from its window</text>
+
+        <!-- Step 5 -->
+        <rect x="160" y="360" width="480" height="56" rx="6" fill="#f5f5f5"/>
+        <rect x="160" y="360" width="480" height="56" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <text x="188" y="393" fill="#4f5d75" font-size="16" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">5</text>
+        <text x="216" y="384" fill="#2d3142" font-size="16" font-weight="600" font-family="'Geist', sans-serif">New game? Switch if needed</text>
+        <text x="216" y="404" fill="#4f5d75" font-size="14" font-family="'Geist', sans-serif">Restore the previous game first, then switch</text>
+
+        <!-- Step 6 (focal) -->
+        <rect x="160" y="440" width="480" height="56" rx="6" fill="#f5f5f5"/>
+        <rect x="160" y="440" width="480" height="56" rx="6" fill="rgba(191,69,32,0.08)" stroke="#bf4520" stroke-width="1.2"/>
+        <text x="188" y="473" fill="#bf4520" font-size="16" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">6</text>
+        <text x="216" y="464" fill="#2d3142" font-size="16" font-weight="600" font-family="'Geist', sans-serif">Apply the game's profile</text>
+        <text x="216" y="484" fill="#4f5d75" font-size="14" font-family="'Geist', sans-serif">Changes chosen for this game</text>
+
+        <!-- Step 7 -->
+        <rect x="160" y="520" width="480" height="56" rx="6" fill="#f5f5f5"/>
+        <rect x="160" y="520" width="480" height="56" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <text x="188" y="553" fill="#4f5d75" font-size="16" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">7</text>
+        <text x="216" y="544" fill="#2d3142" font-size="16" font-weight="600" font-family="'Geist', sans-serif">While it runs</text>
+        <text x="216" y="564" fill="#4f5d75" font-size="14" font-family="'Geist', sans-serif">Slow background programs, check memory</text>
+
+        <!-- Step 8 -->
+        <rect x="160" y="600" width="480" height="56" rx="6" fill="#f5f5f5"/>
+        <rect x="160" y="600" width="480" height="56" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <text x="188" y="633" fill="#4f5d75" font-size="16" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">8</text>
+        <text x="216" y="624" fill="#2d3142" font-size="16" font-weight="600" font-family="'Geist', sans-serif">The game ends</text>
+        <text x="216" y="644" fill="#4f5d75" font-size="14" font-family="'Geist', sans-serif">Restore the session, write the report</text>
+
+        <!-- Step 9 -->
+        <rect x="160" y="680" width="480" height="56" rx="6" fill="#f5f5f5"/>
+        <rect x="160" y="680" width="480" height="56" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <text x="188" y="713" fill="#4f5d75" font-size="16" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">9</text>
+        <text x="216" y="704" fill="#2d3142" font-size="16" font-weight="600" font-family="'Geist', sans-serif">Save a setting on a screen</text>
+        <text x="216" y="724" fill="#4f5d75" font-size="14" font-family="'Geist', sans-serif">Check a copy, replace the file in one step</text>
+      </svg>
+    </div>
+  </div>
+</body>
+</html>

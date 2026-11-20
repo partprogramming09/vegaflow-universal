@@ -6,7 +6,7 @@ A Windows daemon written in C++20, with a hybrid Rust core, that optimizes games
 
 **In short:** on a laptop with an AMD APU, the processor and the graphics share the same memory and the same heat budget, so a browser or an updater running in the background steals time from the game. VegaFlow notices when a game is in front, moves the background programs out of its way, and puts everything back when you stop playing. For example, in Octopath Traveler II its memory preset gave +40% average FPS in the overworld (one capture, cause not isolated; see [Measured results](#measured-results)).
 
-![VegaFlow's main modules](docs/guides/img/modulos-principales.png)
+![Detection feeds the Rust core, which decides; the C++ layer then acts through four modules, every disk and process write passes SandboxGuard, and the GUI and command line sit on top.](docs/guides/img/main-modules.png)
 
 ## Why it exists
 

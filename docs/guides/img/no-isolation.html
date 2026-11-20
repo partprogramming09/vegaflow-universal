@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>No isolation: background apps interrupt the game's GPU dispatch</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&family=Noto+Serif:ital@0;1&family=Noto+Sans+KR:wght@400;500;600&family=Noto+Serif+KR:wght@400&family=Noto+Sans+TC:wght@400;500;600&family=Noto+Serif+TC:wght@400&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:   #f5f5f5;
+      --color-ink:     #2d3142;
+      --color-muted:   #4f5d75;
+      --color-accent:  #bf4520;
+      --font-sans:     'Geist', system-ui, sans-serif;
+      --font-serif:    'Instrument Serif', 'Noto Serif', 'Noto Serif KR', serif;
+      --font-mono:     'Geist Mono', ui-monospace, monospace;
+    }
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-paper);
+      color: var(--color-ink);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem 2rem;
+    }
+    .frame { max-width: 1200px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.66rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      margin-bottom: 0.5rem;
+    }
+    h1 {
+      font-family: var(--font-serif);
+      font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem);
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      color: var(--color-ink);
+      margin-bottom: 1.5rem;
+    }
+    svg { width: 700px; max-width: 100%; display: block; }
+    @media print {
+      .diagram-container { overflow-x: visible; }
+    }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Before · No isolation</p>
+    <h1>No isolation: background apps interrupt the game's GPU dispatch</h1>
+
+    <div class="diagram-container">
+      <svg viewBox="0 0 800 520" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="no-isolation-title no-isolation-desc">
+        <title id="no-isolation-title">No isolation: background apps interrupt the game's GPU dispatch</title>
+        <desc id="no-isolation-desc">Background apps share CPU cores, L3 cache and the memory bus with the game's render thread, so the thread that sends commands to the GPU is interrupted and the GPU runs out of work.</desc>
+        <defs>
+          <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/></marker>
+          <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bf4520"/></marker>
+        </defs>
+
+        <rect width="100%" height="100%" fill="#f5f5f5"/>
+
+        <!-- Arrows first, then nodes -->
+        <!-- Accent: the game's interrupted path (render thread to GPU dispatch) -->
+        <line x1="320" y1="136" x2="480" y2="136" stroke="#bf4520" stroke-width="1.2" marker-end="url(#arrow-accent)"/>
+        <!-- Game render thread down to the shared cores -->
+        <line x1="180" y1="176" x2="180" y2="240" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <!-- Background apps up into the shared cores -->
+        <line x1="180" y1="384" x2="180" y2="320" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <!-- GPU dispatch down to GPU starved -->
+        <line x1="620" y1="176" x2="620" y2="240" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+        <!-- Arrow labels: opaque masks, 6-10 px gap from the stroke -->
+        <rect x="338" y="102" width="124" height="24" rx="2" fill="#f5f5f5"/>
+        <text x="400" y="119" fill="#bf4520" font-size="14" font-family="'Geist Mono', monospace" font-weight="500" letter-spacing="0.06em" text-anchor="middle">INTERRUPTED</text>
+
+        <rect x="189" y="198" width="100" height="20" rx="2" fill="#f5f5f5"/>
+        <text x="195" y="212" fill="#4f5d75" font-size="14" font-family="'Geist Mono', monospace" letter-spacing="0.06em">SAME CORES</text>
+
+        <rect x="189" y="342" width="100" height="20" rx="2" fill="#f5f5f5"/>
+        <text x="195" y="356" fill="#4f5d75" font-size="14" font-family="'Geist Mono', monospace" letter-spacing="0.06em">EVICTS L3</text>
+
+        <rect x="629" y="198" width="116" height="20" rx="2" fill="#f5f5f5"/>
+        <text x="635" y="212" fill="#4f5d75" font-size="14" font-family="'Geist Mono', monospace" letter-spacing="0.06em">NO COMMANDS</text>
+
+        <!-- Game render thread (focal) -->
+        <rect x="40" y="96" width="280" height="80" rx="6" fill="#f5f5f5"/>
+        <rect x="40" y="96" width="280" height="80" rx="6" fill="rgba(191,69,32,0.08)" stroke="#bf4520" stroke-width="1.2"/>
+        <text x="180" y="130" fill="#2d3142" font-size="16" font-family="'Geist', sans-serif" font-weight="600" text-anchor="middle">Game render thread</text>
+        <text x="180" y="152" fill="#4f5d75" font-size="14" font-family="'Geist Mono', monospace" text-anchor="middle">GameThread / RenderThread</text>
+
+        <!-- GPU command dispatch -->
+        <rect x="480" y="96" width="280" height="80" rx="6" fill="#f5f5f5"/>
+        <rect x="480" y="96" width="280" height="80" rx="6" fill="#ffffff" stroke="rgba(45,49,66,0.30)" stroke-width="1"/>
+        <text x="620" y="130" fill="#2d3142" font-size="16" font-family="'Geist', sans-serif" font-weight="600" text-anchor="middle">GPU command dispatch</text>
+        <text x="620" y="152" fill="#4f5d75" font-size="14" font-family="'Geist', sans-serif" text-anchor="middle">D3D11 / D3D12 command lists</text>
+
+        <!-- Shared CPU cores -->
+        <rect x="40" y="240" width="280" height="80" rx="6" fill="#f5f5f5"/>
+        <rect x="40" y="240" width="280" height="80" rx="6" fill="#ffffff" stroke="rgba(45,49,66,0.30)" stroke-width="1"/>
+        <text x="180" y="274" fill="#2d3142" font-size="16" font-family="'Geist', sans-serif" font-weight="600" text-anchor="middle">Shared CPU cores</text>
+        <text x="180" y="296" fill="#4f5d75" font-size="14" font-family="'Geist', sans-serif" text-anchor="middle">L3 cache, memory bus</text>
+
+        <!-- GPU starved -->
+        <rect x="480" y="240" width="280" height="80" rx="6" fill="#f5f5f5"/>
+        <rect x="480" y="240" width="280" height="80" rx="6" fill="#ffffff" stroke="rgba(45,49,66,0.30)" stroke-width="1"/>
+        <text x="620" y="274" fill="#2d3142" font-size="16" font-family="'Geist', sans-serif" font-weight="600" text-anchor="middle">GPU waits for commands</text>
+        <text x="620" y="296" fill="#4f5d75" font-size="14" font-family="'Geist', sans-serif" text-anchor="middle">Pipeline runs empty</text>
+
+        <!-- Background apps -->
+        <rect x="40" y="384" width="280" height="80" rx="6" fill="#f5f5f5"/>
+        <rect x="40" y="384" width="280" height="80" rx="6" fill="#ffffff" stroke="rgba(45,49,66,0.30)" stroke-width="1"/>
+        <text x="180" y="418" fill="#2d3142" font-size="16" font-family="'Geist', sans-serif" font-weight="600" text-anchor="middle">Background apps</text>
+        <text x="180" y="440" fill="#4f5d75" font-size="14" font-family="'Geist', sans-serif" text-anchor="middle">Browser, chat, launchers</text>
+
+        <text x="40" y="500" fill="#4f5d75" font-size="14" font-family="'Geist', sans-serif" font-style="italic">Background apps and the game share the same CPU cores, L3 cache and memory bus.</text>
+      </svg>
+    </div>
+  </div>
+</body>
+</html>

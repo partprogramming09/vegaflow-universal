@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Isolated: four barriers</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper: #f5f5f5; --color-ink: #2d3142; --color-muted: #4f5d75; --color-accent: #bf4520;
+      --font-sans: 'Geist', system-ui, sans-serif; --font-serif: 'Instrument Serif', serif; --font-mono: 'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400; letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    .scroll { overflow-x: auto; }
+    svg { width: 700px; max-width: 100%; height: auto; display: block; }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">After · Isolated</p>
+    <h1>Isolated: the four barriers of the Windows NT kernel</h1>
+    <div class="scroll">
+    <svg viewBox="0 0 800 520" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="isolated-four-barriers-title isolated-four-barriers-desc">
+      <title id="isolated-four-barriers-title">Isolated: the four barriers of the Windows NT kernel</title>
+      <desc id="isolated-four-barriers-desc">Background processes are confined to the last physical core by barriers 1 to 3, while the game keeps the other cores; barrier 4 sets FlipQueueSize = 1 and ASPM = 0 in the display adapter registry key.</desc>
+      <defs>
+        <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/></marker>
+        <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bf4520"/></marker>
+        <marker id="arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#2e5aa8"/></marker>
+      </defs>
+
+      <rect width="100%" height="100%" fill="#f5f5f5"/>
+
+      <!-- Arrows first, then nodes -->
+      <line x1="248" y1="160" x2="288" y2="160" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <line x1="536" y1="160" x2="576" y2="160" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <line x1="524" y1="424" x2="524" y2="392" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+      <!-- Node 1: background processes -->
+      <rect x="40" y="100" width="208" height="120" rx="6" fill="#f5f5f5"/>
+      <rect x="40" y="100" width="208" height="120" rx="6" fill="rgba(79,93,117,0.10)" stroke="#5a6580" stroke-width="1"/>
+      <text x="144" y="138" fill="#2d3142" font-size="16" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Background processes</text>
+      <text x="144" y="166" fill="#4f5d75" font-size="14" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Browsers, Discord,</text>
+      <text x="144" y="186" fill="#4f5d75" font-size="14" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">launchers, indexer</text>
+
+      <!-- Node 2: barriers 1 to 3 -->
+      <rect x="288" y="100" width="248" height="120" rx="6" fill="#f5f5f5"/>
+      <rect x="288" y="100" width="248" height="120" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+      <text x="412" y="130" fill="#2d3142" font-size="16" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Barriers 1 to 3</text>
+      <text x="412" y="158" fill="#4f5d75" font-size="14" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">1 · Spatial CPU confinement</text>
+      <text x="412" y="178" fill="#4f5d75" font-size="14" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">2 · EcoQoS, forced efficiency</text>
+      <text x="412" y="198" fill="#4f5d75" font-size="14" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">3 · I/O priority, NT paging</text>
+
+      <!-- Node 3: last physical core -->
+      <rect x="576" y="100" width="184" height="120" rx="6" fill="#f5f5f5"/>
+      <rect x="576" y="100" width="184" height="120" rx="6" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1"/>
+      <text x="668" y="150" fill="#2d3142" font-size="16" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Last physical core</text>
+      <text x="668" y="176" fill="#4f5d75" font-size="14" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Cage for background</text>
+
+      <!-- Note: where the barriers act -->
+      <text x="40" y="330" fill="#4f5d75" font-size="14" font-family="'Geist', system-ui, sans-serif">Barriers 1 to 3 act only</text>
+      <text x="40" y="350" fill="#4f5d75" font-size="14" font-family="'Geist', system-ui, sans-serif">on background processes.</text>
+      <text x="40" y="378" fill="#4f5d75" font-size="14" font-family="'Geist', system-ui, sans-serif">Barrier 4 sets the</text>
+      <text x="40" y="398" fill="#4f5d75" font-size="14" font-family="'Geist', system-ui, sans-serif">display adapter registry.</text>
+
+      <!-- Node 4: game (focal, the one accent) -->
+      <rect x="288" y="296" width="472" height="96" rx="6" fill="#f5f5f5"/>
+      <rect x="288" y="296" width="472" height="96" rx="6" fill="rgba(191,69,32,0.08)" stroke="#bf4520" stroke-width="1.2"/>
+      <text x="524" y="332" fill="#2d3142" font-size="16" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Game keeps the other cores</text>
+      <text x="524" y="360" fill="#4f5d75" font-size="14" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Free on every core the cage does not use</text>
+
+      <!-- Node 5: barrier 4, display adapter registry -->
+      <rect x="364" y="424" width="320" height="80" rx="6" fill="#f5f5f5"/>
+      <rect x="364" y="424" width="320" height="80" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+      <text x="524" y="456" fill="#2d3142" font-size="16" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Barrier 4: display adapter</text>
+      <text x="524" y="480" fill="#4f5d75" font-size="14" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">FlipQueueSize = 1 · ASPM = 0</text>
+    </svg>
+    </div>
+  </div>
+</body>
+</html>

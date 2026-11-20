@@ -8,7 +8,7 @@
 
 To make sure the optimization software itself does not add latency or compete with the system for memory, all the algorithmic and real-time evaluation logic was written in **Rust**. It is compiled as a `staticlib` without dependence on the C runtime library (CRT) in the hot loop, and it works only on POD (*Plain Old Data*) `#[repr(C)]` structures placed on the stack:
 
-![The four layers of the daemon: C++20 calls the Rust core through the C bridge rust_bridge.h; Rust decides the memory purge and the CPU rules, while C++ makes the NT kernel calls and applies CPU Sets, EcoQoS and I/O priority directly](./img/puente-cpp-rust.png)
+![Three layers: the C++20 daemon makes every Windows call, including ntdll, and calls the Rust core through the plain C header rust_bridge.h; the Rust core holds pure decision rules with no Windows calls and is statically linked.](./img/cpp-rust-bridge.png)
 
 
 ### Rust core modules:
@@ -24,7 +24,7 @@ To make sure the optimization software itself does not add latency or compete wi
 
 The sequence diagram describes the service's continuous lifecycle, from its start in an elevated session to the end of the application:
 
-![Sequence of the daemon in 15 steps between the game, the user, the C++20 daemon, the Rust core and the NT kernel: startup and CPU partitioning, a rest loop every 1.5 s, an anti-cheat check when the game opens, confinement or release of background processes, memory purge during play, and RestoreAll when it closes](./img/ciclo-de-vida-daemon.png)
+![State diagram of the daemon: it waits while idle, confines background processes while a 3D game is in front, purges memory only under memory pressure, and restores everything when the game closes.](./img/daemon-lifecycle.png)
 
 ---
 
@@ -63,7 +63,7 @@ Progressively migrating to a **hybrid Rust + C++20 architecture** through static
 
 ### 2. Architecture of the hybrid subsystem (`rust/vegaflow-core`)
 
-![Single binary vegaflow_daemon.exe: MemoryManager, HardwareProfiler, CpuOrchestrator and SandboxGuard in the C++20 layer call through rust_bridge.h into memory_purge.rs, cpu_governor.rs and sandbox_core.rs of the rust/vegaflow-core crate](./img/subsistema-hibrido.png)
+![The C++20 layer calls the Rust policy modules through rust_bridge.h, and the Rust staticlib is linked with MinGW-w64 g++ into vegaflow_daemon.exe and vegaflow_tests.exe.](./img/hybrid-subsystem.png)
 
 
 #### 2.1. Crate configuration (`rust/vegaflow-core/Cargo.toml`)

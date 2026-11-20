@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>C++20 and Rust bridge · Layers and contract</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper: #f5f5f5; --color-ink: #2d3142; --color-muted: #4f5d75; --color-accent: #bf4520;
+      --font-sans: 'Geist', system-ui, sans-serif; --font-serif: 'Instrument Serif', serif; --font-mono: 'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1200px; width: 100%; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400; letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    .scroll { overflow-x: auto; }
+    svg { display: block; width: 700px; max-width: 100%; height: auto; }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Layers · VegaFlow Universal</p>
+    <h1>C++20 and Rust bridge · Layers and contract</h1>
+    <div class="scroll">
+    <svg viewBox="0 0 800 592" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="cpp-rust-bridge-title cpp-rust-bridge-desc">
+      <title id="cpp-rust-bridge-title">C++20 and Rust bridge · Layers and contract</title>
+      <desc id="cpp-rust-bridge-desc">Three layers: the C++20 daemon makes every Windows call, including ntdll, and calls the Rust core through the plain C header rust_bridge.h; the Rust core holds pure decision rules with no Windows calls and is statically linked.</desc>
+      <defs>
+        <marker id="arrow-accent-both" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto-start-reverse"><polygon points="0 0, 8 3, 0 6" fill="#bf4520"/></marker>
+      </defs>
+      <rect width="100%" height="100%" fill="#f5f5f5"/>
+
+      <!-- Connectors first, so the boxes sit above them -->
+      <line x1="400" y1="160" x2="400" y2="240" stroke="#bf4520" stroke-width="1.2" marker-start="url(#arrow-accent-both)" marker-end="url(#arrow-accent-both)"/>
+      <rect x="410" y="189" width="160" height="22" rx="2" fill="#f5f5f5"/>
+      <text x="418" y="205" fill="#4f5d75" font-size="14" font-family="'Geist Mono', monospace">calls and results</text>
+
+      <line x1="400" y1="360" x2="400" y2="440" stroke="#bf4520" stroke-width="1.2" marker-start="url(#arrow-accent-both)" marker-end="url(#arrow-accent-both)"/>
+      <rect x="410" y="389" width="112" height="22" rx="2" fill="#f5f5f5"/>
+      <text x="418" y="405" fill="#4f5d75" font-size="14" font-family="'Geist Mono', monospace">static link</text>
+
+      <!-- Layer 1 · C++20 daemon -->
+      <rect x="40" y="40" width="720" height="120" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+      <text x="64" y="66" fill="#4f5d75" font-size="14" font-family="'Geist Mono', monospace" letter-spacing="0.1em">C++20 DAEMON</text>
+      <text x="64" y="94" fill="#2d3142" font-size="16" font-weight="600" font-family="'Geist', sans-serif">Acts on Windows: Win32, DXGI, GUI</text>
+      <text x="64" y="120" fill="#4f5d75" font-size="14" font-family="'Geist Mono', monospace">All Windows calls, including ntdll (src/windows/memory.cpp)</text>
+      <text x="64" y="144" fill="#4f5d75" font-size="14" font-family="'Geist Mono', monospace">NtQuerySystemInformation · NtSetSystemInformation (memory purge)</text>
+
+      <!-- Layer 2 · C ABI contract (focal) -->
+      <rect x="40" y="240" width="720" height="120" rx="6" fill="#ffffff"/>
+      <rect x="40" y="240" width="720" height="120" rx="6" fill="rgba(191,69,32,0.08)" stroke="#bf4520" stroke-width="1.2"/>
+      <text x="64" y="266" fill="#2d3142" font-size="14" font-weight="600" font-family="'Geist Mono', monospace" letter-spacing="0.1em">C ABI CONTRACT</text>
+      <text x="64" y="294" fill="#2d3142" font-size="16" font-weight="600" font-family="'Geist', sans-serif">src/bridge/rust_bridge.h</text>
+      <text x="64" y="320" fill="#4f5d75" font-size="14" font-family="'Geist Mono', monospace">Plain #[repr(C)] structs; Test 34 checks vf_rust_bridge_layout</text>
+      <text x="64" y="344" fill="#4f5d75" font-size="14" font-family="'Geist Mono', monospace">Panics stop at ffi_guard and never cross into C++</text>
+
+      <!-- Layer 3 · Rust core -->
+      <rect x="40" y="440" width="720" height="120" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+      <text x="64" y="466" fill="#4f5d75" font-size="14" font-family="'Geist Mono', monospace" letter-spacing="0.1em">RUST CORE</text>
+      <text x="64" y="494" fill="#2d3142" font-size="16" font-weight="600" font-family="'Geist', sans-serif">rust/vegaflow-core</text>
+      <text x="64" y="520" fill="#4f5d75" font-size="14" font-family="'Geist Mono', monospace">Pure rules, no Windows calls</text>
+      <text x="64" y="544" fill="#4f5d75" font-size="14" font-family="'Geist Mono', monospace">Tiers, process classes, path policy, vf_rust_evaluate_memory_purge</text>
+    </svg>
+    </div>
+  </div>
+</body>
+</html>
