@@ -167,7 +167,7 @@ std::optional<int> RunOneShotCommand(const CliOptions& opts, int argc, char* arg
             if (!opts.gui_flag && !opts.status_flag && !opts.purge_now_flag && !opts.monitor_flag && !opts.mpo_disable_flag && !opts.mpo_restore_flag
                 && !opts.shader_cache_force_flag && !opts.shader_cache_default_flag && !opts.mem_compression_off_flag && !opts.mem_compression_on_flag
                 && !opts.apu_gpu_priority_flag && !opts.apu_balanced_flag && !opts.vram_override_flag && !opts.vram_restore_flag && !opts.restore_registry_flag
-                && !opts.recover_flag && !opts.create_restore_point_flag && !opts.once_flag && !opts.dry_run_flag
+                && !opts.recover_flag && !opts.create_restore_point_flag && !opts.once_flag && !opts.dry_run_flag && !opts.observe_flag
                 && opts.dxvk_install_path.empty() && opts.dxvk_remove_path.empty()) {
                 return 0;
             }

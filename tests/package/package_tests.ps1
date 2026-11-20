@@ -104,6 +104,17 @@ Check '--observe explica su modo seguro' ($r.Code -eq 0 -and $r.Output -match '-
 # The monitor must honour safe mode too.
 $r = Invoke-Exe @('--observe', '--monitor', '--once')
 Check '--monitor respeta el modo seguro' ($r.Code -eq 0 -and $r.Output -match 'MODO SEGURO') $r.Output
+# --elevate on an already elevated process must go on with --observe, not exit doing nothing.
+$p = Start-Process -FilePath $exe -ArgumentList '--elevate', '--observe' -PassThru -WindowStyle Hidden
+Start-Sleep -Seconds 3
+$alive = -not $p.HasExited
+Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+Check '--elevate --observe ya elevado sí observa (sigue corriendo)' $alive "salió con código $($p.ExitCode)"
+# The arguments must reach the program as UTF-8: Windows hands main() the ANSI code page, which broke "ñ".
+$oldEnc = [Console]::OutputEncoding
+[Console]::OutputEncoding = [Text.Encoding]::UTF8
+try { $r = Invoke-Exe @('--Año') } finally { [Console]::OutputEncoding = $oldEnc }
+Check 'un argumento con ñ llega entero' ($r.Code -eq 2 -and $r.Output -match '--Año') $r.Output
 # A second start while a windowless instance runs must not claim to focus a window.
 $first = Start-Process -FilePath $exe -ArgumentList '--observe' -PassThru -WindowStyle Hidden
 Start-Sleep -Seconds 3
