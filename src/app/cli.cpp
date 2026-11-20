@@ -111,6 +111,10 @@ std::optional<int> ParseCommandLine(int argc, char* argv[], CliOptions& opts) {
             std::cout << "  --version                Print the version and exit.\n";
             std::cout << "  --help, -h               Display this help menu.\n";
             return 0;
+        } else {
+            // A mistyped option (--dryrun) must not fall through to the real daemon.
+            std::cerr << "[ERROR] Unknown option or missing value: " << arg << " (see --help)\n";
+            return 2;
         }
     }
 

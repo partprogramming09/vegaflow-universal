@@ -107,7 +107,8 @@ int main(int argc, char* argv[]) {
         std::cerr << "[WARN] " << warning << "\n";
     }
 
-    if (opts.dry_run_flag && !opts.monitor_flag) {
+    // --dry-run wins over every mode: the monitor would otherwise run the real cycle.
+    if (opts.dry_run_flag) {
         ExecuteDryRun(config);
         return 0;
     }

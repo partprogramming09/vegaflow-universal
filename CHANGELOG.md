@@ -39,6 +39,7 @@ New native GUI (Win32, owner-draw controls reachable with Tab). Not tagged yet: 
 - Memory percent on Inicio is computed in 128 bits; path comparisons fold case the Windows way.
 
 ### Fixed
+- `--dry-run` with `--monitor` now only simulates; before, the monitor ran the real cycle. An unknown or mistyped option (`--dryrun`) now stops with exit code 2 instead of being ignored and starting the real daemon. Checked by `tests/package/package_tests.ps1` (52 passed on the test laptop, 2026-11-20).
 - Turning VRAM reporting off no longer writes an invented 512 MB: it puts back only the saved original.
 - DXVK: a failed backup of the game's own `d3d11.dll`/`dxgi.dll` now stops the install instead of overwriting them; a
   failed copy undoes the half install; removal keeps the `.original.bak` until the original is back and says so when the

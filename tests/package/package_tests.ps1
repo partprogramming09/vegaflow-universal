@@ -75,6 +75,18 @@ foreach ($f in 'vegaflow_daemon.exe', 'uninstall.ps1', 'VERSION', 'install.json'
     Check "existe $f" (Test-Path (Join-Path $InstallDir $f))
 }
 Check '--version coincide con el paquete' ((& $exe --version) -match [regex]::Escape($version))
+# Runs the installed daemon; its stderr is output to check, not a terminating error under 'Stop'.
+function Invoke-Exe([string[]]$a) {
+    $old = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+    try { $out = & $exe @a 2>&1 | Out-String; $code = $LASTEXITCODE } finally { $ErrorActionPreference = $old }
+    [pscustomobject]@{ Code = $code; Output = $out }
+}
+# A mistyped option must stop the program, not start the real daemon (--dryrun used to run it for real).
+$r = Invoke-Exe @('--no-such-option', '--version')
+Check 'una opción desconocida se rechaza (código 2) y no sigue' ($r.Code -eq 2 -and $r.Output -notmatch [regex]::Escape($version)) "código $($r.Code)"
+# --dry-run with --monitor must simulate, never run the real monitor cycle.
+$r = Invoke-Exe @('--dry-run', '--monitor', '--once')
+Check '--dry-run --monitor solo simula' ($r.Code -eq 0 -and $r.Output -match 'DRY-RUN SIMULATION' -and $r.Output -notmatch 'LIVE TELEMETRY DASHBOARD') $r.Output
 $acl = Get-Acl $InstallDir
 Check 'propietario: Administradores' ($acl.GetOwner([System.Security.Principal.SecurityIdentifier]).Value -eq 'S-1-5-32-544')
 # WriteData 0x2, AppendData 0x4, WriteExtendedAttributes 0x10, WriteAttributes 0x100, Delete 0x10000, ChangePermissions 0x40000, TakeOwnership 0x80000
