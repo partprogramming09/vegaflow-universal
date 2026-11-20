@@ -1,0 +1,26 @@
+name: Report a bug
+description: Something does not work as it should
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: If it is a security problem, do not report it here; follow the repository's security policy.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected and what happened. Paste the real output, without personal data.
+    validations:
+      required: true
+  - type: textarea
+    id: how-to-reproduce
+    attributes:
+      label: How to reproduce it
+      description: The steps, in order.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version and system
+      description: VegaFlow version, Windows version, and CPU and GPU (for example, Ryzen 5 4600H with Radeon Vega 6).
