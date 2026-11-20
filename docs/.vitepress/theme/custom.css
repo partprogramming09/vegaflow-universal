@@ -35,3 +35,15 @@
 
 /* Tablas de fases: que no se corten en pantallas estrechas. */
 .vp-doc table { display: block; overflow-x: auto; }
+
+/* "On this page": long headings wrap instead of ending in an ellipsis (revisar-solapes, 2026-11-20). */
+/* Only where the aside is shown (>=1280px): below it, the same links live in the mobile dropdown and wrapping them widened the page. */
+@media (min-width: 1280px) {
+  .VPDocAsideOutline .outline-link {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    line-height: 1.4;
+    padding: 4px 0;
+  }
+}

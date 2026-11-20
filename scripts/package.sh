@@ -19,11 +19,11 @@ mkdir -p "$STAGE/config"
 cp build/vegaflow_daemon.exe "$STAGE/"
 cp scripts/package/install.ps1 scripts/package/uninstall.ps1 "$STAGE/"
 cp config/config.json "$STAGE/config/"
-cp LICENSE CHANGELOG.md README.md README.en.md "$STAGE/"
+cp LICENSE CHANGELOG.md README.md "$STAGE/"
 printf '%s\n' "$VERSION" > "$STAGE/VERSION"
 
 # install.ps1 checks every file listed here before it copies anything.
-(cd "$STAGE" && shasum -a 256 vegaflow_daemon.exe install.ps1 uninstall.ps1 config/config.json VERSION LICENSE CHANGELOG.md README.md README.en.md > SHA256SUMS)
+(cd "$STAGE" && shasum -a 256 vegaflow_daemon.exe install.ps1 uninstall.ps1 config/config.json VERSION LICENSE CHANGELOG.md README.md > SHA256SUMS)
 
 (cd dist && zip -q -r -X "$NAME.zip" "$NAME")
 (cd dist && shasum -a 256 "$NAME.zip" > "$NAME.zip.sha256")

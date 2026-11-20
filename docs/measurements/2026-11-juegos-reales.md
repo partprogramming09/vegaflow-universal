@@ -1,5 +1,7 @@
 # Mediciones con juegos reales (2026-11-05)
 
+> **Note:** this dated report is kept in Spanish, as it was recorded. Use your browser's translator to read it in another language; the living summary in English is [Verification status](./verification-status.md).
+
 **Lector:** personas
 
 Octopath Traveler II y Zenless Zone Zero, fallos inyectados y ciclos de reposo. Método y límites generales: [`2026-11-ab-daemon.md`](./2026-11-ab-daemon.md).

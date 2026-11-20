@@ -120,7 +120,7 @@ VegaFlow Universal ha alcanzado la madurez de su núcleo de optimización y arqu
 - **Control de Versiones y Limpieza:** Directorio `build/` libre de residuos (`*.o`, `*.old*`, logs) y `.gitignore` estandarizado.
 
 #### 1.2. Motor Universal de Clasificación y Guards (`ApuCapabilityGuard`)
-Especificado en [`hardware-y-tiers.md`](./hardware-and-tiers.md) e implementado en [`src/detect/hardware_profiler.cpp`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/detect/hardware_profiler.cpp):
+Especificado en [`hardware-y-tiers.md`](./hardware-and-tiers/) e implementado en [`src/detect/hardware_profiler.cpp`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/detect/hardware_profiler.cpp):
 1. **Tier 1: Entry UMA (`Survival Guard`):**
    - Destinado a APUs con $\le$ 8–9 GB de RAM o $\le$ 4 núcleos físicos (Vega 3/6/8 básica, Athlon Mobile, Intel Gen 9–11 UHD).
    - Impone techo rígido de textura en Unreal Engine (1536 a 2048 MB) para evitar caídas OOM, limita DXVK a 3 hilos de compilación, teselación a 8x y sin tope de frecuencia STAPM (`cpu_stapm_cap_mhz = 0`).

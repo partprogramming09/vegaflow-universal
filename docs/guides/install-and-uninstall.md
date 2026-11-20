@@ -40,7 +40,7 @@ El zip contiene una carpeta `VegaFlow-0.1.0-win-x64` con:
 | `config/config.json` | La configuración de fábrica |
 | `VERSION` | La versión (0.1.0) |
 | `SHA256SUMS` | El hash de cada archivo; `install.ps1` lo comprueba |
-| `LICENSE`, `CHANGELOG.md`, `README.md`, `README.en.md` | Licencia, historial de versiones y documentación |
+| `LICENSE`, `CHANGELOG.md`, `README.md` | Licencia, historial de versiones y documentación |
 
 ## Paso 3 de 5: ver qué haría, sin instalar (`-DryRun`)
 
@@ -145,6 +145,6 @@ Se hace desde un Mac o Linux con `scripts/package.sh`; está en [`build-and-test
 
 ## Documentos relacionados
 
-- Qué hace el daemon una vez instalado: [`usage-and-features.md`](./usage-and-features.md).
+- Qué hace el daemon una vez instalado: [`usage-and-features.md`](./usage-and-features/).
 - Cómo devuelve `--restore-registry` los cambios y qué es el diario: [`security.md`](./security.md).
 - Historial de versiones: [`../../CHANGELOG.md`](https://github.com/partprogramming09/vegaflow-universal/blob/main/CHANGELOG.md).

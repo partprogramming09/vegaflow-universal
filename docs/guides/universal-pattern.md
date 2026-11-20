@@ -1,159 +1,161 @@
-# PARTE III: Análisis Universal en Procesadores AMD e Intel (¿Por qué ocurre con y sin Gráfica Dedicada?)
+# Does the same problem happen on Intel and with a dedicated graphics card?
 
-**Lector:** personas
+**In short:** the same kind of slowdown can happen on any processor brand and with any graphics setup, because the causes are shared: the processor's cache, the graphics card's waiting time, the storage queue and the shared power budget.
+How it shows up depends on the chip, and on whether the graphics are built into the processor, sit inside the PC, or are external.
+For example, when a browser thread pauses the game's render thread for 8 milliseconds, even a high-end graphics card runs out of work and stalls.
 
-Una interrogante fundamental de diseño en optimización de sistemas es: **¿Este fenómeno de contención es exclusivo de procesadores AMD APU con gráficos integrados, o se replica universalmente en procesadores Intel Core y en equipos con tarjetas gráficas dedicadas (dGPU) o externas (eGPU)?**
+**Reader:** people
 
-La evidencia física y arquitectónica demuestra que **el patrón de contención es universal**, aunque sus canales físicos de degradación varían de acuerdo a la topología interna del procesador y al bus de interconexión gráfica.
+A basic design question in system optimization is: **does this contention phenomenon happen only on AMD APUs with integrated graphics, or does it also happen on Intel Core processors and on PCs with dedicated (dGPU) or external (eGPU) graphics cards?**
 
----
-
-## 3.1 El Patrón Universal del Problema (Independiente de Marca e Interfaz Gráfica)
-
-Independientemente de que el procesador sea AMD o Intel, o de que los gráficos se procesen en una GPU integrada (iGPU), dedicada interna (dGPU) o externa (eGPU), existen **cuatro leyes físicas universales de la arquitectura de Von Neumann moderna** que gobiernan el rendimiento:
-
-![Las cuatro fuentes universales de contención: jerarquía de memoria y vaciado de TLB, latencia de despacho D3D/Vulkan, cola de E/S y fallos de página, y presupuesto energético y térmico compartido](./img/fuentes-de-contencion.png)
-
-
-1. **Contención de Caché de Último Nivel (LLC / L3 Thrashing) y Vaciado de TLB:**  
-   En cualquier procesador x86-64, la caché L3 es compartida por múltiples núcleos o por un complejo de núcleos (*Core Complex* - CCX). Cuando hilos de fondo son intercalados por el planificador, expulsan las líneas de datos y de instrucciones del bucle de renderizado. Un fallo en L3 obliga a una transacción completa en el bus de memoria física, multiplicando la latencia de acceso por un factor de **`7x` a `9x`**. Asimismo, el cambio de contexto entre procesos distintos invalida las entradas del búfer de traducción de direcciones (*Translation Lookaside Buffer* - TLB), forzando recorridos costosos de las tablas de páginas (*Page Table Walks*).
-2. **Inanición del Procesador Gráfico (*GPU Starvation*) por Despacho Interrumpido:**  
-   Una tarjeta gráfica dedicada de última generación (ej. NVIDIA GeForce RTX 4080 o AMD Radeon RX 7900 XT) tiene capacidad de procesar cientos de cuadros por segundo, pero **no puede generar un solo píxel sin que la CPU construya y despache previamente las listas de comandos de la API gráfica (`ID3D11DeviceContext`, `ID3D12GraphicsCommandList`, `VkCommandBuffer`)**. Si el hilo `RenderThread` sufre una preempción de `8 milisegundos` por culpa de un hilo de navegador, la GPU agota su búfer de trabajo y se detiene en seco. Esto explica por qué equipos con tarjetas gráficas de gama alta experimentan micro-congelamientos severos en juegos competitivos cuando hay aplicaciones de fondo sin aislar.
-3. **Contención en Controladores de Almacenamiento NVMe y Búfers de E/S:**  
-   Los motores de juego modernos leen continuamente texturas y geometría en segundo plano mediante streaming asíncrono o *DirectStorage*. Si procesos de fondo leen o escriben en disco a prioridad estándar, compiten en la cola del controlador NVMe, provocando que la entrega de texturas se retrase y forzando pausas de sincronización en el hilo principal.
-4. **Presupuesto Eléctrico Dinámico Compartido:**  
-   Tanto el algoritmo **STAPM/PPT** de AMD como las cotas **PL1/PL2/Tau** de Intel operan midiendo el consumo eléctrico y térmico agregado del encapsulado. Cuando procesos de fondo ejecutan instrucciones vectoriales complejas (como AVX2 o decodificación web) en núcleos secundarios, obligan al regulador de voltaje a inyectar corriente en dichos núcleos, forzando un descenso en la curva de frecuencia (*Volt/Frequency Curve*) de los núcleos primarios del juego.
+The physical and architectural evidence shows that **the contention pattern is universal**, although the physical channels through which performance degrades vary with the internal topology of the processor and with the graphics bus.
 
 ---
 
-## 3.2 Diferencias Arquitectónicas Específicas: AMD Ryzen vs. Intel Core
+## 3.1 The Universal Pattern of the Problem (Independent of Brand and Graphics Setup)
 
-A pesar de que el problema de contención es universal, la anatomía interna de los procesadores AMD e Intel impone retos específicos:
+Regardless of whether the processor is AMD or Intel, or whether graphics run on an integrated GPU (iGPU), an internal dedicated GPU (dGPU) or an external GPU (eGPU), there are **four universal physical laws of modern von Neumann architecture** that govern performance:
 
-![Topología de AMD Ryzen (APU monolítica con L3 compacta y bus FCLK compartido con la iGPU; desktop multi-CCD con CCD 0 y CCD 1 unidos por el I/O Die y penalización Cross-CCD de ~70+ ns) frente a Intel Core híbrido, donde P-Cores, E-Cores y la Smart Cache L3 comparten un mismo Ring Bus](./img/topologia-amd-intel.png)
+![The four universal sources of contention: memory hierarchy and TLB flushing, D3D/Vulkan dispatch latency, I/O queue and page faults, and shared energy and thermal budget](./img/fuentes-de-contencion.png)
 
 
-### A. Anatomía en Procesadores AMD Ryzen:
-1. **APUs Monolíticas (Familias *Renoir*, *Lucienne*, *Cezanne*, *Barcelo*, *Rembrandt*, *Phoenix*, *Hawk Point*):**  
-   - Cuentan con un solo dado de silicio donde conviven la CPU y la GPU Radeon.
-   - La caché L3 suele ser más compacta que en procesadores de escritorio (`8 MB` o `16 MB`).
-   - El bus **Infinity Fabric (FCLK)** transporta tanto las peticiones de memoria de los núcleos de cómputo como todo el flujo de comandos y texturas de la iGPU hacia el controlador unificado de memoria (UMC). Si procesos de fondo saturan el bus o desalojan la L3, golpean simultáneamente el rendimiento de cómputo y el ancho de banda del procesador gráfico.
-2. **Procesadores Multi-CCD / Chiplets y Línea X3D (Desktop Ryzen 9 y Ryzen 7 X3D):**  
-   - El procesador está fragmentado físicamente en múltiples dados de cómputo (*Core Complex Dies* - CCDs) comunicados a través de un dado central de E/S (*I/O Die*).
-   - **Penalización Cross-CCD:** Cruzar de un CCD a otro para consultar memoria o sincronizar hilos impone una penalización de latencia superior a **`70–80 ns`**. Si el planificador de Windows migra hilos de fondo o hilos del juego entre distintos CCDs, el frametime experimenta oscilaciones destructivas.
-   - **Asimetría X3D:** En procesadores como el Ryzen 9 7950X3D o 7900X3D, únicamente el `CCD 0` cuenta con la memoria apilada 3D V-Cache (`96 MB`), mientras que el `CCD 1` opera a mayores frecuencias pero con caché convencional. El aislamiento de VegaFlow garantiza que los procesos de fondo queden confinados en el CCD secundario, blindando la 3D V-Cache íntegra para el juego.
-
-### B. Anatomía en Procesadores Intel Core:
-1. **Arquitectura Híbrida Heterogénea (12ª, 13ª, 14ª Gen *Alder Lake* / *Raptor Lake*, y familias *Core Ultra*):**  
-   - Integra núcleos de alto rendimiento (**P-Cores**) y núcleos de alta eficiencia (**E-Cores**).
-   - El subsistema **Intel Thread Director** y el planificador de Windows intentan clasificar tareas y relegar procesos de fondo a los E-Cores. No obstante, en escenarios reales de juego ocurren **dos fallos críticos documentados**:
-     * **Topología en Anillo (*Ring Bus*) y Polución de la L3 Smart Cache:** En los diseños de Intel, los P-Cores, los clusters de E-Cores y la GPU integrada están conectados a través de un mismo **Ring Bus** y comparten un único pool de **Intel Smart Cache L3**. Cuando los E-Cores ejecutan cargas intensivas en segundo plano (pestañas de Chromium con multimedia, descompresiones en cliente de descargas), inundan el Ring Bus con transacciones de coherencia de caché y **desalojan las líneas de L3 compartida que los P-Cores necesitan para el juego**. Peor aún: el controlador térmico de Intel reduce la frecuencia de reloj del propio anillo (*Ring/Uncore Downbinning*) para controlar el consumo de los E-Cores, restándole ancho de banda efectivo a los P-Cores.
-     * **Falsos Positivos de Clasificación (Procesos con Ventana Oculta o Servicios):** Aplicaciones cliente basadas en Electron (como Discord, Spotify, Steam) o herramientas de captura a menudo no son clasificadas como tareas de fondo puras por el sistema operativo si mantienen ventanas activas o invocan hilos de interfaz, terminando intercaladas en los **P-Cores** y robándole cuotas de tiempo al hilo principal del juego. Al imponer mediante VegaFlow **Afinidad estricta en los últimos E-Cores + `EcoQoS` + Prioridad I/O `VeryLow`**, se elimina cualquier ambigüedad del planificador.
-2. **Procesadores Intel Homogéneos Tradicionales (8ª a 11ª Gen *Skylake*, *Comet Lake*, *Tiger Lake*):**  
-   - Todos los núcleos son equivalentes y comparten el Ring Bus. Sin confinamiento explícito, las tareas ruidosas saltan indiscriminadamente entre todos los núcleos disponibles, reproduciendo exactamente el mismo patrón de desalojo de caché observado en APUs AMD.
+1. **Last-Level Cache Contention (LLC / L3 Thrashing) and TLB Flushing:**  
+   On any x86-64 processor, the L3 cache is shared by several cores or by a group of cores (*Core Complex* - CCX). When background threads are interleaved by the scheduler, they evict the data and instruction lines of the render loop. An L3 miss forces a full transaction on the physical memory bus, multiplying access latency by a factor of **`7x` to `9x`**. Likewise, a context switch between different processes invalidates the entries of the address translation buffer (*Translation Lookaside Buffer* - TLB), forcing costly walks of the page tables (*Page Table Walks*).
+2. **GPU Starvation from Interrupted Dispatch:**  
+   A modern dedicated graphics card (for example an NVIDIA GeForce RTX 4080 or an AMD Radeon RX 7900 XT) can process hundreds of frames per second, but **it cannot produce a single pixel unless the CPU first builds and dispatches the command lists of the graphics API (`ID3D11DeviceContext`, `ID3D12GraphicsCommandList`, `VkCommandBuffer`)**. If the `RenderThread` suffers a preemption of `8 milliseconds` because of a browser thread, the GPU runs out of its work buffer and stops dead. This explains why systems with high-end graphics cards suffer severe micro-freezes in competitive games when background applications are not isolated.
+3. **Contention in NVMe Storage Controllers and I/O Buffers:**  
+   Modern game engines continuously read textures and geometry in the background, through asynchronous streaming or *DirectStorage*. If background processes read or write to disk at standard priority, they compete in the NVMe controller queue. This delays texture delivery and forces synchronization pauses on the main thread.
+4. **Dynamic Shared Power Budget:**  
+   Both AMD's **STAPM/PPT** algorithm and Intel's **PL1/PL2/Tau** limits work by measuring the total electrical and thermal consumption of the chip package. When background processes run complex vector instructions (such as AVX2 or web decoding) on secondary cores, they force the voltage regulator to push current into those cores. This lowers the *Volt/Frequency Curve* of the game's primary cores.
 
 ---
 
-## 3.3 Matriz de Impacto Arquitectónico y Diagramas Comparativos
+## 3.2 Specific Architectural Differences: AMD Ryzen vs. Intel Core
 
-### Tabla 3.1: Matriz Comparativa por Familia de Procesador
-| Familia de Procesador | Estructura de Silicio | Cuello de Botella Primario Sin Aislamiento | Acción Óptima de VegaFlow | Impacto Medido / Esperado |
+Although the contention problem is universal, the internal anatomy of AMD and Intel processors poses specific challenges:
+
+![AMD Ryzen topology (monolithic APU with a compact L3 and an FCLK bus shared with the iGPU; desktop multi-CCD with CCD 0 and CCD 1 linked by the I/O Die and a Cross-CCD penalty of ~70+ ns) versus hybrid Intel Core, where P-Cores, E-Cores and the Smart Cache L3 share one Ring Bus](./img/topologia-amd-intel.png)
+
+
+### A. Anatomy of AMD Ryzen Processors:
+1. **Monolithic APUs (*Renoir*, *Lucienne*, *Cezanne*, *Barcelo*, *Rembrandt*, *Phoenix*, *Hawk Point* families):**  
+   - They have a single silicon die where the CPU and the Radeon GPU coexist.
+   - The L3 cache is usually more compact than in desktop processors (`8 MB` or `16 MB`).
+   - The **Infinity Fabric (FCLK)** bus carries both the memory requests of the compute cores and the whole flow of commands and textures from the iGPU to the unified memory controller (UMC). If background processes saturate the bus or evict the L3, they hit the compute performance and the graphics processor's bandwidth at the same time.
+2. **Multi-CCD / Chiplet Processors and the X3D Line (Desktop Ryzen 9 and Ryzen 7 X3D):**  
+   - The processor is physically split into several compute dies (*Core Complex Dies* - CCDs) connected through a central I/O die (*I/O Die*).
+   - **Cross-CCD penalty:** crossing from one CCD to another to read memory or synchronize threads adds a latency penalty of more than **`70–80 ns`**. If the Windows scheduler moves background threads or game threads between different CCDs, the frametime swings destructively.
+   - **X3D asymmetry:** in processors such as the Ryzen 9 7950X3D or 7900X3D, only `CCD 0` has the stacked 3D V-Cache memory (`96 MB`), while `CCD 1` runs at higher frequencies but with conventional cache. VegaFlow's isolation confines background processes to the secondary CCD, keeping the whole 3D V-Cache for the game.
+
+### B. Anatomy of Intel Core Processors:
+1. **Heterogeneous Hybrid Architecture (12th, 13th, 14th Gen *Alder Lake* / *Raptor Lake*, and *Core Ultra* families):**  
+   - It integrates high-performance cores (**P-Cores**) and high-efficiency cores (**E-Cores**).
+   - The **Intel Thread Director** subsystem and the Windows scheduler try to classify tasks and move background processes to the E-Cores. However, in real gaming scenarios two **documented critical failures** occur:
+     * **Ring Bus Topology and L3 Smart Cache Pollution:** In Intel designs, the P-Cores, the E-Core clusters and the integrated GPU are connected through one **Ring Bus** and share a single pool of **Intel Smart Cache L3**. When the E-Cores run heavy background loads (Chromium tabs with multimedia, decompression in download clients), they flood the Ring Bus with cache-coherence transactions and **evict the shared L3 lines that the P-Cores need for the game**. Worse still, Intel's thermal controller lowers the clock of the ring itself (*Ring/Uncore Downbinning*) to limit the power draw of the E-Cores, which takes effective bandwidth away from the P-Cores.
+     * **False Positives in Classification (Processes with Hidden Windows or Services):** Electron-based client applications (such as Discord, Spotify, Steam) or capture tools often are not classified as pure background tasks by the operating system if they keep active windows or invoke interface threads. They end up interleaved on the **P-Cores** and steal time slices from the game's main thread. By imposing, through VegaFlow, **strict affinity on the last E-Cores + `EcoQoS` + `I/O VeryLow` priority**, any ambiguity for the scheduler is removed.
+2. **Traditional Homogeneous Intel Processors (8th to 11th Gen *Skylake*, *Comet Lake*, *Tiger Lake*):**  
+   - All cores are equivalent and share the Ring Bus. Without explicit confinement, noisy tasks jump indiscriminately between all available cores, reproducing exactly the same cache-eviction pattern observed on AMD APUs.
+
+---
+
+## 3.3 Architectural Impact Matrix and Comparative Diagrams
+
+### Table 3.1: Comparative Matrix by Processor Family
+| Processor Family | Silicon Structure | Primary Bottleneck Without Isolation | Optimal VegaFlow Action | Measured / Expected Impact |
 | :--- | :--- | :--- | :--- | :--- |
-| **AMD APU Monolítica** *(Ryzen 4000/5000/7000/8000 U/H)* | Silicio único, L3 de 8–16 MB, bus UMA compartido con Radeon Vega/RDNA | Saturación simultánea de bus Infinity Fabric y desalojo de L3; caída de reloj por STAPM. | Confinamiento de fondo a 2 hilos del último núcleo + `EcoQoS` + `I/O VeryLow`. | **+80% a +117% en FPS promedio y +136% en 1% Low** bajo carga pesada. |
-| **AMD Desktop Multi-CCD / X3D** *(Ryzen 7000/9000X / X3D)* | 2 dados CCD + I/O Die central; asimetría de 3D V-Cache en CCD0. | Tráfico de interconexión Cross-CCD y contaminación de la 3D V-Cache de 96 MB. | Confinar fondo al CCD secundario (núcleos de frecuencia), aislando el CCD0 para el juego. | Eliminación de tirones por salto inter-CCD; consistencia de frametime (`1% Low` blindado). |
-| **Intel Híbrido P+E** *(12ª a 14ª Gen y Core Ultra)* | P-Cores y E-Cores compartiendo el mismo Ring Bus y Smart Cache L3. | Inundación del Ring Bus por los E-Cores, bajada de frecuencia Uncore y falsos positivos de clasificación. | Forzar fondo a los últimos 2 E-Cores con `EcoQoS` + `I/O VeryLow`; P-Cores 100% limpios. | Blindaje del hilo principal en P-Cores; estabilización del Ring Bus a máxima frecuencia. |
-| **Intel Homogéneo** *(8ª a 11ª Gen Core i5/i7/i9)* | Todos los núcleos son P-Cores idénticos sobre bus en anillo. | Hilos de fondo compitiendo simétricamente por cuotas de tiempo y ensuciando la L3. | Confinamiento de fondo al último núcleo físico (2 hilos SMT) + `EcoQoS`. | Recuperación de `1% Low` y reducción de latencia de despacho en APIs gráficas. |
+| **AMD APU Monolithic** *(Ryzen 4000/5000/7000/8000 U/H)* | Single die, L3 of 8–16 MB, UMA bus shared with Radeon Vega/RDNA | Simultaneous saturation of the Infinity Fabric bus and L3 eviction; clock drop due to STAPM. | Background confinement to 2 threads of the last core + `EcoQoS` + `I/O VeryLow`. | **+80% to +117% average FPS and +136% in 1% Low** under heavy load. |
+| **AMD Desktop Multi-CCD / X3D** *(Ryzen 7000/9000X / X3D)* | 2 CCD dies + central I/O Die; 3D V-Cache asymmetry on CCD0. | Cross-CCD interconnect traffic and contamination of the 96 MB 3D V-Cache. | Confine background to the secondary CCD (frequency cores), isolating CCD0 for the game. | Elimination of stutter from inter-CCD hops; frametime consistency (`1% Low` shielded). |
+| **Intel Hybrid P+E** *(12th to 14th Gen and Core Ultra)* | P-Cores and E-Cores sharing the same Ring Bus and Smart Cache L3. | Flooding of the Ring Bus by the E-Cores, Uncore frequency drop and classification false positives. | Force background onto the last 2 E-Cores with `EcoQoS` + `I/O VeryLow`; P-Cores 100% clean. | Main thread shielded on the P-Cores; Ring Bus stabilized at maximum frequency. |
+| **Intel Homogeneous** *(8th to 11th Gen Core i5/i7/i9)* | All cores are identical P-Cores on a ring bus. | Background threads competing symmetrically for time slices and polluting the L3. | Background confinement to the last physical core (2 SMT threads) + `EcoQoS`. | Recovery of `1% Low` and reduced dispatch latency in graphics APIs. |
 
 ---
 
-### Tabla 3.2: Matriz Comparativa por Tipo de Solución Gráfica (iGPU vs. dGPU vs. eGPU)
-| Configuración Gráfica | Interfaz de Conexión y Memoria | Reto Físico Sin Aislamiento | Comportamiento del Runtime VegaFlow | Impacto en la Experiencia de Juego |
+### Table 3.2: Comparative Matrix by Type of Graphics Solution (iGPU vs. dGPU vs. eGPU)
+| Graphics Configuration | Connection Interface and Memory | Physical Challenge Without Isolation | VegaFlow Runtime Behavior | Impact on the Gaming Experience |
 | :--- | :--- | :--- | :--- | :--- |
-| **💻 Gráfica Integrada (iGPU UMA)** *(Radeon Vega, 680M/780M, Intel Iris Xe/Arc)* | Bus de memoria RAM del sistema compartido (ancho de banda estrecho ~40–80 GB/s) | El procesador y la gráfica compiten por el mismo bus de memoria y el mismo límite de vatios (15W–45W). | Se activan las 4 barreras completas + Ajustes de memoria UMA y purga controlada de Standby List. | 🔥 **Impacto Masivo (+100% a +150% bajo carga):** Duplica la tasa de cuadros y estabiliza el frametime. |
-| **🖥️ Gráfica Dedicada Interna (dGPU)** *(NVIDIA RTX, AMD Radeon RX por PCIe x16)* | Bus PCIe x8/x16 dedicado (latencia de nanosegundos, VRAM GDDR6 propia >250 GB/s) | La dGPU no sufre por VRAM, pero queda en inanición (*GPU Starvation*) si la CPU interrumpe el despacho de comandos. | Las optimizaciones UMA se desactivan automáticamente (`Pass-Through Guard`). Se mantiene el aislamiento espacial y de E/S. | ✅ **Impacto Alto en Fluidez (+20% a +50% en 1% Low):** Elimina micro-tirones en títulos competitivos y mundos abiertos. |
-| **🔌 Gráfica Externa por Cable (eGPU)** *(Caja externa vía Thunderbolt 3/4, USB4 u OCuLink)* | Enlace PCIe encapsulado sobre cable (limitado a PCIe x4 ~32 Gbps reales y alta latencia de paquetes) | Cada cuadro requiere transferencias DMA continuas por el cable. Las interrupciones de CPU en la laptop provocan caídas severas de enlace. | Se activan el aislamiento de CPU, prioridad de E/S NT y se fija en registro `PCIe ASPM = 0` y `FlipQueueSize = 1`. | 🔥 **Impacto Crítico (+40% a +75% en 1% Low):** Mantiene el túnel Thunderbolt despierto sin pausas de ahorro energético. |
+| **💻 Integrated Graphics (iGPU UMA)** *(Radeon Vega, 680M/780M, Intel Iris Xe/Arc)* | Shared system RAM bus (narrow bandwidth ~40–80 GB/s) | The processor and the graphics compete for the same memory bus and the same power limit (15W–45W). | The 4 full barriers are activated + UMA memory settings and a controlled purge of the Standby List. | 🔥 **Massive impact (+100% to +150% under load):** doubles the frame rate and stabilizes frametime. |
+| **🖥️ Internal Dedicated Graphics (dGPU)** *(NVIDIA RTX, AMD Radeon RX over PCIe x16)* | Dedicated PCIe x8/x16 bus (nanosecond latency, own GDDR6 VRAM >250 GB/s) | The dGPU does not suffer from VRAM, but it starves (*GPU Starvation*) if the CPU interrupts command dispatch. | UMA optimizations are switched off automatically (`Pass-Through Guard`). Spatial and I/O isolation is kept. | ✅ **High impact on smoothness (+20% to +50% in 1% Low):** removes micro-stutter in competitive titles and open worlds. |
+| **🔌 External Cable Graphics (eGPU)** *(External enclosure via Thunderbolt 3/4, USB4 or OCuLink)* | PCIe link encapsulated over cable (limited to about PCIe x4 ~32 Gbps real, with high packet latency) | Each frame requires continuous DMA transfers over the cable. CPU interrupts on the laptop cause severe link drops. | CPU isolation and NT I/O priority are activated, and the registry is set to `PCIe ASPM = 0` and `FlipQueueSize = 1`. | 🔥 **Critical impact (+40% to +75% in 1% Low):** keeps the Thunderbolt tunnel awake, without power-saving pauses. |
 
-![Barras del incremento del 1% Low al aislar con carga de fondo: APU integrada (UMA) 136.8, gráfica externa (eGPU TB4) 65.0 y gráfica dedicada (dGPU PCIe) 42.0, en escala de 0 a 160](./img/impacto-aislamiento-1-low.png)
+![Bars of the 1% Low increase when isolating under background load: integrated APU (UMA) 136.8, external graphics (eGPU TB4) 65.0 and dedicated graphics (dGPU PCIe) 42.0, on a 0 to 160 scale](./img/impacto-aislamiento-1-low.png)
 
+![Sequence in two cases with background noise, CPU, bus and GPU: without isolation, the noise interrupts the CPU, the link runs out of data for 8–15 ms and the frame arrives late; with VegaFlow the noise stays on the last core and the CPU keeps a continuous flow to the GPU](./img/inanicion-gpu-secuencia.png)
 
-![Secuencia en dos casos con ruido de fondo, CPU, bus y GPU: sin aislamiento, el ruido interrumpe a la CPU, el enlace se queda sin datos 8-15 ms y el cuadro llega tarde; con VegaFlow el ruido queda en el último núcleo y la CPU mantiene un flujo continuo hacia la GPU](./img/inanicion-gpu-secuencia.png)
-
-
----
-
-## 3.4 Doble Capa: Explicación Sencilla con Analogías Cotidianas
-
-### A. La Fábrica con Especialistas Rápidos y Ayudantes (AMD vs. Intel)
-* **En Procesadores Intel Híbridos (P-Cores y E-Cores):**  
-  Imagina una fábrica moderna donde hay **obreros especialistas ultra-rápidos (P-Cores)** y **ayudantes de apoyo (E-Cores)**. Todos ellos deben caminar por el **mismo pasillo central estrecho (el Ring Bus)** y usar las herramientas del **mismo estante común (la Smart Cache L3)**. Si los ayudantes de apoyo se ponen a mover cajas desordenadas por el pasillo central sin supervisión, bloquean el paso de los especialistas y desordenan el estante de herramientas. El resultado es que los especialistas rápidos tienen que detenerse a esperar que el pasillo se despeje. VegaFlow actúa como el supervisor de planta: **restringe a los ayudantes a una esquina fija del almacén y les prohíbe invadir el pasillo central en horas de producción**, permitiendo que los especialistas trabajen a su máxima velocidad sin interrupciones.
-* **En Procesadores AMD con Múltiples Módulos (Multi-CCD / Chiplets):**  
-  Imagina que la fábrica tiene **dos edificios separados conectados por un puente exterior**. En el Edificio 1 está el taller principal con todas las piezas especiales (la 3D V-Cache). Si el jefe de planta permite que los obreros estén cruzando constantemente el puente de un edificio a otro para llevar notas y herramientas secundarias, se pierde un tiempo enorme en el camino. VegaFlow garantiza que todo el trabajo del juego se concentre dentro del Edificio 1, dejando el Edificio 2 exclusivamente para las tareas administrativas secundarias.
-
-### B. El Salón Contiguo y el Puente Estrecho (iGPU vs. dGPU vs. eGPU)
-* **Con Gráfica Integrada (iGPU / APU):**  
-  El Chef de la cocina (CPU) y el Repostero encargado del decorado final (iGPU) están apretados **dentro de la misma cocina pequeña**, compartiendo la misma mesa de trabajo (la memoria RAM compartida) y el mismo enchufe de electricidad (15W a 45W). Cuando VegaFlow saca a los intrusos de la cocina, **ambos respiran con alivio**: el Chef cocina el doble de rápido y al Repostero le queda más espacio en la mesa y más energía para hornear. Por eso los FPS se multiplican por dos (**+117%**).
-* **Con Gráfica Dedicada Interna (dGPU):**  
-  Ahora el Repostero (la tarjeta gráfica dedicada) se ha mudado a **su propio salón de banquetes gigante al lado**, con su propia mesa enorme de mármol (su memoria VRAM propia de alta velocidad) y su propio generador eléctrico. Ya no compiten por la mesa ni por la electricidad. Sin embargo, el Repostero gigante **sigue dependiendo al 100% de que el Chef le envíe las órdenes de cada plato a tiempo**. Si los intrusos distraen al Chef en la cocina, el Repostero gigante se queda parado de brazos cruzados mirando la puerta, provocando que los invitados en el restaurante sufran pausas y tirones molestos en el servicio (`1% Low`). Al blindar la cocina del Chef con VegaFlow, las comandas fluyen de manera continua y la tarjeta gráfica dedicada trabaja al máximo de su capacidad.
-* **Con Gráfica Externa por Cable (eGPU):**  
-  Aquí el Repostero gigante está ubicado **en un edificio al otro lado de la calle**, y el Chef del procesador central tiene que enviarle las bandejas a través de un **puente estrecho de un solo carril (el cable Thunderbolt o USB4)**. Como el puente es angosto, cualquier pequeño titubeo o retraso del Chef al cargar la camioneta provoca un atasco instantáneo que se transmite a lo largo de todo el puente. Por esta razón física, evitar interrupciones en la CPU y prohibir que el puente apague sus luces para ahorrar energía (`PCIe ASPM = 0`) es todavía más determinante en una gráfica externa que en una computadora de escritorio convencional.
 
 ---
 
-## 3.5 Qué decide el código en cada equipo (fases 3 y 7)
+## 3.4 Two Layers: Simple Explanation with Everyday Analogies
 
-**Lo esencial:** el patrón es universal, pero lo que VegaFlow hace depende de dos reglas escritas en Rust, sin llamadas a Windows y con los mismos casos de prueba en Rust y en C++: **qué clase de gráfica hay** ([`device_profile.rs`](https://github.com/partprogramming09/vegaflow-universal/blob/main/rust/vegaflow-core/src/policy/device_profile.rs), fase 3) y **cómo se reparten los núcleos** ([`cpu_governor.rs`](https://github.com/partprogramming09/vegaflow-universal/blob/main/rust/vegaflow-core/src/policy/cpu_governor.rs), fase 7). Las tablas 3.1 y 3.2 dicen qué se espera por familia; esta sección dice qué hace el código hoy.
+### A. The Factory with Fast Specialists and Helpers (AMD vs. Intel)
+* **In Hybrid Intel Processors (P-Cores and E-Cores):**  
+  Imagine a modern factory with **ultra-fast specialist workers (P-Cores)** and **support helpers (E-Cores)**. All of them must walk down the **same narrow central corridor (the Ring Bus)** and use the tools from the **same common shelf (the Smart Cache L3)**. If the support helpers start moving messy boxes down the central corridor without supervision, they block the specialists' way and mess up the tool shelf. As a result, the fast specialists have to stop and wait for the corridor to clear. VegaFlow acts as the plant supervisor: **it confines the helpers to a fixed corner of the warehouse and forbids them from invading the central corridor during production hours**, so the specialists work at full speed without interruptions.
+* **In AMD Processors with Several Modules (Multi-CCD / Chiplets):**  
+  Imagine the factory has **two separate buildings connected by an outdoor bridge**. Building 1 holds the main workshop with all the special parts (the 3D V-Cache). If the plant boss lets workers keep crossing the bridge from one building to the other to carry notes and secondary tools, a huge amount of time is lost on the way. VegaFlow makes sure all the game's work stays inside Building 1, and leaves Building 2 exclusively for secondary administrative tasks.
+
+### B. The Adjoining Kitchen and the Narrow Bridge (iGPU vs. dGPU vs. eGPU)
+* **With Integrated Graphics (iGPU / APU):**  
+  The head chef (CPU) and the pastry chef in charge of the final decoration (iGPU) are squeezed **inside the same small kitchen**, sharing the same work table (the shared system RAM) and the same power outlet (15W to 45W). When VegaFlow removes the intruders from the kitchen, **both breathe easier**: the head chef cooks twice as fast, and the pastry chef has more room on the table and more energy to bake. That is why the FPS doubles (**+117%**).
+* **With Internal Dedicated Graphics (dGPU):**  
+  Now the pastry chef (the dedicated graphics card) has moved to **its own huge banquet hall next door**, with its own enormous marble table (its own high-speed VRAM) and its own power generator. They no longer compete for the table or for the electricity. However, the giant pastry chef **still depends 100% on the head chef sending each dish's order on time**. If the intruders distract the head chef in the kitchen, the giant pastry chef stands still with arms folded, staring at the door. The guests in the restaurant then suffer pauses and annoying stutters in service (`1% Low`). By shielding the head chef's kitchen with VegaFlow, the orders flow continuously and the dedicated graphics card works at its full capacity.
+* **With External Cable Graphics (eGPU):**  
+  Here the giant pastry chef is **in a building across the street**, and the central processor's chef has to send the trays through a **narrow single-lane bridge (the Thunderbolt or USB4 cable)**. Because the bridge is narrow, any small hesitation or delay by the chef when loading the van causes an instant jam that spreads along the whole bridge. For this physical reason, avoiding CPU interruptions and stopping the bridge from switching off its lights to save energy (`PCIe ASPM = 0`) matters even more with an external graphics card than in an ordinary desktop computer.
+
+---
+
+## 3.5 What the Code Decides on Each Machine (phases 3 and 7)
+
+**The essentials:** the pattern is universal, but what VegaFlow does depends on two rules written in Rust, with no Windows calls and with the same test cases in Rust and C++: **what kind of graphics card is present** ([`device_profile.rs`](https://github.com/partprogramming09/vegaflow-universal/blob/main/rust/vegaflow-core/src/policy/device_profile.rs), phase 3) and **how the cores are split** ([`cpu_governor.rs`](https://github.com/partprogramming09/vegaflow-universal/blob/main/rust/vegaflow-core/src/policy/cpu_governor.rs), phase 7). Tables 3.1 and 3.2 say what is expected per family; this section says what the code does today.
 
 > [!NOTE]
-> Dos puntos de las tablas 3.1 y 3.2 no coinciden con el código y están pendientes de decidir si se corrige el texto o el código: el código no tiene una regla propia para procesadores X3D (reparte por caché y núcleo, sin saber cuál lleva la V-Cache), y en una eGPU lo que es propio de ella (ajustes de streaming) solo se activa con una opción experimental. Las cifras de impacto de esas tablas no llevan fuente enlazada en este documento.
+> Two points in tables 3.1 and 3.2 do not match the code, and are pending a decision on whether to correct the text or the code: the code has no rule of its own for X3D processors (it splits by cache and core, without knowing which one carries the V-Cache), and on an eGPU what is specific to it (streaming settings) is only activated with an experimental option. The impact figures in those tables do not have a linked source in this document.
 
-### Fase 3: perfil del equipo y tipo de conexión de la GPU
+### Phase 3: machine profile and GPU connection type
 
-**Ejemplo.** Un portátil enchufado con una RTX conectada por PCIe. DXCore (la interfaz de Windows que describe los adaptadores de vídeo) dice que la RTX no es integrada ni desmontable, así que cuenta como **dedicada**. El perfil la elige, no aplica recortes visuales ni la protección de memoria compartida (UMA) y da el nivel 4. El mismo portátil con una caja Thunderbolt: Windows marca la caja como desmontable, cuenta como **externa** y, sin preferencia de la persona, manda sobre la dedicada y la integrada.
+**Example.** A laptop plugged in, with an RTX connected over PCIe. DXCore (the Windows interface that describes video adapters) says the RTX is neither integrated nor removable, so it counts as **dedicated**. The profile selects it, applies no visual cuts and no shared-memory (UMA) protection, and gives level 4. The same laptop with a Thunderbolt enclosure: Windows marks the enclosure as removable, it counts as **external** and, without a preference from the user, it takes priority over both the dedicated and the integrated card.
 
-La regla recibe lo que la sonda leyó (gráficas, RAM, núcleos, energía, arquitectura de Windows, familia y modelo de CPU) y devuelve una decisión. Cuatro pasos:
+The rule takes what the probe read (graphics cards, RAM, cores, power, Windows architecture, CPU family and model) and returns a decision. Four steps:
 
-1. **Tipo de conexión de cada gráfica:**
+1. **Connection type of each graphics card:**
 
-   | Lo que informa Windows | Conexión |
+   | What Windows reports | Connection |
    | --- | --- |
-   | DXCore dice «desmontable», o SetupAPI dice que se puede quitar (salvo que DXCore diga a la vez que es integrada) | Externa |
-   | DXCore disponible y dice «integrada» | Integrada |
-   | DXCore disponible y no integrada | Dedicada |
-   | Sin DXCore | Desconocida |
+   | DXCore says "removable", or SetupAPI says it can be removed (unless DXCore also says it is integrated) | External |
+   | DXCore available and says "integrated" | Integrated |
+   | DXCore available and not integrated | Dedicated |
+   | No DXCore | Unknown |
 
-2. **Qué gráfica manda** si hay varias: la preferencia de la persona (ahorro: la primera integrada; alto rendimiento: la externa y luego la dedicada); sin preferencia, externa, dedicada, integrada y, si ninguna encaja, la primera.
-3. **Generación y nivel:** solo en las integradas se identifica la generación (Vega, RDNA2, RDNA3 o superior, Intel UHD, Intel Xe/Arc), primero por el identificador PCI exacto, luego por el nombre del driver y, como último recurso, por la familia y el modelo de CPU. Con eso, `apu_tier.rs` da el nivel de 1 a 4 (dedicada y NVIDIA son nivel 4; ver [`hardware-y-tiers.md`](./hardware-and-tiers.md)). El nivel fija además el pool seguro de VRAM, el tope de teselación y los hilos de DXVK.
-4. **Qué se activa según la conexión:**
+2. **Which graphics card takes priority** if there are several: the user's preference (power saving: the first integrated one; high performance: the external one, then the dedicated one). Without a preference: external, dedicated, integrated and, if none fits, the first one.
+3. **Generation and level:** only integrated cards are identified by generation (Vega, RDNA2, RDNA3 or later, Intel UHD, Intel Xe/Arc), first by the exact PCI identifier, then by the driver name and, as a last resort, by CPU family and model. With that, `apu_tier.rs` gives the level from 1 to 4 (dedicated and NVIDIA are level 4; see [`hardware-and-tiers/`](./hardware-and-tiers/)). The level also sets the safe VRAM pool, the tessellation cap and the DXVK threads.
+4. **What is activated depending on the connection:**
 
-   | Decisión | Integrada | Dedicada | Externa | Desconocida |
+   | Decision | Integrated | Dedicated | External | Unknown |
    | --- | --- | --- | --- | --- |
-   | Recortes visuales | Sí | No | No | No |
-   | Protección de memoria UMA (si se pudo leer la RAM) | Sí | No | No | No |
-   | Cambio del VRAM que informa el driver (solo AMD y sin bloqueo) | Sí | No | No | No |
-   | Ajustes de streaming de eGPU | No | No | Solo con la opción experimental | No |
-   | Bloquear los ajustes del driver | No | No | No | **Sí** |
+   | Visual cuts | Yes | No | No | No |
+   | UMA memory protection (if the RAM could be read) | Yes | No | No | No |
+   | Change of the VRAM reported by the driver (AMD only, and without a block) | Yes | No | No | No |
+   | eGPU streaming settings | No | No | Only with the experimental option | No |
+   | Block the driver settings | No | No | No | **Yes** |
 
-   Valen para cualquier conexión: Windows sobre ARM (emulado o nativo) también bloquea los ajustes del driver, y VegaFlow solo informa; el plan de energía de alto rendimiento solo se fuerza con la lectura de energía conocida, el equipo enchufado y sin ahorro de batería; la purga de RAM solo se permite si se pudo leer la RAM. Si no se puede leer ninguna gráfica, la regla es prudente: la trata como dedicada de nivel 4, sin recortes y sin ajustes del driver.
+   These apply to any connection: Windows on ARM (emulated or native) also blocks the driver settings, and VegaFlow only reports them. The high-performance power plan is only forced when the power reading is known, the machine is plugged in and there is no battery saver. RAM purge is only allowed if the RAM could be read. If no graphics card can be read, the rule is cautious: it treats the machine as a dedicated level 4 card, with no cuts and no driver changes.
 
-### Fase 7: reparto de núcleos (CPU Sets)
+### Phase 7: splitting the cores (CPU Sets)
 
-Términos: un **CPU Set** es la unidad de CPU que Windows permite asignar a un proceso (normalmente un hilo lógico). Windows agrupa los hilos lógicos en **grupos de procesadores** de hasta 64. La **caché de último nivel** (LLC, la L3) puede estar repartida en bloques (CCX o CCD en AMD). La **clase de eficiencia** es un número que Windows da a cada núcleo: mayor, más rápido.
+Terms: a **CPU Set** is the unit of CPU that Windows lets a process be assigned (normally one logical thread). Windows groups logical threads into **processor groups** of up to 64. The **last-level cache** (LLC, the L3) can be split into blocks (CCX or CCD on AMD). The **efficiency class** is a number Windows gives each core: higher means faster.
 
-**Ejemplo.** Un Ryzen 5 4600H tiene 6 núcleos y 12 hilos en dos bloques de L3 de 3 núcleos cada uno. El caso `ryzen_4600h_6c12t` de [`tests/vectors/cpu_topology.tsv`](https://github.com/partprogramming09/vegaflow-universal/blob/main/tests/vectors/cpu_topology.tsv) da: el fondo toma los dos hilos del último núcleo (CPU Sets 266 y 267) y el juego los ocho de los núcleos 1 a 4 (258 a 265), dejando libre el núcleo 0.
+**Example.** A Ryzen 5 4600H has 6 cores and 12 threads, in two L3 blocks of 3 cores each. The case `ryzen_4600h_6c12t` in [`tests/vectors/cpu_topology.tsv`](https://github.com/partprogramming09/vegaflow-universal/blob/main/tests/vectors/cpu_topology.tsv) gives: the background takes the two threads of the last core (CPU Sets 266 and 267), and the game takes the eight of cores 1 to 4 (258 to 265), leaving core 0 free.
 
-![Cómo se reparten los núcleos: híbrida (juego en P-cores, fondo en E-cores sin los de bajo consumo), varios bloques de caché con isla compacta o bloques simétricos, y monolítica](./img/reparto-de-nucleos.png)
+![How the cores are split: hybrid (game on P-cores, background on E-cores without the low-power ones), several cache blocks with a compact island or symmetric blocks, and monolithic](./img/reparto-de-nucleos.png)
 
 
-Reglas, en este orden:
+Rules, in this order:
 
-1. **Dentro de un solo grupo.** Windows ignora los CPU Sets que no son del grupo del hilo que los pide, así que la regla reparte el grupo de quien consulta (o el primero que exista). Con **más de 64 hilos lógicos** hay varios grupos: cada uno admite hasta 64 entradas (con más, la regla falla y no se reparte nada) y el informe suma núcleos e hilos de todos los grupos.
-2. **Híbrida** (clases de eficiencia distintas): el juego va a los núcleos de mayor clase, salvo el primero si hay 4 o más; el fondo, a los demás núcleos eficientes.
-3. **E-cores de bajo consumo excluidos.** En las Core Ultra, los E-cores del bloque del SoC no se mandan al fondo: con tres o más clases de eficiencia se excluye la más baja; con dos, se excluyen los E-cores que están en una caché sin P-cores cuando también hay E-cores que comparten caché con los P-cores. Esos núcleos no entran en ninguna lista: los decide Windows.
-4. **Varios bloques de caché y 6 o más núcleos físicos:** un bloque secundario pequeño y sin el primer núcleo (un tercio de los hilos o menos) se trata como isla y recibe todo el fondo; si no, el fondo toma el último núcleo físico y el juego se ordena empezando por el bloque con menos fondo.
-5. **Monolítica o uniforme:** el fondo toma el último núcleo físico y el juego, el resto. En las reglas 4 y 5 el fondo recibe todos los hilos de ese núcleo si hay 4 o más núcleos físicos (si no, uno), y el núcleo 0 queda libre para el sistema con 4 o más.
-6. **Cuándo confinar** (histéresis): el fondo se confina al usar 0,50 hilos lógicos o más y se suelta al bajar de 0,25.
+1. **Within a single group.** Windows ignores CPU Sets that do not belong to the group of the thread that asks for them, so the rule splits the group of the caller (or the first one that exists). With **more than 64 logical threads** there are several groups: each admits up to 64 entries (with more, the rule fails and nothing is split), and the report adds up cores and threads across all groups.
+2. **Hybrid** (different efficiency classes): the game goes to the cores of the highest class, except the first one if there are 4 or more. The background goes to the other efficient cores.
+3. **Low-power E-cores excluded.** On Core Ultra, the E-cores of the SoC block are not sent to the background. With three or more efficiency classes the lowest is excluded; with two, the E-cores that sit in a cache without P-cores are excluded, when there are also E-cores that share cache with the P-cores. Those cores are not put in any list: Windows decides for them.
+4. **Several cache blocks and 6 or more physical cores:** a small secondary block without the first core (a third of the threads or fewer) is treated as an island and receives all the background. Otherwise, the background takes the last physical core and the game is ordered starting from the block with less background.
+5. **Monolithic or uniform:** the background takes the last physical core and the game gets the rest. In rules 4 and 5, the background receives all the threads of that core if there are 4 or more physical cores (otherwise one), and core 0 is left free for the system when there are 4 or more.
+6. **When to confine** (hysteresis): the background is confined when using 0.50 logical threads or more, and released when it drops below 0.25.
 
-Cómo comprobarlo: `cargo test --manifest-path rust/vegaflow-core/Cargo.toml` corre las dos reglas con `tests/vectors/device_profiles.tsv` y `tests/vectors/cpu_topology.tsv`; los mismos archivos los usan las pruebas unitarias de C++.
+How to check it: `cargo test --manifest-path rust/vegaflow-core/Cargo.toml` runs the two rules with `tests/vectors/device_profiles.tsv` and `tests/vectors/cpu_topology.tsv`. The same files are used by the C++ unit tests.
 
 ---
-

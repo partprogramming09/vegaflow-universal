@@ -1,5 +1,5 @@
 #!/bin/bash
-# Checks that every #include "folder/..." in src/ respects the layer table in docs/guides/modules.md ("Tabla de capas"):
+# Checks that every #include "folder/..." in src/ respects the layer table in docs/guides/modules/index.md ("Layer table"):
 # a folder may only include the folders listed for it. Exits 1 and lists every broken include.
 # Runs in CI (.github/workflows/ci.yml). Bash 3.2 compatible (macOS).
 set -u

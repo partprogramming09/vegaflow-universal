@@ -1,5 +1,7 @@
 # Diagnóstico del laptop de pruebas (2026-11-09)
 
+> **Note:** this dated report is kept in Spanish, as it was recorded. Use your browser's translator to read it in another language; the living summary in English is [Verification status](./verification-status.md).
+
 **Lector:** personas y agentes. Lecturas hechas por SSH y con los trabajos `doctor` y `state` de WinBridge, sin cambiar nada salvo lo indicado en "Cambios hechos".
 
 Equipo: Ryzen 5 4600H con Radeon Vega 6, Windows 11 26H2 (compilación 26300.9818), 16 GB.

@@ -11,13 +11,13 @@ Start here. Each page answers one question: find yours.
 | Understand what VegaFlow is and why it exists | [Vision and principles](./vision-and-principles.md) |
 | Build and run the tests | [Build and test](./build-and-test.md) |
 | Install or uninstall VegaFlow, or check the zip | [Install and uninstall](./install-and-uninstall.md) |
-| Use the daemon or learn what each feature does | [Features](./usage-and-features.md) |
-| Change a GPU, memory or power optimization | [Hardware and tiers](./hardware-and-tiers.md), and before touching it, what was measured in [Verification status](../measurements/verification-status.md) |
+| Use the daemon or learn what each feature does | [Features](./usage-and-features/) |
+| Change a GPU, memory or power optimization | [Hardware and tiers](./hardware-and-tiers/), and before touching it, what was measured in [Verification status](../measurements/verification-status.md) |
 | Touch the Rust core or the C++ ↔ Rust boundary | [Rust and C++ core](./rust-cpp-core.md) |
 | Touch anti-cheat handling or file isolation | [Security](./security.md) |
-| Know what each module does or where a file lives | [Modules](./modules.md) |
+| Know what each module does or where a file lives | [Modules](./modules/) |
 | Support other hardware (Intel, AMD multi-CCD, dGPU, eGPU) | [Universal pattern](./universal-pattern.md), section 3.5 |
-| Change or redesign the GUI | [Modules](./modules.md), section 3.3b (how a screen is split between `ui/` and `session/`) |
+| Change or redesign the GUI | [GUI and session](./modules/gui-and-session.md) (how a screen is split between `ui/` and `session/`) |
 | See figures and how they were measured | [Measurements](../measurements/verification-status.md) |
 | Use the measurement scripts or the remote jobs | [`scripts/README.md`](https://github.com/partprogramming09/vegaflow-universal/blob/main/scripts/README.md) |
 

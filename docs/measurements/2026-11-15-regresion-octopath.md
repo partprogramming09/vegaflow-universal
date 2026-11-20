@@ -1,5 +1,7 @@
 # Regresión de Octopath Traveler II con el preset UMA (2026-11-15)
 
+> **Note:** this dated report is kept in Spanish, as it was recorded. Use your browser's translator to read it in another language; the living summary in English is [Verification status](./verification-status.md).
+
 **Lector:** quien interprete la puerta de regresión de Octopath (`scripts/remote/baselines/octopath_world.json`).
 
 ## Qué se midió

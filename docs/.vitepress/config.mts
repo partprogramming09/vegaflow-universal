@@ -30,7 +30,17 @@ export default defineConfig({
           text: 'Start here',
           items: [
             { text: 'What VegaFlow is', link: '/guides/' },
-            { text: 'Features', link: '/guides/usage-and-features' },
+            {
+              text: 'Features',
+              link: '/guides/usage-and-features/',
+              collapsed: true,
+              items: [
+                { text: 'Tweaks', link: '/guides/usage-and-features/tweaks' },
+                { text: 'Safety and tiers', link: '/guides/usage-and-features/safety-and-tiers' },
+                { text: 'System info and window', link: '/guides/usage-and-features/system-info-and-gui' },
+                { text: 'Daemon and CLI', link: '/guides/usage-and-features/daemon-and-cli' },
+              ],
+            },
             { text: 'Install and uninstall', link: '/guides/install-and-uninstall' },
             { text: 'Build and test', link: '/guides/build-and-test' },
           ],
@@ -40,9 +50,30 @@ export default defineConfig({
           items: [
             { text: 'Vision and principles', link: '/guides/vision-and-principles' },
             { text: 'Universal pattern', link: '/guides/universal-pattern' },
-            { text: 'Hardware and tiers', link: '/guides/hardware-and-tiers' },
+            {
+              text: 'Hardware and tiers',
+              link: '/guides/hardware-and-tiers/',
+              collapsed: true,
+              items: [
+                { text: 'APU limits', link: '/guides/hardware-and-tiers/apu-limits' },
+                { text: 'Tiers and guards', link: '/guides/hardware-and-tiers/tiers-and-guards' },
+                { text: 'Design: classification', link: '/guides/hardware-and-tiers/design-spec-classification' },
+                { text: 'Design: integration', link: '/guides/hardware-and-tiers/design-spec-integration' },
+              ],
+            },
             { text: 'Rust and C++ core', link: '/guides/rust-cpp-core' },
-            { text: 'Modules', link: '/guides/modules' },
+            {
+              text: 'Modules',
+              link: '/guides/modules/',
+              collapsed: true,
+              items: [
+                { text: 'Code layers', link: '/guides/modules/layers' },
+                { text: 'SystemInfo', link: '/guides/modules/system-info' },
+                { text: 'GUI and session', link: '/guides/modules/gui-and-session' },
+                { text: 'Game optimizations', link: '/guides/modules/game-optimizations' },
+                { text: 'Repository tree', link: '/guides/modules/repo-tree' },
+              ],
+            },
             { text: 'Security', link: '/guides/security' },
             { text: 'ADR 0001: Rust decides, C++ acts', link: '/adr/0001-nucleo-que-decide-y-puertos' },
           ],

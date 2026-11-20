@@ -20,7 +20,7 @@ struct CategorySpec {
     ProcessAction ProcessCategoryActions::*field;
 };
 
-// The names are the ones classify() in the Rust core recognises (rust/vegaflow-core/src/policy/process_class.rs; docs/guides/modules.md).
+// The names are the ones classify() in the Rust core recognises (rust/vegaflow-core/src/policy/process_class.rs; docs/guides/modules/).
 const CategorySpec kCategories[] = {
     {"recording_streaming", "Grabación y transmisión", "OBS Studio, Streamlabs, Overwolf", &ProcessCategoryActions::recording_streaming},
     {"calls_voice", "Llamadas y voz", "Discord, Microsoft Teams, Skype", &ProcessCategoryActions::calls_voice},

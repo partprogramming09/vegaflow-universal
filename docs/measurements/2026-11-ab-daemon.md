@@ -1,5 +1,7 @@
 # Parte 2. Medición A/B: daemon apagado contra encendido (bgfx drawstress)
 
+> **Note:** this dated report is kept in Spanish, as it was recorded. Use your browser's translator to read it in another language; the living summary in English is [Verification status](./verification-status.md).
+
 **Lector:** personas
 
 Fecha: 2026-11-04. Equipo: laptop Ryzen 5 4600H, Radeon Vega 6, 16 GB, Windows 11 build 26300, enchufada.

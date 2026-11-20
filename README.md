@@ -1,89 +1,102 @@
 # VegaFlow Universal
 
-**Español** · [English](README.en.md)
+A Windows daemon written in C++20, with a hybrid Rust core, that optimizes games on AMD APUs (test bench: Ryzen 5 4600H with Radeon Vega 6). It isolates background processes, applies profiles according to the APU tier, and uses DXVK-GPLAsync. It never injects anything into games that use anti-cheat. Current version: **0.1.0** ([`CHANGELOG.md`](CHANGELOG.md)).
 
-Daemon de Windows en C++20, con núcleo híbrido en Rust, que optimiza juegos en APUs AMD (banco de pruebas: Ryzen 5 4600H con Radeon Vega 6). Aísla los procesos de fondo, aplica perfiles según el nivel de la APU y usa DXVK-GPLAsync. No inyecta nada en juegos con anti-cheat. Versión actual: **0.1.0** ([`CHANGELOG.md`](CHANGELOG.md)).
+![Language](https://img.shields.io/badge/C%2B%2B20%20%2B%20Rust-blue.svg) ![Platform](https://img.shields.io/badge/Windows%2010%20%7C%2011%20x64-0078D6.svg) ![Tests](https://img.shields.io/badge/tests-315%20C%2B%2B%20%7C%20258%20Rust-success.svg)
 
-![Lenguaje](https://img.shields.io/badge/C%2B%2B20%20%2B%20Rust-blue.svg) ![Plataforma](https://img.shields.io/badge/Windows%2010%20%7C%2011%20x64-0078D6.svg) ![Pruebas](https://img.shields.io/badge/pruebas-310%20C%2B%2B%20%7C%20252%20Rust-success.svg)
+**In short:** on a laptop with an AMD APU, the processor and the graphics share the same memory and the same heat budget, so a browser or an updater running in the background steals time from the game. VegaFlow notices when a game is in front, moves the background programs out of its way, and puts everything back when you stop playing. For example, in Octopath Traveler II its memory preset gave +40% average FPS in the overworld (one capture, cause not isolated; see [Measured results](#measured-results)).
 
-## Por qué existe
+![VegaFlow's main modules](docs/guides/img/modulos-principales.png)
 
-En una APU la CPU y la iGPU comparten la RAM y el presupuesto térmico, y el sistema está pensado para escritorios con GPU dedicada. VegaFlow actúa sobre cinco problemas:
+## Why it exists
 
-1. **Memoria compartida (UMA):** los procesos de fondo compiten con la iGPU por el mismo bus DDR4.
-2. **Falso límite de 512 MB de VRAM:** las BIOS lo reportan y los motores lo toman al pie de la letra.
-3. **Sin GPL en los drivers AMD de Vega:** los shaders se compilan en el hilo del juego; DXVK-GPLAsync los saca a hilos de fondo.
-4. **Composición del DWM en ventana:** la copia intermedia añade latencia; el modo Flip la evita.
-5. **Presupuesto térmico compartido (STAPM):** si la CPU consume de más, la GPU baja su reloj.
+On an APU the CPU and the iGPU share the RAM and the thermal budget, and the system is designed for desktops with a dedicated GPU. VegaFlow acts on five problems:
 
-## Qué hace
+1. **Shared memory (UMA):** background processes compete with the iGPU for the same DDR4 bus.
+2. **The false 512 MB VRAM limit:** BIOSes report it and game engines take it literally.
+3. **No GPL in AMD's Vega drivers:** shaders compile on the game's own thread; DXVK-GPLAsync moves them to background threads.
+4. **Windowed DWM composition:** the intermediate copy adds latency; Flip mode avoids it.
+5. **Shared thermal budget (STAPM):** if the CPU draws too much, the GPU lowers its clock.
 
-- **Aislamiento de fondo:** confina los procesos de fondo (afinidad, EcoQoS, prioridad de I/O) para dejar la CPU y el disco al juego.
-- **Perfiles por Tier:** `ApuCapabilityGuard` clasifica el equipo en 4 niveles y no aplica a uno lo calibrado para otro.
-- **Anti-cheat:** si detecta un controlador anti-cheat, `SandboxGuard` bloquea toda escritura y no toca archivos del juego.
-- **Reversible:** cada cambio guarda una copia (`.vegaflow.bak`, o el valor original del registro); `--restore-registry` los devuelve todos.
-- **Ligero:** sin frameworks pesados; GUI Win32/GDI y menos de 15 MB en reposo.
+## What it does
 
-El detalle de cada función está en [`docs/guides/usage-and-features.md`](docs/guides/usage-and-features.md).
+| Feature | What it means for you |
+| --- | --- |
+| Background isolation | Background processes are confined (affinity, EcoQoS, I/O priority) so the CPU and the disk stay with the game. |
+| Per-tier profiles | `ApuCapabilityGuard` classifies the machine into 4 levels and never applies what was calibrated for one level to another. |
+| Anti-cheat safe | If an anti-cheat driver is present, `SandboxGuard` blocks every write and the game's files are not touched. |
+| Reversible | Every change keeps a copy (`.vegaflow.bak`, or the original registry value); `--restore-registry` brings them all back. |
+| Lightweight | No heavy frameworks; Win32/GDI window and under 15 MB at rest. |
 
-## Resultados medidos
+Each feature is described in [Features](docs/guides/usage-and-features/index.md).
 
-Las cifras salen de PresentMon y están con su método y sus límites en [`docs/measurements/`](docs/measurements/); qué falta medir, en [`verification-status.md`](docs/measurements/verification-status.md). En resumen: en Octopath Traveler II el preset UMA del `Engine.ini` dio +40% de FPS medio en el mundo (captura no intercalada y causa no aislada); en Zenless Zone Zero el daemon no cambió el FPS (58.57 a 58.89, sin efecto) y no hubo expulsión del anti-cheat.
+## Measured results
 
-## Instalar
+The figures come from PresentMon, with their method and limits, in [`docs/measurements/`](docs/measurements/); what is still unmeasured is in [Verification status](docs/measurements/verification-status.md). In Octopath Traveler II the UMA preset in `Engine.ini` gave +40% average FPS in the overworld (one non-interleaved capture, cause not isolated); in Zenless Zone Zero the daemon did not change the FPS (58.57 to 58.89, no effect) and there was no anti-cheat ban.
 
-El paquete `VegaFlow-0.1.0-win-x64.zip` lleva el daemon y dos scripts de PowerShell. Se genera con `scripts/package.sh`. Descomprímelo y, en PowerShell como administrador, desde la carpeta descomprimida:
+## Install
 
-```powershell
-.\install.ps1 -DryRun    # muestra los pasos sin cambiar nada
-.\install.ps1            # instala en C:\Program Files\VegaFlow
+The `VegaFlow-0.1.0-win-x64.zip` package holds the daemon and two PowerShell scripts. It is built with `scripts/package.sh`. Unzip it and, in PowerShell as administrator, from the unzipped folder:
+
+| Command | What it does |
+| --- | --- |
+| `.\install.ps1 -DryRun` | Shows the steps without changing anything |
+| `.\install.ps1` | Installs into `C:\Program Files\VegaFlow` |
+| `.\install.ps1 -Autostart` | Also starts VegaFlow with Windows (off unless you ask) |
+| `.\uninstall.ps1` | Gives the system back VegaFlow's changes, then deletes it |
+
+`install.ps1` checks the SHA-256 of every file before copying. The package is not code-signed: check its hash. Full guide: [Install and uninstall](docs/guides/install-and-uninstall.md).
+
+## Build and test
+
+The program runs on Windows only. It is built with MinGW-w64 g++ 13+ and cargo with the `x86_64-pc-windows-gnu` target. From a Mac or Linux you can cross-compile (`scripts/build-cross.sh`, needs mingw-w64) and run the `.exe` files on a Windows machine.
+
+| Command | Where | Last real result |
+| --- | --- | --- |
+| `powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1 -RunTests` | Windows | builds the daemon and runs the C++ suite: `TEST RESULTS: 315 PASSED, 0 FAILED` (2026-11-19) |
+| `cargo test --manifest-path rust/vegaflow-core/Cargo.toml` | any OS | 258 passed, 0 failed (2026-11-20, macOS) |
+| `bash scripts/check_layers.sh` | any OS | `[OK] layers respected (389 includes checked)` |
+| `pnpm install && pnpm docs:build` | any OS | builds this documentation as a site |
+
+The C++ suite changes the registry and the power plan for real and restores them at the end: do not stop it halfway. Guide: [Build and test](docs/guides/build-and-test.md).
+
+## Repository layout
+
+```
+src/                C++20 daemon code, grouped by function (each .hpp next to its .cpp)
+  app/                startup, command line and modes (daemon, window, monitor)
+  session/            use cases: screens and buttons without Win32, game session, config.json
+  model/              shared types (hardware, game), no logic
+  ports/              interfaces the tests replace with fakes (files, clock, registry, power...)
+  detect/             hardware and processes
+  optimize/           the levers: graphics, memory, CPU, DXVK, Steam engines
+  ui/                 Win32/GDI window
+  windows/            every call into Windows: privileges, registry, SandboxGuard, memory and the real file system
+  bridge/             contract between C++ and Rust
+rust/vegaflow-core/ pure rules in Rust (tiers, path policy, anti-cheat signatures, memory purge, process classes)
+tests/              the C++ suite (tests/integration/ touches Windows, tests/unit/ uses fake ports), the package test (tests/package/) and the cases shared with Rust (tests/vectors/)
+scripts/            build, package, measure and operate the test laptop (see scripts/README.md)
+assets/dxvk/        where you put the DXVK DLLs the daemon installs into games (not included; see its README)
+config/             daemon defaults
+docs/               the documentation site (VitePress)
 ```
 
-`install.ps1` comprueba el SHA-256 de cada archivo antes de copiar. `uninstall.ps1` devuelve al sistema los cambios de VegaFlow antes de borrar nada. VegaFlow no arranca con Windows salvo que lo pidas con `-Autostart`. El paquete no está firmado: verifica su hash. Guía completa: [instalar y desinstalar](docs/guides/install-and-uninstall.md).
+## Documentation
 
-## Compilar y usar
+| If you want to understand… | Read |
+| --- | --- |
+| What VegaFlow is and why it exists | [Vision and principles](docs/guides/vision-and-principles.md) |
+| Why background programs hurt games on any CPU | [Universal pattern](docs/guides/universal-pattern.md) |
+| APU memory, the 512 MB limit and the 4 tiers | [Hardware and tiers](docs/guides/hardware-and-tiers/index.md) |
+| How C++ and Rust split the work | [Rust and C++ core](docs/guides/rust-cpp-core.md) |
+| Anti-cheat handling and file isolation | [Security](docs/guides/security.md) |
+| Where each file lives and the layer rules | [Modules](docs/guides/modules/index.md) |
+| Everything, as a site | `pnpm docs:dev`, or start at [`docs/guides/index.md`](docs/guides/index.md) |
 
-El programa corre solo en Windows. Se compila con MinGW-w64 g++ 13+ y cargo con el objetivo `x86_64-pc-windows-gnu`:
+## Safety
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1 -RunTests
-```
+DLLs are never injected and the files of games with anti-cheat are never modified. Every disk and process operation goes through `SandboxGuard`, and every function that changes the system accepts `dry_run`. To report a vulnerability, see [SECURITY.md](SECURITY.md); to contribute, [CONTRIBUTING.md](CONTRIBUTING.md).
 
-Desde un Mac o Linux se puede compilar con compilación cruzada (`scripts/build-cross.sh`, necesita mingw-w64) y probar los `.exe` en un equipo Windows. Las reglas escritas en Rust se prueban en cualquier sistema: `cargo test --manifest-path rust/vegaflow-core/Cargo.toml`.
-
-Guías: [compilar y probar](docs/guides/build-and-test.md) y [uso del daemon](docs/guides/usage-and-features.md).
-
-## Estructura del repositorio
-
-```
-src/                código del daemon en C++20, agrupado por función (cada .hpp junto a su .cpp)
-  app/                arranque, línea de comandos y modos (daemon, ventana, monitor)
-  session/            casos de uso: un ciclo del daemon, informes, SystemInfo, config.json
-  model/              tipos compartidos (hardware, juego), sin lógica
-  ports/              interfaces que las pruebas sustituyen por versiones falsas (archivos, reloj, registro, energía...)
-  detect/             hardware y procesos
-  optimize/           las palancas: gráficos, memoria, CPU, DXVK, motores de Steam
-  ui/                 ventana Win32/GDI
-  windows/            toda llamada a Windows: privilegios, registro, SandboxGuard, lecturas del sistema y el sistema de archivos real
-  bridge/             contrato entre C++ y Rust
-rust/vegaflow-core/ reglas puras en Rust (presión UMA, topología, confinamiento, Tiers, política de rutas, firmas)
-tests/              la suite de C++ (310 pruebas en la última corrida) (tests/integration/ toca Windows de verdad, tests/unit/ usa puertos falsos), la prueba del paquete (tests/package/) y los casos compartidos con Rust (tests/vectors/)
-scripts/            compilar, empaquetar, medir y operar el laptop de pruebas (ver scripts/README.md)
-assets/dxvk/        aquí se colocan las DLL de DXVK que el daemon instala en los juegos (no se incluyen; ver su README)
-config/             valores por defecto del daemon
-docs/               toda la documentación (ver docs/README.md)
-```
-
-## Documentación
-
-Empieza por [`docs/README.md`](docs/guides/index.md): una tabla "¿Qué quieres hacer?" te lleva al documento que necesitas.
-
-## Seguridad
-
-Nunca se inyectan DLLs ni se modifican archivos de juegos con anti-cheat. Toda operación de disco y procesos pasa por `SandboxGuard`, y toda función que modifica el sistema acepta `dry_run`.
-
-## Licencia / License
-
-Software libre bajo la **GNU GPL v3 o posterior** (ver [`LICENSE`](LICENSE)): puedes usarlo, estudiarlo, modificarlo y compartirlo. Si distribuyes una versión modificada, debes publicar también su código fuente con la misma licencia.
+## License
 
 Free software under the **GNU GPL v3 or later** (see [`LICENSE`](LICENSE)): you may use, study, modify and share it. If you distribute a modified version, you must also publish its source code under the same license.

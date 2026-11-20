@@ -1,5 +1,7 @@
 # PARTE II: Caso de Estudio Real en Motor Comercial (*Octopath Traveler II* — Unreal Engine 4 HD-2D)
 
+> **Note:** this dated report is kept in Spanish, as it was recorded. Use your browser's translator to read it in another language; the living summary in English is [Verification status](./verification-status.md).
+
 **Lector:** personas
 
 ## 2.1 Contexto de Prueba y Protocolo en Escena Real

@@ -2,7 +2,7 @@
 
 **Lector:** personas. Fecha: 2026-11-08 (propuesta). Estado: **aceptado** el 2026-11-14.
 
-**Evidencia de la aceptación (2026-11-14):** fases 1 a 8 y R3 hechas; `scripts/check_layers.sh` pasa (272 includes, capas respetadas) y `src/session/` ya no llama a Win32. Resultado en [`modules.md`](../guides/modules.md).
+**Evidencia de la aceptación (2026-11-14):** fases 1 a 8 y R3 hechas; `scripts/check_layers.sh` pasa (272 includes, capas respetadas) y `src/session/` ya no llama a Win32. Resultado en [`modules.md`](../guides/modules/).
 
 ## Contexto
 
