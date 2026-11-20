@@ -53,6 +53,8 @@ New native GUI (Win32, owner-draw controls reachable with Tab). Not tagged yet: 
 ### Removed
 - Unreachable handlers for the old "apply preset" and "elevate" buttons (a posted `WM_COMMAND` could have reached
   them) and the unused in-memory audit list.
+- `ExcludeGameAndRevert`, which nothing called: the GUI excludes a game through the Games screen and the next cycle
+  restores it. C++ Test 55 now checks that path.
 
 ### Known limits
 - The window does no DPI scaling of its own (fixed pixels): Windows enlarges it. Checked with screenshots at 125 % and 150 % (not 175 %). Screen readers were not tested.
