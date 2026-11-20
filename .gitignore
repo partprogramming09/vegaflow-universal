@@ -61,6 +61,15 @@ assets/dxvk/dxvk-*/
 # Session handoff notes for this machine (read by the local hooks); not part of the product
 docs/estado.md
 
+# Working material: plans and research stay local, a fork would read them as the project's state
+docs/plans/
+docs/research/
+
+# Docs site (VitePress)
+node_modules/
+docs/.vitepress/dist/
+docs/.vitepress/cache/
+
 # Release packages
 dist/
 
