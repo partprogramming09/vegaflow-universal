@@ -336,7 +336,7 @@ void RunGameSessionCycle(
         if (is_new_game && audit_cb) {
             audit_cb("[CPU] EcoQoS activado en procesos secundarios (" +
                      std::to_string(throttled) + " procesos en modo eficiencia térmica para ahorro APU).");
-            audit_cb("[I/O NT] Jerarquía I/O activada: IoPriorityHigh en juego (PID " +
+            audit_cb("[I/O NT] Jerarquía I/O activada: IoPriorityNormal en juego (PID " +
                      std::to_string(game.pid) + ") y IoPriorityVeryLow en procesos frenados.");
         }
 
