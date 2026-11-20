@@ -67,6 +67,9 @@ New native GUI (Win32, owner-draw controls reachable with Tab). Not tagged yet: 
 - Tab 2 (Memoria UMA & Núcleos CPU) is still the old GDI view.
 - "Devolver todo a como estaba" writes Windows defaults without a prior copy for several settings.
 - The UMA guard reads a per-process DXGI counter, so it may never see a game's memory use.
+- Games where 0.1.x already wrote `GpuPreference=2;AutoHDREnable=0;` keep those values: the new Flip code sees the
+  game as already done and writes nothing. They go back only through the change journal (Historial) if that entry is
+  still there, or by hand in Windows graphics settings.
 - Not built yet: pause VegaFlow per game, welcome screen, panic hotkey, controller input, dry-run preview, copyable
   report, exit warning. Configuración saves at once, but the daemon reads interval and memory limits at start.
 - See `docs/mediciones/estado-de-verificacion.md` for what is measured and what is not.

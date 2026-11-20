@@ -9,9 +9,9 @@
 [Ver el diagrama a pantalla completa](../diagrams/modulos-principales.html)
 
 ### 2.1. DXGI Hardware Flip Model Presentation Upgrade
-- Interviene en `HKCU\Software\Microsoft\DirectX\UserGpuPreferences` registrando las directivas `AutoFlipModel=1;DirectFlip=1;TurboSync=1;SwapEffectUpgradeEnable=1;GpuPreference=2;`.
-- Fuerza a los juegos basados en DirectX 11 a utilizar la cadena de intercambio **Hardware Flip Model** (`DXGI_SWAP_EFFECT_FLIP_DISCARD` / `FLIP_SEQUENTIAL`) y promueve directamente al modo **DirectFlip** en Windows 11, puenteando la superficie de composición intermedia y la cola de copiado de DWM.
-- **Beneficio:** Reduce entre 15 y 25 ms el retardo de entrada (input lag) alcanzando 0ms de latencia de composición adicional en pantalla completa sin bordes, elimina el micro-stuttering de composición y previene la caída de cuadros por buffers bloqueados.
+- Añade solo `SwapEffectUpgradeEnable=1` al valor del juego en `HKCU\Software\Microsoft\DirectX\UserGpuPreferences`; lo demás que hubiera (`GpuPreference`, `AutoHDREnable`) queda igual. Es lo que activa «Optimizaciones para juegos en ventana»: los juegos DirectX 10 y 11 en ventana pasan del modelo blt al modelo flip.
+- Añade `HIGHDPIAWARE` a las banderas del juego en `AppCompatFlags\Layers` sin quitar las que ya tuviera, y no lo añade si ya hay otro modo de DPI.
+- **Beneficio:** sin medir en este proyecto (ver `docs/mediciones/estado-de-verificacion.md`). Se deshace desde Historial o «Devolver todo».
 
 ### 2.2. UMA Engine Memory & Texture Streamer
 - Analiza la instalación de juegos en Steam y detecta automáticamente si el motor es **Unreal Engine 4/5** o **Unity**.
@@ -111,9 +111,9 @@ Integrada a bajo nivel para resolver de raíz las limitaciones de latencia, cont
 2. **Jerarquía de Prioridad I/O y Memoria NT:**
    - **Explicación técnica:** Videojuegos 3D modernos realizan streaming continuo de modelos y texturas de alta resolución desde el disco SSD NVMe hacia la memoria RAM compartida (UMA) y el buffer de la GPU. Cuando aplicaciones de fondo compiten por el bus I/O de archivos o causan contención en el gestor de memoria, se generan severos parones (*stuttering*) y frametime spikes de 50 a 150 ms.
    - **Mecanismo NT:** Mediante llamadas a `NtSetInformationProcess(ProcessIoPriorityInformationClass = 33)`, VegaFlow asigna `IoPriorityHigh` (2) al juego 3D y confina los procesos de fondo a `IoPriorityVeryLow` (0). Esto asegura que el controlador de almacenamiento de Windows NT otorgue prioridad absoluta a las lecturas de mallas y texturas del juego. Paralelamente, se fija `MEMORY_PRIORITY_LOW` (2) en fondo para evitar la expulsión al pagefile de recursos gráficos activos.
-3. **DirectFlip & AutoFlip Model Upgrade:**
-   - **Explicación técnica:** En modos ventana o borderless tradicionales, el compositor del sistema (DWM) copia cada fotograma a una superficie intermedia, introduciendo entre 15 y 30 ms de retardo de entrada y micro-stutters periódicos.
-   - **Inyección DXGI:** VegaFlow inyecta en `HKCU\Software\Microsoft\DirectX\UserGpuPreferences` las directivas `AutoFlipModel=1;DirectFlip=1;TurboSync=1;SwapEffectUpgradeEnable=1;GpuPreference=2;`. En Windows 11, esto permite la promoción directa al modo **DirectFlip**, evitando por completo la cola de copiado de DWM y alcanzando una **latencia de entrada de 0ms** en pantalla completa sin bordes.
+3. **Modelo flip en ventana:**
+   - En ventana, el compositor (DWM) copia cada cuadro de un juego que presenta con el modelo blt.
+   - VegaFlow añade solo `SwapEffectUpgradeEnable=1` al valor del juego en `HKCU\Software\Microsoft\DirectX\UserGpuPreferences` (la elección de gráfica y de HDR del usuario no cambia) para que Windows lo pase al modelo flip. Efecto sin medir aquí.
 
 ### 2.10. Suite de Silicio APU & Blindaje de Memoria de Kernel NT (DisablePagingExecutive & Smart Tessellation 16x)
 Diseñada para mitigar las debilidades intrínsecas de las APUs Ryzen con arquitectura de memoria compartida (UMA) y unidades de cómputo compactas (Vega 6):
@@ -200,7 +200,7 @@ VegaFlow puede operar como servicio en segundo plano, como herramienta de consol
   Windows Memory Compression : DISABLED (Zero CPU Spikes / Low Latency)
   Kernel Memory Paging Shield: ACTIVE (DisablePagingExecutive=1, RAM Lock)
   AMD Tessellation Limiter   : 16x (Over-Geometry Capped)
-  DirectFlip / AutoFlip Model: READY (AutoFlipModel=1 & DirectFlip=1 Injection on Launch)
+  Windowed Flip Model        : READY (SwapEffectUpgradeEnable=1 on Launch)
 ```
 
 ##### 2. Exportación de Telemetría y Especificaciones en Formato JSON:
