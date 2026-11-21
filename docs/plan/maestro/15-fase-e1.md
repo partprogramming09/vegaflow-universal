@@ -9,16 +9,16 @@ Con una sola APU todo cuadra. Al enchufar una eGPU o tener dos GPU AMD, el daemo
 
 | # | Hallazgo | Estado | Evidencia |
 |---|---|---|---|
-| 1.1 | DXGI mide el primer adaptador de hardware | **vigente** (leído) | `src/windows/memory.cpp:172-193` (`EnumAdapters1` + `break`) |
-| 1.2 | `policy` y `gfx` se crean una vez | **vigente** (leído) | `src/app/daemon_loop.cpp:36,40`; `gui_mode.cpp` igual |
-| 1.3a | `AmdDriverTweaks` escribe en todas las subclaves AMD | **vigente** (leído) | `amd_driver_tweaks.cpp:82,122` (`kAdapterSubkeys`); además `vram_reporting.cpp:37,71,132` filtra `DirectX` solo por `IsAmdDirectXSubkey` (`VendorId==0x1002`, `graphics_internal.hpp:113`): también hay que filtrar por adaptador (reproducido) |
+| 1.1 | DXGI mide el primer adaptador de hardware | **hecho E1.1** (`f758a97`, `eb59ab0`) | `src/windows/memory.cpp:172-193` (`EnumAdapters1` + `break`) |
+| 1.2 | `policy` y `gfx` se crean una vez | **hecho E1.2** (`8c97032`, Prueba 99) | `src/app/daemon_loop.cpp:36,40`; `gui_mode.cpp` igual |
+| 1.3a | `AmdDriverTweaks` escribe en todas las subclaves AMD | **hecho E1.3** (`9d185e6`) | `amd_driver_tweaks.cpp:82,122` (`kAdapterSubkeys`); además `vram_reporting.cpp:37,71,132` filtra `DirectX` solo por `IsAmdDirectXSubkey` (`VendorId==0x1002`, `graphics_internal.hpp:113`): también hay que filtrar por adaptador (reproducido) |
 | 1.3b | Fallback de 512 MB en VRAM | **ya hecho** (leído) | `vram_reporting.cpp:55` ya no escribe sin copia; solo falta la prueba y el bloqueo si no es `Integrated` |
 | 1.4 | Flip: `GpuPreference=2`, `AutoHDREnable=0`, `AutoFlipModel`, `~ HIGHDPIAWARE` | **hecho E1.4** (2026-11-20, Pruebas 94 y 95) | `dxgi_flip.cpp:58,65-68,93,109,116-119,144`; `ApplyDirectFlipUpgrade` también escribe `DirectFlip=1` y sobrescribe `~ HIGHDPIAWARE` (reproducido) |
 | 1.4b | `GameDVR_FSEBehaviorMode` | **hecho E1.4** (2026-11-20, Pruebas 94-96): Flip solo escribe `SwapEffectUpgradeEnable=1`, `HIGHDPIAWARE` se anexa, FSE pasa a la fila oculta `fse_compat`; `ApplyDirectFlipUpgrade` y `RemoveFlipModelUpgrade` borrados | `display_tweaks.cpp:64` |
-| 1.5a | Raíces con `contains` sin anclar (`C:\WindowsX`) | **vigente** (leído) | `process_class.rs:128-160` |
+| 1.5a | Raíces con `contains` sin anclar (`C:\WindowsX`) | **hecho E1.5** (`dfab8e5`; ataque de cierre `bb9752d`: `cmd.exe` y `powershell.exe` aceptaban `\windows\` anidado, UNC y `..`) | `process_class.rs:128-160` |
 | 1.5b | `DisablePagingExecutive` activo por defecto | **ya hecho** (leído, 2026-11-18): solo se escribe desde la GUI (`settings_actions.cpp:122`), con la fila oculta como experimental, sin aplicarse sola y sin «Recomendado»; se añadió el aviso de APU al texto | `settings_catalog.cpp:33`, `kernel_tweaks.cpp:68` |
-| 1.5c | **Crítico**: `RegRestoreRecord` toma `hive` y `subkey` del propio respaldo (`registry.cpp:234-262`); un respaldo plantado en HKCU puede escribir en HKLM. Pasa por `RestoreAllBackups` (`:463`) y por `RestoreBackedUpValue` (`:456`) | **vigente** (leído; revisión `agy`, reproducido) | `registry.cpp:234-262,456-485` |
-| 1.5d | Callbacks FFI sin `noexcept` (0 coincidencias con `rg`); subcarpetas en `CanModifyGameDir` | **vigente** (callbacks, medido con `rg`); cuerpo de `CanModifyGameDir` por leer | `engine_presets.cpp`, `src/session/config.cpp:108,214`, `apu_shadow_config.cpp:134,268,315`; `windows/safe_file_system.cpp:41` (no `sandbox_guard.cpp`) |
+| 1.5c | **Crítico**: `RegRestoreRecord` toma `hive` y `subkey` del propio respaldo (`registry.cpp:234-262`); un respaldo plantado en HKCU puede escribir en HKLM. Pasa por `RestoreAllBackups` (`:463`) y por `RestoreBackedUpValue` (`:456`) | **hecho E1.5** (`0aa9d45`, `eb59ab0`) | `registry.cpp:234-262,456-485` |
+| 1.5d | Callbacks FFI sin `noexcept` (0 coincidencias con `rg`); subcarpetas en `CanModifyGameDir` | **hecho E1.5** (`06fcab2`, `486325e`; desde `db98ef4` un juego con más de 20 000 entradas se trata como protegido) | `engine_presets.cpp`, `src/session/config.cpp:108,214`, `apu_shadow_config.cpp:134,268,315`; `windows/safe_file_system.cpp:41` (no `sandbox_guard.cpp`) |
 | 1.6 | Doble muestreo y GDI sin caché | **hecho E1.6** (2026-11-21, Pruebas 100 y 101): cada sondeo de la GUI muestreaba la memoria 3 veces, releía los ajustes del registro con un `GraphicsOptimizer` nuevo y leía la tabla SMBIOS; ahora `SystemInfo::FromHardware(hw, mem, tweaks)` usa lo que la GUI ya tiene y los DIMM se leen una vez; el historial se regenera solo si cambia `Revision()`. GDI: cada `Create*` tiene su `DeleteObject` (sin fuga), sin caché por no tener beneficio medible | `gui_mode.cpp:174,264`; pinceles y plumas en `src/ui/gui_components.cpp:18-178` y `src/ui/*_view.cpp` |
 
 Lo que resulte ya resuelto se marca «ya hecho» con su commit; no se borra en silencio.
@@ -42,6 +42,19 @@ Orden: E1.5 (Rust puro y respaldos) → E1.1 → E1.3 → E1.4 → E1.2 → E1.6
 - `bash scripts/check_layers.sh` en `[OK]`.
 - Real en el laptop (un solo adaptador): `vfdev run state` antes y después; el registro vuelve igual con `vfdev run restore`. **No** se prueba una eGPU real: no hay una; E1.2 se prueba con puertos falsos. Eso queda como «no probado en hardware» en `docs/mediciones/estado-de-verificacion.md`.
 - Se cierra cuando: cada fila tiene su prueba en verde, la memoria en reposo sigue `< 15 MB`, docs sincronizadas y `agy` revisó E1.3, E1.5 (atacante en Rust).
+
+## Cierre (2026-11-21)
+
+| Condición | Resultado | Etiqueta |
+|---|---|---|
+| Rust | 270 pruebas en verde (258 + 12 del atacante) | medido |
+| C++ | 323/323 con `vfdev cross-test` | medido |
+| Capas | `check_layers.sh` `[OK]`, 392 includes | medido |
+| Laptop | `vfdev run state`: todas las filas `ok` | medido |
+| Memoria en reposo | binario de E1 en `--observe` por SSH, 3 muestras a 30/60/90 s: 1,9 MB privada y 10,0 MB de working set (antes, 2026-11-15: 2,0 y 10,2) | medido |
+| Revisión `agy` | revisor sobre todo E1: 3 hallazgos reproducidos y arreglados en `db98ef4` (escaneo anti-cheat que paraba en 20 000 entradas y daba «limpio», override de VRAM con `dry_run` en una eGPU, falso «no se pudo devolver la VRAM» sin pool) | medido |
+| Atacante `agy` | sobre el anclaje de rutas de E1.5 en Rust: 7 de sus 9 pruebas rojas eran fallos reales y se arreglaron en `bb9752d`; se descartaron 3 casos (2 pruebas y una línea de otra) porque Windows nunca entrega esas rutas (`C:` sin barra con otro nombre de ejecutable, prefijo `\\?/` mezclado, unidad con el signo Kelvin) | medido |
+| eGPU real | no probada en hardware: no hay una; E1.2 solo con puertos falsos | — |
 
 ## Fuera de esta fase
 Purga escalonada, eventos Win32, `--doctor`, eGPU/PCIe/HAL (E2 a E4, ver [`16-fase-e2-e4.md`](16-fase-e2-e4.md)).
