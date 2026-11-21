@@ -63,3 +63,6 @@ docs/estado.md
 
 # Release packages
 dist/
+
+# Local MCP servers (machine-specific paths)
+.mcp.json

@@ -9,6 +9,7 @@ namespace vegaflow::app {
 struct CliOptions {
     bool status_flag = false;
     bool dry_run_flag = false;
+    bool observe_flag = false; // --observe: open without any automatic change (same as safe mode); for looking at the GUI
     bool once_flag = false;
     bool elevate_flag = false;
     bool purge_now_flag = false;

@@ -22,17 +22,22 @@
 #include "session/reports.hpp"
 #include "session/run_cycle.hpp"
 #include "ui/app_identity.hpp"
+#include "windows/command_line.hpp"
 #include "windows/text_convert.hpp"
 
 namespace vegaflow::app {
 
 std::optional<int> ParseCommandLine(int argc, char* argv[], CliOptions& opts) {
+    // A path value must be there and must not be the next option (--dxvk-install --dry-run lost the simulation).
+    auto has_value = [&](int i) { return i + 1 < argc && argv[i + 1][0] != '\0' && argv[i + 1][0] != '-'; };
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
         if (arg == "--status" || arg == "-s") {
             opts.status_flag = true;
         } else if (arg == "--dry-run" || arg == "-d") {
             opts.dry_run_flag = true;
+        } else if (arg == "--observe") {
+            opts.observe_flag = true;
         } else if (arg == "--once" || arg == "-1") {
             opts.once_flag = true;
         } else if (arg == "--elevate" || arg == "-e") {
@@ -65,9 +70,9 @@ std::optional<int> ParseCommandLine(int argc, char* argv[], CliOptions& opts) {
             opts.recover_flag = true;
         } else if (arg == "--create-restore-point") {
             opts.create_restore_point_flag = true;
-        } else if (arg == "--dxvk-install" && i + 1 < argc) {
+        } else if (arg == "--dxvk-install" && has_value(i)) {
             opts.dxvk_install_path = argv[++i];
-        } else if (arg == "--dxvk-remove" && i + 1 < argc) {
+        } else if (arg == "--dxvk-remove" && has_value(i)) {
             opts.dxvk_remove_path = argv[++i];
         } else if (arg == "--monitor" || arg == "-m") {
             opts.monitor_flag = true;
@@ -96,18 +101,23 @@ std::optional<int> ParseCommandLine(int argc, char* argv[], CliOptions& opts) {
             std::cout << "  --apu-gpu-priority       Activate APU thermal & power profile with sustained GPU priority (CPU ceiling from the tier policy).\n";
             std::cout << "  --apu-balanced           Restore standard Windows balanced APU power profile.\n";
             std::cout << "  --vram-override          Override AMD VRAM reporting to 4096 MB in DXGI and AMD driver.\n";
-            std::cout << "  --vram-restore           Restore AMD VRAM reporting to driver default (512 MB).\n";
+            std::cout << "  --vram-restore           Put back the AMD VRAM reporting VegaFlow saved (nothing to put back: no change).\n";
             std::cout << "  --restore-registry       Restore all pending journal entries and VegaFlow registry backups.\n";
             std::cout << "  --recover                Alias for --restore-registry (recovers pending changes after crash).\n";
             std::cout << "  --create-restore-point   Attempt to create a Windows System Restore Point now.\n";
             std::cout << "  --dxvk-install <path>    Deploy DXVK (DirectX 11 to Vulkan with async GPL) to target game folder.\n";
             std::cout << "  --dxvk-remove <path>     Remove DXVK and restore original DirectX 11 runtime.\n";
             std::cout << "  --monitor, -m            Real-time console dashboard displaying live RAM and VRAM telemetry.\n";
+            std::cout << "  --observe                With --gui: no automatic changes and no restore-point offer (safe mode on demand).\n";
             std::cout << "  --gui, -g                Launch native zero-overhead Win32/GDI dashboard with system tray support.\n";
             std::cout << "  --system-info            Output complete hardware, APU UMA, RAM topology, and OS specs in JSON format.\n";
             std::cout << "  --version                Print the version and exit.\n";
             std::cout << "  --help, -h               Display this help menu.\n";
             return 0;
+        } else {
+            // A mistyped option (--dryrun) must not fall through to the real daemon.
+            std::cerr << "[ERROR] Unknown option or missing value: " << arg << " (see --help)\n";
+            return 2;
         }
     }
 
@@ -130,19 +140,9 @@ std::optional<int> RunOneShotCommand(const CliOptions& opts, int argc, char* arg
 
     // If not running as Administrator and not a simulated run (--dry-run),
     // relaunch immediately with elevated privileges via UAC (runas) to open natively as Administrator.
+    auto forwarded_args = [&]() { return vegaflow::BuildForwardedArgs(argc, argv); };
     if (!opts.dry_run_flag && !opts.status_flag && !vegaflow::PrivilegeManager::IsProcessElevated()) {
-        std::wstring forward_args;
-        for (int j = 1; j < argc; ++j) {
-            std::string a = argv[j];
-            if (a != "--elevate" && a != "-e") {
-                if (!forward_args.empty()) forward_args += L" ";
-                if (a.find(' ') != std::string::npos) {
-                    forward_args += L"\"" + Utf8ToWide(a) + L"\"";
-                } else {
-                    forward_args += Utf8ToWide(a);
-                }
-            }
-        }
+        std::wstring forward_args = forwarded_args();
         if (forward_args.empty()) {
             forward_args = L"--gui";
         }
@@ -154,15 +154,7 @@ std::optional<int> RunOneShotCommand(const CliOptions& opts, int argc, char* arg
     if (opts.elevate_flag) {
         if (!vegaflow::PrivilegeManager::IsProcessElevated()) {
             std::cout << "[INFO] Requesting UAC Administrator elevation for VegaFlow...\n";
-            std::wstring forward_args;
-            for (int j = 1; j < argc; ++j) {
-                std::string a = argv[j];
-                if (a != "--elevate" && a != "-e") {
-                    if (!forward_args.empty()) forward_args += L" ";
-                    forward_args += Utf8ToWide(a);
-                }
-            }
-            bool ok = vegaflow::PrivilegeManager::RelaunchAsAdmin(forward_args, opts.dry_run_flag);
+            bool ok = vegaflow::PrivilegeManager::RelaunchAsAdmin(forwarded_args(), opts.dry_run_flag);
             if (ok) {
                 std::cout << "[INFO] Elevated instance launched. Terminating standard process.\n";
                 return 0;
@@ -175,7 +167,7 @@ std::optional<int> RunOneShotCommand(const CliOptions& opts, int argc, char* arg
             if (!opts.gui_flag && !opts.status_flag && !opts.purge_now_flag && !opts.monitor_flag && !opts.mpo_disable_flag && !opts.mpo_restore_flag
                 && !opts.shader_cache_force_flag && !opts.shader_cache_default_flag && !opts.mem_compression_off_flag && !opts.mem_compression_on_flag
                 && !opts.apu_gpu_priority_flag && !opts.apu_balanced_flag && !opts.vram_override_flag && !opts.vram_restore_flag && !opts.restore_registry_flag
-                && !opts.recover_flag && !opts.create_restore_point_flag && !opts.once_flag
+                && !opts.recover_flag && !opts.create_restore_point_flag && !opts.once_flag && !opts.dry_run_flag && !opts.observe_flag
                 && opts.dxvk_install_path.empty() && opts.dxvk_remove_path.empty()) {
                 return 0;
             }
@@ -262,7 +254,7 @@ std::optional<int> RunOneShotCommand(const CliOptions& opts, int argc, char* arg
         vegaflow::GraphicsOptimizer gfx(hw, pol, reg, &power);
         bool ok = gfx.AmdDriver() && gfx.AmdDriver()->RestoreVramReporting(opts.dry_run_flag);
         std::cout << "[AMD VRAM] RestoreAmdVramReporting() " << (opts.dry_run_flag ? "[DRY-RUN] " : "")
-                  << (ok ? "SUCCEEDED. VRAM reporting restored to driver default (512 MB)." : (gfx.AmdDriver() ? "FAILED. Administrator privileges required." : "SKIPPED. GPU is not AMD or driver tweaks blocked.")) << "\n";
+                  << (ok ? "SUCCEEDED. VRAM reporting put back as VegaFlow saved it." : (gfx.AmdDriver() ? "FAILED. VegaFlow has no saved value to put back (or administrator privileges are missing)." : "SKIPPED. GPU is not AMD or driver tweaks blocked.")) << "\n";
         return ok ? 0 : 1;
     }
 

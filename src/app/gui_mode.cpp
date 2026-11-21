@@ -22,10 +22,16 @@
 #include "windows/registry.hpp"
 #include "bridge/rust_bridge.h"
 #include "session/system_info.hpp"
+#include "session/config_screen.hpp"
+#include "session/history_screen.hpp"
+#include "session/programs_screen.hpp"
 #include "session/restore.hpp"
 #include <filesystem>
 #include "app/app_state.hpp"
 #include "session/config.hpp"
+#include "session/config_actions.hpp"
+#include "session/game_actions.hpp"
+#include "session/settings_actions.hpp"
 #include "session/reports.hpp"
 #include "session/run_cycle.hpp"
 #include "windows/system_counters.hpp"
@@ -43,7 +49,7 @@ int RunGuiMode(
     const std::string& journal_warning) {
     using namespace vegaflow;
     // Built once from the boot profile, the same way each optimizer used to rebuild it on every call.
-    const ApuOptimizationPolicy policy = HardwareProfiler::BuildOptimizationPolicy(hw);
+    ApuOptimizationPolicy policy = HardwareProfiler::BuildOptimizationPolicy(hw);
     SafeFileSystem file_system;
     WindowsRegistryPort reg;
     WindowsPowerPort power;
@@ -57,7 +63,8 @@ int RunGuiMode(
     std::string active_game_api;
     HWND active_game_hwnd = nullptr;
     if (!safe_mode) {
-        gfx.Display().SetGameDvrAndFseOptimized(true, false);
+        gfx.DxgiFlip().MigrateLegacyPreferences(false);
+        gfx.Display().SetGameDvrCaptureDisabled(true, false);
         if (gfx.PowerMode()) {
             gfx.PowerMode()->SetApuLaptopPowerProfile(true, policy, false);
         }
@@ -70,23 +77,13 @@ int RunGuiMode(
         ? "MODO SEGURO: 2+ cierres anormales seguidos. Sin cambios automáticos."
         : "VegaFlow GUI Inicializada";
 
-    std::vector<std::string> audit_log;
     auto AddAuditLog = [&](const std::string& msg) {
-        SYSTEMTIME st;
-        GetLocalTime(&st);
-        char buf[32];
-        std::snprintf(buf, sizeof(buf), "[%02d:%02d:%02d] ", st.wHour, st.wMinute, st.wSecond);
-        audit_log.push_back(std::string(buf) + msg);
-        if (audit_log.size() > 200) {
-            audit_log.erase(audit_log.begin());
-        }
         if (ChangeJournal* j = GetActiveChangeJournal()) {
             j->RecordAuditEvent("GUI", msg, "");
         }
     };
     if (!journal_warning.empty()) {
         last_gui_status = journal_warning;
-        audit_log.push_back(journal_warning);
     }
     if (const std::string warning = config_store.Report().Warning(); !warning.empty()) {
         last_gui_status = warning;
@@ -113,14 +110,41 @@ int RunGuiMode(
     std::vector<SteamGameEntry> cached_steam_games = SteamEngineOptimizer::ScanSteamLibrary();
     SyncSteamGamesToCustomExes(cached_steam_games, config);
 
+    // What the Juegos buttons do lives in session/game_actions; the scan and the folder read are handed in because they touch Windows.
+    session::GameActions game_actions(session::GameActionsDeps{
+        steam, dxvk, config, config_store, cached_steam_games, policy,
+        []() {
+            auto games = SteamEngineOptimizer::ScanSteamLibrary();
+            SandboxGuard::ReloadSteamLibraryFolders(); // a library added in Steam becomes writable without a restart
+            return games;
+        },
+        [](const SteamGameEntry& g) { return SteamEngineOptimizer::InspectGameDirectory(g.install_dir, g.app_id, g.name); },
+        [&](const std::string& line) { AddAuditLog(line); }});
+    session::SettingsActions settings_actions(session::SettingsActionsDeps{
+        gfx, policy,
+        [&]() { return HardwareProfiler::BuildOptimizationPolicy(hw, mem_mgr.SampleTelemetry().vram.local_budget_bytes); },
+        [&](const std::string& line) { AddAuditLog(line); }});
+    bool flags_seen_game_active = false;
+
     GuiCallbacks callbacks;
     callbacks.on_PollTelemetry = [&]() -> GuiDashboardData {
         std::function<void(const std::string&)> audit_fn = AddAuditLog;
         if (!safe_mode) {
+            const uint64_t prev_sig = hw.adapter_signature;
+            const uint8_t prev_pref = hw.user_gpu_pref;
             RunSingleIteration(
                 config, file_system, hw, cpu_orchestrator, mem_mgr,
                 game_active, active_game_pid, active_game_exe, active_game_api, active_game_hwnd,
                 &active_game_full_path, &cached_noisy_count, &audit_fn);
+            // The iteration re-reads the hardware when the adapters change; the tweaks, telemetry and screens follow it.
+            if (hw.adapter_signature != prev_sig || hw.user_gpu_pref != prev_pref) {
+                policy = HardwareProfiler::BuildOptimizationPolicy(hw);
+                gfx.Rebind(hw, policy);
+                mem_mgr.SetTargetLuid(hw.primary_gpu.luid);
+                game_actions.SetPolicy(policy);
+                settings_actions.SetPolicy(policy);
+                cached_tweaks = gfx.QuerySystemGraphicsTweaks();
+            }
         }
 
         if (!game_active) {
@@ -152,6 +176,13 @@ int RunGuiMode(
             }
         }
 
+        // The daemon part of this process writes game files when a game opens, so the flags of that one game are read again
+        // then (closing writes nothing, and reading the whole library on the GUI thread would freeze it).
+        if (game_active != flags_seen_game_active) {
+            flags_seen_game_active = game_active;
+            if (game_active && running_steam_appid != 0) game_actions.RefreshFlags(running_steam_appid);
+        }
+
         auto mem_sample = mem_mgr.SampleTelemetry();
         if (!game_active) {
             const ApuOptimizationPolicy idle_policy = HardwareProfiler::BuildOptimizationPolicy(hw, mem_sample.vram.local_budget_bytes);
@@ -174,6 +205,12 @@ int RunGuiMode(
             : "No se pudo leer";
         data.physical_cores = hw.cpu_topology.physical_cores;
         data.logical_processors = hw.cpu_topology.logical_processors;
+        data.restrict_game_cpu_sets = config.restrict_game_cpu_sets;
+        {
+            auto ordered = hw.cpu_topology.all_cpu_sets;
+            std::sort(ordered.begin(), ordered.end(), [](const CpuCoreSetInfo& x, const CpuCoreSetInfo& y) { return x.group != y.group ? x.group < y.group : x.logical_processor_index < y.logical_processor_index; });
+            for (const auto& c : ordered) data.cpu_sets.push_back({c.cpu_set_id, c.core_index, c.group});
+        }
         data.game_cpu_sets.assign(hw.cpu_topology.game_optimal_cpu_set_ids.begin(), hw.cpu_topology.game_optimal_cpu_set_ids.end());
         data.background_cpu_sets.assign(hw.cpu_topology.background_cpu_set_ids.begin(), hw.cpu_topology.background_cpu_set_ids.end());
 
@@ -223,52 +260,28 @@ int RunGuiMode(
         data.active_game_pid = active_game_pid;
 
         // Modern suite for 3D games (EcoQoS, I/O hierarchy and DirectFlip)
-        data.ecoqos_processes_count = game_active
-            ? std::max(last_isolated_count, cpu_orchestrator.GetThrottledBackgroundCount())
-            : CountEcoQoSProcesses();
+        data.ecoqos_processes_count = game_active ? cpu_orchestrator.GetThrottledBackgroundCount() : CountEcoQoSProcesses();
         data.io_priority_active = game_active;
         data.directflip_active = game_active
-            ? (gfx.DxgiFlip().HasDirectFlipUpgrade(active_game_full_path) || gfx.DxgiFlip().HasDirectFlipUpgrade(active_game_exe))
+            ? (gfx.DxgiFlip().HasFlipModelUpgrade(active_game_full_path) || gfx.DxgiFlip().HasFlipModelUpgrade(active_game_exe))
             : (CountDirectFlipConfiguredGames() > 0);
 
         data.daemon_private_ws_kb = daemon_ws / 1024;
         data.last_action_status = last_gui_status;
-        if (ChangeJournal* j = GetActiveChangeJournal()) {
-            data.audit_log = vegaflow::session::FormatJournalHistory(*j, 150);
-            if (data.audit_log.empty()) {
-                data.audit_log = audit_log;
-            }
-        } else {
-            data.audit_log = audit_log;
-        }
 
         data.running_steam_app_id = running_steam_appid;
         data.active_game_engine = active_game_engine;
-        data.steam_games.clear();
-        data.steam_games.reserve(cached_steam_games.size());
-        for (const auto& sg : cached_steam_games) {
-            GuiSteamGameItem item;
-            item.app_id = sg.app_id;
-            item.name = sg.name;
-            item.exe_name = WideToUtf8(std::filesystem::path(sg.primary_exe_path).filename().wstring());
-            if (item.exe_name.empty()) {
-                item.exe_name = "N/A";
-            }
-            item.engine_name = SteamEngineOptimizer::EngineTypeToString(sg.engine);
-            item.has_anticheat = sg.has_anticheat;
-            item.engine_preset_applied = sg.engine_preset_applied;
-            item.flip_model_applied = sg.flip_model_applied;
-            item.dxvk_installed = sg.dxvk_installed;
-            data.steam_games.push_back(std::move(item));
-        }
+        data.has_steam_games = !cached_steam_games.empty();
 
-        data.system_info = SystemInfo::FromHardware(hw, true);
+        data.system_info = SystemInfo::FromHardware(hw, mem_sample, cached_tweaks);
         data.sandbox_violations = SandboxGuard::GetViolationCount();
         data.sandbox_guard_active = true;
 
         data.dxgi_pressure_ratio = mem_mgr.GetLastDxgiPressureRatio();
         data.dxgi_pressure_threshold = vf_rust_vram_pressure_threshold();
         data.uma_guard_interventions = mem_mgr.GetUmaGuardInterventionsCount();
+        data.automatic = !safe_mode;
+        data.uma_guard_enabled = policy.apply_uma_memory_guard && !safe_mode;
         data.uma_guard_triggered_live = mem_mgr.IsUmaGuardCurrentlyTriggered();
 
         return data;
@@ -285,138 +298,75 @@ int RunGuiMode(
         return rep.status_message;
     };
 
-    callbacks.on_ToggleMpo = [&]() -> std::string {
-        auto cur = gfx.QuerySystemGraphicsTweaks();
-        bool target = !cur.mpo_disabled;
-        bool ok = gfx.Display().SetMpoDisabled(target, false);
-        tweaks_query_countdown = 0;
-        std::string msg = ok ? (target ? "MPO Desactivado (OverlayTestMode=5, no documentado)" : "MPO Restaurado a Default (OverlayTestMode=0)") : "Fallo al modificar MPO (Requiere Administrador)";
-        last_gui_status = msg;
-        AddAuditLog("Ajuste DWM MPO: " + msg);
-        return msg;
-    };
-
-    callbacks.on_RequestElevate = [&]() -> bool {
-        AddAuditLog("Solicitud de elevación UAC enviada...");
-        if (g_single_instance_mutex) {
-            CloseHandle(g_single_instance_mutex);
-            g_single_instance_mutex = nullptr;
+    callbacks.on_PollSettings = [&]() -> SettingsScreenInputs {
+        SettingsScreenInputs in;
+        in.device.vendor = hw.primary_gpu.vendor;
+        in.device.connection = hw.primary_gpu.connection;
+        in.device.driver_tweaks_allowed = !policy.block_driver_tweaks;
+        if (tweaks_query_countdown <= 0) { // a switch click sets this to 0 so the next read is fresh; otherwise the telemetry cadence rules
+            cached_tweaks = gfx.QuerySystemGraphicsTweaks();
+            tweaks_query_countdown = 10;
         }
-        bool ok = PrivilegeManager::RelaunchAsAdmin(L"--gui");
-        if (!ok) {
-            g_single_instance_mutex = CreateMutexW(nullptr, FALSE, L"Local\\VegaFlowUniversal_SingleInstance");
+        in.tweaks = cached_tweaks;
+        in.memory_guard_active = policy.apply_uma_memory_guard && !safe_mode;
+        return in;
+    };
+
+    auto say = [&](const std::string& msg) {
+        last_gui_status = msg; // the telemetry poll copies this into the status bar, so every answer goes through it
+        return msg;
+    };
+    // The switches live in session/settings_actions; the screen re-reads the system state after each one.
+    auto setting_said = [&](const std::string& msg) {
+        tweaks_query_countdown = 0;
+        return say(msg);
+    };
+    callbacks.on_SetSetting = [&](const std::string& id, bool turn_on) { return setting_said(settings_actions.Set(id, turn_on)); };
+    callbacks.on_ToggleMpo = [&]() { return setting_said(settings_actions.ToggleMpo()); };
+    callbacks.on_ToggleMemCompression = [&]() { return setting_said(settings_actions.ToggleMemCompression()); };
+    callbacks.on_ToggleShaderCache = [&]() { return setting_said(settings_actions.ToggleShaderCache()); };
+    callbacks.on_ToggleVramOverride = [&]() { return setting_said(settings_actions.ToggleVramOverride()); };
+    callbacks.on_ToggleMmcssGaming = [&]() { return setting_said(settings_actions.ToggleMmcssGaming()); };
+    callbacks.on_ToggleApuPowerMode = [&]() { return setting_said(settings_actions.ToggleApuPowerMode()); };
+
+    // Rebuilt only when the journal moved: the Historial tab polls this every telemetry tick.
+    std::optional<std::pair<ChangeJournal*, uint64_t>> history_seen;
+    session::HistoryScreenModel history_cache;
+    callbacks.on_PollHistory = [&]() -> session::HistoryScreenModel {
+        ChangeJournal* j = GetActiveChangeJournal();
+        const std::pair<ChangeJournal*, uint64_t> now{j, j ? j->Revision() : 0};
+        if (history_seen != now) {
+            history_cache = j ? session::BuildHistoryScreen(j->Entries()) : session::BuildHistoryScreen({});
+            history_seen = now;
         }
-        return ok;
+        return history_cache;
     };
 
-    callbacks.on_ToggleMemCompression = [&]() -> std::string {
-        auto cur = gfx.QuerySystemGraphicsTweaks();
-        bool target = !cur.memory_compression_enabled;
-        bool ok = gfx.KernelScheduler().SetMemoryCompressionEnabled(target, false);
+    callbacks.on_UndoChange = [&](uint64_t journal_id) -> std::string {
+        ChangeJournal* j = GetActiveChangeJournal();
+        if (!j) return "No hay historial de cambios en esta sesión.";
+        WindowsSystemUndo undo(file_system);
+        const auto res = session::UndoOneChange(*j, undo, journal_id);
         tweaks_query_countdown = 0;
-        std::string msg = ok ? (target ? "Compresión de Memoria Habilitada" : "Compresión de Memoria Deshabilitada") : "Fallo al cambiar compresión (Requiere Administrador)";
-        last_gui_status = msg;
-        AddAuditLog("Ajuste Windows MMAgent: " + msg);
-        return msg;
+        last_gui_status = res.message;
+        AddAuditLog("Historial: " + res.message);
+        return res.message;
     };
 
-    callbacks.on_ToggleShaderCache = [&]() -> std::string {
-        if (!gfx.AmdDriver()) {
-            std::string msg = "Ajuste de ShaderCache AMD no disponible en esta GPU";
-            last_gui_status = msg;
-            return msg;
-        }
-        auto cur = gfx.QuerySystemGraphicsTweaks();
-        bool target = !cur.amd_shader_cache_forced;
-        bool ok = gfx.AmdDriver()->SetShaderCacheForced(target, policy, false);
-        tweaks_query_countdown = 0;
-        std::string msg = ok ? (target ? "ShaderCache AMD 0x3200 forzada (SurfaceFormat + FlipQueue=1)" : "AMD ShaderCache restaurada al valor del driver") : "Fallo al cambiar ShaderCache (Requiere Administrador)";
-        last_gui_status = msg;
-        AddAuditLog("Ajuste AMD ShaderCache: " + msg);
-        return msg;
-    };
+    callbacks.on_PollConfig = [&]() -> session::ConfigScreenModel { return session::BuildConfigScreen(config); };
 
-    callbacks.on_ToggleVramOverride = [&]() -> std::string {
-        if (!gfx.AmdDriver()) {
-            std::string msg = "Ajuste VRAM Reporting AMD no disponible en esta GPU";
-            last_gui_status = msg;
-            return msg;
-        }
-        ApuOptimizationPolicy pol = HardwareProfiler::BuildOptimizationPolicy(hw, mem_mgr.SampleTelemetry().vram.local_budget_bytes);
-        auto cur = gfx.QuerySystemGraphicsTweaks();
-        bool target = !cur.amd_vram_override_active;
-        bool ok = target ? gfx.AmdDriver()->ApplyVramReportingOverride(pol.safe_vram_pool_mb, false)
-                         : gfx.AmdDriver()->RestoreVramReporting(false);
-        tweaks_query_countdown = 0;
-        std::string msg = ok ? (target ? ("Sobrescritura VRAM UMA (" + std::to_string(pol.safe_vram_pool_mb) + " MB DXGI/AMD) Activada (Pool Size = " + std::to_string(pol.safe_vram_pool_mb) + " MB)")
-                                       : "Reporte de VRAM restaurado a valores por defecto (512 MB)")
-                             : "Fallo al modificar reporte de VRAM (Requiere Administrador)";
-        last_gui_status = msg;
-        AddAuditLog("Ajuste VRAM Reporting: " + msg);
-        return msg;
-    };
-
-    callbacks.on_ToggleMmcssGaming = [&]() -> std::string {
-        auto cur = gfx.QuerySystemGraphicsTweaks();
-        bool target = !cur.mmcss_gaming_optimized;
-        bool ok = gfx.Mmcss().SetGamingProfileOptimized(target, false);
-        if (ok) {
-            gfx.KernelScheduler().SetDynamicPrioritySeparation(target ? 0x26 : 0x02, false);
-        }
-        tweaks_query_countdown = 0;
-        std::string msg = ok
-            ? (target ? "Planificador MMCSS Gaming + Quantum CPU (0x26) Activado" : "Planificador MMCSS y Quantum CPU restaurados a Stock Windows")
-            : "Fallo al optimizar MMCSS/Quantum (Requiere Administrador)";
-        last_gui_status = msg;
-        AddAuditLog("Ajuste Kernel MMCSS/Quantum: " + msg);
-        return msg;
-    };
-
-    callbacks.on_ToggleApuPowerMode = [&]() -> std::string {
-        if (!gfx.PowerMode()) {
-            std::string msg = "Modo de energía APU no disponible para la política actual";
-            last_gui_status = msg;
-            return msg;
-        }
-        ApuOptimizationPolicy pol = HardwareProfiler::BuildOptimizationPolicy(hw, mem_mgr.SampleTelemetry().vram.local_budget_bytes);
-        auto cur = gfx.QuerySystemGraphicsTweaks();
-        bool target_prio = !cur.apu_power_optimized;
-        bool ok = gfx.PowerMode()->SetApuPowerMode(
-            target_prio ? ApuPowerMode::GpuPrioritySustained : ApuPowerMode::Balanced,
-            policy,
-            false
-        );
-        tweaks_query_countdown = 0;
-        std::string ceiling_str = (pol.cpu_stapm_cap_mhz == 0)
-            ? "Control Térmico APU: perfil sin tope activado (Efficient-Aggressive + EPP 25)"
-            : ("Control Térmico APU: Modo GPU-Priority Activado (" + std::to_string(pol.cpu_stapm_cap_mhz) + " MHz de techo)");
-        std::string msg = ok
-            ? (target_prio
-                ? ceiling_str
-                : "Control Térmico APU: Perfil Balanceado Estándar Restaurado")
-            : "Fallo al alternar modo de energía APU";
-        last_gui_status = msg;
-        AddAuditLog(msg);
-        return msg;
-    };
-
-    callbacks.on_ApplyAllGamingTweaks = [&]() -> std::string {
-        ApuOptimizationPolicy pol = HardwareProfiler::BuildOptimizationPolicy(hw, mem_mgr.SampleTelemetry().vram.local_budget_bytes);
-        bool ok_mmcss = gfx.Mmcss().ApplyTaskTweaks(false);
-        bool ok_ram = MemoryManager::PurgeStandbyList(false);
-        bool ok_vram = (pol.apply_uma_vram_reg_override && gfx.AmdDriver())
-            ? gfx.AmdDriver()->ApplyVramReportingOverride(pol.safe_vram_pool_mb, false)
-            : false;
-        tweaks_query_countdown = 0;
-
-        (void)ok_mmcss; (void)ok_ram; (void)ok_vram;
-
-        std::string msg = "Combo Gaming aplicado: MMCSS, Purga RAM" +
-            std::string(ok_vram ? (", VRAM " + std::to_string(pol.safe_vram_pool_mb) + "MB.") : ".");
-        last_gui_status = msg;
-        AddAuditLog(msg);
-        return msg;
-    };
+    // Configuración and Programas edits live in session/config_actions: `config` follows only when config.json was written.
+    session::ConfigActions config_actions(config, config_store, cached_steam_games, [&](const std::string& line) { AddAuditLog(line); });
+    callbacks.on_SetConfigNumber = [&](const std::string& id, const std::string& text) { return say(config_actions.SetNumber(id, text)); };
+    callbacks.on_SetConfigToggle = [&](const std::string& id, bool on) { return say(config_actions.SetToggle(id, on)); };
+    callbacks.on_ResetConfig = [&]() { return say(config_actions.Reset()); };
+    callbacks.on_PollPrograms = [&]() -> session::ProgramsScreenModel { return session::BuildProgramsScreen(config); };
+    callbacks.on_SetCategoryAction = [&](const std::string& id, int action) { return say(config_actions.SetCategoryAction(id, action)); };
+    callbacks.on_AddException = [&](const std::string& exe) { return say(config_actions.AddException(exe)); };
+    callbacks.on_SetExceptionAction = [&](const std::string& exe, int action) { return say(config_actions.SetExceptionAction(exe, action)); };
+    callbacks.on_RemoveException = [&](const std::string& exe) { return say(config_actions.RemoveException(exe)); };
+    callbacks.on_AddManualGame = [&](const std::string& exe) { return say(config_actions.AddManualGame(exe)); };
+    callbacks.on_RemoveManualGame = [&](const std::string& exe) { return say(config_actions.RemoveManualGame(exe)); };
 
     callbacks.on_IsolateBackgroundNow = [&]() -> std::string {
         auto noisy = ProcessDetector::FindBackgroundNoisyProcesses(active_game_pid);
@@ -443,122 +393,34 @@ int RunGuiMode(
         return msg;
     };
 
+    callbacks.on_NoteStatus = [&](const std::string& s) { last_gui_status = s; };
     callbacks.on_RestoreAllDefaults = [&]() -> std::string {
         RestoreReport rep{};
         if (ChangeJournal* j = GetActiveChangeJournal()) {
             WindowsSystemUndo undo(file_system);
             rep = vegaflow::session::RestoreAllRecordedChanges(*j, undo, false);
         }
-        gfx.Display().SetMpoDisabled(false, false);
-        if (gfx.AmdDriver()) {
-            gfx.AmdDriver()->SetShaderCacheForced(false, policy, false);
-            gfx.AmdDriver()->SetTessellationCap(64, false);
-            gfx.AmdDriver()->RestoreVramReporting(false);
-        }
-        gfx.KernelScheduler().SetMemoryCompressionEnabled(true, false);
-        gfx.Mmcss().SetGamingProfileOptimized(false, false);
-        gfx.Display().SetGameDvrAndFseOptimized(false, false);
-        if (gfx.PowerMode()) {
-            gfx.PowerMode()->SetApuLaptopPowerProfile(false, policy, false);
-        }
-        gfx.KernelScheduler().SetDynamicPrioritySeparation(0x02, false);
-        gfx.KernelScheduler().SetKernelMemoryPagingShield(false, false);
         size_t reg_rev = 0, reg_tot = 0;
-        gfx.RestoreAllRegistryBackups(&reg_rev, &reg_tot);
+        settings_actions.ResetAll(&reg_rev, &reg_tot);
         tweaks_query_countdown = 0;
         cpu_orchestrator.RestoreAll(false);
         last_isolated_count = 0;
         safe_mode = false;
 
-        std::string msg;
-        if (rep.total_count > 0) {
-            msg = rep.summary_message;
-        } else if (reg_tot > 0) {
-            msg = "Se devolvieron " + std::to_string(reg_rev) + " de " + std::to_string(reg_tot) + ".";
-        } else {
-            msg = "Se devolvieron 0 de 0 (ajustes en valores originales de Windows).";
-        }
+        std::string msg = session::RestoreAllMessage(rep, reg_rev, reg_tot);
         SaveSettings(msg);
         last_gui_status = msg;
         AddAuditLog(msg);
         return msg;
     };
 
-    callbacks.on_RescanSteamLibrary = [&]() -> std::string {
-        cached_steam_games = SteamEngineOptimizer::ScanSteamLibrary();
-        SandboxGuard::ReloadSteamLibraryFolders(); // a library added in Steam becomes writable without a restart
-        SyncSteamGamesToCustomExes(cached_steam_games, config);
-        std::string msg = "Biblioteca Steam re-escaneada: " + std::to_string(cached_steam_games.size()) + " juegos detectados";
-        last_gui_status = msg;
-        AddAuditLog(msg);
-        return msg;
-    };
-
-    callbacks.on_ApplyGameEnginePreset = [&](uint32_t app_id) -> std::string {
-        const ApuOptimizationPolicy static_pol = HardwareProfiler::BuildOptimizationPolicy(hw);
-        const uint32_t pool_mb = static_pol.safe_vram_pool_mb;
-        for (auto& sg : cached_steam_games) {
-            if (sg.app_id == app_id) {
-                auto rep = steam.ApplyEngineUmaPreset(sg, static_pol, pool_mb, false);
-                if (rep.success) {
-                    sg.engine_preset_applied = true;
-                    sg.flip_model_applied = true;
-                }
-                last_gui_status = rep.status_message;
-                AddAuditLog(rep.status_message);
-                return rep.status_message;
-            }
-        }
-        std::string msg = "Error: AppID " + std::to_string(app_id) + " no encontrado en la biblioteca de Steam";
-        last_gui_status = msg;
-        AddAuditLog(msg);
-        return msg;
-    };
-
-    callbacks.on_RestoreGameEngineConfig = [&](uint32_t app_id) -> std::string {
-        for (auto& sg : cached_steam_games) {
-            if (sg.app_id == app_id) {
-                auto rep = steam.RestoreEngineOriginalConfig(sg, false);
-                if (rep.success) {
-                    sg.engine_preset_applied = false;
-                }
-                last_gui_status = rep.status_message;
-                AddAuditLog(rep.status_message);
-                return rep.status_message;
-            }
-        }
-        std::string msg = "Error: AppID " + std::to_string(app_id) + " no encontrado en la biblioteca de Steam";
-        last_gui_status = msg;
-        AddAuditLog(msg);
-        return msg;
-    };
-
-    callbacks.on_ToggleGameDxvk = [&](uint32_t app_id) -> std::string {
-        const ApuOptimizationPolicy static_pol = HardwareProfiler::BuildOptimizationPolicy(hw);
-        for (auto& sg : cached_steam_games) {
-            if (sg.app_id == app_id) {
-                std::string msg;
-                if (sg.dxvk_installed) {
-                    bool ok = dxvk.RemoveDxvk(sg.primary_exe_path, false, &msg);
-                    if (ok) {
-                        sg.dxvk_installed = false;
-                    }
-                } else {
-                    bool ok = dxvk.DeployDxvk(sg.primary_exe_path, static_pol, sg.has_anticheat, true, false, &msg);
-                    if (ok) {
-                        sg.dxvk_installed = true;
-                    }
-                }
-                last_gui_status = msg;
-                AddAuditLog(msg);
-                return msg;
-            }
-        }
-        std::string msg = "Error: AppID " + std::to_string(app_id) + " no encontrado en la biblioteca de Steam";
-        last_gui_status = msg;
-        AddAuditLog(msg);
-        return msg;
-    };
+    callbacks.on_RescanSteamLibrary = [&]() { return say(game_actions.Rescan()); };
+    callbacks.on_ApplyGameEnginePreset = [&](uint32_t app_id) { return say(game_actions.Apply(app_id)); };
+    callbacks.on_RestoreGameEngineConfig = [&](uint32_t app_id) { return say(game_actions.Restore(app_id)); };
+    callbacks.on_PollGames = [&]() { return game_actions.Poll(); };
+    callbacks.on_ExcludeGame = [&](uint32_t app_id) { return say(game_actions.Exclude(app_id)); };
+    callbacks.on_IncludeGame = [&](uint32_t app_id) { return say(game_actions.Include(app_id)); };
+    callbacks.on_ToggleGameDxvk = [&](uint32_t app_id) { return say(game_actions.ToggleDxvk(app_id)); };
 
     int exit_code = GuiWindow::RunGuiLoop(callbacks);
     if (!safe_mode) {
@@ -570,7 +432,7 @@ int RunGuiMode(
         if (gfx.PowerMode() && gfx.PowerMode()->IsApuPowerModeApplied()) {
             gfx.PowerMode()->SetApuLaptopPowerProfile(false, policy, false);
         }
-        gfx.Display().SetGameDvrAndFseOptimized(false, false);
+        gfx.Display().SetGameDvrCaptureDisabled(false, false);
         gfx.RestoreAllRegistryBackups();
     }
     if (g_single_instance_mutex) {

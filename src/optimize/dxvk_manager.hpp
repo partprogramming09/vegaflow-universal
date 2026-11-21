@@ -42,6 +42,11 @@ public:
         bool dry_run = false,
         std::string* out_message = nullptr);
 
+    // A dxvk.conf the user already had is kept as dxvk.conf.vegaflow.bak before ours replaces it, and put back when DXVK
+    // is removed. The backup is made once: a later deploy never overwrites it. false = the copy failed, change nothing.
+    static bool BackupUserDxvkConf(FileSystem& fs, const std::wstring& conf_path, bool anticheat_protected);
+    static bool RestoreUserDxvkConf(FileSystem& fs, const std::wstring& conf_path);
+
     // Returns the existing absolute path of assets/dxvk/dxvk-2.5.3
     static std::wstring GetDxvkAssetsPath();
 

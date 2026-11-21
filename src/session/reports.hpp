@@ -18,4 +18,7 @@ void PrintStatusReport();
 void ExecutePurgeNow(bool dry_run);
 void ExecuteDryRun(const AppConfig& config);
 
+// The [KPI] line: the daemon's private working set against the 15 MB budget, "passed" only when it is under it.
+std::string MemoryKpiLine(uint64_t private_ws_bytes);
+
 } // namespace vegaflow::app

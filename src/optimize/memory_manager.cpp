@@ -22,7 +22,7 @@ MemoryManager::MemoryManager(
     : config_(config), clock_(clock), probe_(probe), control_(control) {}
 
 SystemMemoryTelemetry MemoryManager::SampleTelemetry() const {
-    return probe_.SampleSystemMemory();
+    return probe_.SampleSystemMemory(target_luid_);
 }
 
 int64_t MemoryManager::ElapsedSinceLastPurgeMs(std::chrono::steady_clock::time_point now) const {
@@ -101,7 +101,7 @@ MemoryActionReport MemoryManager::EvaluateAndOptimize(
 
     // Sample game disk I/O rate on EVERY cycle before early exits so short bursts are never diluted.
     const uint64_t disk_read_rate = SampleDiskReadRateBytesPerSec(active_game_pid, now);
-    const SystemMemoryTelemetry telemetry = probe_.SampleSystemMemory();
+    const SystemMemoryTelemetry telemetry = probe_.SampleSystemMemory(target_luid_);
 
     VfMemoryPurgeInput input{};
     input.total_physical_bytes = telemetry.total_physical_bytes;
@@ -186,7 +186,7 @@ MemoryActionReport MemoryManager::EvaluateAndOptimize(
 ManualPurgeReport MemoryManager::ForcePurgeNow(const std::vector<uint32_t>& background_pids, bool dry_run) {
     ManualPurgeReport report{};
 
-    const SystemMemoryTelemetry before = probe_.SampleSystemMemory();
+    const SystemMemoryTelemetry before = probe_.SampleSystemMemory(target_luid_);
     report.free_bytes_before = before.free_and_zero_bytes;
     report.standby_bytes_before = before.standby_bytes;
 
@@ -213,7 +213,7 @@ ManualPurgeReport MemoryManager::ForcePurgeNow(const std::vector<uint32_t>& back
         report.status_message = outcome.detail;
     }
 
-    const SystemMemoryTelemetry after = probe_.SampleSystemMemory();
+    const SystemMemoryTelemetry after = probe_.SampleSystemMemory(target_luid_);
     report.free_bytes_after = after.free_and_zero_bytes;
     report.standby_bytes_after = after.standby_bytes;
 

@@ -1,6 +1,14 @@
 #include "ui/gui_window.hpp"
 #include "ui/app_identity.hpp"
 #include "ui/gui_components.hpp"
+#include "ui/config_view.hpp"
+#include "ui/programs_view.hpp"
+#include "ui/equipment_view.hpp"
+#include "ui/requirements_view.hpp"
+#include "ui/games_view.hpp"
+#include "ui/history_view.hpp"
+#include "ui/home_view.hpp"
+#include "ui/settings_view.hpp"
 
 #include <psapi.h>
 #include <shellapi.h>
@@ -60,19 +68,22 @@ void PaintDashboard(HDC hdcMem, const RECT& rcClient, GuiWindowState* state) {
     SelectObject(hdcMem, hOldPen);
     DeleteObject(hPenHeadDiv);
 
-    // 5 tab buttons in the side menu
-    const wchar_t* tabTitles[5] = {
-        L"1. Dashboard & Telemetría",
-        L"2. Ajustes Kernel & Sistema",
+    // 8 tab buttons in the side menu
+    const wchar_t* tabTitles[8] = {
+        L"1. Inicio",
+        L"2. Ajustes del sistema",
         L"3. Memoria UMA & Núcleos CPU",
-        L"4. Biblioteca Steam & Motores",
-        L"5. Historial de Cambios (Log)"
+        L"4. Juegos",
+        L"5. Historial",
+        L"6. Configuración",
+        L"7. Programas",
+        L"8. Tu equipo"
     };
 
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < 8; ++i) {
         int tabY = 78 + i * 44;
         RECT rcTab = { 12, tabY, SIDEBAR_WIDTH - 12, tabY + 38 };
-        bool isActive = (state->current_tab == i);
+        bool isActive = (state->current_tab == i) || (i == 5 && state->current_tab == 8); // Requisitos hangs from Configuración
         bool isHovered = (state->hovered_id == (ID_TAB_0 + i));
         DrawTabButton(hdcMem, rcTab, tabTitles[i], isActive, isHovered, ID_TAB_0 + i, state);
     }
@@ -103,7 +114,12 @@ void PaintDashboard(HDC hdcMem, const RECT& rcClient, GuiWindowState* state) {
     wchar_t wsBuf[64];
     swprintf_s(wsBuf, L"Daemon WS: %llu KB", static_cast<unsigned long long>(state->data.daemon_private_ws_kb));
     DrawTextAt(hdcMem, 16, sideBottomY - 68, wsBuf, CLR_TEXT_MUTED, state->hFontSmall);
-    DrawTextAt(hdcMem, 16, sideBottomY - 50, L"Auto-Suspensión: ACTIVA", CLR_ACCENT_CYAN, state->hFontSmall);
+    // In safe mode VegaFlow changes nothing by itself, so the sidebar must not claim it does.
+    if (state->data.automatic) {
+        DrawTextAt(hdcMem, 16, sideBottomY - 50, L"Auto-Suspensión: ACTIVA", CLR_ACCENT_CYAN, state->hFontSmall);
+    } else {
+        DrawTextAt(hdcMem, 16, sideBottomY - 50, L"Modo seguro: sin cambios", CLR_ACCENT_AMBER, state->hFontSmall);
+    }
 
     // =========================================================================
     // 3. Main Content Area (modular tab dispatch)
@@ -118,22 +134,34 @@ void PaintDashboard(HDC hdcMem, const RECT& rcClient, GuiWindowState* state) {
 
     switch (state->current_tab) {
         case 0:
-            RenderTabDashboard(hdcMem, rcClient, state, contentLeft, contentRight, contentTop, contentBottom, contentW);
+            ui::HomeViewPaint(hdcMem, state, RECT{contentLeft, contentTop, contentRight, contentBottom});
             break;
         case 1:
-            RenderTabKernel(hdcMem, rcClient, state, contentLeft, contentRight, contentTop, contentBottom, contentW);
+            ui::SettingsViewPaint(hdcMem, state, RECT{contentLeft, contentTop, contentRight, contentBottom});
             break;
         case 2:
             RenderTabMemory(hdcMem, rcClient, state, contentLeft, contentRight, contentTop, contentBottom, contentW);
             break;
         case 3:
-            RenderTabSteam(hdcMem, rcClient, state, contentLeft, contentRight, contentTop, contentBottom, contentW);
+            ui::GamesViewPaint(hdcMem, state, RECT{contentLeft, contentTop, contentRight, contentBottom});
             break;
         case 4:
-            RenderTabAuditLog(hdcMem, rcClient, state, contentLeft, contentRight, contentTop, contentBottom, contentW);
+            ui::HistoryViewPaint(hdcMem, state, RECT{contentLeft, contentTop, contentRight, contentBottom});
+            break;
+        case 5:
+            ui::ConfigViewPaint(hdcMem, state, RECT{contentLeft, contentTop, contentRight, contentBottom});
+            break;
+        case 6:
+            ui::ProgramsViewPaint(hdcMem, state, RECT{contentLeft, contentTop, contentRight, contentBottom});
+            break;
+        case 7:
+            ui::EquipmentViewPaint(hdcMem, state, RECT{contentLeft, contentTop, contentRight, contentBottom});
+            break;
+        case 8:
+            ui::RequirementsViewPaint(hdcMem, state, RECT{contentLeft, contentTop, contentRight, contentBottom});
             break;
         default:
-            RenderTabDashboard(hdcMem, rcClient, state, contentLeft, contentRight, contentTop, contentBottom, contentW);
+            ui::HomeViewPaint(hdcMem, state, RECT{contentLeft, contentTop, contentRight, contentBottom});
             break;
     }
 
@@ -166,7 +194,9 @@ void PaintDashboard(HDC hdcMem, const RECT& rcClient, GuiWindowState* state) {
     std::wstring statusText = state->data.last_action_status.empty()
                                 ? L"VegaFlow activo - vigilando juegos y memoria"
                                 : Utf8ToWide(state->data.last_action_status);
-    DrawTextAt(hdcMem, 32, rcClient.bottom - 23, statusText, CLR_TEXT_TITLE, state->hFontSmall);
+    // One line that ends in an ellipsis before the APU button instead of running over it.
+    RECT rcStatus = { 32, rcClient.bottom - 24, rcClient.right - 470, rcClient.bottom - 4 };
+    DrawTextRect(hdcMem, rcStatus, statusText, CLR_TEXT_TITLE, state->hFontSmall, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS | DT_NOPREFIX);
 
     RECT rcApuBtn = { rcClient.right - 460, rcClient.bottom - 26, rcClient.right - 295, rcClient.bottom - 6 };
     bool isApuHov = (state->hovered_id == ID_ACT_TOGGLE_APU_POWER);
@@ -180,12 +210,32 @@ void PaintDashboard(HDC hdcMem, const RECT& rcClient, GuiWindowState* state) {
 // =============================================================================
 // Interactive Action Dispatch (click handling on hit-boxes)
 // =============================================================================
+// Polls the screen with native controls that is in front, so its switches and fields show what is saved now.
+void RefreshActiveScreen(HWND hwnd, GuiWindowState* state) {
+    if (state->current_tab == 0) ui::HomeViewRefresh(hwnd, state);
+    else if (state->current_tab == 1) ui::SettingsViewRefresh(hwnd, state);
+    else if (state->current_tab == 3) ui::GamesViewRefresh(hwnd, state);
+    else if (state->current_tab == 4) ui::HistoryViewRefresh(hwnd, state);
+    else if (state->current_tab == 5) ui::ConfigViewRefresh(hwnd, state);
+    else if (state->current_tab == 6) ui::ProgramsViewRefresh(hwnd, state);
+    else if (state->current_tab == 8) ui::RequirementsViewRefresh(hwnd, state);
+}
+
 void HandleActionClick(HWND hwnd, GuiWindowState* state, int id) {
     if (!state) return;
 
     // Tab switching
-    if (id >= ID_TAB_0 && id <= ID_TAB_4) {
+    if (id >= ID_TAB_0 && id <= ID_TAB_8) {
+        ui::ConfigViewCommitPending(hwnd, state);
         state->current_tab = id - ID_TAB_0;
+        RefreshActiveScreen(hwnd, state);
+        ui::SettingsViewShow(state, state->current_tab == 1);
+        ui::HomeViewShow(state, state->current_tab == 0);
+        ui::GamesViewShow(state, state->current_tab == 3);
+        ui::HistoryViewShow(state, state->current_tab == 4);
+        ui::ConfigViewShow(state, state->current_tab == 5);
+        ui::ProgramsViewShow(state, state->current_tab == 6);
+        ui::RequirementsViewShow(state, state->current_tab == 8);
         InvalidateRect(hwnd, nullptr, FALSE);
         return;
     }
@@ -201,75 +251,9 @@ void HandleActionClick(HWND hwnd, GuiWindowState* state, int id) {
             break;
         }
 
-        case ID_ACT_APPLY_PRESET: {
-            if (state->data.has_amd_driver && state->callbacks.on_ToggleShaderCache && !state->data.amd_shader_cache_forced) {
-                state->callbacks.on_ToggleShaderCache();
-            }
-            if (state->callbacks.on_ToggleMmcssGaming && !state->data.mmcss_gaming_optimized) {
-                state->callbacks.on_ToggleMmcssGaming();
-            }
-            if (state->callbacks.on_PurgeNow) {
-                res = state->callbacks.on_PurgeNow();
-            }
-            if (state->callbacks.on_IsolateBackgroundNow) {
-                state->callbacks.on_IsolateBackgroundNow();
-            }
-            if (res.empty()) res = "Preset óptimo aplicado exitosamente (MMCSS, Purga, CPU Sets)";
-            state->data.last_action_status = res;
-            break;
-        }
-
         case ID_ACT_PURGE_RAM: {
             if (state->callbacks.on_PurgeNow) {
                 res = state->callbacks.on_PurgeNow();
-                state->data.last_action_status = res;
-            }
-            break;
-        }
-
-        case ID_ACT_APPLY_ALL_2B: {
-            if (state->callbacks.on_ApplyAllGamingTweaks) {
-                res = state->callbacks.on_ApplyAllGamingTweaks();
-                state->data.last_action_status = res;
-            }
-            break;
-        }
-
-        case ID_ACT_TOGGLE_MPO: {
-            if (state->callbacks.on_ToggleMpo) {
-                res = state->callbacks.on_ToggleMpo();
-                state->data.last_action_status = res;
-            }
-            break;
-        }
-
-        case ID_ACT_TOGGLE_SHADERCACHE: {
-            if (state->callbacks.on_ToggleShaderCache) {
-                res = state->callbacks.on_ToggleShaderCache();
-                state->data.last_action_status = res;
-            }
-            break;
-        }
-
-        case ID_ACT_TOGGLE_VRAM_OVERRIDE: {
-            if (state->callbacks.on_ToggleVramOverride) {
-                res = state->callbacks.on_ToggleVramOverride();
-                state->data.last_action_status = res;
-            }
-            break;
-        }
-
-        case ID_ACT_TOGGLE_MMCSS: {
-            if (state->callbacks.on_ToggleMmcssGaming) {
-                res = state->callbacks.on_ToggleMmcssGaming();
-                state->data.last_action_status = res;
-            }
-            break;
-        }
-
-        case ID_ACT_TOGGLE_MEMCOMP: {
-            if (state->callbacks.on_ToggleMemCompression) {
-                res = state->callbacks.on_ToggleMemCompression();
                 state->data.last_action_status = res;
             }
             break;
@@ -287,97 +271,6 @@ void HandleActionClick(HWND hwnd, GuiWindowState* state, int id) {
             if (state->callbacks.on_RestoreCpuAffinity) {
                 res = state->callbacks.on_RestoreCpuAffinity();
                 state->data.last_action_status = res;
-            }
-            break;
-        }
-
-        case ID_ACT_RESTORE_DEFAULTS: {
-            if (state->callbacks.on_RestoreAllDefaults) {
-                res = state->callbacks.on_RestoreAllDefaults();
-                state->data.last_action_status = res;
-            }
-            break;
-        }
-
-        case ID_ACT_RESCAN_STEAM: {
-            if (state->callbacks.on_RescanSteamLibrary) {
-                res = state->callbacks.on_RescanSteamLibrary();
-                state->steam_page = 0;
-                state->data.last_action_status = res;
-            }
-            break;
-        }
-
-        case ID_ACT_STEAM_PREV_PAGE: {
-            if (state->steam_page > 0) {
-                state->steam_page--;
-            }
-            InvalidateRect(hwnd, nullptr, FALSE);
-            return;
-        }
-
-        case ID_ACT_STEAM_NEXT_PAGE: {
-            int totalPages = static_cast<int>((state->data.steam_games.size() + 2) / 3);
-            if (state->steam_page + 1 < totalPages) {
-                state->steam_page++;
-            }
-            InvalidateRect(hwnd, nullptr, FALSE);
-            return;
-        }
-
-        case ID_ACT_STEAM_APPLY_0:
-        case ID_ACT_STEAM_APPLY_1:
-        case ID_ACT_STEAM_APPLY_2: {
-            size_t slotIdx = static_cast<size_t>(id - ID_ACT_STEAM_APPLY_0);
-            size_t gIdx = static_cast<size_t>(state->steam_page * 3) + slotIdx;
-            if (gIdx < state->data.steam_games.size()) {
-                uint32_t appId = state->data.steam_games[gIdx].app_id;
-                if (state->callbacks.on_ApplyGameEnginePreset) {
-                    res = state->callbacks.on_ApplyGameEnginePreset(appId);
-                    state->data.last_action_status = res;
-                }
-            }
-            break;
-        }
-
-        case ID_ACT_STEAM_RESTORE_0:
-        case ID_ACT_STEAM_RESTORE_1:
-        case ID_ACT_STEAM_RESTORE_2: {
-            size_t slotIdx = static_cast<size_t>(id - ID_ACT_STEAM_RESTORE_0);
-            size_t gIdx = static_cast<size_t>(state->steam_page * 3) + slotIdx;
-            if (gIdx < state->data.steam_games.size()) {
-                uint32_t appId = state->data.steam_games[gIdx].app_id;
-                if (state->callbacks.on_RestoreGameEngineConfig) {
-                    res = state->callbacks.on_RestoreGameEngineConfig(appId);
-                    state->data.last_action_status = res;
-                }
-            }
-            break;
-        }
-
-        case ID_ACT_STEAM_DXVK_0:
-        case ID_ACT_STEAM_DXVK_1:
-        case ID_ACT_STEAM_DXVK_2: {
-            size_t slotIdx = static_cast<size_t>(id - ID_ACT_STEAM_DXVK_0);
-            size_t gIdx = static_cast<size_t>(state->steam_page * 3) + slotIdx;
-            if (gIdx < state->data.steam_games.size()) {
-                uint32_t appId = state->data.steam_games[gIdx].app_id;
-                if (state->callbacks.on_ToggleGameDxvk) {
-                    res = state->callbacks.on_ToggleGameDxvk(appId);
-                    state->data.last_action_status = res;
-                }
-            }
-            break;
-        }
-
-        case ID_ACT_ELEVATE: {
-            if (state->callbacks.on_RequestElevate) {
-                if (state->callbacks.on_RequestElevate()) {
-                    DestroyWindow(hwnd);
-                    return;
-                } else {
-                    state->data.last_action_status = "Elevación UAC cancelada o no disponible";
-                }
             }
             break;
         }
@@ -406,6 +299,15 @@ void HandleActionClick(HWND hwnd, GuiWindowState* state, int id) {
 // =============================================================================
 LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     auto* state = reinterpret_cast<GuiWindowState*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
+
+    // A second launch asks the running window to come forward (the one message let through UIPI, see app_identity.hpp).
+    static const UINT restore_msg = RegisterWindowMessageW(ui::kRestoreWindowMessage);
+    if (uMsg == restore_msg && state) {
+        ShowWindow(hwnd, IsIconic(hwnd) ? SW_RESTORE : SW_SHOW);
+        SetForegroundWindow(hwnd);
+        InvalidateRect(hwnd, nullptr, FALSE);
+        return 0;
+    }
 
     switch (uMsg) {
         case WM_NCCREATE: {
@@ -447,10 +349,6 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                                              DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
                                              CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
 
-            state->hFontMonospace = CreateFontW(-12, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
-                                                DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-                                                CLEARTYPE_QUALITY, FIXED_PITCH | FF_MODERN, L"Consolas");
-
             // System Tray icon
             state->nid.cbSize = sizeof(NOTIFYICONDATAW);
             state->nid.hWnd = hwnd;
@@ -464,7 +362,7 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
             // 1500 ms telemetry timer
             SetTimer(hwnd, TIMER_TELEMETRY_ID, TIMER_TELEMETRY_INTERVAL, nullptr);
 
-            ChangeWindowMessageFilterEx(hwnd, WM_COMMAND, MSGFLT_ALLOW, nullptr);
+            ChangeWindowMessageFilterEx(hwnd, RegisterWindowMessageW(ui::kRestoreWindowMessage), MSGFLT_ALLOW, nullptr);
 
             // Initial query
             if (state->callbacks.on_PollTelemetry) {
@@ -482,8 +380,71 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
         }
 
         case WM_SIZE: {
+            if (state && state->current_tab == 1) ui::SettingsViewRelayout(state);
+            if (state && state->current_tab == 0) ui::HomeViewRelayout(state);
+            if (state && state->current_tab == 3) ui::GamesViewRelayout(state);
+            if (state && state->current_tab == 4) ui::HistoryViewRelayout(state);
+            if (state && state->current_tab == 5) ui::ConfigViewRelayout(state);
+            if (state && state->current_tab == 6) ui::ProgramsViewRelayout(state);
+            if (state && state->current_tab == 8) ui::RequirementsViewRelayout(state);
             InvalidateRect(hwnd, nullptr, FALSE);
             return 0;
+        }
+
+        case WM_MOUSEWHEEL: {
+            if (state && state->current_tab == 1) {
+                ui::SettingsViewScroll(state, -GET_WHEEL_DELTA_WPARAM(wParam) / 2);
+                return 0;
+            }
+            if (state && state->current_tab == 0) {
+                ui::HomeViewScroll(state, -GET_WHEEL_DELTA_WPARAM(wParam) / 2);
+                return 0;
+            }
+            if (state && state->current_tab == 3) {
+                ui::GamesViewScroll(state, -GET_WHEEL_DELTA_WPARAM(wParam) / 2);
+                return 0;
+            }
+            if (state && state->current_tab == 4) {
+                ui::HistoryViewScroll(state, -GET_WHEEL_DELTA_WPARAM(wParam) / 2);
+                return 0;
+            }
+            if (state && state->current_tab == 5) {
+                ui::ConfigViewScroll(state, -GET_WHEEL_DELTA_WPARAM(wParam) / 2);
+                return 0;
+            }
+            if (state && state->current_tab == 6) {
+                ui::ProgramsViewScroll(state, -GET_WHEEL_DELTA_WPARAM(wParam) / 2);
+                return 0;
+            }
+            if (state && state->current_tab == 7) {
+                ui::EquipmentViewScroll(state, -GET_WHEEL_DELTA_WPARAM(wParam) / 2);
+                return 0;
+            }
+            if (state && state->current_tab == 8) {
+                ui::RequirementsViewScroll(state, -GET_WHEEL_DELTA_WPARAM(wParam) / 2);
+                return 0;
+            }
+            break;
+        }
+
+        case WM_DRAWITEM: {
+            auto* item = reinterpret_cast<const DRAWITEMSTRUCT*>(lParam);
+            if (state && item && item->CtlType == ODT_BUTTON) {
+                if (static_cast<int>(item->CtlID) >= ui::kHomeEquipmentId) ui::HomeViewDrawItem(item, state);
+                else if (static_cast<int>(item->CtlID) >= ui::kGamesRowBaseId) ui::GamesViewDrawItem(item, state);
+                else if (static_cast<int>(item->CtlID) == ui::kRequirementsBackId) ui::RequirementsViewDrawItem(item, state);
+                else if (static_cast<int>(item->CtlID) >= ui::kProgKindBaseId) ui::ProgramsViewDrawItem(item, state);
+                else if (static_cast<int>(item->CtlID) >= ui::kConfigResetId) ui::ConfigViewDrawItem(item, state);
+                else if (static_cast<int>(item->CtlID) >= ui::kHistoryRestoreAllId) ui::HistoryViewDrawItem(item, state);
+                else ui::SettingsViewDrawItem(item, state);
+                return TRUE;
+            }
+            break;
+        }
+
+        case WM_CTLCOLOREDIT: {
+            if (state) return ui::ConfigViewColorEdit(reinterpret_cast<HDC>(wParam), state);
+            break;
         }
 
         case WM_ERASEBKGND:
@@ -562,6 +523,7 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 
         case WM_TIMER: {
             if (wParam == TIMER_TELEMETRY_ID && state) {
+                if (IsWindowVisible(hwnd) && !IsIconic(hwnd)) RefreshActiveScreen(hwnd, state);
                 if (state->callbacks.on_PollTelemetry) {
                     std::string prevStatus = state->data.last_action_status;
                     state->data = state->callbacks.on_PollTelemetry();
@@ -608,6 +570,13 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
         case WM_COMMAND: {
             int wmId = LOWORD(wParam);
             if (!state) break;
+            if (ui::HomeViewCommand(hwnd, state, wmId, HIWORD(wParam), reinterpret_cast<HWND>(lParam))) return 0;
+            if (ui::GamesViewCommand(hwnd, state, wmId, HIWORD(wParam), reinterpret_cast<HWND>(lParam))) return 0;
+            if (ui::RequirementsViewCommand(hwnd, state, wmId, HIWORD(wParam), reinterpret_cast<HWND>(lParam))) return 0;
+            if (ui::ProgramsViewCommand(hwnd, state, wmId, HIWORD(wParam), reinterpret_cast<HWND>(lParam))) return 0;
+            if (ui::ConfigViewCommand(hwnd, state, wmId, HIWORD(wParam), reinterpret_cast<HWND>(lParam))) return 0;
+            if (ui::HistoryViewCommand(hwnd, state, wmId, HIWORD(wParam), reinterpret_cast<HWND>(lParam))) return 0;
+            if (ui::SettingsViewCommand(hwnd, state, wmId, HIWORD(wParam), reinterpret_cast<HWND>(lParam))) return 0;
 
             switch (wmId) {
                 case ID_TRAY_RESTORE: {
@@ -662,6 +631,11 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
         case WM_DESTROY: {
             if (state) {
                 KillTimer(hwnd, TIMER_TELEMETRY_ID);
+                ui::ConfigViewDestroy(state);
+                ui::ProgramsViewDestroy(state);
+                ui::HomeViewDestroy(state);
+                ui::GamesViewDestroy(state);
+                ui::RequirementsViewDestroy(state);
 
                 if (state->tray_registered) {
                     Shell_NotifyIconW(NIM_DELETE, &state->nid);
@@ -675,7 +649,6 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                 if (state->hFontSmall)     DeleteObject(state->hFontSmall);
                 if (state->hFontSmallBold) DeleteObject(state->hFontSmallBold);
                 if (state->hFontMetric)    DeleteObject(state->hFontMetric);
-                if (state->hFontMonospace) DeleteObject(state->hFontMonospace);
             }
             PostQuitMessage(0);
             return 0;
@@ -690,8 +663,11 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 
 } // namespace
 
+void SelectTab(HWND hwnd, GuiWindowState* state, int tab) { HandleActionClick(hwnd, state, ID_TAB_0 + tab); }
+
 int GuiWindow::RunGuiLoop(const GuiCallbacks& callbacks) {
-    // High-DPI V2 if available
+    // The layout is drawn in fixed pixels, so the window asks Windows to scale it (crisp GDI text) instead of being
+    // per-monitor aware, which left it tiny at 125 % and 150 %. Older Windows ignores the call and scales it anyway.
     HMODULE hUser32 = GetModuleHandleW(L"user32.dll");
     if (hUser32) {
         using SetProcessDpiAwarenessContextProc = BOOL (WINAPI *)(HANDLE);
@@ -705,7 +681,7 @@ int GuiWindow::RunGuiLoop(const GuiCallbacks& callbacks) {
 #pragma GCC diagnostic pop
 #endif
         if (pfnSetDpi) {
-            pfnSetDpi(reinterpret_cast<HANDLE>(-4)); // DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2
+            pfnSetDpi(reinterpret_cast<HANDLE>(-5)); // DPI_AWARENESS_CONTEXT_UNAWARE_GDISCALED
         }
     }
 
@@ -735,10 +711,14 @@ int GuiWindow::RunGuiLoop(const GuiCallbacks& callbacks) {
 
     int winWidth = rc.right - rc.left;
     int winHeight = rc.bottom - rc.top;
-    int screenW = GetSystemMetrics(SM_CXSCREEN);
-    int screenH = GetSystemMetrics(SM_CYSCREEN);
-    int posX = std::max<int>(0, (screenW - winWidth) / 2);
-    int posY = std::max<int>(0, (screenH - winHeight) / 2);
+    // Fit the usable area (screen minus taskbar): at 150 % scale a 1080p screen is 1280 x 720 for this window, smaller than
+    // the design size, and a window taller than that hid its status bar under the taskbar.
+    RECT work = {0, 0, GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN)};
+    SystemParametersInfoW(SPI_GETWORKAREA, 0, &work, 0);
+    winWidth = std::min<int>(winWidth, work.right - work.left);
+    winHeight = std::min<int>(winHeight, work.bottom - work.top);
+    int posX = work.left + std::max<int>(0, (work.right - work.left - winWidth) / 2);
+    int posY = work.top + std::max<int>(0, (work.bottom - work.top - winHeight) / 2);
 
     GuiWindowState state;
     state.callbacks = callbacks;
@@ -760,12 +740,50 @@ int GuiWindow::RunGuiLoop(const GuiCallbacks& callbacks) {
         return -1;
     }
 
+    ui::SettingsViewRefresh(hwnd, &state);
+    ui::SettingsViewShow(&state, false);
+    ui::HomeViewRefresh(hwnd, &state);
+    ui::HomeViewShow(&state, true);
+    ui::GamesViewRefresh(hwnd, &state);
+    ui::GamesViewShow(&state, false);
+    ui::HistoryViewRefresh(hwnd, &state);
+    ui::HistoryViewShow(&state, false);
+    ui::ConfigViewRefresh(hwnd, &state);
+    ui::ConfigViewShow(&state, false);
+    ui::ProgramsViewRefresh(hwnd, &state);
+    ui::ProgramsViewShow(&state, false);
+    ui::RequirementsViewRefresh(hwnd, &state);
+    ui::RequirementsViewShow(&state, false);
     ShowWindow(hwnd, SW_SHOW);
     UpdateWindow(hwnd);
 
     // Standard message loop
     MSG msg = {};
     while (GetMessageW(&msg, nullptr, 0, 0)) {
+        // Ctrl+1..8 jump to a tab: the sidebar is not a control yet, so this is the keyboard way in.
+        if (msg.message == WM_KEYDOWN && msg.wParam >= '1' && msg.wParam <= '8' && (GetKeyState(VK_CONTROL) & 0x8000) && !(GetKeyState(VK_MENU) & 0x8000) &&
+            GetAncestor(msg.hwnd, GA_ROOT) == hwnd) {
+            HandleActionClick(hwnd, &state, ID_TAB_0 + static_cast<int>(msg.wParam - '1'));
+            continue;
+        }
+        // The read-only screens have no field to focus: Page Up/Down, Home and End (and the arrows on Tu equipo) scroll them.
+        if (msg.message == WM_KEYDOWN && (state.current_tab == 0 || state.current_tab == 7 || state.current_tab == 8) && GetAncestor(msg.hwnd, GA_ROOT) == hwnd &&
+            !(GetKeyState(VK_CONTROL) & 0x8000) && !(GetKeyState(VK_MENU) & 0x8000)) {
+            int delta = 0;
+            if (msg.wParam == VK_NEXT) delta = 240;
+            else if (msg.wParam == VK_PRIOR) delta = -240;
+            else if (msg.wParam == VK_HOME) delta = -100000;
+            else if (msg.wParam == VK_END) delta = 100000;
+            else if (state.current_tab == 7 && msg.wParam == VK_DOWN) delta = 40;
+            else if (state.current_tab == 7 && msg.wParam == VK_UP) delta = -40;
+            if (delta != 0) {
+                if (state.current_tab == 0) ui::HomeViewScroll(&state, delta);
+                else if (state.current_tab == 7) ui::EquipmentViewScroll(&state, delta);
+                else ui::RequirementsViewScroll(&state, delta);
+                continue;
+            }
+        }
+        if (IsDialogMessageW(hwnd, &msg)) continue; // Tab, Shift+Tab, arrows and Space reach the native controls
         TranslateMessage(&msg);
         DispatchMessageW(&msg);
     }

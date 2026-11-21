@@ -22,6 +22,7 @@ struct SystemGraphicsTweaksState {
     bool mmcss_gaming_optimized = false; // SystemProfile\SystemResponsiveness <= 10 && Tasks\Games\Priority == 6 && Scheduling Category == "High"
     bool amd_dx11_uma_boost = false;     // SurfaceFormatReplacements == 0x3100
     bool gamedvr_disabled = false;       // GameDVR_Enabled == 0
+    bool fse_disabled = false;           // GameDVR_FSEBehaviorMode == 2
     bool apu_power_optimized = false;    // APU power plan (PCIe ASPM Off)
     uint32_t win32_priority_separation = 2; // HKLM\SYSTEM\CurrentControlSet\Control\PriorityControl -> Win32PrioritySeparation
     bool kernel_paging_shield_active = false; // HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management -> DisablePagingExecutive == 1
@@ -41,7 +42,9 @@ enum class ApuPowerMode {
 // AMD display driver & UMA VRAM reporting tweaks (instantiated only for AMD GPUs).
 class AmdDriverTweaks {
 public:
-    explicit AmdDriverTweaks(RegistryPort& reg) : reg_(reg) {}
+    // `device_id` (PCI, 0 = every AMD adapter) limits every write to that adapter; `allow_vram_override` is false off an iGPU.
+    explicit AmdDriverTweaks(RegistryPort& reg, uint32_t device_id = 0, bool allow_vram_override = true)
+        : reg_(reg), device_id_(device_id), allow_vram_override_(allow_vram_override) {}
 
     bool SetShaderCacheForced(bool force_on, const ApuOptimizationPolicy& policy, bool dry_run = false);
     bool SetDx11UmaDriverBoost(bool enable, const ApuOptimizationPolicy& policy, bool dry_run = false);
@@ -56,6 +59,8 @@ public:
 
 private:
     RegistryPort& reg_;
+    uint32_t device_id_;
+    bool allow_vram_override_;
 };
 
 // Windows NT kernel scheduler & memory management tweaks.
@@ -96,8 +101,11 @@ public:
 
     bool SetMpoDisabled(bool disable, bool dry_run = false);
     void QueryMpoState(bool& out_disabled, uint32_t& out_overlay_test_mode);
-    bool SetGameDvrAndFseOptimized(bool optimize, bool dry_run = false);
+    bool SetGameDvrCaptureDisabled(bool disable, bool dry_run = false);
     bool QueryGameDvrDisabled();
+    // Compatibility option for old DX9/DX10 games; never applied by the daemon on its own (E1.4).
+    bool SetFullscreenOptimizationsDisabled(bool disable, bool dry_run = false);
+    bool QueryFullscreenOptimizationsDisabled();
     std::vector<ShaderCacheReport> InspectShaderCaches();
 
 private:
@@ -113,13 +121,9 @@ public:
         const std::wstring& exe_full_path,
         bool dry_run = false,
         std::wstring* out_effective_preference = nullptr);
-    bool ApplyDirectFlipUpgrade(
-        const std::wstring& exe_full_path,
-        bool dry_run = false,
-        std::wstring* out_effective_preference = nullptr);
     bool QueryUserGpuPreferences(const std::wstring& exe_full_path, std::wstring& out_prefs);
-    bool RemoveFlipModelUpgrade(const std::wstring& exe_full_path, bool dry_run = false);
-    bool HasDirectFlipUpgrade(const std::wstring& exe_full_path);
+    // Takes the GPU and HDR part out of values that still hold the exact 0.1.x signature; returns how many it changed.
+    size_t MigrateLegacyPreferences(bool dry_run = false);
     bool HasFlipModelUpgrade(const std::wstring& exe_full_path);
 
 private:
@@ -174,8 +178,18 @@ public:
     SystemGraphicsTweaksState QuerySystemGraphicsTweaks();
     bool RestoreAllRegistryBackups(size_t* out_reverted = nullptr, size_t* out_total = nullptr);
 
+    struct RebindResult {
+        bool rebuilt = false;            // the target GPU or its policy changed (with dry_run: would change)
+        bool uma_restore_failed = false; // the old iGPU still reports the overridden VRAM size
+    };
+    // Aims the tweaks at a new primary GPU: puts back the old iGPU's VRAM override first; the power state is kept.
+    RebindResult Rebind(const SystemHardwareProfile& hw, const ApuOptimizationPolicy& policy, bool dry_run = false);
+
 private:
     RegistryPort& registry_;
+    PowerPort* power_ = nullptr;
+    GpuProfile gpu_;
+    ApuOptimizationPolicy policy_;
     std::optional<AmdDriverTweaks> amd_driver_;
     KernelSchedulerTweaks kernel_;
     MmcssTweaks mmcss_;

@@ -15,6 +15,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace vegaflow {
@@ -80,6 +81,9 @@ public:
 
     // Generates the UMA configuration block for Engine.ini according to the hardware policy and VRAM pool
     static std::string GenerateUnrealUmaBlock(const ApuOptimizationPolicy& policy, uint32_t vram_pool_mb_override = 0);
+
+    // The boot.config keys a Unity profile writes (the one list: the writer and the Juegos screen both read it).
+    static const std::vector<std::pair<std::string, std::string>>& UnityBootConfigKeys();
 
     // Applies the hidden engine preset for APU UMA (and DXGI Flip Model).
     // If has_anticheat == true, blocks editing of engine files and only applies the safe DXGI Flip Model.

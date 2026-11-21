@@ -2,6 +2,9 @@
 
 **Lector:** personas
 
+**Revisado:** 2026-11-18 (rama `feat/expansion-e1`). Ningún tier conserva un tope de frecuencia STAPM: `cpu_stapm_cap_mhz = 0` (sin techo) en Tier 1, 2, 3 y 4.
+Fuentes: `src/detect/hardware_profiler.cpp:268` (asigna 0 antes del `switch` por tier, sin excepciones); `tests/integration/hardware_tests.cpp:141, 168, 185` (esperan 0 en Tier 1, 2 y 3); `tests/vectors/apu_tier.tsv` fija la clasificación por tier, no los topes de frecuencia.
+
 ## 2. Arquitectura de Hardware y Restricciones APU (AMD Ryzen 5 4600H + Radeon RX Vega 6)
 
 VegaFlow está optimizado a nivel de microarquitectura para APUs (Accelerated Processing Units) de AMD, con el banco de pruebas principal centrado en el procesador **AMD Ryzen 5 4600H** (6 núcleos, 12 hilos, arquitectura Zen 2 a 3.0 GHz base / 4.0 GHz boost) acoplado a gráficos integrados **AMD Radeon RX Vega 6** (6 Compute Units / 384 Stream Processors a 1500 MHz, arquitectura GCN 5.0).
@@ -53,7 +56,7 @@ Los controladores oficiales de AMD Adrenalin para la arquitectura Vega no expone
 ### 2.5. Balance Térmico CPU/GPU (Presupuesto STAPM de 35W-45W)
 En laptops APU, la CPU y la GPU comparten el mismo disipador térmico y el mismo paquete de energía. Si la CPU sube a 4.0 GHz con voltajes de 1.35V consumiendo 35W, la iGPU se ve estrangulada a 600-800 MHz.
 - **Solución VegaFlow:** Perfil de energía APU especializado (`SetApuLaptopPowerProfile`):
-  - Limita el modo boost a *Efficient Aggressive* y la frecuencia máxima sostenida a 3.2 GHz con 99% throttle cap.
+  - Limita el modo boost a *Efficient Aggressive*; el techo de frecuencia sale de `policy.cpu_stapm_cap_mhz` (hoy `0`, sin techo) y el throttle máximo queda en 100%. No hay tope de 3.2 GHz en el código.
   - La CPU opera holgadamente consumiendo solo 12-14W, dejando 20W de TDP continuo para que la Radeon Vega 6 trabaje a sus 1500 MHz máximos estables sin caídas térmicas.
   - Desactiva PCIe ASPM en modo AC para eliminar latencias en el bus Infinity Fabric.
 
@@ -62,10 +65,10 @@ Para trascender el soporte exclusivo a Ryzen 5 4600H sin introducir regresiones 
 
 1. **`Tier1_EntryUMA` [Survival Guard]:**
    - **Hardware objetivo:** APUs con RAM $\le$ 8–9 GB o $\le$ 4 núcleos físicos (Vega 3/6/8 básica, Athlon Mobile, Intel Gen 9–11 UHD).
-   - **Directivas:** Techo estricto de textura pool VRAM entre 1536 y 2048 MB (`safe_vram_pool_mb`) para evitar cuelgues OOM del sistema; 3 hilos de compilación en DXVK; límite de teselación AMD a 8x; `disable_dx12_async_compute = true`; tope de frecuencia STAPM a 3000 MHz.
+   - **Directivas:** Techo estricto de textura pool VRAM entre 1536 y 2048 MB (`safe_vram_pool_mb`) para evitar cuelgues OOM del sistema; 3 hilos de compilación en DXVK; límite de teselación AMD a 8x; `disable_dx12_async_compute = true`; sin tope de frecuencia STAPM (`cpu_stapm_cap_mhz = 0`).
 2. **`Tier2_MidVegaUMA` [Sweet-Spot Guard]:**
    - **Hardware objetivo:** APUs Vega/GCN5 con 12–20 GB de RAM o procesadores Zen 2/Zen 3 de 6C–8C (Ryzen 5 4600H, 5500U, 5600H).
-   - **Directivas (100% retrocompatible con el testbed):** Pool VRAM a 4096 MB; 6 hilos dedicados de compilación en DXVK-GPLAsync; límite de teselación a 16x; `disable_dx12_async_compute = true`; tope de frecuencia STAPM a 3400 MHz.
+   - **Directivas (100% retrocompatible con el testbed):** Pool VRAM a 4096 MB; 6 hilos dedicados de compilación en DXVK-GPLAsync; límite de teselación a 16x; `disable_dx12_async_compute = true`; sin tope de frecuencia STAPM (`cpu_stapm_cap_mhz = 0`).
 3. **`Tier3_AdvancedUMA` [Do-No-Harm Guard]:**
    - **Hardware objetivo:** APUs modernas RDNA2/RDNA3/RDNA3.5 (Radeon 680M, 780M, 890M, Strix Point) e Intel Xe/Arc UMA, o sistemas UMA con $\ge$ 22 GB de RAM.
    - **Directivas ("Do-No-Harm"):** Preserva intacto el cómputo asíncrono moderno (`D3D12.AsyncCompute=1` y `r.RDG.AsyncCompute=1`); **no estrangula la CPU** (`cpu_stapm_cap_mhz = 0`); asigna pool UMA generoso y adaptativo de 6144 a 8192 MB; teselación permitida hasta 32x; 6 a 8 hilos en DXVK.
@@ -99,7 +102,7 @@ Aunque **VegaFlow Universal** nació como un framework de optimización para arq
 2. **`SteamEngineOptimizer` (DirectX 11 y DirectX 12 en Motores 3D):** Fuerza `D3D12.AsyncCompute=0`, `r.RDG.AsyncCompute=0`, `r.Streaming.PoolSize=4096`, `r.Shadow.MaxCSMResolution=1024` y `r.VolumetricFog=0` sin distinguir la capacidad de la APU.
    - Mientras que en **GCN 5 / Vega (6–8 CUs)** desactivar `AsyncCompute` en DX12 es indispensable para evitar colas bloqueadas y *context-switching stutter*, en **APUs avanzadas (Radeon 680M/780M/890M con 12–16 WGP/CUs)** desactivar `AsyncCompute` o recortar sombras agresivamente **reduce el rendimiento y la calidad visual** sin necesidad.
 3. **`GraphicsOptimizer` y `SystemInfo`:**
-   - `SetApuPowerMode` fija el techo de frecuencia de CPU en `3400 MHz` y la teselación en `16x`. En una APU Zen 4 / Zen 5 (cuyo punto de eficiencia térmica ronda los 4.2–4.5 GHz o que cuenta con motores dobles de geometría RDNA3), clavar 3.4 GHz estrangula los FPS en juegos dependientes de CPU.
+   - `SetApuPowerMode` toma el techo de frecuencia de CPU de `policy.cpu_stapm_cap_mhz` (hoy `0`, sin techo en todos los tiers; ver 3.1) y la teselación en `16x`. En una APU Zen 4 / Zen 5 (cuyo punto de eficiencia térmica ronda los 4.2–4.5 GHz o que cuenta con motores dobles de geometría RDNA3), un techo fijo de 3.4 GHz estrangularía los FPS en juegos dependientes de CPU (no medido).
    - `SystemInfo::GatherGpu()` concatena la cadena `"(Vega 6 / GCN 5.0)"` a cualquier GPU integrada AMD UMA.
 
 **Objetivo:** Transformar el manejo de DirectX 11 y DirectX 12 en un **sistema universal clasificado por Tiers de APU con Guards de Seguridad (`ApuCapabilityGuard`)**, preservando al 100% el comportamiento óptimo en el Ryzen 5 4600H (`Tier2_MidVegaUMA`) y aplicando un **Guard "Do-No-Harm" + Techo Dinámico de Presupuesto UMA** para APUs de entrada y APUs avanzadas.
@@ -183,7 +186,7 @@ struct ApuOptimizationPolicy {
     bool disable_volumetric_fog = true;     // True en Tier1/2, False en Tier3/4
 
     // --- Guard Térmico y de Reloj CPU (STAPM) ---
-    uint32_t cpu_stapm_cap_mhz = 3400;   // 3000 (Tier1), 3400 (Tier2), 0 = Sin techo fijo en Tier3/4 (Do-No-Harm)
+    uint32_t cpu_stapm_cap_mhz = 3400;   // Valor por defecto del struct; BuildOptimizationPolicy lo fija a 0 (sin techo) en todos los tiers
     bool apply_uma_vram_reg_override = true; // False en Tier4 (GPU dedicada)
 };
 ```
@@ -201,7 +204,7 @@ struct ApuOptimizationPolicy {
 | **DX11 `amd_tessellation_cap`** | `8` (8x) | `16` (16x) | `32` (32x — evita sobre-teselación 64x sin degradar mallas) | `64` (Nativo) |
 | **DX12 `disable_dx12_async_compute`** | `true` (`AsyncCompute=0`) | `true` (`AsyncCompute=0`) | **`false` (Guard protege `AsyncCompute=1`)** | **`false`** |
 | **DX12 `ue_max_csm_resolution`** | `512` | `1024` | `2048` | `2048` |
-| **CPU `cpu_stapm_cap_mhz`** | `3000 MHz` | `3400 MHz` | **`0 MHz` (Sin cap de reloj fijo; solo Boost Mode 4 Efficient Aggressive)** | `0 MHz` |
+| **CPU `cpu_stapm_cap_mhz`** | `0 MHz` | `0 MHz` | **`0 MHz` (Sin cap de reloj fijo; solo Boost Mode 4 Efficient Aggressive)** | `0 MHz` |
 
 ---
 
@@ -214,7 +217,7 @@ struct ApuOptimizationPolicy {
   - Implementar `HardwareProfiler::BuildOptimizationPolicy(const SystemHardwareProfile& profile, uint64_t live_dxgi_local_budget_bytes = 0)` y funciones auxiliares `ApuTierToString` y `ArchGenToString`.
 - En [`src/session/system_info.cpp`](../../src/session/system_info.cpp) e [`src/session/system_info.hpp`](../../src/session/system_info.hpp):
   - En `GatherGpu()`: Reemplazar el sufijo fijo `" (Vega 6 / GCN 5.0)"` por el sufijo real según `arch_gen` (ej. mantiene `" (Vega 6 / GCN 5.0)"` cuando es Renoir 4600H / GCN5 para preservar compatibilidad total con los reportes actuales, pero muestra `" (RDNA 2 UMA)"`, `" (RDNA 3/3.5 UMA)"` o `" (Intel Xe/Arc UMA)"` en otros equipos).
-  - En `GatherCpu()`: Ajustar `boost_target_ghz` y `stapm_target` según la política (`3.4 GHz` en Tier 2, `3.0 GHz` en Tier 1, `"Dynamic Boost (Efficient Aggressive / Uncapped Guard)"` en Tier 3).
+  - En `GatherCpu()`: Ajustar `boost_target_ghz` y `stapm_target` según la política (`boost_target_ghz` y cadena `stapm_target` en `src/session/system_info.cpp`: Tier 1 `3.5 GHz` con `"Smart Uncapped Boost"`; Tier 2 `4.0 GHz` con `"4.0 GHz Smart Uncapped"`; Tier 3 y 4 `4.4 GHz` con `"Dynamic Boost (Efficient Aggressive / Uncapped Guard)"`).
   - Exportar en `SystemInfo::ToJson()` un bloque adicional `"apu_guard"` con `tier`, `guard_mode`, `safe_vram_pool_mb`, `dx12_async_compute_allowed`, `dxvk_compiler_threads` y `tessellation_cap`.
 
 #### 4.2. `DxvkManager` (Especialización DirectX 11 -> Vulkan)
@@ -235,8 +238,8 @@ struct ApuOptimizationPolicy {
 - En [`src/optimize/graphics/`](../../src/optimize/graphics/):
   - En `SetApuPowerMode(ApuPowerMode::GpuPrioritySustained)`:
     - Consultar `policy.cpu_stapm_cap_mhz`.
-    - En Tier 1 (`3000 MHz`) y Tier 2 (`3400 MHz`), aplica el techo de frecuencia para ceder presupuesto térmico STAPM a la iGPU.
-    - En **Tier 3 (Advanced APU)**, el Guard fija `cpu_max_freq = 0` (sin límite artificial de MHz) pero mantiene `boost_val = 4` (*Efficient Aggressive*) y `aspm_val = 0`, evitando estrangular núcleos Zen 4 / Zen 5 en juegos DX12.
+    - Copia `cpu_max_freq = policy.cpu_stapm_cap_mhz`. Hoy vale `0` en todos los tiers, es decir, sin techo (así lo comenta `hardware.hpp`: *Uncapped*). El código no distingue tiers en este punto.
+    - Fija `boost_val = 4` (*Efficient Aggressive*), `aspm_val = 0` y `epp_val = 25` en este modo.
   - En `SetAmdDx11UmaDriverBoost()`:
     - Usar `policy.amd_tessellation_cap` (`8`, `16` o `32`) en lugar de forzar `16` en todas las generaciones.
 
@@ -263,11 +266,11 @@ struct ApuOptimizationPolicy {
 
 1. **Retrocompatibilidad Total en Ryzen 5 4600H (Tier 2):**
    - Los 28 tests previos existentes en `build/vegaflow_tests.exe` más el nuevo Test 29 deben pasar en verde (`29/29 PASS`).
-   - En el hardware actual del usuario (Ryzen 5 4600H, 16 GB RAM, Vega 6), el clasificador debe seleccionar `Tier2_MidVegaUMA`, manteniendo `safe_vram_pool_mb = 4096`, `dxvk_compiler_threads = 6`, `amd_tessellation_cap = 16`, `cpu_stapm_cap_mhz = 3400` y `disable_dx12_async_compute = true`.
+   - En el hardware actual del usuario (Ryzen 5 4600H, 16 GB RAM, Vega 6), el clasificador debe seleccionar `Tier2_MidVegaUMA`, manteniendo `safe_vram_pool_mb = 4096`, `dxvk_compiler_threads = 6`, `amd_tessellation_cap = 16`, `cpu_stapm_cap_mhz = 0` y `disable_dx12_async_compute = true`.
 2. **Nuevo Test 29 (`Test 29: Universal APU Tier Classification, DX11/DX12 Policy & Advanced APU Safety Guards`):**
    - Verificar sintéticamente perfiles de hardware para:
      - **Entry APU (4C/8T, 8 GB RAM, Vega 8):** Verifica `Tier1_EntryUMA`, `safe_vram_pool_mb <= 2048`, `dxvk_compiler_threads <= 3`, `disable_dx12_async_compute == true`, `amd_tessellation_cap == 8`.
-     - **Mid APU (6C/12T, 16 GB RAM, Vega 6 Renoir):** Verifica `Tier2_MidVegaUMA`, `safe_vram_pool_mb == 4096`, `dxvk_compiler_threads == 6`, `cpu_stapm_cap_mhz == 3400`.
+     - **Mid APU (6C/12T, 16 GB RAM, Vega 6 Renoir):** Verifica `Tier2_MidVegaUMA`, `safe_vram_pool_mb == 4096`, `dxvk_compiler_threads == 6`, `cpu_stapm_cap_mhz == 0`.
      - **Advanced APU (8C/16T, 32 GB RAM, Radeon 780M / 890M RDNA3):** Verifica `Tier3_AdvancedUMA`, **Do-No-Harm Guard activo** (`disable_dx12_async_compute == false`, `cpu_stapm_cap_mhz == 0`, `safe_vram_pool_mb >= 6144`, `amd_tessellation_cap == 32`).
      - **Runtime Pressure Guard:** Simular un estado `SystemMemoryTelemetry` con `90%` de uso de presupuesto DXGI en `dry_run = true` y verificar que `EvaluateUmaPressureGuard` activa `guard_triggered = true` sin bloquear el hilo.
 3. **Presupuesto de Memoria del Daemon:**

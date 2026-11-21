@@ -11,6 +11,8 @@ Daemon de Windows en C++20 con núcleo híbrido en Rust (`rust/vegaflow-core`) q
 
 ## Modo de los docs
 
+Tipo: abierto
+
 Terceros: repo público, la documentación va en español y los README también en inglés.
 
 ## Compilar y probar

@@ -2,6 +2,7 @@
 #include "optimize/steam/steam_internal.hpp"
 #include "optimize/graphics/graphics_optimizer.hpp"
 #include "bridge/rust_bridge.h"
+#include "bridge/ffi_callback_guard.hpp"
 #include "windows/change_journal.hpp"
 #include "windows/registry.hpp"
 
@@ -58,9 +59,11 @@ bool WriteStringToFile(FileSystem& fs, const std::filesystem::path& path, const 
     return fs.Write(path.wstring(), content, is_anticheat_protected);
 }
 
-void CollectBytesCallback(void* ctx, const uint8_t* data, size_t len) {
-    auto* out = static_cast<std::string*>(ctx);
-    out->assign(reinterpret_cast<const char*>(data), len);
+void CollectBytesCallback(void* ctx, const uint8_t* data, size_t len) noexcept {
+    RunCallbackGuarded([&] {
+        auto* out = static_cast<std::string*>(ctx);
+        out->assign(reinterpret_cast<const char*>(data), len);
+    });
 }
 
 bool EnsureBackupBeforeModify(
@@ -121,6 +124,18 @@ bool RestoreFromBackupVerified(
 }
 
 } // namespace
+
+const std::vector<std::pair<std::string, std::string>>& SteamEngineOptimizer::UnityBootConfigKeys() {
+    static const std::vector<std::pair<std::string, std::string>> keys = {
+        {"gfx-enable-gfx-jobs", "1"},
+        {"gfx-enable-native-gfx-jobs", "1"},
+        {"gfx-enable-mt-rendering", "1"},
+        {"wait-for-native-debugger", "0"},
+        {"hdr-display-enabled", "0"},
+        {"gc-max-time-slice", "3"}
+    };
+    return keys;
+}
 
 std::string SteamEngineOptimizer::GenerateUnrealUmaBlock(const ApuOptimizationPolicy& policy, uint32_t vram_pool_mb_override) {
     std::string umaBlock;
@@ -257,7 +272,7 @@ EngineOptimizationReport SteamEngineOptimizer::ApplyEngineUmaPreset(
                 umaBlock.size(),
                 CollectBytesCallback,
                 &finalContent);
-            if (merge_rc != VF_INI_OK) {
+            if (ConsumeCallbackFailure() || merge_rc != VF_INI_OK) {
                 report.success = false;
                 report.status_message = (merge_rc == VF_INI_ERR_MISSING_END_MARKER || merge_rc == VF_INI_ERR_UNMATCHED_END_MARKER)
                     ? "Marcador de bloque VegaFlow incompleto en Engine.ini; archivo intacto"
@@ -292,7 +307,7 @@ EngineOptimizationReport SteamEngineOptimizer::ApplyEngineUmaPreset(
                 : "Preset Unreal aplicado sin recortes visuales (ShaderCache=ON, FlipModel=ON)";
         } else {
             report.status_message = "Preset UMA Unreal Engine aplicado (PoolVRAM=" +
-                std::to_string(effective_pool_mb) + "MB, AsyncShaders=ON, FlipModel=ON, 60FPS-VegaTuned)";
+                std::to_string(effective_pool_mb) + "MB, AsyncShaders=ON, FlipModel=ON)";
         }
         return report;
     }
@@ -329,16 +344,9 @@ EngineOptimizationReport SteamEngineOptimizer::ApplyEngineUmaPreset(
             }
         }
 
-        const std::pair<std::string, std::string> keysToSet[] = {
-            {"gfx-enable-gfx-jobs", "1"},
-            {"gfx-enable-native-gfx-jobs", "1"},
-            {"gfx-enable-mt-rendering", "1"},
-            {"wait-for-native-debugger", "0"},
-            {"hdr-display-enabled", "0"},
-            {"gc-max-time-slice", "3"}
-        };
+        const auto& keysToSet = UnityBootConfigKeys();
         std::vector<VfIniKv> kv;
-        kv.reserve(6);
+        kv.reserve(keysToSet.size());
         for (const auto& [k, v] : keysToSet) {
             kv.push_back(VfIniKv{k.data(), k.size(), v.data(), v.size()});
         }
@@ -351,7 +359,7 @@ EngineOptimizationReport SteamEngineOptimizer::ApplyEngineUmaPreset(
             kv.size(),
             CollectBytesCallback,
             &merged);
-        if (merge_rc != VF_INI_OK) {
+        if (ConsumeCallbackFailure() || merge_rc != VF_INI_OK) {
             report.success = false;
             report.status_message = "Codificacion de boot.config no valida; archivo intacto";
             return report;
@@ -432,7 +440,7 @@ EngineOptimizationReport SteamEngineOptimizer::RestoreEngineOriginalConfig(
                     &changed,
                     CollectBytesCallback,
                     &out_bytes);
-                if (rc != VF_INI_OK) {
+                if (ConsumeCallbackFailure() || rc != VF_INI_OK) {
                     report.success = false;
                     report.status_message = "Marcador incompleto en Engine.ini; no se modifico el archivo";
                     return report;

@@ -92,6 +92,7 @@ void PrintStatusReport() {
     MemoryPurgeConfig mem_cfg{};
     mem_cfg.is_uma_architecture = (hw.primary_gpu.mem_arch == MemoryArchitecture::UMA_Integrated);
     MemoryManager mem_mgr(mem_cfg);
+    mem_mgr.SetTargetLuid(hw.primary_gpu.luid);
     SystemMemoryTelemetry mem = mem_mgr.SampleTelemetry();
 
     WindowsRegistryPort reg;
@@ -178,7 +179,7 @@ void PrintStatusReport() {
         std::cout << "  AMD Driver Tweaks          : N/A (GPU no AMD o driver tweaks bloqueados)\n";
     }
     std::cout << "  MMCSS WDDM Gaming Profile  : " << (tweaks.mmcss_gaming_optimized ? "OPTIMIZED (SystemResponsiveness=10%, High Priority)" : "Windows Default") << "\n";
-    std::cout << "  GameDVR & FSE Bypass       : " << (tweaks.gamedvr_disabled ? "OPTIMIZED (Background Capture Off + FSE Mode 2)" : "DEFAULT (Windows DVR Active)") << "\n";
+    std::cout << "  GameDVR Capture            : " << (tweaks.gamedvr_disabled ? "OPTIMIZED (Background Capture Off)" : "DEFAULT (Windows DVR Active)") << "\n";
     std::cout << "  APU Laptop Power & Bus     : " << (tweaks.apu_power_optimized ? "ACTIVE (Boost Efficient-Aggressive + PCIe ASPM Off)" : "STANDARD (Windows Default)") << "\n";
     std::cout << "  CPU Quantum Separation     : 0x" << std::hex << tweaks.win32_priority_separation << std::dec << "\n";
     std::cout << "  Windows Memory Compression : " << (tweaks.memory_compression_enabled ? "ACTIVE (MemCompression Process)" : "DISABLED") << "\n";
@@ -186,16 +187,16 @@ void PrintStatusReport() {
 
     uint32_t df_count = CountDirectFlipConfiguredGames();
     auto active_game = ProcessDetector::DetectActiveGame();
-    bool directflip_live = active_game.has_value() && gfx.DxgiFlip().HasDirectFlipUpgrade(active_game->full_path);
+    bool directflip_live = active_game.has_value() && gfx.DxgiFlip().HasFlipModelUpgrade(active_game->full_path);
     std::string df_status;
     if (directflip_live) {
         df_status = "ACTIVE (" + WideToUtf8(active_game->exe_name) + ")";
     } else if (df_count > 0) {
-        df_status = "CONFIGURED (" + std::to_string(df_count) + " Games with AutoFlip/DirectFlip)";
+        df_status = "CONFIGURED (" + std::to_string(df_count) + " Games with SwapEffectUpgradeEnable=1)";
     } else {
-        df_status = "READY (AutoFlipModel=1 & DirectFlip=1 Injection on Launch)";
+        df_status = "READY (SwapEffectUpgradeEnable=1 on Launch)";
     }
-    std::cout << "  DirectFlip / AutoFlip Model: " << df_status << "\n\n";
+    std::cout << "  Windowed Flip Model        : " << df_status << "\n\n";
 
     std::cout << "[RAM & TELEMETRY]\n";
     std::cout << "  Total Physical RAM         : " << FormatBytes(mem.total_physical_bytes) << "\n";
@@ -300,6 +301,7 @@ void ExecuteDryRun(const AppConfig& config) {
     MemoryPurgeConfig mem_cfg = config.memory;
     mem_cfg.is_uma_architecture = (hw.primary_gpu.mem_arch == MemoryArchitecture::UMA_Integrated);
     MemoryManager mem_mgr(mem_cfg);
+    mem_mgr.SetTargetLuid(hw.primary_gpu.luid);
     CpuOrchestrator cpu_orchestrator;
 
     std::cout << "[1/4] Scanning foreground processes for 3D Game / Graphics API...\n";
@@ -378,7 +380,7 @@ void ExecuteDryRun(const AppConfig& config) {
             hw.cpu_topology.background_cpu_set_ids,
             bg_targets,
             true /* dry_run */);
-        std::cout << "  -> Background Sets to confine: " << hw.cpu_topology.background_cpu_set_ids.size() << " core IDs (Isolated in dry-run: " << cpu_res.background_processes_isolated << " targets)\n\n";
+        std::cout << "  -> Background Sets to confine: " << hw.cpu_topology.background_cpu_set_ids.size() << " core IDs (would be isolated: " << cpu_res.background_processes_isolated << " background processes; nothing changed)\n\n";
 
         std::cout << "[4/4] [DRY-RUN] Memory Manager Evaluation:\n";
         auto mem_res = mem_mgr.EvaluateAndOptimize(0, bg_pids, true /* dry_run */);
@@ -389,9 +391,16 @@ void ExecuteDryRun(const AppConfig& config) {
         cpu_orchestrator.RestoreAll(true);
     }
 
-    uint64_t daemon_ram = MemoryManager::GetCurrentProcessPrivateWorkingSetBytes();
-    std::cout << "[KPI] Daemon Memory Working Set: " << (static_cast<double>(daemon_ram) / (1024.0 * 1024.0)) << " MB (< 15 MB KPI passed)\n";
+    std::cout << MemoryKpiLine(MemoryManager::GetCurrentProcessPrivateWorkingSetBytes()) << "\n";
     std::cout << "================================================================================\n";
+}
+
+std::string MemoryKpiLine(uint64_t private_ws_bytes) {
+    std::ostringstream ss;
+    constexpr uint64_t kBudgetBytes = 15ULL * 1024 * 1024;
+    ss << "[KPI] Daemon Memory Working Set: " << (static_cast<double>(private_ws_bytes) / (1024.0 * 1024.0)) << " MB "
+       << (private_ws_bytes < kBudgetBytes ? "(< 15 MB KPI passed)" : "(>= 15 MB KPI FAILED)");
+    return ss.str();
 }
 
 } // namespace vegaflow::app

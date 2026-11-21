@@ -10,6 +10,7 @@
 #include <cctype>
 #include <iostream>
 #include <string>
+#include <vector>
 
 #include "detect/hardware_profiler.hpp"
 #include "optimize/graphics/graphics_optimizer.hpp"
@@ -26,6 +27,7 @@
 #include "ui/app_identity.hpp"
 #include "windows/text_convert.hpp"
 #include "windows/change_journal.hpp"
+#include "windows/command_line.hpp"
 #include "windows/config_location.hpp"
 #include "windows/power.hpp"
 #include "windows/registry.hpp"
@@ -94,6 +96,15 @@ int main(int argc, char* argv[]) {
     SetUnhandledExceptionFilter(VegaFlowCrashHandler);
     SetConsoleOutputCP(CP_UTF8);
 
+    // The CRT hands argv over in the ANSI code page; the parser and Utf8ToWide expect UTF-8.
+    std::vector<std::string> utf8_args = vegaflow::Utf8Args(GetCommandLineW());
+    std::vector<char*> utf8_argv;
+    for (auto& a : utf8_args) utf8_argv.push_back(a.data());
+    if (!utf8_argv.empty()) {
+        argc = static_cast<int>(utf8_argv.size());
+        argv = utf8_argv.data();
+    }
+
     CliOptions opts;
     if (const auto exit_code = ParseCommandLine(argc, argv, opts)) return *exit_code;
     if (const auto exit_code = RunOneShotCommand(opts, argc, argv)) return *exit_code;
@@ -107,7 +118,8 @@ int main(int argc, char* argv[]) {
         std::cerr << "[WARN] " << warning << "\n";
     }
 
-    if (opts.dry_run_flag && !opts.monitor_flag) {
+    // --dry-run wins over every mode: the monitor would otherwise run the real cycle.
+    if (opts.dry_run_flag) {
         ExecuteDryRun(config);
         return 0;
     }
@@ -117,10 +129,12 @@ int main(int argc, char* argv[]) {
         if (g_single_instance_mutex && GetLastError() == ERROR_ALREADY_EXISTS) {
             HWND hExisting = FindWindowW(vegaflow::ui::kWindowClass, nullptr);
             if (hExisting) {
-                PostMessageW(hExisting, WM_COMMAND, vegaflow::ui::kTrayRestoreCommand, 0);
+                PostMessageW(hExisting, RegisterWindowMessageW(vegaflow::ui::kRestoreWindowMessage), 0, 0);
                 SetForegroundWindow(hExisting);
+                std::cout << "[INFO] VegaFlow Universal is already running. Focusing existing instance.\n";
+            } else {
+                std::cout << "[INFO] VegaFlow Universal is already running in the background (no window to show).\n";
             }
-            std::cout << "[INFO] VegaFlow Universal is already running. Focusing existing instance.\n";
             CloseHandle(g_single_instance_mutex);
             g_single_instance_mutex = nullptr;
             return 0;
@@ -178,7 +192,9 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    const bool safe_mode = (!journal_eval.corrupt && journal_eval.safe_mode);
+    const bool safe_mode = opts.observe_flag || (!journal_eval.corrupt && journal_eval.safe_mode);
+    const std::string safe_reason = opts.observe_flag ? "pedido con --observe: solo observar"
+                                                      : "se detectaron 2 o más cierres anormales seguidos";
     JournalSessionGuard session_guard;
     if (!journal_eval.corrupt) {
         if (!safe_mode && !opts.dry_run_flag && vegaflow::session::ShouldOfferRestorePoint(journal)) {
@@ -223,10 +239,11 @@ int main(int argc, char* argv[]) {
     MemoryPurgeConfig mem_cfg = config.memory;
     mem_cfg.is_uma_architecture = (hw.primary_gpu.mem_arch == MemoryArchitecture::UMA_Integrated);
     MemoryManager mem_mgr(mem_cfg);
+    mem_mgr.SetTargetLuid(hw.primary_gpu.luid);
     CpuOrchestrator cpu_orchestrator;
 
     if (opts.monitor_flag) {
-        RunMonitorDashboard(config, hw, cpu_orchestrator, mem_mgr, opts.once_flag);
+        RunMonitorDashboard(config, hw, cpu_orchestrator, mem_mgr, opts.once_flag, safe_mode, safe_reason);
         if (g_single_instance_mutex) {
             CloseHandle(g_single_instance_mutex);
             g_single_instance_mutex = nullptr;
@@ -238,5 +255,5 @@ int main(int argc, char* argv[]) {
         return RunGuiMode(config, config_store, hw, cpu_orchestrator, mem_mgr, safe_mode, journal_warning);
     }
 
-    return RunDaemon(config, hw, cpu_orchestrator, mem_mgr, priv, opts.once_flag, safe_mode);
+    return RunDaemon(config, hw, cpu_orchestrator, mem_mgr, priv, opts.once_flag, safe_mode, safe_reason);
 }

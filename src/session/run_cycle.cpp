@@ -66,8 +66,8 @@ public:
         vegaflow::KernelSchedulerTweaks(reg_).SetDynamicPrioritySeparation(val, false);
     }
 
-    void SetGameDvrAndFseOptimized(bool optimize) override {
-        vegaflow::DisplayTweaks(reg_).SetGameDvrAndFseOptimized(optimize, false);
+    void SetGameDvrCaptureDisabled(bool disable) override {
+        vegaflow::DisplayTweaks(reg_).SetGameDvrCaptureDisabled(disable, false);
     }
 
     void SetApuLaptopPowerProfile(bool optimize, const vegaflow::ApuOptimizationPolicy& static_policy) override {
@@ -159,6 +159,7 @@ void RunSingleIteration(
     uint32_t* out_noisy_bg_count,
     std::function<void(const std::string&)>* audit_cb) {
 
+    mem_mgr.SetTargetLuid(hw.primary_gpu.luid);
     vegaflow::WindowsDeviceProbe device_probe;
     vegaflow::WindowsRegistryPort reg;
     vegaflow::WindowsPowerPort power;
@@ -180,6 +181,8 @@ void RunSingleIteration(
     };
 
     vegaflow::session::RunGameSessionCycle(config, device_probe, env, hw, state, out_noisy_bg_count, emit_audit);
+    // The cycle may have refreshed the hardware profile (eGPU plugged in or out): follow its GPU from the next sample on.
+    mem_mgr.SetTargetLuid(hw.primary_gpu.luid);
 
     game_active = state.game_active;
     active_game_pid = state.active_game_pid;

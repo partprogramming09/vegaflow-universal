@@ -11,6 +11,7 @@
 
 #include "detect/hardware_profiler.hpp"
 #include "windows/device_probe.hpp"
+#include "windows/memory.hpp"
 #include "../test_support.hpp"
 
 #include <string>
@@ -46,7 +47,14 @@ void Test52() {
     ProcessIdToSessionId(GetCurrentProcessId(), &session_id);
     const bool display_ok = (session_id == 0) || !hw.displays.empty();
 
-    const bool passed = gpu_ok && dxcore_ok && tier_ok && arch_ok && power_ok && disk_ok && display_ok;
+    // E1.1: DXGI reads the VRAM of the profile's own GPU by LUID; a LUID no adapter has gives no numbers at all.
+    const auto real_mem = vegaflow::DefaultWindowsMemoryProbe().SampleSystemMemory(hw.primary_gpu.luid);
+    const auto fake_mem = vegaflow::DefaultWindowsMemoryProbe().SampleSystemMemory(0x7FFF000000000001ULL);
+    // A zero LUID would silently test the old first-adapter path: on a machine whose GPU probe works it is a failure.
+    const bool luid_ok = hw.primary_gpu.luid != 0 && real_mem.vram.valid && real_mem.vram.local_budget_bytes > 0;
+    const bool unknown_luid_ok = !fake_mem.vram.valid && fake_mem.vram.local_budget_bytes == 0;
+
+    const bool passed = gpu_ok && dxcore_ok && tier_ok && arch_ok && power_ok && disk_ok && display_ok && luid_ok && unknown_luid_ok;
     const std::string details =
         "DXCore=" + std::string(dxcore_ok ? "YES" : "NO") +
         ", Conn=" + vegaflow::HardwareProfiler::ConnectionToString(pol.gpu_connection) +
@@ -55,7 +63,8 @@ void Test52() {
         ", Disk=" + vegaflow::HardwareProfiler::DiskTypeToString(disk_type) +
         ", SysArch=" + vegaflow::HardwareProfiler::SystemArchToString(hw.system_arch) +
         ", Power=" + std::string(hw.power_status.ac_online ? "AC" : "Battery") +
-        ", Displays=" + std::to_string(hw.displays.size());
+        ", Displays=" + std::to_string(hw.displays.size()) +
+        ", VramByLuid=" + std::string(luid_ok ? "OK" : "FAIL") + ", UnknownLuid=" + std::string(unknown_luid_ok ? "OK" : "FAIL");
 
     RecordResult(passed, "Test 52: Live WindowsDeviceProbe (DXCore, SetupAPI, Storage dwDesiredAccess=0, Power, Arch, Displays)", details);
 }

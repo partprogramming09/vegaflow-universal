@@ -4,7 +4,7 @@
 
 Daemon de Windows en C++20, con núcleo híbrido en Rust, que optimiza juegos en APUs AMD (banco de pruebas: Ryzen 5 4600H con Radeon Vega 6). Aísla los procesos de fondo, aplica perfiles según el nivel de la APU y usa DXVK-GPLAsync. No inyecta nada en juegos con anti-cheat. Versión actual: **0.1.0** ([`CHANGELOG.md`](CHANGELOG.md)).
 
-![Lenguaje](https://img.shields.io/badge/C%2B%2B20%20%2B%20Rust-blue.svg) ![Plataforma](https://img.shields.io/badge/Windows%2010%20%7C%2011%20x64-0078D6.svg) ![Pruebas](https://img.shields.io/badge/pruebas-57%20C%2B%2B%20%7C%20252%20Rust-success.svg)
+![Lenguaje](https://img.shields.io/badge/C%2B%2B20%20%2B%20Rust-blue.svg) ![Plataforma](https://img.shields.io/badge/Windows%2010%20%7C%2011%20x64-0078D6.svg) ![Pruebas](https://img.shields.io/badge/pruebas-310%20C%2B%2B%20%7C%20252%20Rust-success.svg)
 
 ## Por qué existe
 
@@ -67,7 +67,7 @@ src/                código del daemon en C++20, agrupado por función (cada .hp
   windows/            toda llamada a Windows: privilegios, registro, SandboxGuard, lecturas del sistema y el sistema de archivos real
   bridge/             contrato entre C++ y Rust
 rust/vegaflow-core/ reglas puras en Rust (presión UMA, topología, confinamiento, Tiers, política de rutas, firmas)
-tests/              la suite de 57 pruebas de C++ (tests/integration/ toca Windows de verdad, tests/unit/ usa puertos falsos), la prueba del paquete (tests/package/) y los casos compartidos con Rust (tests/vectors/)
+tests/              la suite de C++ (310 pruebas en la última corrida) (tests/integration/ toca Windows de verdad, tests/unit/ usa puertos falsos), la prueba del paquete (tests/package/) y los casos compartidos con Rust (tests/vectors/)
 scripts/            compilar, empaquetar, medir y operar el laptop de pruebas (ver scripts/README.md)
 assets/dxvk/        aquí se colocan las DLL de DXVK que el daemon instala en los juegos (no se incluyen; ver su README)
 config/             valores por defecto del daemon

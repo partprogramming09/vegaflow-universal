@@ -178,4 +178,10 @@ bool ExecuteRestorePointOffer(
     return ok;
 }
 
+std::string RestoreAllMessage(const RestoreReport& journal_report, size_t registry_reverted, size_t registry_total) {
+    if (journal_report.total_count > 0) return journal_report.summary_message;
+    if (registry_total > 0) return "Se devolvieron " + std::to_string(registry_reverted) + " de " + std::to_string(registry_total) + ".";
+    return "Se devolvieron 0 de 0 (ajustes en valores originales de Windows).";
+}
+
 } // namespace vegaflow::session

@@ -35,7 +35,7 @@ Implementado en [`src/session/system_info.hpp`](../../src/session/system_info.hp
   - Conteo riguroso de núcleos físicos (6) y procesadores lógicos (12) mediante `GetLogicalProcessorInformationEx`.
   - Microarquitectura identificada: *Zen 2 Renoir 7nm*.
   - Tamaño de memoria caché L3 (8 MB / 8,388,608 bytes).
-  - Frecuencia objetivo de boost sostenido APU STAPM a **3.4 GHz** (35W-45W).
+  - Frecuencia objetivo de boost a **4.0 GHz**, sin tope STAPM (`cpu_stapm_cap_mhz = 0`).
   - Máscaras y CPU Sets activos para juegos y procesos de fondo.
 - **Gráficos & Memoria UMA (Vega 6)**:
   - Enumeración de adaptadores DirectX mediante `IDXGIFactory4` / `IDXGIAdapter3`.
@@ -54,7 +54,10 @@ Implementado en [`src/session/system_info.hpp`](../../src/session/system_info.hp
 ### 3.3. Arquitectura y Rediseño Visual de la GUI (Clean Slate / Nordic Dark Mode)
 Implementado en [`src/ui/gui_window.hpp`](../../src/ui/gui_window.hpp) y [`src/ui/gui_window.cpp`](../../src/ui/gui_window.cpp):
 - **Cero Dependencias & Ultra Bajo Consumo**: GUI construida enteramente sobre la API pura de Win32/GDI con doble búfer (`BitBlt`), sin marcos pesados (Qt, WPF, Electron). Consume menos de **15 MB de RAM privada** y **0.0% de CPU** en reposo. Al detectar un juego en primer plano, la interfaz suspende sus llamadas gráficas de telemetría para ceder el 100% de los ciclos a la GPU.
-- **Identidad de la ventana (R3):** [`src/ui/app_identity.hpp`](../../src/ui/app_identity.hpp) guarda en un solo sitio la versión, la clase y el título de la ventana (`VegaFlowUniversalWindow`, «VegaFlow Universal») y la línea «procesador | gráfica» (`FormatHardwareLine`). Esa línea nunca toma el nombre de otro equipo: lo que no se pudo leer sale como «Procesador no identificado» o «Gráfica no identificada», y una línea de más de 65 bytes se corta con «...» sin partir un carácter UTF-8. La GUI ya no promete mejoras en sus textos; las siete pantallas nuevas son de la fase G (versión 0.2.0).
+- **Identidad de la ventana (R3):** [`src/ui/app_identity.hpp`](../../src/ui/app_identity.hpp) guarda en un solo sitio la versión, la clase y el título de la ventana (`VegaFlowUniversalWindow`, «VegaFlow Universal») y la línea «procesador | gráfica» (`FormatHardwareLine`). Esa línea nunca toma el nombre de otro equipo: lo que no se pudo leer sale como «Procesador no identificado» o «Gráfica no identificada», y una línea de más de 65 bytes se corta con «...» sin partir un carácter UTF-8. La GUI ya no promete mejoras en sus textos. Los textos de las pantallas nuevas están en un solo archivo, [`src/ui/texts.hpp`](../../src/ui/texts.hpp).
+- **Pantallas (fase G, versión 0.2.0):** el menú lateral tiene ocho entradas y una novena pantalla cuelga de Configuración. Las pantallas nuevas son Inicio, Ajustes del sistema, Juegos, Historial, Configuración, Programas, Tu equipo y Requisitos y advertencias (esta última sin entrada propia: se abre desde Configuración). **La tercera, «Memoria UMA & Núcleos CPU», sigue en el dibujo antiguo (GDI) de `gui_tabs.cpp`.** Cada pantalla nueva tiene su `src/ui/<nombre>_view.*` (dibuja y crea los controles) y su modelo en `src/session/<nombre>_screen.*` (decide qué se muestra). Qué hace cada una, para quien usa el programa: [guía de uso](../guias/uso-y-funciones.md), sección 2.8.
+- **Controles nativos:** los botones, interruptores y campos son controles `BUTTON` y `EDIT` de Windows dibujados por el programa (owner-draw), así que tienen foco, orden de Tab y nombre accesible; las tarjetas, barras y etiquetas siguen siendo GDI. Un botón dibujado así se activa con la barra espaciadora, no con Intro. Las piezas comunes (crear el control, colocarlo dentro del área con desplazamiento, el marco con el anillo de foco) están en `src/ui/native_controls.*`.
+- **Sin escalado por DPI propio:** la ventana pide a Windows el modo «sin reconocer DPI, GDI escalado» (el diseño usa píxeles fijos) y Windows la amplía con texto nítido. La ventana se ajusta al área de trabajo. Se vio a 125 % y 150 % (ver [estado de verificación](../mediciones/estado-de-verificacion.md)).
 - **Paleta Slate / Zinc Neutra ("Clean Slate / Nordic Dark Mode")**:
   - Fondo principal: `#111317` (`RGB(17, 19, 23)`).
   - Barra lateral: `#16191E` (`RGB(22, 25, 30)`).
@@ -69,20 +72,28 @@ Implementado en [`src/ui/gui_window.hpp`](../../src/ui/gui_window.hpp) y [`src/u
   - Divisores horizontales internos de 1px (`CLR_CARD_BORDER`).
 - **Subtítulos Técnicos Educativos**:
   - Cada tarjeta y control dispone de descripciones breves que instruyen al usuario sobre el impacto físico de la optimización (aislamiento de CCX para evitar contención de caché L3, supresión del límite de 512 MB de UMA en AMD para evitar texturas borrosas en UE4/UE5, y nota explícita en `OverlayTestMode`/MPO indicando que no está documentado por Microsoft y permanece apagado por defecto).
-- **Tab 0: Dashboard Central Interactivo**:
-  - Proporciona una vista consolidada en tiempo real:
-    1. *Procesador & Topología*: Estado de núcleos Zen 2, L3, boost APU STAPM y asignación de CPU Sets.
-    2. *Gráficos & Memoria UMA*: VRAM BIOS vs UMA compartida y barra de presupuesto DXGI.
-    3. *Memoria RAM Dual-Channel*: Barra multi-segmento con desglose en uso / standby / modificada / libre y ancho de banda de 128 bits.
-    4. *Kernel NT & SO*: Build de Windows, MMCSS y compresión de memoria.
-    5. *Seguridad SandboxGuard*: Indicador de blindaje activo, contador de violaciones y cuarentena anti-cheat.
-    6. *Monitor de Juego Activo*: Indicador de primer plano, indicador `DirectFlip activo` (o `Flip Model Estándar`) y estado del perfil.
-    7. *Tarjetas de Estado de la Suite 3D*: Sub-panel inferior con 3 tarjetas especializadas:
-       - **EcoQoS en 2º Plano**: Procesos de fondo confinados en Efficiency Mode para recuperar 3W-5W de STAPM.
-       - **Prioridad I/O**: Estado de `IoPriorityHigh` en el juego e `IoPriorityVeryLow` (0) en procesos de fondo para eliminar stuttering de texturas.
-       - **DirectFlip / AutoFlip**: Indicador de derivación directa de swap chain (sin la copia intermedia del DWM).
-- **Tab 1: Ajustes de Kernel & Sistema por Fabricante**:
-  - Muestra dinámicamente solo las familias disponibles para el equipo detectado (`AmdDriverTweaks` solo en GPUs AMD sin bloqueo de driver; `PowerModeTweaks` solo cuando aplica la política de energía).
+- **Qué pantalla es cuál** (índice del menú; la descripción de cada una está en la [guía de uso](../guias/uso-y-funciones.md), sección 2.8): 0 Inicio (`home_view`), 1 Ajustes del sistema (`settings_view`), 2 Memoria UMA & Núcleos CPU (GDI antiguo, `gui_tabs.cpp`), 3 Juegos (`games_view`), 4 Historial (`history_view`), 5 Configuración (`config_view`), 6 Programas (`programs_view`), 7 Tu equipo (`equipment_view`) y 8 Requisitos (`requirements_view`, colgada de Configuración). El «Dashboard Central» de 0.1.0 (pestaña 0) ya no existe.
+- **Ajustes del sistema** muestra solo las familias que sirven en el equipo detectado (`AmdDriverTweaks` solo en GPUs AMD sin bloqueo de driver; `PowerModeTweaks` solo cuando aplica la política de energía). La lista sale del catálogo `src/session/settings_catalog.*`, que decide qué fila existe, si es experimental y qué evidencia tiene.
+
+### 3.3b. La capa `session/` y las pantallas
+
+**Lo esencial.** Una pantalla se reparte en tres piezas: `ui/<x>_view` dibuja y crea los controles; `session/<x>_screen` es un **modelo puro** (datos listos para mostrar, sin llamadas a Windows) y `session/*_actions` hace lo que hacen los botones. `ui/` solo lee el modelo, así que no decide nada.
+
+**Ejemplo.** En «Juegos», pulsar «Aplicar perfil» hace que la vista llame a `on_ApplyGameEnginePreset(app_id)`; eso entra en `GameActions::Apply`, que escribe los archivos del juego a través de las clases de `optimize/` y devuelve la frase que sale en la barra de estado. Una prueba arma `GameActions` con archivos falsos y comprueba esa frase sin abrir ninguna ventana.
+
+| Pieza de `session/` | Qué contiene |
+| --- | --- |
+| `*_screen.*` (`home`, `settings`, `games`, `history`, `config`, `programs`, `equipment`, `requirements`) | Modelos de pantalla: filas, textos, estados vacíos y qué botón está activo |
+| `GameActions` (`game_actions.*`) | Los botones de Juegos: aplicar o devolver el perfil de un juego, excluirlo («Me fue mal») o incluirlo, instalar o quitar DXVK y releer la biblioteca de Steam. Las dos lecturas que tocan Windows (escanear Steam, releer una carpeta) se le pasan como funciones |
+| `SettingsActions` (`settings_actions.*`) | Los interruptores de Ajustes del sistema, uno por fila del catálogo (cambia solo si el estado actual es distinto, así un segundo clic nunca deshace por error) y «volver todo al valor de Windows» (`ResetAll`) |
+| `ConfigActions` (`config_actions.*`) | Las ediciones de Configuración y Programas: cada una se aplica a una copia, la valida la misma regla con la que el daemon lee `config.json`, y la configuración en memoria solo cambia si el archivo se escribió. Una edición rechazada deja archivo y pantalla como estaban |
+| `RestoreAllMessage` (`restore.*`) | La frase tras «Devolver todo»: el resumen del diario si había entradas; si no, cuántos valores guardados del registro se devolvieron; si no, que no había nada que cambiar. Es una función pura con su prueba |
+
+**Reglas de capas** (las comprueba [`scripts/check_layers.sh`](../../scripts/check_layers.sh), que corre en el CI): `ui/` solo puede incluir `session/` y `model/`; `session/` incluye `model/`, `ports/` y `bridge/` y, mientras dure la migración, `windows/`, `detect/` y `optimize/`; `app/` puede incluir todo para armar las piezas.
+
+**Lo que sigue en `src/app/gui_mode.cpp`, y por qué.** `gui_mode.cpp` arma los objetos, los conecta a los botones y guarda el estado de la sesión. Siguen ahí, a propósito:
+- El **sondeo de telemetría** (`on_PollTelemetry`): devuelve un `GuiDashboardData`, una estructura que vive en `ui/`, y `session/` no puede incluir `ui/`.
+- **Purgar memoria, aislar procesos de fondo, restaurar la afinidad y el sondeo del historial:** llaman directamente a clases que tocan Windows y para las que no hay versión falsa; moverlas a `session/` no permitiría probarlas sin Windows.
 
 ### 3.4. Suite Moderna para Juegos 3D (EcoQoS, Jerarquía I/O NT y DirectFlip)
 Implementada de forma coordinada en [`src/optimize/cpu_orchestrator.cpp`](../../src/optimize/cpu_orchestrator.cpp), [`src/optimize/graphics/`](../../src/optimize/graphics/), [`src/app/main.cpp`](../../src/app/main.cpp) y [`src/ui/gui_window.cpp`](../../src/ui/gui_window.cpp):
@@ -116,13 +127,10 @@ Implementada de forma coordinada en [`src/optimize/cpu_orchestrator.cpp`](../../
      ```
    - Esta jerarquía garantiza que las peticiones de lectura del juego tengan prioridad absoluta en la cola de I/O de Windows NT, mientras que los procesos de fondo solo acceden al almacenamiento durante ciclos ociosos (`IoPriorityVeryLow = 0`). Además, `MEMORY_PRIORITY_LOW` (2) en fondo previene que la memoria de trabajo del juego sea desplazada al archivo de paginación, erradicando los micro-parones en streaming de texturas 3D.
 
-3. **DirectFlip & AutoFlip Model Upgrade**:
-   - **Explicación técnica:** En modos ventana sin bordes tradicionales, el Desktop Window Manager (DWM) intercepta la swap chain y efectúa una copia intermedia de cada fotograma en una superficie de composición DWM, introduciendo entre 15 y 30 ms de retardo de entrada y stutters por contención de sincronización vertical.
-   - **Inyección DXGI:** VegaFlow inyecta directamente en `HKCU\Software\Microsoft\DirectX\UserGpuPreferences`:
-     ```ini
-     AutoFlipModel=1;DirectFlip=1;TurboSync=1;SwapEffectUpgradeEnable=1;GpuPreference=2;
-     ```
-   - Esto habilita la promoción directa a **DirectFlip** en Windows 11, desacoplando la swap chain de la cola de copiado de DWM. El motor gráfico proyecta sus fotogramas directamente a la controladora de vídeo, logrando **0ms de latencia de entrada adicional** (equivalente a pantalla completa exclusiva) preservando la comodidad de la multitarea borderless y la compatibilidad con superposiciones de sistema.
+3. **Modelo flip en ventana** (`DxgiFlipTweaks::ApplyFlipModelUpgrade`, `src/optimize/graphics/dxgi_flip.cpp`):
+   - Mezcla `SwapEffectUpgradeEnable=1;` en el valor del juego en `HKCU\Software\Microsoft\DirectX\UserGpuPreferences`, sin tocar `GpuPreference` ni `AutoHDREnable`, y añade el token `HIGHDPIAWARE` a `AppCompatFlags\Layers` conservando las otras banderas (no lo añade si ya hay `DPIUNAWARE` o `GDIDPISCALING`).
+   - Si los dos valores ya están como quedarían, no escribe ni abre otra entrada en el diario. El diario guarda los dos valores previos y la reversión los devuelve exactos (Pruebas 94 y 95).
+   - Las optimizaciones de pantalla completa (`GameDVR_FSEBehaviorMode` y tres valores más) son aparte: la fila oculta `fse_compat` de Ajustes, que el demonio nunca aplica solo (Prueba 96). Efecto de ambas: sin medir.
 
 ### 3.5. Suite de Silicio APU & Blindaje de Memoria de Kernel NT (DisablePagingExecutive & Smart Tessellation 16x)
 Implementada en [`src/optimize/graphics/`](../../src/optimize/graphics/), [`src/app/main.cpp`](../../src/app/main.cpp) y [`src/ui/gui_window.cpp`](../../src/ui/gui_window.cpp):
@@ -179,7 +187,7 @@ vegaflow-universal/
 │   │   ├── main.cpp              # Punto de entrada: lee la línea de comandos y elige el modo
 │   │   ├── cli.*                 # Banderas y órdenes de un solo uso (--status, --purge-now, --version, ...)
 │   │   ├── daemon_loop.*         # Modo por defecto: bucle del daemon y apagado limpio
-│   │   ├── gui_mode.*            # --gui: ventana nativa con bandeja
+│   │   ├── gui_mode.*            # --gui: ventana nativa con bandeja; arma `session/` y conecta los botones (ver 3.3b)
 │   │   ├── monitor.*             # --monitor: panel de consola en vivo
 │   │   └── app_state.*           # Estado compartido y manejador de Ctrl+C
 │   ├── session/                  # Casos de uso: lo que hace el daemon con un juego
@@ -188,7 +196,10 @@ vegaflow-universal/
 │   │   ├── reports.*             # --status, --dry-run y --purge-now
 │   │   ├── system_info.*         # Informe SystemInfo (hardware, UMA, RAM, OS y JSON); las lecturas de Windows las pide a windows/system_counters
 │   │   ├── config.*              # ConfigStore: leer y guardar config.json (reglas en Rust) y lista de juegos
-│   │   └── restore.*             # Evaluación al arranque, recuperación del diario, formato de historial y punto de restauración
+│   │   ├── restore.*             # Evaluación al arranque, recuperación del diario, formato de historial, punto de restauración y `RestoreAllMessage`
+│   │   ├── *_screen.*            # Modelos puros de las pantallas (home, settings, games, history, config, programs, equipment, requirements)
+│   │   ├── settings_catalog.*    # Catálogo de ajustes de la pantalla Ajustes del sistema (familias por hardware, experimental, evidencia)
+│   │   └── *_actions.*           # Lo que hacen los botones: `GameActions`, `SettingsActions` y `ConfigActions`
 │   ├── ports/                    # Interfaces que los casos de uso piden y las pruebas falsifican
 │   │   ├── file_system.hpp       # Leer, escribir, reemplazar entero, copiar y borrar archivos
 │   │   ├── clock.hpp             # La hora actual y fecha legible (`WallNow`); las pruebas lo adelantan a mano
@@ -232,7 +243,10 @@ vegaflow-universal/
 │   │   ├── gui_window.*          # Interfaz Slate/Zinc y System Tray
 │   │   ├── app_identity.hpp      # Versión, clase y título de ventana, id de la bandeja y la línea «procesador | gráfica» (solo nombres, sin llamadas a Windows)
 │   │   ├── gui_components.*      # Componentes modulares de UI y renderizado gráfico
-│   │   └── gui_tabs.cpp          # Contenido de cada pestaña
+│   │   ├── native_controls.*     # Piezas comunes de los controles nativos: crear, colocar con desplazamiento, marco y anillo de foco
+│   │   ├── texts.hpp             # Los textos de las pantallas nuevas, en un solo archivo
+│   │   ├── *_view.*              # Una por pantalla nueva: dibuja y crea los controles a partir del modelo de `session/`
+│   │   └── gui_tabs.cpp          # La pestaña «Memoria UMA & Núcleos CPU» (GDI antiguo)
 │   ├── windows/                  # Envolturas de la API de Windows
 │   │   ├── nt_defs.hpp           # Typedefs y llamadas nativas indocumentadas de NTDLL
 │   │   ├── system_counters.*     # Lecturas para el informe y la GUI: procesos en EcoQoS, juegos con Direct Flip, caché L3 (con respaldo CPUID), ranuras DIMM por SMBIOS e ids de ventana

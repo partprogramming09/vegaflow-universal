@@ -41,6 +41,7 @@ public:
     uint32_t EffectiveUncleanStreak() const override;
     bool IsSafeModeTriggered() const override;
     const std::vector<JournalEntry>& Entries() const override;
+    uint64_t Revision() const override;
 
     // Thread-safe copy of entries for UI polling.
     std::vector<JournalEntry> SnapshotEntries() const;
@@ -59,6 +60,7 @@ private:
     uint32_t effective_unclean_streak_ = 0;
     bool safe_mode_ = false;
     uint64_t next_id_ = 1;
+    uint64_t revision_ = 0;
     std::vector<JournalEntry> entries_;
 };
 

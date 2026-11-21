@@ -175,15 +175,15 @@ void Test15() {
         bool prio_sep_26_ok = gfx.KernelScheduler().SetDynamicPrioritySeparation(0x26, true /* dry_run */);
         bool prio_sep_28_ok = gfx.KernelScheduler().SetDynamicPrioritySeparation(0x28, true /* dry_run */);
         bool amd_boost_dry_ok = amd.SetDx11UmaDriverBoost(true, DetectedPolicy(), true /* dry_run */);
-        bool gamedvr_dry_ok = gfx.Display().SetGameDvrAndFseOptimized(true, true /* dry_run */);
+        bool gamedvr_dry_ok = gfx.Display().SetGameDvrCaptureDisabled(true, true /* dry_run */);
         bool apu_power_dry_ok = pwr.SetApuLaptopPowerProfile(true, DetectedPolicy(), true /* dry_run */);
         bool apu_mode_gpu_dry_ok = pwr.SetApuPowerMode(vegaflow::ApuPowerMode::GpuPrioritySustained, DetectedPolicy(), true /* dry_run */);
         bool apu_mode_bal_dry_ok = pwr.SetApuPowerMode(vegaflow::ApuPowerMode::Balanced, DetectedPolicy(), true /* dry_run */);
 
         // Apply real settings for HKCU / User Power scheme (execution), then restore immediately
-        bool gamedvr_exec_ok = gfx.Display().SetGameDvrAndFseOptimized(true, false /* dry_run */);
+        bool gamedvr_exec_ok = gfx.Display().SetGameDvrCaptureDisabled(true, false /* dry_run */);
         if (gamedvr_exec_ok) {
-            gfx.Display().SetGameDvrAndFseOptimized(false, false /* dry_run */);
+            gfx.Display().SetGameDvrCaptureDisabled(false, false /* dry_run */);
         }
         bool apu_power_exec_ok = pwr.SetApuLaptopPowerProfile(true, DetectedPolicy(), false /* dry_run */);
         if (apu_power_exec_ok) {
@@ -228,63 +228,9 @@ void Test19() {
             true /* dry_run */,
             &dry_pref);
 
-        bool dry_has_swap = (dry_pref.find(L"SwapEffectUpgradeEnable=1") != std::wstring::npos);
-        bool dry_has_gpu_pref = (dry_pref.find(L"GpuPreference=2") != std::wstring::npos);
-        bool dry_has_autohdr = (dry_pref.find(L"AutoHDREnable=0") != std::wstring::npos);
-        // DirectFlip & AutoFlipModel MUST NOT be injected in default Flip Model to prevent DWM thrashing
-        bool dry_no_autoflip = (dry_pref.find(L"AutoFlipModel") == std::wstring::npos);
-        bool dry_no_directflip = (dry_pref.find(L"DirectFlip") == std::wstring::npos);
-        bool remove_dry_ok = gfx.DxgiFlip().RemoveFlipModelUpgrade(
-            L"C:\\Games\\ZenlessZoneZero\\ZenlessZoneZero.exe",
-            true /* dry_run */);
-
-        bool stable_flip_dry_valid = flip_dry_ok && dry_has_swap && dry_has_gpu_pref &&
-                                      dry_has_autohdr && dry_no_autoflip && dry_no_directflip &&
-                                      remove_dry_ok;
-
-        // 1b. DirectFlip Explicit Upgrade dry-run verification
-        std::wstring df_dry_pref;
-        bool df_dry_ok = gfx.DxgiFlip().ApplyDirectFlipUpgrade(
-            L"C:\\Games\\DirectFlipTest\\DummyGame3D.exe",
-            true /* dry_run */,
-            &df_dry_pref);
-        bool df_has_autoflip = (df_dry_pref.find(L"AutoFlipModel=1") != std::wstring::npos);
-        bool df_has_directflip = (df_dry_pref.find(L"DirectFlip=1") != std::wstring::npos);
-        bool df_has_swap = (df_dry_pref.find(L"SwapEffectUpgradeEnable=1") != std::wstring::npos);
-        bool directflip_explicit_ok = df_dry_ok && df_has_autoflip && df_has_directflip && df_has_swap;
-
-        // 1c. Real execution validation if current security context grants HKCU write
-        const std::wstring test_game_exe = L"C:\\Games\\DirectFlipTest\\DummyGame3D.exe";
-        bool insert_ok = gfx.DxgiFlip().ApplyFlipModelUpgrade(test_game_exe, false /* dry_run */);
-        bool registry_lifecycle_ok = true;
-        if (insert_ok) {
-            std::wstring stored_pref;
-            bool query_ok = gfx.DxgiFlip().QueryUserGpuPreferences(test_game_exe, stored_pref);
-            bool stored_has_swap = (stored_pref.find(L"SwapEffectUpgradeEnable=1") != std::wstring::npos);
-            bool stored_has_gpu = (stored_pref.find(L"GpuPreference=2") != std::wstring::npos);
-            bool stored_has_autohdr = (stored_pref.find(L"AutoHDREnable=0") != std::wstring::npos);
-            bool stored_no_df = (stored_pref.find(L"DirectFlip") == std::wstring::npos);
-            bool stored_no_af = (stored_pref.find(L"AutoFlipModel") == std::wstring::npos);
-            bool has_flip = gfx.DxgiFlip().HasFlipModelUpgrade(test_game_exe);
-            bool has_no_df = !gfx.DxgiFlip().HasDirectFlipUpgrade(test_game_exe);
-
-            // Test explicit DirectFlip opt-in
-            bool df_insert_ok = gfx.DxgiFlip().ApplyDirectFlipUpgrade(test_game_exe, false /* dry_run */);
-            bool has_df_now = gfx.DxgiFlip().HasDirectFlipUpgrade(test_game_exe);
-
-            // Test that applying stable Flip Model strips existing DirectFlip to prevent thrashing
-            bool strip_ok = gfx.DxgiFlip().ApplyFlipModelUpgrade(test_game_exe, false /* dry_run */);
-            bool df_stripped = !gfx.DxgiFlip().HasDirectFlipUpgrade(test_game_exe) &&
-                               gfx.DxgiFlip().HasFlipModelUpgrade(test_game_exe);
-
-            bool remove_ok = gfx.DxgiFlip().RemoveFlipModelUpgrade(test_game_exe, false /* dry_run */);
-            bool cleaned_up = !gfx.DxgiFlip().HasFlipModelUpgrade(test_game_exe);
-
-            registry_lifecycle_ok = query_ok && stored_has_swap && stored_has_gpu && stored_has_autohdr &&
-                                    stored_no_df && stored_no_af && has_flip && has_no_df &&
-                                    df_insert_ok && has_df_now && strip_ok && df_stripped &&
-                                    remove_ok && cleaned_up;
-        }
+        // Only the Flip switch: no GPU choice, no HDR change, no undocumented AutoFlipModel/DirectFlip (E1.4).
+        // The real write and its journal revert are Test 95.
+        bool stable_flip_dry_valid = flip_dry_ok && dry_pref == L"SwapEffectUpgradeEnable=1;";
 
         // 2. AMD DX11 Driver Boost (TurboSync=0 & FlipQueueSize=1)
         bool amd_boost_ok = amd.SetDx11UmaDriverBoost(true, DetectedPolicy(), true /* dry_run */);
@@ -368,21 +314,19 @@ void Test19() {
             CloseHandle(pi.hProcess);
         }
 
-        bool t19_success = stable_flip_dry_valid && directflip_explicit_ok && registry_lifecycle_ok &&
+        bool t19_success = stable_flip_dry_valid &&
                            amd_boost_ok && vram_override_dry_ok && vram_restore_dry_ok && vram_query_ok &&
                            vram_tweaks_integrated && proc_created && ecoqos_dry_ok && ecoqos_exec_ok &&
                            io_deprio_ok && mem_deprio_ok && restore_clean_ok;
 
         std::string details = "EcoQoS (Dry/Exec): " + std::string((ecoqos_dry_ok && ecoqos_exec_ok) ? "PASS" : "FAIL") + ", "
             + "I/O & Memory Priority NT: " + std::string((io_deprio_ok && mem_deprio_ok) ? "PASS (IoVeryLow 0, MemLow 2)" : "FAIL") + ", "
-            + "Stable Flip Model: " + std::string(stable_flip_dry_valid ? "PASS (SwapEffect=1, GpuPref=2, AutoHDR=0)" : "FAIL") + ", "
-            + "DirectFlip Opt-In: " + std::string((directflip_explicit_ok && registry_lifecycle_ok) ? "PASS" : "FAIL")
-            + (insert_ok ? " (Exec/Strip/Clean: PASS)" : " (Dry-Run: PASS)") + ", "
+            + "Stable Flip Model: " + std::string(stable_flip_dry_valid ? "PASS (SwapEffect=1 only)" : "FAIL") + ", "
             + "AMD Driver Boost (FQS=1 Low-Latency): " + std::string(amd_boost_ok ? "PASS" : "FAIL") + ", "
             + "VRAM Override (4GB Dry/Query: " + std::to_string(queried_vram_mb) + "MB): " + std::string((vram_override_dry_ok && vram_query_ok) ? "PASS" : "FAIL") + ", "
             + "Restore: " + std::string(restore_clean_ok ? "OK" : "FAIL");
 
-        RecordResult(t19_success, "Test 19: Modern 3D Gaming Suite (EcoQoS Background Throttling, I/O Priority Hierarchy, DirectFlip & Low-Latency D3D11 Queues)", details);
+        RecordResult(t19_success, "Test 19: Modern 3D Gaming Suite (EcoQoS Background Throttling, I/O Priority Hierarchy, Flip Model & Low-Latency D3D11 Queues)", details);
     }
 }
 
@@ -580,13 +524,16 @@ void Test29() {
         gfx.RestoreAllRegistryBackups(); // restores the state left by previous tests as the original
         const auto before = read_dvr();
 
-        gfx.Display().SetGameDvrAndFseOptimized(true, false);
+        gfx.Display().SetGameDvrCaptureDisabled(true, false);
+        gfx.Display().SetFullscreenOptimizationsDisabled(true, false);
         const auto during = read_dvr();
         const bool changed = during != before || (before[0].first && before[0].second == 0);
-        gfx.Display().SetGameDvrAndFseOptimized(false, false);
+        gfx.Display().SetGameDvrCaptureDisabled(false, false);
+        gfx.Display().SetFullscreenOptimizationsDisabled(false, false);
         const bool restored_by_toggle = (read_dvr() == before);
 
-        gfx.Display().SetGameDvrAndFseOptimized(true, false);
+        gfx.Display().SetGameDvrCaptureDisabled(true, false);
+        gfx.Display().SetFullscreenOptimizationsDisabled(true, false);
         const bool restore_all_ok = gfx.RestoreAllRegistryBackups();
         const bool restored_by_all = (read_dvr() == before);
 

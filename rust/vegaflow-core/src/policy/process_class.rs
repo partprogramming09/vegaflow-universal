@@ -125,35 +125,54 @@ fn has_any_marker(haystack: &str, markers: &[&str]) -> bool {
     markers.iter().any(|m| haystack.contains(m))
 }
 
+/// `..` or `.` as a path component: `c:\\windows\\..\\games` is not under `c:\\windows`.
+fn has_dot_segment(path: &str) -> bool {
+    path.split('\\').any(|s| s == "." || s == "..")
+}
+
+/// `<ascii letter>:` local path without `.`/`..` components: rules out UNC, `\\.\` and odd drives.
+fn is_plain_drive_path(path: &str) -> bool {
+    let b = path.as_bytes();
+    b.len() >= 2 && b[0].is_ascii_alphabetic() && b[1] == b':' && !has_dot_segment(path)
+}
+
+/// True when `path` is `<drive>:` + `root` or lives under it (`root` has no trailing `\\`).
+/// A plain `contains` would accept `d:\games\program files` and `c:\windowsx`.
+fn under_drive_root(path: &str, root: &str) -> bool {
+    if !is_plain_drive_path(path) {
+        return false;
+    }
+    let rest = &path[2..];
+    rest == root || rest.strip_prefix(root).is_some_and(|r| r.starts_with('\\'))
+}
+
+/// `<drive>:\users\<name>\appdata\local|roaming`, exact component match.
+fn in_user_appdata(path: &str) -> bool {
+    if !is_plain_drive_path(path) {
+        return false;
+    }
+    let mut parts = path[2..].split('\\');
+    parts.next() == Some("")
+        && parts.next() == Some("users")
+        // Win32 strips trailing spaces and dots, so `" "` or `"..."` is no real user folder.
+        && parts.next().is_some_and(|u| !u.trim_end_matches([' ', '.']).is_empty())
+        && parts.next() == Some("appdata")
+        && matches!(parts.next(), Some("local") | Some("roaming"))
+}
+
 fn in_standard_install_root(parent: &str) -> bool {
-    has_any_marker(
-        parent,
-        &[
-            "\\appdata\\local\\",
-            "\\appdata\\local",
-            "\\appdata\\roaming\\",
-            "\\appdata\\roaming",
-            "\\program files\\",
-            "\\program files (x86)\\",
-            "\\program files\\windowsapps\\",
-            "\\programdata\\chocolatey\\",
-            "\\scoop\\apps\\",
-            "\\steamapps\\common\\",
-        ],
-    )
+    in_user_appdata(parent)
+        || ["\\program files", "\\program files (x86)", "\\programdata\\chocolatey"]
+            .iter()
+            .any(|r| under_drive_root(parent, r))
+        // Library folders can sit anywhere on any drive, so these two stay unanchored but component-bound.
+        || (is_plain_drive_path(parent) && has_any_marker(parent, &["\\scoop\\apps\\", "\\steamapps\\common\\"]))
 }
 
 fn in_windows_root(parent: &str) -> bool {
-    has_any_marker(
-        parent,
-        &[
-            ":\\windows\\",
-            ":\\windows",
-            "\\program files\\windowsapps\\",
-            "\\programdata\\microsoft\\windows defender\\",
-            "\\programdata\\vegaflow",
-        ],
-    )
+    ["\\windows", "\\program files\\windowsapps", "\\programdata\\microsoft\\windows defender", "\\programdata\\vegaflow"]
+        .iter()
+        .any(|r| under_drive_root(parent, r))
 }
 
 #[derive(Clone, Copy)]
@@ -327,11 +346,12 @@ pub fn classify_process(input: &ProcessPolicyInput<'_>) -> VfProcessDecision {
         let KnownRule::App { exe, class, need_std_root, path_markers } = *rule;
         if exe == exe_lower {
             matched_known_exe = true;
-            if !parent_dir.is_empty()
+            if is_plain_drive_path(&parent_dir)
                 && !parent_dir.contains("\\temp\\")
                 && !parent_dir.ends_with("\\temp")
                 && (!need_std_root || in_standard_install_root(&parent_dir))
-                && has_any_marker(&parent_dir, path_markers)
+                // `\windows\` must be the drive's Windows folder, not one nested under `c:\x\`.
+                && path_markers.iter().any(|m| if *m == "\\windows\\" { in_windows_root(&parent_dir) } else { parent_dir.contains(m) })
             {
                 verified_class = Some(class);
                 break;

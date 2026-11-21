@@ -125,10 +125,10 @@ VegaFlow Universal ha alcanzado la madurez de su núcleo de optimización y arqu
 Especificado en [`hardware-y-tiers.md`](hardware-y-tiers.md) e implementado en [`src/detect/hardware_profiler.cpp`](../../src/detect/hardware_profiler.cpp):
 1. **Tier 1: Entry UMA (`Survival Guard`):**
    - Destinado a APUs con $\le$ 8–9 GB de RAM o $\le$ 4 núcleos físicos (Vega 3/6/8 básica, Athlon Mobile, Intel Gen 9–11 UHD).
-   - Impone techo rígido de textura en Unreal Engine (1536 a 2048 MB) para evitar caídas OOM, limita DXVK a 3 hilos de compilación, teselación a 8x y techo STAPM a 3000 MHz.
+   - Impone techo rígido de textura en Unreal Engine (1536 a 2048 MB) para evitar caídas OOM, limita DXVK a 3 hilos de compilación, teselación a 8x y sin tope de frecuencia STAPM (`cpu_stapm_cap_mhz = 0`).
 2. **Tier 2: Mid Vega UMA (`Sweet-Spot Guard`):**
    - Diseñado para APUs GCN 5 / Vega con 12–20 GB RAM o CPUs Zen 2/Zen 3 6C–8C (Ryzen 5 4600H, 5500U, 5600H).
-   - Preserva exactamente los parámetros óptimos del banco de pruebas original: Pool VRAM a 4096 MB, 6 hilos dedicados para DXVK, teselación a 16x, desactivación de `AsyncCompute` en DX12 y STAPM a 3400 MHz.
+   - Parte de los parámetros del banco de pruebas original (el tope STAPM de 3400 MHz que tuvo se quitó: hoy no hay tope en ningún tier): Pool VRAM a 4096 MB, 6 hilos dedicados para DXVK, teselación a 16x, desactivación de `AsyncCompute` en DX12 y sin tope de frecuencia STAPM (`cpu_stapm_cap_mhz = 0`).
 3. **Tier 3: Advanced UMA (`Do-No-Harm Guard`):**
    - Para APUs modernas RDNA 2, RDNA 3 y RDNA 3.5 (Radeon 680M, 780M, 890M, Strix Point) e Intel Xe/Arc UMA o configuraciones con $\ge$ 22 GB de RAM.
    - **Do-No-Harm Guard:** Preserva el cómputo asíncrono activo (`D3D12.AsyncCompute=1` y `r.RDG.AsyncCompute=1`), no restringe los relojes de CPU (`cpu_stapm_cap_mhz = 0`) y asigna pool UMA generoso de 6144 a 8192 MB con teselación hasta 32x.

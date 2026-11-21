@@ -30,10 +30,11 @@ int RunDaemon(
     vegaflow::MemoryManager& mem_mgr,
     const vegaflow::PrivilegeStatus& priv,
     bool once_mode,
-    bool safe_mode) {
+    bool safe_mode,
+    const std::string& safe_reason) {
     using namespace vegaflow;
     // Built once from the boot profile, the same way each optimizer used to rebuild it on every call.
-    const ApuOptimizationPolicy policy = HardwareProfiler::BuildOptimizationPolicy(hw);
+    ApuOptimizationPolicy policy = HardwareProfiler::BuildOptimizationPolicy(hw);
     SafeFileSystem file_system; // the real FileSystem port (SandboxGuard)
     WindowsRegistryPort reg;
     WindowsPowerPort power;
@@ -46,10 +47,11 @@ int RunDaemon(
     HWND active_game_hwnd = nullptr;
 
     if (safe_mode) {
-        std::cout << "[WARN] MODO SEGURO ACTIVO: VegaFlow detect\u00f3 2 o m\u00e1s cierres anormales seguidos. "
+        std::cout << "[WARN] MODO SEGURO ACTIVO (" << safe_reason << "): "
                   << "Arrancando sin aplicar ajustes del sistema. Usa --restore-registry si necesitas revertir.\n";
     } else {
-        gfx.Display().SetGameDvrAndFseOptimized(true, false);
+        gfx.DxgiFlip().MigrateLegacyPreferences(false);
+        gfx.Display().SetGameDvrCaptureDisabled(true, false);
         if (gfx.PowerMode()) {
             gfx.PowerMode()->SetApuLaptopPowerProfile(true, policy, false);
         }
@@ -68,7 +70,7 @@ int RunDaemon(
             if (gfx.PowerMode() && gfx.PowerMode()->IsApuPowerModeApplied()) {
                 gfx.PowerMode()->SetApuLaptopPowerProfile(false, policy, false);
             }
-            gfx.Display().SetGameDvrAndFseOptimized(false, false);
+            gfx.Display().SetGameDvrCaptureDisabled(false, false);
             gfx.RestoreAllRegistryBackups();
         }
         return 0;
@@ -129,9 +131,17 @@ int RunDaemon(
             break;
         } else if (wait_res == WAIT_OBJECT_0 + 1) {
             if (!safe_mode) {
+                const uint64_t prev_sig = hw.adapter_signature;
+                const uint8_t prev_pref = hw.user_gpu_pref;
                 RunSingleIteration(
                     config, file_system, hw, cpu_orchestrator, mem_mgr,
                     game_active, active_game_pid, active_game_exe, active_game_api, active_game_hwnd);
+                // The iteration re-reads the hardware when the adapters change; the tweaks and telemetry follow it.
+                if (hw.adapter_signature != prev_sig || hw.user_gpu_pref != prev_pref) {
+                    policy = HardwareProfiler::BuildOptimizationPolicy(hw);
+                    gfx.Rebind(hw, policy);
+                    mem_mgr.SetTargetLuid(hw.primary_gpu.luid);
+                }
             }
         } else {
             break;
@@ -148,7 +158,7 @@ int RunDaemon(
         if (gfx.PowerMode()) {
             gfx.PowerMode()->SetApuLaptopPowerProfile(false, policy, false);
         }
-        gfx.Display().SetGameDvrAndFseOptimized(false, false);
+        gfx.Display().SetGameDvrCaptureDisabled(false, false);
         // Restores the registry (GameDVR, AMD driver, MPO, MMCSS, priority, paging) to its state before VegaFlow.
         const bool registry_restored = gfx.RestoreAllRegistryBackups();
         std::cout << "[INFO] Registry values restored to their original state: " << (registry_restored ? "yes" : "partially or not (see --restore-registry)") << "\n";

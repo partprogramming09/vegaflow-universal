@@ -32,8 +32,18 @@ public:
     std::map<uint32_t, std::string> image_name_by_pid;
     uint32_t self_pid = 9999;
 
-    vegaflow::SystemMemoryTelemetry SampleSystemMemory() const override {
-        return telemetry;
+    // E1.1: the LUID the manager asked for, and a different VRAM answer per adapter.
+    mutable uint64_t last_luid = 0;
+    std::map<uint64_t, vegaflow::VideoMemoryTelemetry> vram_by_luid;
+
+    vegaflow::SystemMemoryTelemetry SampleSystemMemory(uint64_t target_luid = 0) const override {
+        last_luid = target_luid;
+        vegaflow::SystemMemoryTelemetry t = telemetry;
+        if (target_luid != 0) {
+            auto it = vram_by_luid.find(target_luid);
+            t.vram = it != vram_by_luid.end() ? it->second : vegaflow::VideoMemoryTelemetry{};
+        }
+        return t;
     }
 
     bool SampleProcessDiskReadBytes(uint32_t pid, uint64_t& out_read_bytes) const override {
@@ -287,6 +297,43 @@ void Test53() {
                      ", Shared 90s cooldown: " + (shared_cooldown_ok ? "PASS" : "FAIL") +
                      ", Integrated-GPU gate: " + (gpu_gate_ok ? "PASS" : "FAIL") +
                      ", Do-Not-Trim (OBS/Discord/calls): " + (do_not_trim_ok ? "PASS" : "FAIL"));
+}
+
+void Test92() {
+    // E1.1: VRAM is read from the GPU the profile selected, follows a change of GPU, and never borrows another GPU's numbers.
+    constexpr uint64_t kMB = 1024ULL * 1024ULL;
+    constexpr uint64_t kIgpu = 0x0000000100001111ULL;
+    constexpr uint64_t kEgpu = 0x0000000200002222ULL;
+    ManualClock clock;
+    FakeMemoryProbe probe;
+    FakeMemoryControl control;
+    probe.telemetry.total_physical_bytes = 16384 * kMB;
+    probe.telemetry.memory_lists_valid = true;
+    probe.vram_by_luid[kIgpu] = {1 * kMB, 2048 * kMB, 0, 0, true};
+    probe.vram_by_luid[kEgpu] = {5 * kMB, 24576 * kMB, 0, 0, true};
+    vegaflow::MemoryPurgeConfig cfg{};
+    vegaflow::MemoryManager mgr(cfg, clock, probe, control);
+
+    const bool default_is_zero = (mgr.SampleTelemetry(), probe.last_luid == 0);
+    mgr.SetTargetLuid(kIgpu);
+    const auto igpu = mgr.SampleTelemetry();
+    const bool igpu_ok = probe.last_luid == kIgpu && igpu.vram.valid && igpu.vram.local_budget_bytes == 2048 * kMB;
+    mgr.SetTargetLuid(kEgpu); // eGPU plugged in: the target follows without recreating the manager
+    const auto egpu = mgr.SampleTelemetry();
+    const bool egpu_ok = probe.last_luid == kEgpu && egpu.vram.valid && egpu.vram.local_budget_bytes == 24576 * kMB;
+    mgr.SetTargetLuid(0x0000000300003333ULL); // unplugged / unknown: invalid, not the iGPU's numbers
+    const auto gone = mgr.SampleTelemetry();
+    const bool unknown_is_invalid = !gone.vram.valid && gone.vram.local_budget_bytes == 0;
+    mgr.SetTargetLuid(kIgpu);
+    const bool back_ok = mgr.SampleTelemetry().vram.local_budget_bytes == 2048 * kMB;
+    mgr.EvaluateAndOptimize(100, {200}, true);
+    const bool evaluate_uses_target = probe.last_luid == kIgpu; // the purge decision reads the same adapter
+
+    const bool ok = default_is_zero && igpu_ok && egpu_ok && unknown_is_invalid && back_ok && evaluate_uses_target;
+    RecordResult(ok, "Test 92: MemoryManager samples VRAM of the selected GPU (LUID) and follows hot-plug",
+                 std::string("Default=") + (default_is_zero ? "OK" : "FAIL") + ", Igpu=" + (igpu_ok ? "OK" : "FAIL") +
+                     ", Egpu=" + (egpu_ok ? "OK" : "FAIL") + ", Unknown=" + (unknown_is_invalid ? "OK" : "FAIL") +
+                     ", Back=" + (back_ok ? "OK" : "FAIL") + ", Evaluate=" + (evaluate_uses_target ? "OK" : "FAIL"));
 }
 
 } // namespace vftest

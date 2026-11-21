@@ -18,7 +18,7 @@ bool AmdDriverTweaks::SetShaderCacheForced(bool force_on, const ApuOptimizationP
 
     for (const auto* sub : kAdapterSubkeys) {
         const std::wstring adapter_path = std::wstring(kDisplayClassBase) + L"\\" + sub;
-        if (!IsAmdAdapterKey(reg_, adapter_path)) {
+        if (!IsAmdAdapterKey(reg_, adapter_path, device_id_)) {
             continue;
         }
 

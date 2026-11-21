@@ -4,6 +4,8 @@
 
 **Estado (2026-11-14).** Las correcciones de «Terminado cuando» que no necesitaban pantallas nuevas **están hechas** (commit `eb0cf5a`, fase R3, versión 0.1.0): la GUI ya no escribe el nombre fijo del laptop de pruebas (la línea «procesador | gráfica» sale de `ui/app_identity.hpp`, con «no identificado» si falta un dato), ya no dice «UXTU» (clase de ventana `VegaFlowUniversalWindow`, título «VegaFlow Universal») y ya no tiene textos que prometan mejoras (se quitaron «0 % OVERHEAD», «Cero VRAM», «0ms» y «4.0 GHz»). **Las 7 pantallas pasan a la versión 0.2.0**; lo que sigue es lo que queda pendiente.
 
+**Actualización (2026-11-15): las pantallas están construidas** (ocho más la de Requisitos, que no estaba entre las siete del diseño; detalle y lo que falta en «Estado de la construcción», más abajo). Esta página conserva el diseño original; la tabla de abajo manda sobre él.
+
 **Por qué.** La GUI de 0.1.0 funciona, pero le quedan dos problemas:
 - **Jerga y mezcla de idiomas:** "Combo Gaming 2B", "Quantum de kernel", "TIMER KERNEL", "AVG FPS" (sin revisar si siguen todos en pantalla). La persona no sabe qué hace cada botón ni si sirve.
 - **Falta de diseño, no fallo:** no dice qué está medido. Un ajuste sin medir se ve igual que uno con ganancia demostrada, aunque la regla del proyecto es que lo no medido no va por defecto.
@@ -64,7 +66,7 @@ Lo que ya está bien: el texto secundario tiene entre 5,69:1 y 6,94:1, las etiqu
 - **Primera vez:** una pantalla corta al abrir VegaFlow por primera vez. Muestra el perfil del equipo, lo que va a hacer y lo que no (nada con anti-cheat), y deja elegir si arranca con Windows.
 - **Aviso al salir:** si al cerrar quedan cambios aplicados, ofrecer "Devolver todo a como estaba" o "Dejarlos".
 - **Atajo de pánico:** una combinación de teclas que pausa VegaFlow al momento, por si un juego va mal.
-- **Escala de Windows:** respetar 125 % y 150 %. La GUI ya pide reconocer el DPI (`gui_window.cpp:710-716`); falta comprobar que todo se redibuja bien.
+- **Escala de Windows:** respetar 125 % y 150 %. La GUI pide a Windows «sin reconocer DPI, GDI escalado» (`SetProcessDpiAwarenessContext(-5)` en `GuiWindow::RunGuiLoop`) y Windows la amplía con texto nítido: con el modo por monitor anterior la ventana quedaba diminuta, porque el diseño usa píxeles fijos. Visto a 125 % y 150 % (la ventana se ajusta al área de trabajo: a 150 % una de 1120 × 740 no cabía).
 - **Idioma:** los textos en un solo archivo, para poder traducirlos al inglés sin tocar el código de dibujo.
 
 **Cómo se construye (sin librerías nuevas):**
@@ -82,6 +84,58 @@ Lo que ya está bien: el texto secundario tiene entre 5,69:1 y 6,94:1, las etiqu
 - todo lo que se cambia en Programas y Configuración se guarda en `config.json` y sobrevive a un reinicio;
 - se navega con el teclado (Tab) por todos los botones y los textos tienen un contraste de al menos 4,5:1;
 - el daemon en reposo sigue por debajo de 15 MB con la GUI cerrada.
+
+## Estado de la construcción (2026-11-15)
+
+Fuente de cada fila: el código en `src/ui/*_view.*`, `src/session/*_screen.*` y `src/app/gui_mode.cpp`. Suite de C++ en el laptop: `TEST RESULTS: 310 PASSED` (`scripts/remote/vfdev cross-test`). Cómo se reparte el código: [`modulos.md`](../../arquitectura/modulos.md), sección 3.3b.
+
+**Hecho**
+
+| Pieza del diseño | Estado |
+|---|---|
+| Inicio, Ajustes del sistema, Juegos, Historial, Configuración, Programas, Tu equipo | Construidas con controles nativos (Tab, foco visible) y su modelo en `session/` |
+| Requisitos y advertencias | Construida; se abre desde Configuración (detalle en [`producto.md`](producto.md), sección 1e) |
+| «Volver al archivo original» y excluir un juego | En Juegos: «Volver al archivo original» y «Me fue mal en este juego» (con «Volver a incluir»). El botón antiguo «Aplicar Preset APU» ya no existe: es «Aplicar perfil» |
+| Estados vacíos con frase | Historial, Juegos (sin biblioteca de Steam) y Programas (sin excepciones) tienen su texto |
+| Una acción, un nombre | «Devolver todo a como estaba» (sistema) y «Restablecer esta configuración» (opciones de VegaFlow) |
+| Textos en un solo archivo | `src/ui/texts.hpp` |
+| Contraste y foco | Prueba de contraste de la paleta (`tests/unit/contrast_unit_tests.cpp`); anillo de foco en los controles nativos |
+| Lógica fuera de `gui_mode.cpp` | `GameActions`, `SettingsActions`, `ConfigActions` y `RestoreAllMessage` están en `session/` y se prueban con falsos; quedan en `gui_mode.cpp` el sondeo de telemetría, purgar, aislar, restaurar la afinidad y el sondeo del historial (ver `modulos.md`) |
+| Interruptor «Mostrar funciones experimentales» | En Ajustes del sistema, con aviso y etiqueta «Experimental» por fila |
+
+**No construido**
+
+- «Pausar VegaFlow en este juego» (la pantalla Inicio no lo tiene).
+- Bienvenida de la primera vez.
+- Atajo de pánico y la pausa de «Algo va mal». Hecho en Inicio: «Devolver todo a como estaba» y «Copiar informe» (texto plano al portapapeles; Prueba 84; comprobado en el laptop).
+- Mando (XInput).
+- Vista previa «qué haría en tu equipo» (el `dry_run` en pantalla).
+- Informe copiable hecho en lo básico (Inicio → «Copiar informe»); falta el acceso desde la bandeja y el atajo.
+- Aviso al salir con cambios aplicados.
+- Configuración → «Funciones avanzadas» con «Modo desarrollador», y los grupos «General» (iniciar con Windows, bandeja), «Qué puede hacer este programa» y exportar la configuración: la pantalla Configuración tiene hoy cuatro grupos (Modo de uso, Detección de juegos, Memoria compartida y Avanzado, este último solo con «Limitar el juego a sus núcleos»).
+- **Escalado por DPI:** la GUI no escala sus tamaños (la amplía Windows). Capturada a 125 % y 150 % en el laptop de pruebas (job `dpi`, que guarda la escala original y la devuelve).
+- Lector de pantalla: sin probar.
+
+**Terminado cuando**, punto por punto
+
+- Cada ajuste con su ⓘ y «Recomendado» solo con evidencia de ganancia: hecho en el modelo (`Evidence::Gain` es lo único que dice «Recomendado»).
+- Bordes con 3:1 y foco visible: hecho en el código y en la prueba de contraste; no se verificó con capturas.
+- Estado vacío con acción en cada lista: hay frase en las tres listas; la «acción» de cada una (por ejemplo «Añadir un juego») no se comprobó pantalla por pantalla.
+- Programas y Configuración se guardan en `config.json`: hecho, y la edición solo se da por buena si el archivo se escribió (`ConfigActions`).
+- Navegación con Tab y contraste 4,5:1: hecho en código; con el teclado se activa con la barra espaciadora (no con Intro).
+- Daemon en reposo bajo 15 MB: medido sin la GUI en la sesión 1 (ver [`estado-de-verificacion.md`](../../mediciones/estado-de-verificacion.md)); **con la GUI abierta en el escritorio no se midió**.
+
+## Decisiones pendientes que salieron al construir el catálogo (2026-11-15)
+
+El catálogo de ajustes (`src/session/settings_catalog.*`, Prueba 61) se comparó fila por fila con lo que escribe el código. Quedan estas decisiones para el usuario; la prueba 61.10 fija la lista actual para que cambiarla sea a propósito:
+
+- **Cuatro ajustes sin medir se aplican solos**, contra la regla «lo no medido no va por defecto»: la memoria de vídeo informada (`main.cpp`, al arrancar con administrador), `Win32PrioritySeparation` y GameDVR (en cada juego detectado, `game_session.cpp`) y el perfil de energía (si la política fuerza el plan de alto rendimiento). Medidos sin efecto: `Win32PrioritySeparation` y GameDVR. La pantalla debe decirlo tal cual; apagarlos de fábrica es un cambio de comportamiento que pide su propia aprobación.
+- **«Caché de shaders» y «teselación» no son ajustes sueltos:** el código los escribe juntos con seis valores más del driver de AMD. El catálogo los muestra como un solo «Perfil del driver de AMD».
+- **La compresión de memoria y GameDVR** no estaban en el diseño del canvas; ya tienen fila.
+- **Sin probar todavía:** que cada fila coincida con lo que escribe el optimizador, con un `RegistryPort` en memoria como la Prueba 57. Hoy se comprobó leyendo el código.
+- **Aviso «se aplica al reiniciar» en Configuración: sin decidir (2026-11-15).** Configuración guarda en `config.json` al momento, pero no se ha decidido si la pantalla debe avisar de que algunos valores solo los lee el daemon al arrancar. Cuáles son esos valores no se comprobó al escribir esto.
+- **«Devolver todo» escribe valores por defecto de Windows sin copia previa** en varios ajustes (detalle en [`estado-de-verificacion.md`](../../mediciones/estado-de-verificacion.md)). Sin decidir si se corrige.
+- **Guardián UMA:** usa un contador de memoria de vídeo que probablemente nunca refleja el uso de un juego (mismo documento). Sin decidir si se corrige.
 
 ## Evidencia (commit `61eed56`)
 

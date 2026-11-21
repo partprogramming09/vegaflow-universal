@@ -38,3 +38,15 @@ game_custom_list	C:\MyGames\IndiePixel.exe	default	none	IndiePixel.exe	none	0	0	
 game_excluded_bad_exp	D:\SteamLibrary\steamapps\common\OCTOPATH TRAVELER2\Octopath_Traveler2-Win64-Shipping.exe	default	none	none	Octopath_Traveler2-Win64-Shipping.exe	0	1	0	possible_game	do_not_touch	0	0
 game_generic_ac_signal	D:\Games\Shooter\Shooter-Win64-Shipping.exe	default	none	none	none	0	1	1	possible_game	boost_as_game	1	0
 game_zzz_path_ac	D:\Games\ZenlessZoneZero\ZenlessZoneZero.exe	default	none	none	none	0	1	0	possible_game	boost_as_game	1	0
+win_lookalike_windowsx	C:\WindowsX\System32\dwm.exe	default	none	none	none	0	1	0	windows_system	do_not_touch	0	0
+win_nested_windows_dir	D:\Games\Windows\System32\dwm.exe	default	none	none	none	0	1	0	windows_system	do_not_touch	0	0
+streamlabs_nested_program_files	D:\Games\Program Files\Streamlabs\streamlabs desktop.exe	default	none	none	none	0	0	0	unknown	do_not_touch	0	0
+streamlabs_lookalike_appdata	C:\Users\x\AppDataX\Local\Streamlabs\streamlabs desktop.exe	default	none	none	none	0	0	0	unknown	do_not_touch	0	0
+streamlabs_real_appdata	C:\Users\x\AppData\Local\Streamlabs\streamlabs desktop.exe	default	none	none	none	0	0	0	recording_streaming	do_not_touch	0	1
+win_dotdot_escape	C:\Windows\..\Games\dwm.exe	default	none	none	none	0	1	0	windows_system	do_not_touch	0	0
+win_dot_segment	C:\Windows\.\System32\dwm.exe	default	none	none	none	0	1	0	windows_system	do_not_touch	0	0
+streamlabs_dotdot_program_files	C:\Program Files\..\Games\Streamlabs\streamlabs desktop.exe	default	none	none	none	0	0	0	unknown	do_not_touch	0	0
+streamlabs_dotdot_users	C:\Users\..\AppData\Local\Streamlabs\streamlabs desktop.exe	default	none	none	none	0	0	0	unknown	do_not_touch	0	0
+streamlabs_nested_appdata	C:\Games\AppData\Local\Streamlabs\streamlabs desktop.exe	default	none	none	none	0	0	0	unknown	do_not_touch	0	0
+streamlabs_appdata_suffix	C:\Users\x\AppData\LocalX\Streamlabs\streamlabs desktop.exe	default	none	none	none	0	0	0	unknown	do_not_touch	0	0
+win_forward_slash_prefix	\\?\C:/Windows/System32/dwm.exe	default	none	none	none	0	1	0	windows_system	do_not_touch	0	1

@@ -9,9 +9,9 @@
 [Ver el diagrama a pantalla completa](../diagrams/modulos-principales.html)
 
 ### 2.1. DXGI Hardware Flip Model Presentation Upgrade
-- Interviene en `HKCU\Software\Microsoft\DirectX\UserGpuPreferences` registrando las directivas `AutoFlipModel=1;DirectFlip=1;TurboSync=1;SwapEffectUpgradeEnable=1;GpuPreference=2;`.
-- Fuerza a los juegos basados en DirectX 11 a utilizar la cadena de intercambio **Hardware Flip Model** (`DXGI_SWAP_EFFECT_FLIP_DISCARD` / `FLIP_SEQUENTIAL`) y promueve directamente al modo **DirectFlip** en Windows 11, puenteando la superficie de composición intermedia y la cola de copiado de DWM.
-- **Beneficio:** Reduce entre 15 y 25 ms el retardo de entrada (input lag) alcanzando 0ms de latencia de composición adicional en pantalla completa sin bordes, elimina el micro-stuttering de composición y previene la caída de cuadros por buffers bloqueados.
+- Añade solo `SwapEffectUpgradeEnable=1` al valor del juego en `HKCU\Software\Microsoft\DirectX\UserGpuPreferences`; lo demás que hubiera (`GpuPreference`, `AutoHDREnable`) queda igual. Es lo que activa «Optimizaciones para juegos en ventana»: los juegos DirectX 10 y 11 en ventana pasan del modelo blt al modelo flip.
+- Añade `HIGHDPIAWARE` a las banderas del juego en `AppCompatFlags\Layers` sin quitar las que ya tuviera, y no lo añade si ya hay otro modo de DPI.
+- **Beneficio:** sin medir en este proyecto (ver `docs/mediciones/estado-de-verificacion.md`). Se deshace desde Historial o «Devolver todo».
 
 ### 2.2. UMA Engine Memory & Texture Streamer
 - Analiza la instalación de juegos en Steam y detecta automáticamente si el motor es **Unreal Engine 4/5** o **Unity**.
@@ -37,6 +37,8 @@
   - Asignación de 6 hilos dedicados para compilación de pipelines en paralelo (`dxvk.numCompilerThreads = 6`).
   - Fijación de límites de memoria de dispositivo a 4096 MB y compartida a 8192 MB (`dxgi.maxDeviceMemory = 4096`).
 - Previene los tirones en juegos DX11 donde los drivers oficiales de AMD sufren de sobrecarga de compilación.
+- **Tu `dxvk.conf` se conserva.** Si la carpeta del juego ya tenía un `dxvk.conf` que no es de VegaFlow, antes de escribir el nuestro se copia como `dxvk.conf.vegaflow.bak` (las DLL propias del juego, como siempre, se guardan como `d3d11.dll.original.bak` y `dxgi.dll.original.bak`). Al quitar DXVK, el `dxvk.conf` original vuelve a su sitio; si no se pudo devolver, el mensaje lo dice y la copia sigue en `dxvk.conf.vegaflow.bak`. Si el juego no tenía `dxvk.conf`, al quitar DXVK se borra el de VegaFlow.
+- **Cuándo se considera instalado:** VegaFlow solo da por instalado su DXVK si existen `d3d11.dll` y `dxgi.dll` y la primera línea de `dxvk.conf` empieza por `# VegaFlow`. Un juego que trae sus propias DLL no cuenta como «con DXVK de VegaFlow».
 
 ### 2.4. Anti-Cheat Sentinel (Protección Kernel Proactiva)
 - Identifica tecnologías anti-trampas a nivel de kernel mediante firma de binarios y servicios:
@@ -72,7 +74,7 @@ El subsistema [`SandboxGuard`](../../src/windows/sandbox_guard.hpp) implementa u
 
 ### 2.7. Subsistema SystemInfo (Telemetría de Hardware & Exportación JSON)
 El subsistema [`SystemInfo`](../../src/session/system_info.hpp) desacopla la detección profunda de hardware y sistema operativo en un módulo autónomo y de alta precisión:
-- **Detección de CPU Zen 2:** Extrae el *Brand String* mediante instrucciones `CPUID` nativas (*AMD Ryzen 5 4600H with Radeon Graphics*), calcula topología de 6 núcleos físicos / 12 lógicos, arquitectura Renoir de 7nm, tamaño de caché L3 de 8 MB y frecuencia objetivo APU STAPM a 3.4 GHz sostenidos.
+- **Detección de CPU Zen 2:** Extrae el *Brand String* mediante instrucciones `CPUID` nativas (*AMD Ryzen 5 4600H with Radeon Graphics*), calcula topología de 6 núcleos físicos / 12 lógicos, arquitectura Renoir de 7nm, tamaño de caché L3 de 8 MB y frecuencia objetivo de boost a 4.0 GHz, sin tope STAPM (`cpu_stapm_cap_mhz = 0`).
 - **Topología de Gráficos & Memoria UMA (Vega 6):** Contrasta el reporte ficticio de BIOS (512 MB) con la memoria UMA compartida real del sistema (~7.7 GB) y sondea presupuestos dinámicos de VRAM en tiempo real mediante `IDXGIAdapter3::QueryVideoMemoryInfo`.
 - **Topología de Memoria RAM por Firmware (SMBIOS Type 17):** Inspecciona las tablas SMBIOS `RSMB` (`GetSystemFirmwareTable`), identificando la presencia de 2 módulos DIMM poblados y verificando el bus de 128 bits en **Dual-Channel** (~42 GB/s de ancho de banda). Presenta desglose de memoria libre real, Standby List y páginas modificadas.
 - **Kernel NT & Temporizador:** Informa la compilación exacta de Windows 11 (Build 26300 con UBR), resolución del temporizador NT (0.50 ms), MMCSS GPU Priority (8) y estado de compresión de memoria.
@@ -83,10 +85,23 @@ La interfaz gráfica Win32/GDI ([`gui_window.cpp`](../../src/ui/gui_window.cpp))
 - **Paleta Slate/Zinc Neutra:** Se sustituyeron los gradientes chillones por tonalidades carbón elegantes (`#111317` fondo principal, `#16191E` barra lateral, `#1B1E24` tarjetas, bordes finos `#2B303C` de 1px) y acentos cromáticos sobrios y moderados (Azul acero `#3B82F6`, Verde esmeralda `#10B981`, Ámbar `#F59E0B`, Rojo crítico `#EF4444`).
 - **Geometría y Espaciados Simétricos:** Márgenes exteriores exactos de 16px, gutters uniformes de 12px entre tarjetas y divisores horizontales nítidos de 1px.
 - **Subtítulos Técnicos Educativos:** Cada tarjeta de telemetría y control interactivo incorpora micro-subtítulos explicativos que educan al usuario sobre el impacto físico real en el silicio (mitigación de contención L3 en CCX, erradicación de texturas borrosas en UMA, latencia de interrupciones DPC en kernel NT).
-- **Tab 0: Dashboard Central Interactivo:** Nuevo centro de control interactivo que unifica en una sola vista los paneles de CPU Zen 2, APU/UMA Vega 6, RAM Dual-Channel, Kernel NT y el estado blindado en tiempo real de SandboxGuard. Al detectar un juego activo, muestra el badge `DIRECTFLIP 0ms ACTIVO` e integra 3 tarjetas de estado para la suite 3D:
-  1. *EcoQoS en 2º Plano:* Muestra el número de procesos de fondo confinados en Efficiency Mode para liberar TDP a la iGPU Vega 6.
-  2. *Prioridad I/O:* Monitorea `IoPriorityHigh` en el proceso del juego e `IoPriorityVeryLow` (0) en subprocesos de fondo.
-  3. *DirectFlip / AutoFlip:* Certifica la derivación directa al hardware eliminando la cola de copiado de DWM.
+- **Pantallas (versión 0.2.0):** el menú lateral tiene ocho entradas y hay una novena pantalla que cuelga de Configuración. Todas, salvo la 3, son pantallas nuevas de la fase G: botones y campos nativos de Windows (se recorren con Tab), textos en español claro y sin prometer mejoras. Cada pantalla lee un «modelo» ya preparado por la capa `session/` (ver [módulos](../arquitectura/modulos.md#33b-la-capa-session-y-las-pantallas)) y no decide nada.
+
+  | Entrada del menú | Qué responde |
+  |---|---|
+  | 1. Inicio | ¿Hay un juego abierto? Tu equipo en tres líneas, la memoria gráfica compartida y los programas de fondo. Tres botones: «Ver todo el detalle» (lleva a Tu equipo), «Liberar memoria ahora» y «Elegir qué se frena» (lleva a Programas). Al final, «¿Algo va mal?»: «Devolver todo a como estaba» y «Copiar informe» (texto plano con versión, equipo, memoria y los últimos 30 cambios; el nombre de usuario de Windows se cambia por <usuario> en toda ruta) |
+  | 2. Ajustes del sistema | Cada ajuste de Windows que VegaFlow puede cambiar, con su estado real activado o de fábrica, si está medido o «Sin medir», un ⓘ con el cambio exacto y un aviso aparte para las funciones experimentales. Solo salen las familias que sirven en tu gráfica |
+  | 3. Memoria UMA & Núcleos CPU | Sigue en el dibujo antiguo (GDI): no se ha rehecho |
+  | 4. Juegos | Una fila por juego de Steam. «Ver cambios» muestra el archivo, la copia y las líneas que escribe el perfil. Botones: «Aplicar perfil», «Volver al archivo original», «Me fue mal en este juego» (lo excluye), «Volver a incluir», «Instalar DXVK» o «Quitar DXVK» y «Buscar juegos de nuevo» |
+  | 5. Historial | Cada cambio de VegaFlow con el valor de antes y el de ahora, «Deshacer» por fila y «Devolver todo a como estaba» |
+  | 6. Configuración | Los valores de `config.json`: modo de uso, cada cuánto se revisa la ventana en primer plano, los umbrales de la memoria compartida y «Limitar el juego a sus núcleos» (marcado «No recomendado»). Cada cambio se guarda al momento; «Restablecer esta configuración» y «Devolver todo» están aquí. Un botón «Ver» abre la pantalla Requisitos |
+  | 7. Programas | Qué hace VegaFlow con cada tipo de programa mientras juegas (Frenar, Solo ahorro o No tocar), excepciones por programa y juegos añadidos a mano |
+  | 8. Tu equipo | Solo lectura: el mapa de hilos (juego, fondo, Windows), las gráficas y el nivel de protección de memoria |
+  | Requisitos y advertencias (sin entrada propia) | Solo lectura. Qué necesita VegaFlow, si tu equipo lo cumple y qué conviene saber. Se llega desde Configuración y un botón vuelve allí |
+
+  **Teclado:** Tab y Mayús+Tab recorren los controles, la barra espaciadora pulsa el botón con foco (Intro no), Ctrl+1 a Ctrl+8 saltan a la entrada del menú con ese número, y en Inicio, Tu equipo y Requisitos, RePág, AvPág, Inicio y Fin desplazan la pantalla.
+
+  La antigua pantalla «Dashboard Central» (con tarjetas de EcoQoS, prioridad de E/S y DirectFlip) ya no existe; el botón «Aplicar Preset APU» tampoco: ahora es «Aplicar perfil» en Juegos.
 
 ### 2.9. Suite Moderna para Juegos 3D (EcoQoS, Jerarquía I/O NT y DirectFlip)
 Integrada a bajo nivel para resolver de raíz las limitaciones de latencia, contención de almacenamiento y balance energético en títulos 3D exigentes (Zenless Zone Zero, Genshin Impact, Honkai: Star Rail, Octopath Traveler II):
@@ -96,9 +111,9 @@ Integrada a bajo nivel para resolver de raíz las limitaciones de latencia, cont
 2. **Jerarquía de Prioridad I/O y Memoria NT:**
    - **Explicación técnica:** Videojuegos 3D modernos realizan streaming continuo de modelos y texturas de alta resolución desde el disco SSD NVMe hacia la memoria RAM compartida (UMA) y el buffer de la GPU. Cuando aplicaciones de fondo compiten por el bus I/O de archivos o causan contención en el gestor de memoria, se generan severos parones (*stuttering*) y frametime spikes de 50 a 150 ms.
    - **Mecanismo NT:** Mediante llamadas a `NtSetInformationProcess(ProcessIoPriorityInformationClass = 33)`, VegaFlow asigna `IoPriorityHigh` (2) al juego 3D y confina los procesos de fondo a `IoPriorityVeryLow` (0). Esto asegura que el controlador de almacenamiento de Windows NT otorgue prioridad absoluta a las lecturas de mallas y texturas del juego. Paralelamente, se fija `MEMORY_PRIORITY_LOW` (2) en fondo para evitar la expulsión al pagefile de recursos gráficos activos.
-3. **DirectFlip & AutoFlip Model Upgrade:**
-   - **Explicación técnica:** En modos ventana o borderless tradicionales, el compositor del sistema (DWM) copia cada fotograma a una superficie intermedia, introduciendo entre 15 y 30 ms de retardo de entrada y micro-stutters periódicos.
-   - **Inyección DXGI:** VegaFlow inyecta en `HKCU\Software\Microsoft\DirectX\UserGpuPreferences` las directivas `AutoFlipModel=1;DirectFlip=1;TurboSync=1;SwapEffectUpgradeEnable=1;GpuPreference=2;`. En Windows 11, esto permite la promoción directa al modo **DirectFlip**, evitando por completo la cola de copiado de DWM y alcanzando una **latencia de entrada de 0ms** en pantalla completa sin bordes.
+3. **Modelo flip en ventana:**
+   - En ventana, el compositor (DWM) copia cada cuadro de un juego que presenta con el modelo blt.
+   - VegaFlow añade solo `SwapEffectUpgradeEnable=1` al valor del juego en `HKCU\Software\Microsoft\DirectX\UserGpuPreferences` (la elección de gráfica y de HDR del usuario no cambia) para que Windows lo pase al modelo flip. Efecto sin medir aquí.
 
 ### 2.10. Suite de Silicio APU & Blindaje de Memoria de Kernel NT (DisablePagingExecutive & Smart Tessellation 16x)
 Diseñada para mitigar las debilidades intrínsecas de las APUs Ryzen con arquitectura de memoria compartida (UMA) y unidades de cómputo compactas (Vega 6):
@@ -114,10 +129,10 @@ Para asegurar compatibilidad universal en todo el ecosistema de procesadores AMD
 
 1. **Tier 1: Entry UMA [Survival Guard]:**
    - **Objetivo:** APUs de entrada con $\le$ 8–9 GB de RAM o $\le$ 4 núcleos físicos (Vega 3/6/8 básica, Athlon Mobile, Intel Gen 9–11 UHD).
-   - **Defensa:** Acota el Texture Pool de Unreal Engine estrictamente entre 1536 y 2048 MB para evitar cierres catastróficos por OOM; limita DXVK a 3 hilos de compilación de shaders; impone teselación a 8x; deshabilita `AsyncCompute` en DX12; limita STAPM a 3000 MHz.
+   - **Defensa:** Acota el Texture Pool de Unreal Engine estrictamente entre 1536 y 2048 MB para evitar cierres catastróficos por OOM; limita DXVK a 3 hilos de compilación de shaders; impone teselación a 8x; deshabilita `AsyncCompute` en DX12; sin tope de frecuencia STAPM (`cpu_stapm_cap_mhz = 0`).
 2. **Tier 2: Mid Vega UMA [Sweet-Spot Guard]:**
    - **Objetivo:** APUs GCN 5 / Vega con 12–20 GB de RAM o CPUs Zen 2/Zen 3 de 6C–8C (Ryzen 5 4600H, 5500U, 5600H).
-   - **Políticas (100% retrocompatible con el testbed):** Pool VRAM a 4096 MB; 6 hilos dedicados para DXVK; teselación 16x; `disable_dx12_async_compute = true`; STAPM cap a 3400 MHz.
+   - **Políticas (100% retrocompatible con el testbed):** Pool VRAM a 4096 MB; 6 hilos dedicados para DXVK; teselación 16x; `disable_dx12_async_compute = true`; sin tope de frecuencia STAPM (`cpu_stapm_cap_mhz = 0`).
 3. **Tier 3: Advanced UMA [Do-No-Harm Guard]:**
    - **Objetivo:** APUs modernas RDNA 2, RDNA 3 y RDNA 3.5 (Radeon 680M, 780M, 890M, Strix Point) e Intel Xe/Arc UMA o configuraciones con $\ge$ 22 GB de RAM.
    - **Do-No-Harm Guard:** **Preserva intacto el cómputo asíncrono moderno** (`D3D12.AsyncCompute=1` y `r.RDG.AsyncCompute=1`); **no estrangula el reloj de la CPU** (`cpu_stapm_cap_mhz = 0`); asigna pool UMA generoso y adaptativo de 6144 a 8192 MB; teselación hasta 32x.
@@ -152,7 +167,7 @@ VegaFlow puede operar como servicio en segundo plano, como herramienta de consol
 | `--mem-compression-off` | Desactiva la compresión de memoria de Windows |
 | `--dxvk-install <ruta>` | Despliega DXVK-GPLAsync en la carpeta del juego |
 | `--dxvk-remove <ruta>` | Elimina DXVK y restaura el backend DirectX 11 |
-| `--apu-gpu-priority` | Activa perfil térmico/energía con prioridad GPU (cap 3.4 GHz) |
+| `--apu-gpu-priority` | Activa perfil térmico/energía con prioridad GPU (sin tope de frecuencia STAPM) |
 | `--apu-balanced` | Restaura el perfil de energía balanceado estándar |
 | `--dry-run, -d` | Simula ciclos de evaluación sin modificar el sistema |
 | `--help, -h` | Imprime el manual de opciones |
@@ -185,7 +200,7 @@ VegaFlow puede operar como servicio en segundo plano, como herramienta de consol
   Windows Memory Compression : DISABLED (Zero CPU Spikes / Low Latency)
   Kernel Memory Paging Shield: ACTIVE (DisablePagingExecutive=1, RAM Lock)
   AMD Tessellation Limiter   : 16x (Over-Geometry Capped)
-  DirectFlip / AutoFlip Model: READY (AutoFlipModel=1 & DirectFlip=1 Injection on Launch)
+  Windowed Flip Model        : READY (SwapEffectUpgradeEnable=1 on Launch)
 ```
 
 ##### 2. Exportación de Telemetría y Especificaciones en Formato JSON:
@@ -201,8 +216,8 @@ VegaFlow puede operar como servicio en segundo plano, como herramienta de consol
     "logical_processors": 12,
     "microarchitecture": "Zen 2 Renoir 7nm",
     "l3_cache_mb": 8.00,
-    "boost_target_ghz": 3.40,
-    "stapm_target": "3.4 GHz (APU Sustained / STAPM 35W-45W)"
+    "boost_target_ghz": 4.00,
+    "stapm_target": "4.0 GHz Smart Uncapped (100% CPU + 100% GPU Efficient-Aggressive + EPP 25)"
   },
   "gpu": {
     "adapter_name": "AMD Radeon(TM) Graphics (Vega 6 / GCN 5.0)",

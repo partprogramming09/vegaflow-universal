@@ -11,6 +11,7 @@
 #include <filesystem>
 #include "windows/text_convert.hpp"
 #include "bridge/rust_bridge.h"
+#include "bridge/ffi_callback_guard.hpp"
 
 namespace vegaflow::app {
 
@@ -20,8 +21,8 @@ namespace {
 constexpr size_t kMaxConfigBytes = 1u << 20;
 constexpr uint64_t kBytesPerMb = 1024ULL * 1024ULL;
 
-void CollectUtf8(void* ctx, const char* utf8, size_t len) {
-    static_cast<std::vector<std::string>*>(ctx)->emplace_back(utf8, len);
+void CollectUtf8(void* ctx, const char* utf8, size_t len) noexcept {
+    RunCallbackGuarded([&] { static_cast<std::vector<std::string>*>(ctx)->emplace_back(utf8, len); });
 }
 
 struct LoadExCollector {
@@ -30,17 +31,19 @@ struct LoadExCollector {
     std::vector<std::pair<std::string, uint8_t>> exceptions;
 };
 
-void CollectGameExe(void* ctx, const char* utf8, size_t len) {
-    static_cast<LoadExCollector*>(ctx)->game_exes.emplace_back(utf8, len);
+void CollectGameExe(void* ctx, const char* utf8, size_t len) noexcept {
+    RunCallbackGuarded([&] { static_cast<LoadExCollector*>(ctx)->game_exes.emplace_back(utf8, len); });
 }
 
-void CollectExcludedExe(void* ctx, const char* utf8, size_t len) {
-    static_cast<LoadExCollector*>(ctx)->excluded_game_exes.emplace_back(utf8, len);
+void CollectExcludedExe(void* ctx, const char* utf8, size_t len) noexcept {
+    RunCallbackGuarded([&] { static_cast<LoadExCollector*>(ctx)->excluded_game_exes.emplace_back(utf8, len); });
 }
 
-void CollectException(void* ctx, const uint8_t* exe, size_t len, uint8_t action) {
-    static_cast<LoadExCollector*>(ctx)->exceptions.emplace_back(
-        std::string(reinterpret_cast<const char*>(exe), len), action);
+void CollectException(void* ctx, const uint8_t* exe, size_t len, uint8_t action) noexcept {
+    RunCallbackGuarded([&] {
+        static_cast<LoadExCollector*>(ctx)->exceptions.emplace_back(
+            std::string(reinterpret_cast<const char*>(exe), len), action);
+    });
 }
 
 VfConfigSettings ToBridge(const AppConfig& cfg) {
@@ -105,9 +108,10 @@ std::string KnownSettings(const std::string& text) {
     VfConfigLoad out{};
     VfProcessPolicyConfig policy{};
     LoadExCollector col{};
-    if (!vf_rust_config_load_ex(text.data(), text.size(), &out, &policy, CollectGameExe, CollectExcludedExe,
-                                CollectException, &col) ||
-        (out.status & VF_CONFIG_CORRUPT)) {
+    const bool loaded = vf_rust_config_load_ex(text.data(), text.size(), &out, &policy, CollectGameExe,
+                                               CollectExcludedExe, CollectException, &col);
+    // A callback that threw left the game lists incomplete: never use them.
+    if (ConsumeCallbackFailure() || !loaded || (out.status & VF_CONFIG_CORRUPT)) {
         return "";
     }
     const VfConfigSettings& s = out.settings;
@@ -211,8 +215,9 @@ AppConfig ConfigStore::Load() {
     VfConfigLoad out{};
     VfProcessPolicyConfig policy{};
     LoadExCollector col{};
-    if (!vf_rust_config_load_ex(text.data(), text.size(), &out, &policy, CollectGameExe, CollectExcludedExe,
-                                CollectException, &col)) {
+    const bool loaded = vf_rust_config_load_ex(text.data(), text.size(), &out, &policy, CollectGameExe,
+                                               CollectExcludedExe, CollectException, &col);
+    if (ConsumeCallbackFailure() || !loaded) {
         report_.status = VF_CONFIG_CORRUPT;
         return FactoryConfig();
     }
@@ -274,10 +279,11 @@ bool ConfigStore::Save(const AppConfig& cfg, bool dry_run, std::string* why) {
         excluded_names.empty() ? nullptr : reinterpret_cast<const uint8_t*>(excluded_names.data()), excluded_names.size(),
         ex_entries.empty() ? nullptr : ex_entries.data(), ex_entries.size(),
         CollectUtf8, &text);
+    const bool callback_failed = ConsumeCallbackFailure();
     if (result == VF_CONFIG_SAVE_BLOCKED) {
         return refuse("config.json cambió y ya no se puede sobrescribir sin perder lo que tiene; corrígelo a mano");
     }
-    if (result != VF_CONFIG_SAVE_OK || text.size() != 1) return refuse("un valor no cumple las reglas de config.json");
+    if (callback_failed || result != VF_CONFIG_SAVE_OK || text.size() != 1) return refuse("un valor no cumple las reglas de config.json");
     if (dry_run) return true;
     if (!fs_.Replace(path_, text[0])) return refuse("no se pudo escribir config.json");
     last_known_ = KnownSettings(text[0]);

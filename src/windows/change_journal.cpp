@@ -21,6 +21,7 @@
 #include <sstream>
 
 #include "windows/config_location.hpp"
+#include "windows/reg_restore_scope.hpp"
 #include "windows/unique_handle.hpp"
 
 namespace vegaflow {
@@ -320,17 +321,6 @@ bool DecodeHexBytes(const std::string& hex, std::vector<BYTE>& out) {
     return true;
 }
 
-std::wstring ToLowerW(std::wstring_view str) {
-    std::wstring out;
-    out.reserve(str.size());
-    for (wchar_t ch : str) out.push_back(static_cast<wchar_t>(std::towlower(ch)));
-    return out;
-}
-
-std::wstring RegBackupRecordNameLocal(int hive, const std::wstring& subkey, const wchar_t* name) {
-    const std::wstring id = std::to_wstring(hive) + L"|" + ToLowerW(subkey) + L"|" + ToLowerW(name ? name : L"");
-    return std::to_wstring(std::hash<std::wstring>{}(id));
-}
 
 bool RevertRegistryEntry(const JournalEntry& e, std::string* out_err) {
     HKEY root = (e.hive == 0) ? HKEY_LOCAL_MACHINE : HKEY_CURRENT_USER;
@@ -370,10 +360,11 @@ bool RevertRegistryEntry(const JournalEntry& e, std::string* out_err) {
         return false;
     }
 
-    // Remove matching legacy RegBackup key if present so both stay consistent.
-    const std::wstring bak_path = std::wstring(L"SOFTWARE\\VegaFlow\\RegBackup\\") +
-                                  RegBackupRecordNameLocal(e.hive, e.subkey, e.value_name.c_str());
-    RegDeleteKeyW(root, bak_path.c_str());
+    // Remove the matching RegBackup record, under its current or its older name, so both stay consistent.
+    for (const std::wstring& record : {RegBackupRecordName(e.hive, e.subkey, e.value_name),
+                                       LegacyRegBackupRecordName(e.hive, e.subkey, e.value_name)}) {
+        RegDeleteKeyW(root, (std::wstring(L"SOFTWARE\\VegaFlow\\RegBackup\\") + record).c_str());
+    }
     return true;
 }
 
@@ -532,7 +523,7 @@ bool RevertProcessStateEntry(const JournalEntry& e, std::string* out_err) {
 #pragma GCC diagnostic pop
 #endif
     if (pfnNtSetInfo) {
-        ULONG io_normal = 1;
+        ULONG io_normal = 2; // IO_PRIORITY_HINT IoPriorityNormal (1 is Low)
         pfnNtSetInfo(hProc.get(), 33 /* ProcessIoPriorityInformationClass */, &io_normal, sizeof(io_normal));
     }
     return true;
@@ -698,6 +689,7 @@ void FileChangeJournal::PruneHistoryLocked() {
 }
 
 bool FileChangeJournal::PersistLocked() {
+    ++revision_; // every change in memory goes through here, even if the disk write then fails
     if (path_.empty()) return false;
     PruneHistoryLocked();
     std::ostringstream os;
@@ -723,6 +715,7 @@ bool FileChangeJournal::PersistLocked() {
 
 bool FileChangeJournal::Load() {
     std::lock_guard<std::mutex> lock(mutex_);
+    ++revision_;
     header_ = JournalHeader{};
     previous_unclean_exit_ = false;
     effective_unclean_streak_ = 0;
@@ -970,6 +963,11 @@ bool FileChangeJournal::DetectedPreviousUncleanExit() const { return previous_un
 uint32_t FileChangeJournal::EffectiveUncleanStreak() const { return effective_unclean_streak_; }
 bool FileChangeJournal::IsSafeModeTriggered() const { return safe_mode_; }
 const std::vector<JournalEntry>& FileChangeJournal::Entries() const { return entries_; }
+
+uint64_t FileChangeJournal::Revision() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return revision_;
+}
 
 std::vector<JournalEntry> FileChangeJournal::SnapshotEntries() const {
     std::lock_guard<std::mutex> lock(mutex_);

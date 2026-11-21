@@ -95,6 +95,19 @@ void Test16() {
         std::string dry_msg;
         bool dry_ok = RealDxvk().DeployDxvk(game_exe.wstring(), DetectedPolicy(), false, true, true /* dry_run */, &dry_msg);
         bool still_no_files = !vegaflow::DxvkManager::IsDxvkInstalled(game_exe.wstring());
+        // A simulation on a folder that does not exist must say so, not report success.
+        const std::wstring missing_exe = (temp_base / L"no-such-folder" / L"game.exe").wstring();
+        std::string missing_msg;
+        bool dry_missing_refused = !RealDxvk().DeployDxvk(missing_exe, DetectedPolicy(), false, true, true, &missing_msg)
+                                   && !RealDxvk().RemoveDxvk(missing_exe, true, &missing_msg);
+        // Nor on a folder with an anti-cheat, which the real run would refuse (the CLI passes has_anticheat=false).
+        const std::filesystem::path ac_dir = temp_base / "ac_game";
+        std::filesystem::create_directories(ac_dir / "EasyAntiCheat", ec);
+        std::ofstream(ac_dir / "game.exe", std::ios::binary) << "MZ";
+        bool dry_anticheat_refused =
+            !RealDxvk().DeployDxvk((ac_dir / "game.exe").wstring(), DetectedPolicy(), false, true, true, &missing_msg)
+            && !RealDxvk().RemoveDxvk((ac_dir / "game.exe").wstring(), true, &missing_msg);
+        dry_missing_refused = dry_missing_refused && dry_anticheat_refused;
 
         // 4. Pre-existing custom DLL backup test
         std::filesystem::path d3d11_file = temp_base / "d3d11.dll";
@@ -164,6 +177,10 @@ void Test16() {
             original_restored = (content == "CUSTOM_D3D11_ORIGINAL_DATA");
         }
 
+        // 8. A game that ships its own d3d11/dxgi (no dxvk.conf of ours) is not "DXVK installed"
+        for (const char* dll : {"d3d11.dll", "dxgi.dll"}) std::ofstream(temp_base / dll, std::ios::binary) << "GAME_OWN_DLL";
+        bool foreign_dlls_not_dxvk = !vegaflow::DxvkManager::IsDxvkInstalled(game_exe.wstring());
+
         // Cleanup
         std::filesystem::remove_all(temp_base, ec);
         if (using_stand_ins) {
@@ -172,13 +189,14 @@ void Test16() {
         }
 
         bool t16_success = assets_found && ac_blocked && ac_msg_ok && no_files_installed &&
-                           dry_ok && still_no_files && deploy_ok && is_installed &&
+                           dry_ok && still_no_files && dry_missing_refused && deploy_ok && is_installed && foreign_dlls_not_dxvk &&
                            d3d11_exists && dxgi_exists && conf_exists && bak_exists &&
                            conf_content_ok && scan_detected_dxvk && remove_ok &&
                            conf_deleted && logs_deleted && bak_deleted && dxgi_deleted && original_restored;
 
         std::string details = "Assets: " + std::string(assets_found ? (using_stand_ins ? "PASS (stand-in files)" : "PASS") : "FAIL") + ", "
             + "AC Protection: " + std::string(ac_blocked && ac_msg_ok ? "PASS" : "FAIL") + ", "
+            + "Dry-run refused (missing folder, anti-cheat): " + std::string(dry_missing_refused ? "PASS" : "FAIL") + ", "
             + "Deployment & Conf: " + std::string(deploy_ok && conf_content_ok ? "PASS" : "FAIL") + ", "
             + "Backup & Restore: " + std::string(bak_exists && original_restored ? "PASS" : "FAIL") + ", "
             + "Logs & Conf Cleaned: " + std::string(conf_deleted && logs_deleted ? "PASS" : "FAIL");

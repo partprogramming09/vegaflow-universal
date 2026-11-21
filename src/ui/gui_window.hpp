@@ -19,20 +19,15 @@
 #include <string>
 #include <vector>
 
+#include "session/config_screen.hpp"
+#include "session/equipment_screen.hpp"
+#include "session/history_screen.hpp"
+#include "session/games_screen.hpp"
+#include "session/programs_screen.hpp"
+#include "session/settings_screen.hpp"
 #include "session/system_info.hpp"
 
 namespace vegaflow {
-
-struct GuiSteamGameItem {
-    uint32_t app_id = 0;
-    std::string name;
-    std::string exe_name;
-    std::string engine_name;
-    bool has_anticheat = false;
-    bool flip_model_applied = false;
-    bool engine_preset_applied = false;
-    bool dxvk_installed = false;
-};
 
 struct GuiDashboardData {
     bool is_elevated = false;
@@ -40,6 +35,7 @@ struct GuiDashboardData {
     std::string gpu_summary;
     uint32_t physical_cores = 0;
     uint32_t logical_processors = 0;
+    std::vector<session::CpuSetRef> cpu_sets; // every logical processor in order, with its CPU set id and core
     std::vector<uint32_t> game_cpu_sets;
     std::vector<uint32_t> background_cpu_sets;
 
@@ -77,12 +73,12 @@ struct GuiDashboardData {
 
     uint64_t daemon_private_ws_kb = 0;
     std::string last_action_status;
-    std::vector<std::string> audit_log;
 
     uint32_t running_steam_app_id = 0;
     std::string active_game_engine;
-    std::vector<GuiSteamGameItem> steam_games;
+    bool has_steam_games = false; // Requisitos: whether a Steam library was found
 
+    bool restrict_game_cpu_sets = false; // Configuración: the game is limited to its own cores
     bool mmcss_gaming_optimized = false;
     bool amd_dx11_uma_boost = false;
     uint32_t win32_priority_separation = 2;
@@ -108,26 +104,49 @@ struct GuiDashboardData {
     double dxgi_pressure_threshold = 0.0;
     uint32_t uma_guard_interventions = 0;
     bool uma_guard_triggered_live = false;
+    bool automatic = true;           // false in safe mode: nothing is detected or changed by VegaFlow itself
+    bool uma_guard_enabled = true;   // the guardian runs: policy on and not safe mode
 };
 
 struct GuiCallbacks {
     std::function<GuiDashboardData()> on_PollTelemetry;
     std::function<std::string()> on_PurgeNow;
     std::function<std::string()> on_ToggleMpo;
-    std::function<bool()> on_RequestElevate;
     std::function<std::string()> on_ToggleMemCompression;
     std::function<std::string()> on_ToggleShaderCache;
     std::function<std::string()> on_IsolateBackgroundNow;
     std::function<std::string()> on_RestoreCpuAffinity;
     std::function<std::string()> on_RestoreAllDefaults;
+    std::function<void(const std::string&)> on_NoteStatus; // a view's own notice; the telemetry poll would overwrite a plain status
     std::function<std::string()> on_RescanSteamLibrary;
     std::function<std::string(uint32_t)> on_ApplyGameEnginePreset;
     std::function<std::string(uint32_t)> on_RestoreGameEngineConfig;
     std::function<std::string(uint32_t)> on_ToggleGameDxvk;
+    // Juegos screen: the rows now, "Me fue mal en este juego" (restore if applied, then exclude) and "Volver a incluir".
+    std::function<session::GamesScreenModel()> on_PollGames;
+    std::function<std::string(uint32_t)> on_ExcludeGame;
+    std::function<std::string(uint32_t)> on_IncludeGame;
     std::function<std::string()> on_ToggleMmcssGaming;
     std::function<std::string()> on_ToggleApuPowerMode;
-    std::function<std::string()> on_ApplyAllGamingTweaks;
     std::function<std::string()> on_ToggleVramOverride;
+    // Ajustes del sistema screen: what the machine and the settings look like now, and turning one on or off by id.
+    std::function<SettingsScreenInputs()> on_PollSettings;
+    std::function<std::string(const std::string& setting_id, bool turn_on)> on_SetSetting;
+    std::function<session::HistoryScreenModel()> on_PollHistory;
+    std::function<std::string(uint64_t journal_id)> on_UndoChange; // undoes one row of Historial
+    // Configuración: each edit is checked, saved to config.json and answered with a sentence; Poll returns what is saved.
+    std::function<session::ConfigScreenModel()> on_PollConfig;
+    std::function<std::string(const std::string& id, const std::string& text)> on_SetConfigNumber;
+    std::function<std::string(const std::string& id, bool on)> on_SetConfigToggle;
+    std::function<std::string()> on_ResetConfig;
+    // Programas: same pattern; `action` is a vegaflow::ProcessAction value.
+    std::function<session::ProgramsScreenModel()> on_PollPrograms;
+    std::function<std::string(const std::string& id, int action)> on_SetCategoryAction;
+    std::function<std::string(const std::string& exe)> on_AddException;
+    std::function<std::string(const std::string& exe, int action)> on_SetExceptionAction;
+    std::function<std::string(const std::string& exe)> on_RemoveException;
+    std::function<std::string(const std::string& exe)> on_AddManualGame;
+    std::function<std::string(const std::string& exe)> on_RemoveManualGame;
 };
 
 class GuiWindow {

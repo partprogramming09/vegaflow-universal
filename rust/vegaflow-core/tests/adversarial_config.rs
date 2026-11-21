@@ -442,6 +442,154 @@ proptest! {
             prop_assert_eq!(parse(write_pretty(&parsed).as_bytes()), Ok(parsed));
         }
     }
+
+    /// Arbitrary unsorted key order survives `write_pretty` -> `parse` round-trip and `Value::get`.
+    #[test]
+    fn json_unsorted_key_order_round_trips(
+        entries in prop::collection::vec((any::<String>(), any_value(3)), 0..12),
+        seed in any::<u64>(),
+    ) {
+        let mut seen = std::collections::HashSet::new();
+        let members: Vec<(String, Value)> = entries.into_iter().filter(|(k, _)| seen.insert(k.clone())).collect();
+        let obj = Value::Object(members.clone());
+        let mut random_text = String::new();
+        write_random(&mut random_text, &obj, &mut Rng(seed));
+        prop_assert_eq!(parse(random_text.as_bytes()), Ok(obj.clone()));
+        let pretty = write_pretty(&obj);
+        let back = parse(pretty.as_bytes()).unwrap();
+        prop_assert_eq!(&back, &obj);
+        for (k, v) in &members {
+            prop_assert_eq!(back.get(k), Some(v));
+        }
+    }
+
+    /// Hostile UTF-8 combinations (escapes, surrogates, BOMs, controls, brackets) never panic and any Ok round-trips.
+    #[test]
+    fn json_hostile_strings_never_panic_and_ok_round_trips(
+        tokens in prop::collection::vec(
+            prop_oneof![
+                Just("\u{feff}".to_string()),
+                Just("\x00".to_string()),
+                Just("\x1f".to_string()),
+                Just("//".to_string()),
+                Just("/*".to_string()),
+                Just("*/".to_string()),
+                Just("\\".to_string()),
+                Just("\\u".to_string()),
+                Just("\\ud83d".to_string()),
+                Just("\\ude00".to_string()),
+                Just("\\\"".to_string()),
+                Just("\"".to_string()),
+                Just("{".to_string()),
+                Just("}".to_string()),
+                Just("[".to_string()),
+                Just("]".to_string()),
+                Just(":".to_string()),
+                Just(",".to_string()),
+                Just(" ".to_string()),
+                Just("\t".to_string()),
+                Just("\n".to_string()),
+                Just("0".to_string()),
+                Just("-".to_string()),
+                Just("1e+".to_string()),
+                Just("-0.".to_string()),
+                Just("😀".to_string()),
+                Just("ñ".to_string()),
+            ],
+            0..40,
+        )
+    ) {
+        let s: String = tokens.concat();
+        if let Ok(v) = parse(s.as_bytes()) {
+            prop_assert_eq!(parse(write_pretty(&v).as_bytes()), Ok(v));
+        }
+    }
+}
+
+#[test]
+fn json_refuses_all_control_bytes_and_invalid_escapes_everywhere() {
+    for c in 0u8..=0x1F {
+        let in_val = [b'"', c, b'"'];
+        assert_eq!(parse(&in_val), Err(ParseError), "control {c:#x} accepted in string");
+        let in_key = [b'{', b'"', c, b'"', b':', b'1', b'}'];
+        assert_eq!(parse(&in_key), Err(ParseError), "control {c:#x} accepted in key");
+    }
+    for b in 0u8..=u8::MAX {
+        if matches!(b, b'"' | b'\\' | b'/' | b'b' | b'f' | b'n' | b'r' | b't' | b'u') {
+            continue;
+        }
+        let s = [b'"', b'\\', b, b'"'];
+        assert_eq!(parse(&s), Err(ParseError), "invalid escape \\{b:#x} accepted");
+    }
+    // Escaped backslash before `u0041` is literal `\u0041`, not `'A'`.
+    assert_eq!(parse(br#""\\u0041""#).unwrap(), st("\\u0041"));
+    assert_eq!(parse(br#""\\\\""#).unwrap(), st("\\\\"));
+    assert_eq!(parse(br#""\\\"""#).unwrap(), st("\\\""));
+    assert_eq!(parse(br#""\\\"#), Err(ParseError));
+}
+
+#[test]
+fn json_refuses_comments_and_bom_variants() {
+    let bad: &[&[u8]] = &[
+        b"/* c */{}",
+        b"{}/* c */",
+        b"{\"a\":/* c */1}",
+        b"{\"a\":1/* c */}",
+        b"/* unclosed",
+        b"# comment\n{}",
+        b"{}// trailing",
+        b"\xEF\xBB\xBF",
+        b"\xEF\xBB\xBF \t\r\n",
+        b"\xFE\xFF\x00{\x00}",
+        b"\xFF\xFE{\x00}\x00",
+        b"\x00\x00\xFE\xFF{}",
+    ];
+    for b in bad {
+        assert_eq!(parse(b), Err(ParseError), "accepted {:?}", b);
+    }
+    // Leading BOM is stripped once, while a BOM inside the JSON string itself is preserved.
+    let bom_str = "\u{feff}\"\u{feff}x\"";
+    assert_eq!(parse(bom_str.as_bytes()).unwrap(), st("\u{feff}x"));
+}
+
+#[test]
+fn json_surrogate_boundaries_and_equivalent_repeated_keys() {
+    assert_eq!(parse(br#""\ud800\udc00""#).unwrap(), st("\u{10000}"));
+    assert_eq!(parse(br#""\udbff\udfff""#).unwrap(), st("\u{10FFFF}"));
+    assert_eq!(parse(br#""\ud7ff\ue000\uffff""#).unwrap(), st("\u{D7FF}\u{E000}\u{FFFF}"));
+    for bad in [
+        br#""\udc00\ud800""#.as_slice(),
+        br#""\ud800\u0000""#,
+        br#""\ud800\ud7ff""#,
+        br#""\ud800\ue000""#,
+        br#""\ud800\n""#,
+        br#""\udbff""#,
+        br#""\udc00""#,
+        br#""\udfff""#,
+        r#"{"\ud83d\ude00":1,"😀":2}"#.as_bytes(),
+        br#"{"\u005c":1,"\\":2}"#,
+        br#"{"\u0022":1,"\"":2}"#,
+    ] {
+        assert_eq!(parse(bad), Err(ParseError), "accepted {:?}", String::from_utf8_lossy(bad));
+    }
+}
+
+#[test]
+fn json_preserves_huge_numbers_and_exact_depth_64_containers() {
+    let huge_int = "9".repeat(500);
+    let huge_exp = "1e99999999999999999999";
+    let tiny_exp = "-0.00000000001E-999999999999";
+    for n in [huge_int.as_str(), huge_exp, tiny_exp] {
+        let v = parse(n.as_bytes()).unwrap();
+        assert_eq!(v, num(n));
+        assert_eq!(parse(write_pretty(&v).as_bytes()), Ok(v));
+    }
+    // Depth 64 ending in an empty object/array is accepted and round-trips; depth 65 is refused.
+    let ok_empty = format!("{}{{}}{}", "{\"a\":".repeat(MAX_DEPTH - 1), "}".repeat(MAX_DEPTH - 1));
+    let parsed = parse(ok_empty.as_bytes()).unwrap();
+    assert_eq!(parse(write_pretty(&parsed).as_bytes()), Ok(parsed));
+    let too_deep_empty = format!("{}{{}}{}", "{\"a\":".repeat(MAX_DEPTH), "}".repeat(MAX_DEPTH));
+    assert_eq!(parse(too_deep_empty.as_bytes()), Err(ParseError));
 }
 
 // --- 2. config_rules / config_file ---
