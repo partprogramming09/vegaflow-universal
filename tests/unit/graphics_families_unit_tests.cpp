@@ -209,7 +209,9 @@ void Test93() {
     FakeRegistryPort b;
     seed(b);
     v::AmdDriverTweaks egpu(b, 0x73BF, false);
-    const bool blocked = !egpu.ApplyVramReportingOverride(4096, false) && b.writes.empty();
+    // dry_run answers what the real call would: refused off an iGPU too.
+    const bool blocked = !egpu.ApplyVramReportingOverride(4096, true) && !egpu.ApplyVramReportingOverride(4096, false) &&
+                         b.writes.empty();
 
     // Restore with no saved value writes nothing (never a made-up 512 MB).
     FakeRegistryPort c;
@@ -327,11 +329,20 @@ void Test99() {
     intel.primary_gpu.vendor = v::GpuVendor::Intel;
     const bool intel_ok = ngfx.Rebind(intel, pol).rebuilt && ngfx.AmdDriver() == nullptr;
 
-    const bool ok = round_trip && repeat_noop && dry_ok && partial_ok && intel_ok;
+    // 6. A policy with no VRAM pool and a driver key with no size values: nothing was overridden, so no failure is reported.
+    FakeRegistryPort z;
+    z.SeedValue(v::RegHive::LocalMachine, cls + L"0000", L"MatchingDeviceId", v::RegValue::MakeString(L"PCI\\VEN_1002&DEV_1636"));
+    v::ApuOptimizationPolicy no_pool = pol;
+    no_pool.safe_vram_pool_mb = 0;
+    v::GraphicsOptimizer zgfx(igpu, no_pool, z, nullptr);
+    const auto zr = zgfx.Rebind(egpu, no_pool);
+    const bool no_pool_ok = zr.rebuilt && !zr.uma_restore_failed;
+
+    const bool ok = round_trip && repeat_noop && dry_ok && partial_ok && intel_ok && no_pool_ok;
     auto pf = [](bool b) { return b ? "PASS" : "FAIL"; };
     RecordResult(ok, "Test 99: GraphicsOptimizer::Rebind follows a GPU change",
                  std::string("iGPU->eGPU->iGPU: ") + pf(round_trip) + ", repeat: " + pf(repeat_noop) + ", dry_run: " + pf(dry_ok) +
-                 ", partial restore: " + pf(partial_ok) + ", to Intel: " + pf(intel_ok));
+                 ", partial restore: " + pf(partial_ok) + ", to Intel: " + pf(intel_ok) + ", no pool: " + pf(no_pool_ok));
 }
 
 } // namespace vftest

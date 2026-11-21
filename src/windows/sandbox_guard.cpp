@@ -352,7 +352,7 @@ bool DeepScanFindsAntiCheat(const std::filesystem::path& root) {
     for (; it != end; it.increment(ec)) {
         if (ec) return true;
         if (it.depth() >= kMaxScanDepth) it.disable_recursion_pending();
-        if (++visited > kMaxScanEntries) break;
+        if (++visited > kMaxScanEntries) return true; // the unread part could hold the anti-cheat
         if (SandboxGuard::PathContainsAntiCheatSignature(it->path().filename().wstring())) return true;
     }
     return false;

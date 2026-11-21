@@ -158,7 +158,7 @@ GraphicsOptimizer::RebindResult GraphicsOptimizer::Rebind(
         amd_driver_->QueryVramReporting(driver_mb, dxgi_bytes);
         // shortcut: "still overridden" = still at the pool size; misses an original that equals the pool size.
         const uint64_t pool_bytes = static_cast<uint64_t>(policy_.safe_vram_pool_mb) * 1024ULL * 1024ULL;
-        result.uma_restore_failed = driver_mb == policy_.safe_vram_pool_mb || dxgi_bytes == pool_bytes;
+        result.uma_restore_failed = pool_bytes > 0 && (driver_mb == policy_.safe_vram_pool_mb || dxgi_bytes == pool_bytes);
     }
 
     amd_driver_.reset();
