@@ -50,7 +50,7 @@ void Test31() {
         normal_input.free_and_zero_bytes = 4000ULL * 1024 * 1024;
         normal_input.standby_bytes = 2000ULL * 1024 * 1024;
         normal_input.local_budget_bytes = 2048ULL * 1024 * 1024;
-        normal_input.local_usage_bytes = 1000ULL * 1024 * 1024; // ~48%
+        normal_input.gpu_shared_usage_bytes = 1000ULL * 1024 * 1024; // ~48%
         normal_input.vram_valid = true;
         normal_input.memory_lists_valid = true;
         normal_input.is_uma_gpu = true;
@@ -68,17 +68,17 @@ void Test31() {
                          (!dec_normal.guard_triggered &&
                           !dec_normal.dxgi_over_ceiling &&
                           !dec_normal.free_ram_critical &&
-                          !dec_normal.should_purge_standby &&
+                          dec_normal.purge_level == VF_PURGE_LEVEL_NONE &&
                           dec_normal.available_os_headroom_mb == 6000 &&
                           dec_normal.total_interventions == 10);
 
         VfMemoryPurgeInput crit_input = normal_input;
-        crit_input.local_usage_bytes = static_cast<uint64_t>(2048ULL * 1024 * 1024 * 0.90); // 90% DXGI
+        crit_input.gpu_shared_usage_bytes = static_cast<uint64_t>(2048ULL * 1024 * 1024 * 0.90); // 90% DXGI
         VfMemoryPurgeDecision dec_crit = vf_rust_evaluate_memory_purge(&crit_input);
         bool crit_ok = (dec_crit.guard_triggered &&
                         dec_crit.dxgi_over_ceiling &&
                         !dec_crit.free_ram_critical &&
-                        dec_crit.should_purge_standby &&
+                        dec_crit.purge_level == VF_PURGE_LEVEL_LOW &&
                         dec_crit.should_trim_background &&
                         dec_crit.available_os_headroom_mb == 6000 &&
                         dec_crit.total_interventions == 11);
@@ -183,18 +183,21 @@ void Test34() {
         VF_LAYOUT_BEGIN(VfMemoryPurgeInput)
         VF_FIELD(VfMemoryPurgeInput, total_physical_bytes) VF_FIELD(VfMemoryPurgeInput, free_and_zero_bytes)
         VF_FIELD(VfMemoryPurgeInput, standby_bytes) VF_FIELD(VfMemoryPurgeInput, local_budget_bytes)
-        VF_FIELD(VfMemoryPurgeInput, local_usage_bytes) VF_FIELD(VfMemoryPurgeInput, vram_valid)
+        VF_FIELD(VfMemoryPurgeInput, gpu_shared_usage_bytes) VF_FIELD(VfMemoryPurgeInput, gpu_dedicated_usage_bytes)
+        VF_FIELD(VfMemoryPurgeInput, vram_valid)
         VF_FIELD(VfMemoryPurgeInput, memory_lists_valid) VF_FIELD(VfMemoryPurgeInput, is_uma_gpu)
         VF_FIELD(VfMemoryPurgeInput, allow_ram_purge) VF_FIELD(VfMemoryPurgeInput, min_free_ram_mb)
         VF_FIELD(VfMemoryPurgeInput, min_standby_mb) VF_FIELD(VfMemoryPurgeInput, cooldown_seconds)
         VF_FIELD(VfMemoryPurgeInput, elapsed_since_last_purge_ms) VF_FIELD(VfMemoryPurgeInput, game_disk_read_bytes_per_sec)
         VF_FIELD(VfMemoryPurgeInput, max_game_disk_read_bytes_per_sec) VF_FIELD(VfMemoryPurgeInput, pressure_threshold_override)
-        VF_FIELD(VfMemoryPurgeInput, prev_interventions) VF_FIELD(VfMemoryPurgeInput, dry_run)
+        VF_FIELD(VfMemoryPurgeInput, prev_interventions) VF_FIELD(VfMemoryPurgeInput, last_purge_level)
+        VF_FIELD(VfMemoryPurgeInput, dry_run)
         VF_LAYOUT_BEGIN(VfMemoryPurgeDecision)
-        VF_FIELD(VfMemoryPurgeDecision, should_purge_standby) VF_FIELD(VfMemoryPurgeDecision, should_trim_background)
+        VF_FIELD(VfMemoryPurgeDecision, purge_level) VF_FIELD(VfMemoryPurgeDecision, should_trim_background)
         VF_FIELD(VfMemoryPurgeDecision, skipped_due_to_cooldown) VF_FIELD(VfMemoryPurgeDecision, skipped_due_to_disk_io)
         VF_FIELD(VfMemoryPurgeDecision, cooldown_remaining_seconds) VF_FIELD(VfMemoryPurgeDecision, guard_triggered)
         VF_FIELD(VfMemoryPurgeDecision, dxgi_over_ceiling) VF_FIELD(VfMemoryPurgeDecision, free_ram_critical)
+        VF_FIELD(VfMemoryPurgeDecision, memory_pressure)
         VF_FIELD(VfMemoryPurgeDecision, dxgi_budget_utilization) VF_FIELD(VfMemoryPurgeDecision, available_os_headroom_mb)
         VF_FIELD(VfMemoryPurgeDecision, total_interventions)
         VF_LAYOUT_BEGIN(VfCpuCoreEntry)

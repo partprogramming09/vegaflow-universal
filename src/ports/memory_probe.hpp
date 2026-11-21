@@ -12,7 +12,11 @@ struct VideoMemoryTelemetry {
     uint64_t local_budget_bytes = 0;
     uint64_t non_local_usage_bytes = 0;
     uint64_t non_local_budget_bytes = 0;
+    // True only when the DXGI budget AND the global PDH counters were read (otherwise the guard uses RAM alone).
     bool valid = false;
+    // E2.3: global (all processes) GPU usage from PDH `GPU Adapter Memory`, summed over the chosen adapter's instances.
+    uint64_t gpu_shared_usage_bytes = 0;
+    uint64_t gpu_dedicated_usage_bytes = 0;
 };
 
 struct SystemMemoryTelemetry {

@@ -141,5 +141,6 @@ void Test104();
 void Test105();
 void Test106();
 void Test107();
+void Test108();  // E2.3
 
 } // namespace vftest
