@@ -18,3 +18,6 @@ pub mod sandbox_core;
 
 // E2.5
 pub mod doctor;
+
+// E2.2
+pub mod memory_compression;

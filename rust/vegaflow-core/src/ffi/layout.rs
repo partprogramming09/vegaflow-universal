@@ -58,7 +58,8 @@ fn bridge_layout() -> Vec<usize> {
     layout!(v, VfTierInput, total_ram_mb, physical_cores, arch_gen, dedicated_vram, is_nvidia);
     layout!(v, VfAllowedRoot, path, len, writable);
     layout!(v, VfConfigSettings, poll_interval_ms, cooldown_seconds,
-        restrict_game_cpu_sets, min_free_ram_mb, min_standby_mb, max_game_disk_read_mb_s);
+        restrict_game_cpu_sets, min_free_ram_mb, min_standby_mb, max_game_disk_read_mb_s, auto_vram_reporting,
+        auto_priority_separation, auto_game_dvr_off, auto_power_profile);
     layout!(v, VfConfigLoad, settings, status, rejected_keys);
     layout!(v, VfAceEntry, mask, sid_kind, allows, inherit_only);
     layout!(v, VfIniKv, key, key_len, value, value_len);
