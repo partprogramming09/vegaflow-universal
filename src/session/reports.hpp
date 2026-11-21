@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <string>
 
+#include "ports/memory_probe.hpp"
 #include "session/config.hpp"
 
 namespace vegaflow::app {
@@ -20,5 +21,9 @@ void ExecuteDryRun(const AppConfig& config);
 
 // The [KPI] line: the daemon's private working set against the 15 MB budget, "passed" only when it is under it.
 std::string MemoryKpiLine(uint64_t private_ws_bytes);
+
+// The [GPU] line of --status and --monitor: global shared/dedicated GPU usage (PDH), DXGI LOCAL and NON_LOCAL budgets,
+// and whether PDH answered (vram.valid; false means the UMA guard decides on RAM alone).
+std::string GpuMemoryLine(const VideoMemoryTelemetry& vram);
 
 } // namespace vegaflow::app

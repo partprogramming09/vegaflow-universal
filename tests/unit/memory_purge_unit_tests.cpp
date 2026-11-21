@@ -5,6 +5,7 @@
 
 #include "bridge/rust_bridge.h"
 #include "optimize/memory_manager.hpp"
+#include "session/reports.hpp"
 #include "ports/clock.hpp"
 #include "ports/memory_control.hpp"
 #include "ports/memory_probe.hpp"
@@ -340,6 +341,27 @@ void Test92() {
                  std::string("Default=") + (default_is_zero ? "OK" : "FAIL") + ", Igpu=" + (igpu_ok ? "OK" : "FAIL") +
                      ", Egpu=" + (egpu_ok ? "OK" : "FAIL") + ", Unknown=" + (unknown_is_invalid ? "OK" : "FAIL") +
                      ", Back=" + (back_ok ? "OK" : "FAIL") + ", Evaluate=" + (evaluate_uses_target ? "OK" : "FAIL"));
+}
+
+void Test108() {
+    // E2.3 closing: --monitor and --status print the global GPU usage, the DXGI budgets and whether PDH answered.
+    constexpr uint64_t kMB = 1024ULL * 1024ULL;
+    FakeMemoryProbe probe;
+    probe.telemetry.vram.valid = true;
+    probe.telemetry.vram.gpu_shared_usage_bytes = 140 * kMB;     // values measured on the laptop with Get-Counter
+    probe.telemetry.vram.gpu_dedicated_usage_bytes = 271 * kMB;
+    probe.telemetry.vram.local_budget_bytes = 4096 * kMB;
+    probe.telemetry.vram.non_local_budget_bytes = 8192 * kMB;
+    const std::string ok_line = vegaflow::app::GpuMemoryLine(probe.SampleSystemMemory().vram);
+    const bool ok_exact = ok_line ==
+        "[GPU] Shared: 140 MB | Dedicated: 271 MB | DXGI Budget Local: 4096 MB / Non-Local: 8192 MB | PDH: OK";
+
+    probe.telemetry.vram = {};  // PDH did not answer: zeros and an explicit UNAVAILABLE, never a silent 0 MB reading
+    const std::string bad_line = vegaflow::app::GpuMemoryLine(probe.SampleSystemMemory().vram);
+    const bool bad_exact = bad_line ==
+        "[GPU] Shared: 0 MB | Dedicated: 0 MB | DXGI Budget Local: 0 MB / Non-Local: 0 MB | PDH: UNAVAILABLE (RAM-only guard)";
+
+    RecordResult(ok_exact && bad_exact, "Test 108: the GPU memory line fixes the --monitor/--status format", ok_line + " || " + bad_line);
 }
 
 void Test107() {
