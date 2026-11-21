@@ -273,7 +273,7 @@ int RunGuiMode(
         data.active_game_engine = active_game_engine;
         data.has_steam_games = !cached_steam_games.empty();
 
-        data.system_info = SystemInfo::FromHardware(hw, true);
+        data.system_info = SystemInfo::FromHardware(hw, mem_sample, cached_tweaks);
         data.sandbox_violations = SandboxGuard::GetViolationCount();
         data.sandbox_guard_active = true;
 
@@ -329,9 +329,17 @@ int RunGuiMode(
     callbacks.on_ToggleMmcssGaming = [&]() { return setting_said(settings_actions.ToggleMmcssGaming()); };
     callbacks.on_ToggleApuPowerMode = [&]() { return setting_said(settings_actions.ToggleApuPowerMode()); };
 
+    // Rebuilt only when the journal moved: the Historial tab polls this every telemetry tick.
+    std::optional<std::pair<ChangeJournal*, uint64_t>> history_seen;
+    session::HistoryScreenModel history_cache;
     callbacks.on_PollHistory = [&]() -> session::HistoryScreenModel {
         ChangeJournal* j = GetActiveChangeJournal();
-        return j ? session::BuildHistoryScreen(j->Entries()) : session::BuildHistoryScreen({});
+        const std::pair<ChangeJournal*, uint64_t> now{j, j ? j->Revision() : 0};
+        if (history_seen != now) {
+            history_cache = j ? session::BuildHistoryScreen(j->Entries()) : session::BuildHistoryScreen({});
+            history_seen = now;
+        }
+        return history_cache;
     };
 
     callbacks.on_UndoChange = [&](uint64_t journal_id) -> std::string {

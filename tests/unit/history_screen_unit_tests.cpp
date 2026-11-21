@@ -140,4 +140,26 @@ void Test64() {
                  "Test 64.9: a dry run undoes nothing and leaves the row active");
 }
 
+void Test100() {
+    // E1.6: the journal revision moves only when the journal changes, so the GUI can skip rebuilding the Historial model.
+    using namespace vegaflow;
+    FakeFileSystem fs;
+    FakeWallClock clock;
+    FileChangeJournal journal(fs, clock, L"C:\\VegaFlow\\config\\change_journal.vfj");
+    journal.Load();
+    journal.BeginSession();
+    const uint64_t r0 = journal.Revision();
+    (void)session::BuildHistoryScreen(journal.Entries());
+    const bool reads_keep = journal.Revision() == r0;
+    const uint64_t id = journal.RecordPending(Entry(JournalTargetKind::RegistryValue, "HKLM\\A", "uno"));
+    const uint64_t r1 = journal.Revision();
+    journal.MarkCommitted(id);
+    const uint64_t r2 = journal.Revision();
+    const bool writes_move = r1 != r0 && r2 != r1;
+    const bool unknown_id_keeps = !journal.MarkCommitted(9999) && journal.Revision() == r2;
+    RecordResult(reads_keep && writes_move && unknown_id_keeps, "Test 100: journal Revision() moves only on changes",
+                 std::string("reads keep: ") + (reads_keep ? "PASS" : "FAIL") + ", writes move: " + (writes_move ? "PASS" : "FAIL") +
+                 ", unknown id keeps: " + (unknown_id_keeps ? "PASS" : "FAIL"));
+}
+
 } // namespace vftest

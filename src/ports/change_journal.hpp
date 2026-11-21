@@ -144,6 +144,8 @@ public:
     virtual uint32_t EffectiveUncleanStreak() const = 0;
     virtual bool IsSafeModeTriggered() const = 0;
     virtual const std::vector<JournalEntry>& Entries() const = 0;
+    // Moves on every change to the entries or header; readers compare it to skip rebuilding a view of Entries().
+    virtual uint64_t Revision() const = 0;
 };
 
 class SystemUndoPort {

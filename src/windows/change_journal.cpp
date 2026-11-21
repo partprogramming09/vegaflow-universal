@@ -698,6 +698,7 @@ void FileChangeJournal::PruneHistoryLocked() {
 }
 
 bool FileChangeJournal::PersistLocked() {
+    ++revision_; // every change in memory goes through here, even if the disk write then fails
     if (path_.empty()) return false;
     PruneHistoryLocked();
     std::ostringstream os;
@@ -723,6 +724,7 @@ bool FileChangeJournal::PersistLocked() {
 
 bool FileChangeJournal::Load() {
     std::lock_guard<std::mutex> lock(mutex_);
+    ++revision_;
     header_ = JournalHeader{};
     previous_unclean_exit_ = false;
     effective_unclean_streak_ = 0;
@@ -970,6 +972,11 @@ bool FileChangeJournal::DetectedPreviousUncleanExit() const { return previous_un
 uint32_t FileChangeJournal::EffectiveUncleanStreak() const { return effective_unclean_streak_; }
 bool FileChangeJournal::IsSafeModeTriggered() const { return safe_mode_; }
 const std::vector<JournalEntry>& FileChangeJournal::Entries() const { return entries_; }
+
+uint64_t FileChangeJournal::Revision() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return revision_;
+}
 
 std::vector<JournalEntry> FileChangeJournal::SnapshotEntries() const {
     std::lock_guard<std::mutex> lock(mutex_);
