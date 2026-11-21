@@ -46,12 +46,12 @@ fn bridge_layout() -> Vec<usize> {
     }
     let mut v = Vec::new();
     layout!(v, VfMemoryPurgeInput, total_physical_bytes, free_and_zero_bytes, standby_bytes, local_budget_bytes,
-        local_usage_bytes, vram_valid, memory_lists_valid, is_uma_gpu, allow_ram_purge, min_free_ram_mb, min_standby_mb,
-        cooldown_seconds, elapsed_since_last_purge_ms, game_disk_read_bytes_per_sec, max_game_disk_read_bytes_per_sec,
-        pressure_threshold_override, prev_interventions, dry_run);
-    layout!(v, VfMemoryPurgeDecision, should_purge_standby, should_trim_background, skipped_due_to_cooldown,
+        gpu_shared_usage_bytes, gpu_dedicated_usage_bytes, vram_valid, memory_lists_valid, is_uma_gpu, allow_ram_purge,
+        min_free_ram_mb, min_standby_mb, cooldown_seconds, elapsed_since_last_purge_ms, game_disk_read_bytes_per_sec,
+        max_game_disk_read_bytes_per_sec, pressure_threshold_override, prev_interventions, last_purge_level, dry_run);
+    layout!(v, VfMemoryPurgeDecision, purge_level, should_trim_background, skipped_due_to_cooldown,
         skipped_due_to_disk_io, cooldown_remaining_seconds, guard_triggered, dxgi_over_ceiling, free_ram_critical,
-        dxgi_budget_utilization, available_os_headroom_mb, total_interventions);
+        memory_pressure, dxgi_budget_utilization, available_os_headroom_mb, total_interventions);
     layout!(v, VfCpuCoreEntry, cpu_set_id, core_index, logical_processor_index, group, last_level_cache_index, efficiency_class);
     layout!(v, VfTopologyPartitionOut, game_cpu_set_ids, game_count, background_cpu_set_ids, background_count,
         physical_cores, logical_processors, has_multiple_ccx, has_hybrid_cores);
