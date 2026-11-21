@@ -535,13 +535,18 @@ std::vector<std::pair<std::wstring, std::wstring>> WindowsRegistryPort::EnumStri
         DWORD name_len = 1024;
         DWORD val_type = 0;
         DWORD data_bytes = sizeof(val_data);
-        if (RegEnumValueW(key.get(), index, val_name, &name_len, nullptr, &val_type,
-                          reinterpret_cast<LPBYTE>(val_data), &data_bytes) != ERROR_SUCCESS) {
+        const LSTATUS st = RegEnumValueW(key.get(), index, val_name, &name_len, nullptr, &val_type,
+                                         reinterpret_cast<LPBYTE>(val_data), &data_bytes);
+        if (st == ERROR_MORE_DATA) {
+            continue; // a name or value too long for the buffer is skipped; the rest are still listed
+        }
+        if (st != ERROR_SUCCESS) {
             break;
         }
         if (val_type == REG_SZ || val_type == REG_EXPAND_SZ) {
-            val_data[1023] = L'\0';
-            out.emplace_back(std::wstring(val_name, name_len), std::wstring(val_data));
+            std::wstring data(val_data, data_bytes / sizeof(wchar_t));
+            while (!data.empty() && data.back() == L'\0') data.pop_back();
+            out.emplace_back(std::wstring(val_name, name_len), std::move(data));
         }
     }
     return out;

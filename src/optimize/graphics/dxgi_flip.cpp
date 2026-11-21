@@ -1,5 +1,7 @@
 #include "optimize/graphics/graphics_internal.hpp"
 
+#include <sstream>
+
 namespace vegaflow {
 
 using namespace graphics_internal;
@@ -29,20 +31,24 @@ void UpdateOrInsertParam(std::wstring& str, const std::wstring& key, const std::
     }
 }
 
-void RemoveParam(std::wstring& str, const std::wstring& key) {
-    std::wstring lower = ToLower(str);
-    const std::wstring target_key = ToLower(key) + L"=";
-    auto pos = lower.find(target_key);
-    while (pos != std::wstring::npos) {
-        const auto semi = str.find(L';', pos);
-        if (semi != std::wstring::npos) {
-            str.erase(pos, semi - pos + 1);
-        } else {
-            str.erase(pos);
-        }
-        lower = ToLower(str);
-        pos = lower.find(target_key);
+// Appends HIGHDPIAWARE to the user's Layers flags; unchanged when a DPI mode is already set (the modes exclude each other).
+std::wstring WithHighDpiAware(const std::wstring& layers) {
+    if (layers.empty()) {
+        return L"~ HIGHDPIAWARE";
     }
+    std::wistringstream tokens(ToLower(layers));
+    std::wstring tok;
+    while (tokens >> tok) {
+        if (tok == L"highdpiaware" || tok == L"dpiunaware" || tok == L"gdidpiscaling") {
+            return layers;
+        }
+    }
+    return layers + L" HIGHDPIAWARE";
+}
+
+std::wstring ReadPerExeString(RegistryPort& reg, const wchar_t* subkey, const std::wstring& exe) {
+    RegValue v;
+    return (reg.ReadValue(RegHive::CurrentUser, subkey, exe, v) && v.type == RegValueType::String) ? v.str : std::wstring{};
 }
 
 } // namespace
@@ -55,98 +61,55 @@ bool DxgiFlipTweaks::ApplyFlipModelUpgrade(
         return false;
     }
 
-    std::wstring final_value = L"SwapEffectUpgradeEnable=1;GpuPreference=2;AutoHDREnable=0;";
-
-    RegValue existing;
-    if (reg_.ReadValue(RegHive::CurrentUser, kUserGpuPrefsPath, exe_full_path, existing) &&
-        existing.type == RegValueType::String && !existing.str.empty()) {
-        std::wstring updated = existing.str;
-        UpdateOrInsertParam(updated, L"SwapEffectUpgradeEnable", L"1");
-        UpdateOrInsertParam(updated, L"GpuPreference", L"2");
-        UpdateOrInsertParam(updated, L"AutoHDREnable", L"0");
-        RemoveParam(updated, L"AutoFlipModel");
-        RemoveParam(updated, L"DirectFlip");
-        final_value = std::move(updated);
-    }
+    // Only the windowed-game Flip switch: GpuPreference, AutoHDREnable and anything else the user set stay as they are.
+    const std::wstring old_prefs = ReadPerExeString(reg_, kUserGpuPrefsPath, exe_full_path);
+    std::wstring final_value = old_prefs;
+    UpdateOrInsertParam(final_value, L"SwapEffectUpgradeEnable", L"1");
+    const std::wstring old_layers = ReadPerExeString(reg_, kAppCompatLayersPath, exe_full_path);
+    const std::wstring final_layers = WithHighDpiAware(old_layers);
 
     if (out_effective_preference) {
         *out_effective_preference = final_value;
     }
 
-    if (dry_run) {
+    // Already applied: no write and no second journal entry, which would record VegaFlow's own value as the original.
+    if (dry_run || (final_value == old_prefs && final_layers == old_layers)) {
         return true;
     }
 
     const uint64_t j_id = reg_.BeginDxgiPreferenceChange(exe_full_path, final_value, "DXGI Flip Model upgrade");
-    const bool ok = reg_.WriteValue(
-        RegHive::CurrentUser,
-        kUserGpuPrefsPath,
-        exe_full_path,
-        RegValue::MakeString(final_value),
-        false);
+    const bool prefs_changed = final_value != old_prefs;
+    const bool prefs_ok = !prefs_changed ||
+        reg_.WriteValue(RegHive::CurrentUser, kUserGpuPrefsPath, exe_full_path, RegValue::MakeString(final_value), false);
+    const bool layers_ok = prefs_ok && (final_layers == old_layers ||
+        reg_.WriteValue(RegHive::CurrentUser, kAppCompatLayersPath, exe_full_path, RegValue::MakeString(final_layers), false));
 
-    if (ok) {
-        reg_.WriteValue(
-            RegHive::CurrentUser,
-            kAppCompatLayersPath,
-            exe_full_path,
-            RegValue::MakeString(L"~ HIGHDPIAWARE"),
-            false);
-    }
-
-    reg_.EndDxgiPreferenceChange(j_id, ok);
-    return ok;
+    // Only committed entries are reverted: once the preference was written the entry stays committed even if Layers failed.
+    reg_.EndDxgiPreferenceChange(j_id, (prefs_changed && prefs_ok) || layers_ok);
+    return layers_ok;
 }
 
-bool DxgiFlipTweaks::ApplyDirectFlipUpgrade(
-    const std::wstring& exe_full_path,
-    bool dry_run,
-    std::wstring* out_effective_preference) {
-    if (exe_full_path.empty()) {
-        return false;
+size_t DxgiFlipTweaks::MigrateLegacyPreferences(bool dry_run) {
+    // shortcut: matches the exact contiguous string 0.1.x wrote; a user who typed the same three keys in that order
+    // loses GPU/HDR too (undoable from the journal). Widen only if another legacy layout turns up.
+    const std::wstring legacy = L"swapeffectupgradeenable=1;gpupreference=2;autohdrenable=0;";
+    size_t changed = 0;
+    for (const auto& [exe, prefs] : reg_.EnumStringValues(RegHive::CurrentUser, kUserGpuPrefsPath)) {
+        const auto pos = ToLower(prefs).find(legacy);
+        if (pos == std::wstring::npos) {
+            continue;
+        }
+        std::wstring migrated = prefs;
+        migrated.replace(pos, legacy.size(), L"SwapEffectUpgradeEnable=1;");
+        ++changed;
+        if (dry_run) {
+            continue;
+        }
+        const uint64_t j_id = reg_.BeginDxgiPreferenceChange(exe, migrated, "Quitar GpuPreference/AutoHDR de VegaFlow 0.1.x");
+        const bool ok = reg_.WriteValue(RegHive::CurrentUser, kUserGpuPrefsPath, exe, RegValue::MakeString(migrated), false);
+        reg_.EndDxgiPreferenceChange(j_id, ok);
     }
-
-    std::wstring final_value = L"SwapEffectUpgradeEnable=1;GpuPreference=2;AutoHDREnable=0;AutoFlipModel=1;DirectFlip=1;";
-
-    RegValue existing;
-    if (reg_.ReadValue(RegHive::CurrentUser, kUserGpuPrefsPath, exe_full_path, existing) &&
-        existing.type == RegValueType::String && !existing.str.empty()) {
-        std::wstring updated = existing.str;
-        UpdateOrInsertParam(updated, L"SwapEffectUpgradeEnable", L"1");
-        UpdateOrInsertParam(updated, L"GpuPreference", L"2");
-        UpdateOrInsertParam(updated, L"AutoHDREnable", L"0");
-        UpdateOrInsertParam(updated, L"AutoFlipModel", L"1");
-        UpdateOrInsertParam(updated, L"DirectFlip", L"1");
-        final_value = std::move(updated);
-    }
-
-    if (out_effective_preference) {
-        *out_effective_preference = final_value;
-    }
-
-    if (dry_run) {
-        return true;
-    }
-
-    const uint64_t j_id = reg_.BeginDxgiPreferenceChange(exe_full_path, final_value, "DXGI DirectFlip upgrade");
-    const bool ok = reg_.WriteValue(
-        RegHive::CurrentUser,
-        kUserGpuPrefsPath,
-        exe_full_path,
-        RegValue::MakeString(final_value),
-        false);
-
-    if (ok) {
-        reg_.WriteValue(
-            RegHive::CurrentUser,
-            kAppCompatLayersPath,
-            exe_full_path,
-            RegValue::MakeString(L"~ HIGHDPIAWARE"),
-            false);
-    }
-
-    reg_.EndDxgiPreferenceChange(j_id, ok);
-    return ok;
+    return changed;
 }
 
 bool DxgiFlipTweaks::QueryUserGpuPreferences(const std::wstring& exe_full_path, std::wstring& out_prefs) {
@@ -163,30 +126,6 @@ bool DxgiFlipTweaks::QueryUserGpuPreferences(const std::wstring& exe_full_path, 
 
     out_prefs = std::move(val.str);
     return true;
-}
-
-bool DxgiFlipTweaks::RemoveFlipModelUpgrade(const std::wstring& exe_full_path, bool dry_run) {
-    if (exe_full_path.empty()) {
-        return false;
-    }
-    if (dry_run) {
-        return true;
-    }
-
-    reg_.DeleteValue(RegHive::CurrentUser, kUserGpuPrefsPath, exe_full_path, false);
-    reg_.DeleteValue(RegHive::CurrentUser, kAppCompatLayersPath, exe_full_path, false);
-    reg_.MarkDxgiPreferenceReverted(exe_full_path);
-    return true;
-}
-
-bool DxgiFlipTweaks::HasDirectFlipUpgrade(const std::wstring& exe_full_path) {
-    std::wstring val;
-    if (!QueryUserGpuPreferences(exe_full_path, val)) {
-        return false;
-    }
-    const std::wstring lower = ToLower(val);
-    return (lower.find(L"autoflipmodel=1") != std::wstring::npos &&
-            lower.find(L"directflip=1") != std::wstring::npos);
 }
 
 bool DxgiFlipTweaks::HasFlipModelUpgrade(const std::wstring& exe_full_path) {

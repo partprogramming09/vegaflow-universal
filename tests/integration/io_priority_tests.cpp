@@ -35,12 +35,12 @@ void SetVeryLow(HANDLE process) {
 
 } // namespace
 
-void Test94() {
+void Test102() {
     STARTUPINFOW si{};
     si.cb = sizeof(si);
     PROCESS_INFORMATION pi{};
     std::wstring cmd = L"ping.exe -n 30 127.0.0.1";
-    if (!CreateProcessW(nullptr, cmd.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi)) {        RecordResult(false, "Test 94: restore puts I/O priority back to Normal", "could not start ping.exe");
+    if (!CreateProcessW(nullptr, cmd.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi)) {        RecordResult(false, "Test 102: restore puts I/O priority back to Normal", "could not start ping.exe");
         return;
     }
     vegaflow::WindowsProcessControl control;
@@ -69,7 +69,7 @@ void Test94() {
     CloseHandle(pi.hThread);
     CloseHandle(pi.hProcess);
     RecordResult(lowered == 0 && after_background == 2 && after_game == 2 && reverted && after_recovery == 2,
-                 "Test 94: restore puts I/O priority back to Normal",
+                 "Test 102: restore puts I/O priority back to Normal",
                  "lowered to: " + std::to_string(lowered) + ", after background restore: " + std::to_string(after_background)
                      + ", after game restore: " + std::to_string(after_game) + ", after crash recovery: "
                      + std::to_string(after_recovery) + (reverted ? "" : " (revert failed: " + err + ")")

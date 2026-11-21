@@ -50,7 +50,7 @@ uint32_t CountDirectFlipConfiguredGames() {
             if (val_type == REG_SZ) {
                 std::wstring data_str(val_data);
                 for (auto& c : data_str) c = static_cast<wchar_t>(std::towlower(c));
-                if (data_str.find(L"autoflipmodel=1") != std::wstring::npos && data_str.find(L"directflip=1") != std::wstring::npos) {
+                if (data_str.find(L"swapeffectupgradeenable=1") != std::wstring::npos) {
                     count++;
                 }
             }

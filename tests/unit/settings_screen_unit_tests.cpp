@@ -53,6 +53,7 @@ void Test63() {
         {"mpo_disabled", [](SettingsScreenInputs& i) { i.tweaks.mpo_disabled = true; }},
         {"mmcss_gaming", [](SettingsScreenInputs& i) { i.tweaks.mmcss_gaming_optimized = true; }},
         {"game_dvr", [](SettingsScreenInputs& i) { i.tweaks.gamedvr_disabled = true; }},
+        {"fse_compat", [](SettingsScreenInputs& i) { i.tweaks.fse_disabled = true; }},
         {"memory_compression", [](SettingsScreenInputs& i) { i.tweaks.memory_compression_enabled = true; }},
         {"power_profile", [](SettingsScreenInputs& i) { i.tweaks.apu_power_optimized = true; }},
         {"memory_guard", [](SettingsScreenInputs& i) { i.memory_guard_active = true; }},

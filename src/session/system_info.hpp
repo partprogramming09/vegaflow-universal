@@ -13,6 +13,8 @@
 #include <vector>
 
 #include "model/hardware.hpp"
+#include "optimize/graphics/graphics_optimizer.hpp"
+#include "ports/memory_probe.hpp"
 
 namespace vegaflow {
 
@@ -121,6 +123,9 @@ public:
     // Gathers real-time hardware, connection architecture, RAM topology, and OS specs
     static SystemInfoSnapshot Gather(bool include_displays = false);
     static SystemInfoSnapshot FromHardware(const SystemHardwareProfile& hw, bool include_live_telemetry = false);
+    // Same snapshot from a memory sample and tweak state the caller already has (the GUI poll): no probe, no registry read.
+    static SystemInfoSnapshot FromHardware(const SystemHardwareProfile& hw, const SystemMemoryTelemetry& mem,
+                                           const SystemGraphicsTweaksState& tweaks);
 
     const SystemInfoSnapshot& Snapshot() const { return snapshot_; }
 
@@ -132,9 +137,11 @@ private:
     SystemInfoSnapshot snapshot_;
 
     static CpuInfo GatherCpu(const SystemHardwareProfile& hw);
-    static GpuInfo GatherGpu(const SystemHardwareProfile& hw, bool include_live_telemetry);
-    static RamInfo GatherRam(const SystemHardwareProfile& hw, bool include_live_telemetry);
-    static OsKernelInfo GatherOsKernel(const SystemHardwareProfile& hw, bool include_live_telemetry);
+    static SystemInfoSnapshot Build(const SystemHardwareProfile& hw, const SystemMemoryTelemetry* mem,
+                                    const SystemGraphicsTweaksState* tweaks);
+    static GpuInfo GatherGpu(const SystemHardwareProfile& hw, const SystemMemoryTelemetry* mem);
+    static RamInfo GatherRam(const SystemHardwareProfile& hw, const SystemMemoryTelemetry* mem);
+    static OsKernelInfo GatherOsKernel(const SystemHardwareProfile& hw, const SystemGraphicsTweaksState* tweaks);
     static ApuGuardInfo GatherApuGuard(const SystemHardwareProfile& hw, uint64_t live_budget_bytes);
 };
 

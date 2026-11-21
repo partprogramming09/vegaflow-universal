@@ -179,7 +179,7 @@ void PrintStatusReport() {
         std::cout << "  AMD Driver Tweaks          : N/A (GPU no AMD o driver tweaks bloqueados)\n";
     }
     std::cout << "  MMCSS WDDM Gaming Profile  : " << (tweaks.mmcss_gaming_optimized ? "OPTIMIZED (SystemResponsiveness=10%, High Priority)" : "Windows Default") << "\n";
-    std::cout << "  GameDVR & FSE Bypass       : " << (tweaks.gamedvr_disabled ? "OPTIMIZED (Background Capture Off + FSE Mode 2)" : "DEFAULT (Windows DVR Active)") << "\n";
+    std::cout << "  GameDVR Capture            : " << (tweaks.gamedvr_disabled ? "OPTIMIZED (Background Capture Off)" : "DEFAULT (Windows DVR Active)") << "\n";
     std::cout << "  APU Laptop Power & Bus     : " << (tweaks.apu_power_optimized ? "ACTIVE (Boost Efficient-Aggressive + PCIe ASPM Off)" : "STANDARD (Windows Default)") << "\n";
     std::cout << "  CPU Quantum Separation     : 0x" << std::hex << tweaks.win32_priority_separation << std::dec << "\n";
     std::cout << "  Windows Memory Compression : " << (tweaks.memory_compression_enabled ? "ACTIVE (MemCompression Process)" : "DISABLED") << "\n";
@@ -187,16 +187,16 @@ void PrintStatusReport() {
 
     uint32_t df_count = CountDirectFlipConfiguredGames();
     auto active_game = ProcessDetector::DetectActiveGame();
-    bool directflip_live = active_game.has_value() && gfx.DxgiFlip().HasDirectFlipUpgrade(active_game->full_path);
+    bool directflip_live = active_game.has_value() && gfx.DxgiFlip().HasFlipModelUpgrade(active_game->full_path);
     std::string df_status;
     if (directflip_live) {
         df_status = "ACTIVE (" + WideToUtf8(active_game->exe_name) + ")";
     } else if (df_count > 0) {
-        df_status = "CONFIGURED (" + std::to_string(df_count) + " Games with AutoFlip/DirectFlip)";
+        df_status = "CONFIGURED (" + std::to_string(df_count) + " Games with SwapEffectUpgradeEnable=1)";
     } else {
-        df_status = "READY (AutoFlipModel=1 & DirectFlip=1 Injection on Launch)";
+        df_status = "READY (SwapEffectUpgradeEnable=1 on Launch)";
     }
-    std::cout << "  DirectFlip / AutoFlip Model: " << df_status << "\n\n";
+    std::cout << "  Windowed Flip Model        : " << df_status << "\n\n";
 
     std::cout << "[RAM & TELEMETRY]\n";
     std::cout << "  Total Physical RAM         : " << FormatBytes(mem.total_physical_bytes) << "\n";

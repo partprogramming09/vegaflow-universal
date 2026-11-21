@@ -63,11 +63,32 @@ SystemInfoSnapshot SystemInfo::Gather(bool include_displays) {
 }
 
 SystemInfoSnapshot SystemInfo::FromHardware(const SystemHardwareProfile& hw, bool include_live_telemetry) {
+    if (!include_live_telemetry) {
+        return Build(hw, nullptr, nullptr);
+    }
+    // One sample serves both the VRAM budget (target adapter) and the RAM lists.
+    MemoryManager mem_mgr;
+    mem_mgr.SetTargetLuid(hw.primary_gpu.luid);
+    const SystemMemoryTelemetry mem = mem_mgr.SampleTelemetry();
+    WindowsRegistryPort reg;
+    WindowsPowerPort power;
+    GraphicsOptimizer opt(hw, HardwareProfiler::BuildOptimizationPolicy(hw), reg, &power);
+    const SystemGraphicsTweaksState tweaks = opt.QuerySystemGraphicsTweaks();
+    return Build(hw, &mem, &tweaks);
+}
+
+SystemInfoSnapshot SystemInfo::FromHardware(
+    const SystemHardwareProfile& hw, const SystemMemoryTelemetry& mem, const SystemGraphicsTweaksState& tweaks) {
+    return Build(hw, &mem, &tweaks);
+}
+
+SystemInfoSnapshot SystemInfo::Build(
+    const SystemHardwareProfile& hw, const SystemMemoryTelemetry* mem, const SystemGraphicsTweaksState* tweaks) {
     SystemInfoSnapshot snapshot{};
     snapshot.cpu = GatherCpu(hw);
-    snapshot.gpu = GatherGpu(hw, include_live_telemetry);
-    snapshot.ram = GatherRam(hw, include_live_telemetry);
-    snapshot.os_kernel = GatherOsKernel(hw, include_live_telemetry);
+    snapshot.gpu = GatherGpu(hw, mem);
+    snapshot.ram = GatherRam(hw, mem);
+    snapshot.os_kernel = GatherOsKernel(hw, tweaks);
     const uint64_t live_budget = snapshot.gpu.dxgi_budget.valid ? snapshot.gpu.dxgi_budget.local_budget_bytes : 0;
     snapshot.apu_guard = GatherApuGuard(hw, live_budget);
     snapshot.power = hw.power_status;
@@ -146,7 +167,7 @@ CpuInfo SystemInfo::GatherCpu(const SystemHardwareProfile& hw) {
     return cpu;
 }
 
-GpuInfo SystemInfo::GatherGpu(const SystemHardwareProfile& hw, bool include_live_telemetry) {
+GpuInfo SystemInfo::GatherGpu(const SystemHardwareProfile& hw, const SystemMemoryTelemetry* mem) {
     GpuInfo gpu{};
     gpu.probe_ok = hw.gpu_probe_ok;
     gpu.connection = HardwareProfiler::ConnectionToString(hw.primary_gpu.connection);
@@ -202,21 +223,18 @@ GpuInfo SystemInfo::GatherGpu(const SystemHardwareProfile& hw, bool include_live
     gpu.dynamic_shared_vram_bytes = hw.primary_gpu.shared_system_bytes;
     gpu.dynamic_shared_vram_gb = static_cast<double>(gpu.dynamic_shared_vram_bytes) / (1024.0 * 1024.0 * 1024.0);
 
-    if (include_live_telemetry) {
-        MemoryManager mem_mgr;
-        mem_mgr.SetTargetLuid(hw.primary_gpu.luid);
-        SystemMemoryTelemetry telem = mem_mgr.SampleTelemetry();
-        gpu.dxgi_budget.local_budget_bytes = telem.vram.local_budget_bytes;
-        gpu.dxgi_budget.local_usage_bytes = telem.vram.local_usage_bytes;
-        gpu.dxgi_budget.non_local_budget_bytes = telem.vram.non_local_budget_bytes;
-        gpu.dxgi_budget.non_local_usage_bytes = telem.vram.non_local_usage_bytes;
-        gpu.dxgi_budget.valid = telem.vram.valid;
+    if (mem) {
+        gpu.dxgi_budget.local_budget_bytes = mem->vram.local_budget_bytes;
+        gpu.dxgi_budget.local_usage_bytes = mem->vram.local_usage_bytes;
+        gpu.dxgi_budget.non_local_budget_bytes = mem->vram.non_local_budget_bytes;
+        gpu.dxgi_budget.non_local_usage_bytes = mem->vram.non_local_usage_bytes;
+        gpu.dxgi_budget.valid = mem->vram.valid;
     }
 
     return gpu;
 }
 
-RamInfo SystemInfo::GatherRam(const SystemHardwareProfile& hw, bool include_live_telemetry) {
+RamInfo SystemInfo::GatherRam(const SystemHardwareProfile& hw, const SystemMemoryTelemetry* mem) {
     RamInfo ram{};
     ram.probe_ok = hw.ram_probe_ok && (hw.total_physical_ram_bytes > 0);
     if (!ram.probe_ok) {
@@ -225,15 +243,13 @@ RamInfo SystemInfo::GatherRam(const SystemHardwareProfile& hw, bool include_live
     }
 
     ram.total_physical_bytes = hw.total_physical_ram_bytes;
-    if (include_live_telemetry) {
-        MemoryManager mem_mgr;
-        SystemMemoryTelemetry telem = mem_mgr.SampleTelemetry();
-        if (telem.total_physical_bytes > 0) {
-            ram.total_physical_bytes = telem.total_physical_bytes;
+    if (mem) {
+        if (mem->total_physical_bytes > 0) {
+            ram.total_physical_bytes = mem->total_physical_bytes;
         }
-        ram.free_real_bytes = telem.free_and_zero_bytes;
-        ram.standby_cache_bytes = telem.standby_bytes;
-        ram.modified_bytes = telem.modified_bytes;
+        ram.free_real_bytes = mem->free_and_zero_bytes;
+        ram.standby_cache_bytes = mem->standby_bytes;
+        ram.modified_bytes = mem->modified_bytes;
     }
 
     ram.total_physical_mb = static_cast<double>(ram.total_physical_bytes) / (1024.0 * 1024.0);
@@ -246,12 +262,13 @@ RamInfo SystemInfo::GatherRam(const SystemHardwareProfile& hw, bool include_live
     ram.in_use_bytes = (ram.total_physical_bytes > non_in_use) ? (ram.total_physical_bytes - non_in_use) : 0;
     ram.in_use_mb = static_cast<double>(ram.in_use_bytes) / (1024.0 * 1024.0);
 
-    if (!include_live_telemetry) {
+    if (!mem) {
         ram.channel_topology = "No se pudo leer";
         return ram;
     }
 
-    const int populated_slots = static_cast<int>(CountPopulatedDimmSlots());
+    // The DIMMs cannot change while Windows runs: read the firmware table once, not on every GUI poll.
+    static const int populated_slots = static_cast<int>(CountPopulatedDimmSlots());
 
     if (populated_slots >= 2) {
         ram.channel_topology = "Dual-Channel (128-bit bus bandwidth)";
@@ -268,7 +285,7 @@ RamInfo SystemInfo::GatherRam(const SystemHardwareProfile& hw, bool include_live
     return ram;
 }
 
-OsKernelInfo SystemInfo::GatherOsKernel(const SystemHardwareProfile& hw, bool include_live_telemetry) {
+OsKernelInfo SystemInfo::GatherOsKernel(const SystemHardwareProfile& hw, const SystemGraphicsTweaksState* tweaks) {
     OsKernelInfo os{};
     os.system_arch = HardwareProfiler::SystemArchToString(hw.system_arch);
 
@@ -287,14 +304,9 @@ OsKernelInfo SystemInfo::GatherOsKernel(const SystemHardwareProfile& hw, bool in
         os.full_version_string = "No se pudo leer";
     }
 
-    if (include_live_telemetry) {
-        WindowsRegistryPort reg;
-        WindowsPowerPort power;
-        const ApuOptimizationPolicy policy = HardwareProfiler::BuildOptimizationPolicy(hw);
-        GraphicsOptimizer opt(hw, policy, reg, &power);
-        SystemGraphicsTweaksState tweaks = opt.QuerySystemGraphicsTweaks();
-        os.mmcss_gaming_optimized = tweaks.mmcss_gaming_optimized;
-        os.memory_compression_enabled = tweaks.memory_compression_enabled;
+    if (tweaks) {
+        os.mmcss_gaming_optimized = tweaks->mmcss_gaming_optimized;
+        os.memory_compression_enabled = tweaks->memory_compression_enabled;
     }
 
     return os;

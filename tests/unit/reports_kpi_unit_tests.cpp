@@ -7,7 +7,7 @@
 
 namespace vftest {
 
-void Test96() {
+void Test104() {
     using vegaflow::app::MemoryKpiLine;
     constexpr uint64_t kMb = 1024 * 1024;
     const std::string small = MemoryKpiLine(2 * kMb);
@@ -16,7 +16,7 @@ void Test96() {
     const bool ok = small.find("passed") != std::string::npos && small.find("2 MB") != std::string::npos &&
                     edge.find("FAILED") != std::string::npos && big.find("FAILED") != std::string::npos &&
                     big.find("passed") == std::string::npos;
-    RecordResult(ok, "Test 96: the memory KPI line fails above the 15 MB budget", small + " | " + edge + " | " + big);
+    RecordResult(ok, "Test 104: the memory KPI line fails above the 15 MB budget", small + " | " + edge + " | " + big);
 }
 
 } // namespace vftest

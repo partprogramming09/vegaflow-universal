@@ -20,7 +20,7 @@ std::wstring Forward(std::initializer_list<const char*> args) {
 
 } // namespace
 
-void Test97() {
+void Test105() {
     const std::wstring spaces = Forward({"vf.exe", "--elevate", "--dxvk-install", "C:\\My Game\\bin", "--dry-run"});
     const std::wstring plain = Forward({"vf.exe", "-e", "--status"});
     // A trailing backslash before the closing quote would escape it: it must be doubled.
@@ -32,14 +32,14 @@ void Test97() {
     const bool ok = spaces == L"--dxvk-install \"C:\\My Game\\bin\" --dry-run" && plain == L"--status" &&
                     trailing == L"--dxvk-install \"C:\\My Game\\\\\"" && nothing.empty() &&
                     empty_arg == L"--dxvk-install \"\"" && quote == L"\"a\\\\\\\"b\"";
-    RecordResult(ok, "Test 97: --elevate forwards each argument whole, quoted when needed",
+    RecordResult(ok, "Test 105: --elevate forwards each argument whole, quoted when needed",
                  "spaces=[" + vegaflow::app::WideToUtf8(spaces) + "] trailing=[" + vegaflow::app::WideToUtf8(trailing) + "] plain=[" +
                      vegaflow::app::WideToUtf8(plain) + "]");
 }
 
 // Windows itself (CommandLineToArgvW, through Utf8Args) must read back every forwarded argument unchanged, and a
 // path with "ñ" must reach the parser as UTF-8.
-void Test98() {
+void Test106() {
     const std::vector<const char*> cases = {"C:\\My Game\\bin", "C:\\My Game\\", "", "a\\\"b", "C:\\Juegos\\A\xC3\xB1o", "--dry-run"};
     std::vector<char*> argv = {const_cast<char*>("vf.exe"), const_cast<char*>("--elevate")};
     for (const char* c : cases) argv.push_back(const_cast<char*>(c));
@@ -49,7 +49,7 @@ void Test98() {
     for (size_t i = 0; same && i < cases.size(); ++i) same = back[i + 1] == cases[i];
     std::string got;
     for (const auto& a : back) got += "[" + a + "]";
-    RecordResult(same, "Test 98: the elevated instance reads back each argument unchanged, a path with an accent included",
+    RecordResult(same, "Test 106: the elevated instance reads back each argument unchanged, a path with an accent included",
                  "read back " + std::to_string(back.size()) + " of " + std::to_string(cases.size() + 1) + ": " + got);
 }
 

@@ -56,7 +56,7 @@ bool WriteLegacyRecord(const std::wstring& path, DWORD original) {
 
 } // namespace
 
-void Test95() {
+void Test103() {
     const std::wstring legacy = std::wstring(kBackupRoot) + vegaflow::LegacyRegBackupRecordName(1, kSubkey, kValue);
     const std::wstring current = std::wstring(kBackupRoot) + vegaflow::RegBackupRecordName(1, kSubkey, kValue);
     const bool names_differ = legacy != current;
@@ -67,7 +67,7 @@ void Test95() {
 
     vegaflow::WindowsRegistryPort reg;
     const vegaflow::RegValue v = vegaflow::RegValue::MakeDword(11);
-    const bool wrote = reg.WriteValue(vegaflow::RegHive::CurrentUser, kSubkey, kValue, v, true, "Test 95");
+    const bool wrote = reg.WriteValue(vegaflow::RegHive::CurrentUser, kSubkey, kValue, v, true, "Test 103");
     const bool no_second_backup = !KeyExists(current);
     const bool restored = reg.RestoreBackedUpValue(vegaflow::RegHive::CurrentUser, kSubkey, kValue);
     const DWORD after = ReadDword(kSubkey, kValue);
@@ -82,7 +82,7 @@ void Test95() {
     RegDeleteKeyW(HKEY_CURRENT_USER, current.c_str());
 
     RecordResult(names_differ && planted && wrote && no_second_backup && restored && after == 7,
-                 "Test 95: a RegBackup record under the older name is still found and restored",
+                 "Test 103: a RegBackup record under the older name is still found and restored",
                  std::string("names differ: ") + (names_differ ? "yes" : "no") + ", second backup avoided: " +
                      (no_second_backup ? "yes" : "no") + ", restored: " + (restored ? "yes" : "no") +
                      ", value after restore: " + std::to_string(after) + " (7 = original)");

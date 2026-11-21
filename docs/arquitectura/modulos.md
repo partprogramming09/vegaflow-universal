@@ -127,13 +127,10 @@ Implementada de forma coordinada en [`src/optimize/cpu_orchestrator.cpp`](../../
      ```
    - Esta jerarquía garantiza que las peticiones de lectura del juego tengan prioridad absoluta en la cola de I/O de Windows NT, mientras que los procesos de fondo solo acceden al almacenamiento durante ciclos ociosos (`IoPriorityVeryLow = 0`). Además, `MEMORY_PRIORITY_LOW` (2) en fondo previene que la memoria de trabajo del juego sea desplazada al archivo de paginación, erradicando los micro-parones en streaming de texturas 3D.
 
-3. **DirectFlip & AutoFlip Model Upgrade**:
-   - **Explicación técnica:** En modos ventana sin bordes tradicionales, el Desktop Window Manager (DWM) intercepta la swap chain y efectúa una copia intermedia de cada fotograma en una superficie de composición DWM, introduciendo entre 15 y 30 ms de retardo de entrada y stutters por contención de sincronización vertical.
-   - **Inyección DXGI:** VegaFlow inyecta directamente en `HKCU\Software\Microsoft\DirectX\UserGpuPreferences`:
-     ```ini
-     AutoFlipModel=1;DirectFlip=1;TurboSync=1;SwapEffectUpgradeEnable=1;GpuPreference=2;
-     ```
-   - Esto habilita la promoción directa a **DirectFlip** en Windows 11, desacoplando la swap chain de la cola de copiado de DWM. El motor gráfico proyecta sus fotogramas directamente a la controladora de vídeo, logrando **0ms de latencia de entrada adicional** (equivalente a pantalla completa exclusiva) preservando la comodidad de la multitarea borderless y la compatibilidad con superposiciones de sistema.
+3. **Modelo flip en ventana** (`DxgiFlipTweaks::ApplyFlipModelUpgrade`, `src/optimize/graphics/dxgi_flip.cpp`):
+   - Mezcla `SwapEffectUpgradeEnable=1;` en el valor del juego en `HKCU\Software\Microsoft\DirectX\UserGpuPreferences`, sin tocar `GpuPreference` ni `AutoHDREnable`, y añade el token `HIGHDPIAWARE` a `AppCompatFlags\Layers` conservando las otras banderas (no lo añade si ya hay `DPIUNAWARE` o `GDIDPISCALING`).
+   - Si los dos valores ya están como quedarían, no escribe ni abre otra entrada en el diario. El diario guarda los dos valores previos y la reversión los devuelve exactos (Pruebas 94 y 95).
+   - Las optimizaciones de pantalla completa (`GameDVR_FSEBehaviorMode` y tres valores más) son aparte: la fila oculta `fse_compat` de Ajustes, que el demonio nunca aplica solo (Prueba 96). Efecto de ambas: sin medir.
 
 ### 3.5. Suite de Silicio APU & Blindaje de Memoria de Kernel NT (DisablePagingExecutive & Smart Tessellation 16x)
 Implementada en [`src/optimize/graphics/`](../../src/optimize/graphics/), [`src/app/main.cpp`](../../src/app/main.cpp) y [`src/ui/gui_window.cpp`](../../src/ui/gui_window.cpp):

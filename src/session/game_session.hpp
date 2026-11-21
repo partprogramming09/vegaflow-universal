@@ -65,7 +65,7 @@ struct GameSessionEnvironment {
     virtual void QueryLiveMemory(uint64_t& out_local_vram_budget_bytes, uint64_t& out_local_vram_usage_bytes, bool& out_vram_valid) = 0;
 
     virtual void SetDynamicPrioritySeparation(uint32_t val) = 0;
-    virtual void SetGameDvrAndFseOptimized(bool optimize) = 0;
+    virtual void SetGameDvrCaptureDisabled(bool disable) = 0;
     virtual void SetApuLaptopPowerProfile(bool optimize, const ApuOptimizationPolicy& static_policy) = 0;
     virtual void ApplyDxgiFlipModelUpgrade(const std::wstring& exe_path) = 0;
 

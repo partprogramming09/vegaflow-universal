@@ -22,6 +22,7 @@ struct SettingsActionsDeps {
 class SettingsActions {
 public:
     explicit SettingsActions(SettingsActionsDeps deps) : d_(std::move(deps)) {}
+    void SetPolicy(const ApuOptimizationPolicy& policy) { d_.policy = policy; } // after a GPU change
 
     // Sets the catalog row `id` to `turn_on`. Rows that flip (a toggle) change only when the current state differs, so a
     // second click never undoes by accident. An id with no switch changes nothing.

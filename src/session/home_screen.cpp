@@ -39,7 +39,7 @@ HomeScreenModel BuildHomeScreen(const HomeInputs& in, const EquipmentScreenModel
         m.pause_app_id = m.can_pause ? in.game_app_id : 0;
         m.game_facts.push_back("Programas de fondo en modo ahorro: " + std::to_string(in.background_saving));
         m.game_facts.push_back(std::string("Prioridad de disco alta pedida a Windows para el juego: ") + (in.io_priority_high ? "sí" : "no"));
-        m.game_facts.push_back(std::string("DirectFlip pedido a Windows para este juego: ") + (in.direct_flip ? "sí" : "no"));
+        m.game_facts.push_back(std::string("Modo flip pedido a Windows para este juego: ") + (in.direct_flip ? "sí" : "no"));
     } else {
         m.game_title = "En espera";
         m.game_name = in.automatic ? "Abre un juego y VegaFlow lo detecta solo" : "Modo seguro: VegaFlow no detecta juegos";

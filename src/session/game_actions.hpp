@@ -32,6 +32,7 @@ struct GameActionsDeps {
 class GameActions {
 public:
     explicit GameActions(GameActionsDeps deps) : d_(std::move(deps)) {}
+    void SetPolicy(const ApuOptimizationPolicy& policy) { d_.policy = policy; } // after a GPU change
 
     GamesScreenModel Poll() const;
     // Reads the files again: the daemon writes game files when a game opens, so what the scan found goes stale. 0 = every game.
