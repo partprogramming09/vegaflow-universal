@@ -2,6 +2,7 @@
 // Console reports: --status, --purge-now and --dry-run.
 
 #include <cstdint>
+#include <filesystem>
 #include <string>
 
 #include "ports/memory_probe.hpp"
@@ -9,11 +10,21 @@
 
 namespace vegaflow::app {
 
+// The default session log, and the size past which it is renamed to <name>.1 (replacing the previous one).
+inline constexpr const char* kSessionLogDefaultPath = "logs/session_reports.log";
+inline constexpr uint64_t kSessionLogMaxBytes = 2ULL * 1024 * 1024;
+
+// Where the log really goes: the default relative path lives next to the .exe (like config.json); with no exe folder it
+// stays relative to the working directory. Any other path (absolute or relative) is used as given.
+std::filesystem::path ResolveSessionLogPath(const std::string& file_path, const std::wstring& exe_dir);
+
+// Appends one session block. Rotates first if the file is over kSessionLogMaxBytes. A named mutex (Local\VegaFlowLog)
+// serializes the GUI and the daemon. Returns false, without throwing, when the log cannot be written.
 bool SaveSessionReportToFile(
     const std::string& game_name,
     const std::string& api_name = "",
     uint32_t pid = 0,
-    const std::string& file_path = "logs/session_reports.log");
+    const std::string& file_path = kSessionLogDefaultPath);
 
 void PrintStatusReport();
 void ExecutePurgeNow(bool dry_run);

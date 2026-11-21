@@ -22,7 +22,10 @@ $ErrorActionPreference = 'Stop'
 $bench = Join-Path $PSScriptRoot 'bench.ps1'
 $ab = Join-Path $WorkDir 'ab_profile.ps1'
 $runsLog = Join-Path $WorkDir 'ab_runs.log'
+# The daemon writes its log in <folder of its .exe>\logs (E2.6); the daemon runs from $WorkDir, so it is here.
+# It rotates at 2 MB, so a session is detected by the last-write time, not by the size.
 $sessionLog = Join-Path $WorkDir 'logs\session_reports.log'
+function Get-LogStamp { if (Test-Path $sessionLog) { (Get-Item $sessionLog).LastWriteTimeUtc.Ticks } else { 0 } }
 $procName = [IO.Path]::GetFileNameWithoutExtension($Process)
 
 # Appends a timestamped line to ab_runs.log.
@@ -53,9 +56,9 @@ function Start-Daemon {
 
 # Stops the daemon with a clean shutdown and logs whether it recorded a game session.
 function Stop-Daemon {
-    $before = if (Test-Path $sessionLog) { (Get-Item $sessionLog).Length } else { 0 }
+    $before = Get-LogStamp
     & powershell -NoProfile -ExecutionPolicy Bypass -File $ab -Stop -Dir $WorkDir | Out-Null
-    $after = if (Test-Path $sessionLog) { (Get-Item $sessionLog).Length } else { 0 }
+    $after = Get-LogStamp
     Write-Run ("stop-daemon sesion_registrada=$($after -gt $before)")
     Start-Sleep -Seconds 5
 }
