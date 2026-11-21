@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="322" viewBox="0 0 880 322" font-family="system-ui, sans-serif">
+<style>.t{font-size:14px;fill:#0b0b0b;font-weight:600}.m{font-size:12px;fill:#52514e}.g{stroke:#e4e3df;stroke-width:1}</style>
+<rect width="880" height="322" fill="#fcfcfb"/>
+<text x="16" y="74" class="m">A1 · Legacy Flip</text>
+<text x="16" y="98" class="m">A1 · Legacy Flip</text>
+<text x="16" y="122" class="m">B1 · Independent Flip</text>
+<text x="16" y="146" class="m">B1 · Independent Flip</text>
+<text x="16" y="170" class="m">B2 · Independent Flip</text>
+<text x="16" y="194" class="m">B2 · Independent Flip</text>
+<text x="16" y="218" class="m">A2 · Legacy Flip</text>
+<text x="16" y="242" class="m">A2 · Legacy Flip</text>
+<text x="200" y="40" class="t">FPS medio</text>
+<line x1="200.0" y1="55" x2="200.0" y2="252" class="g"/>
+<text x="200.0" y="270" class="m" text-anchor="middle">28</text>
+<line x1="320.0" y1="55" x2="320.0" y2="252" class="g"/>
+<text x="320.0" y="270" class="m" text-anchor="middle">30</text>
+<line x1="440.0" y1="55" x2="440.0" y2="252" class="g"/>
+<text x="440.0" y="270" class="m" text-anchor="middle">32</text>
+<circle cx="336.2" cy="70" r="5" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>A1 captura: 30.27 FPS (Hardware: Legacy Flip)</title></circle>
+<text x="346.2" y="74" class="m">30.3</text>
+<circle cx="338.6" cy="94" r="5" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>A1 captura: 30.31 FPS (Hardware: Legacy Flip)</title></circle>
+<text x="348.6" y="98" class="m">30.3</text>
+<circle cx="332.6" cy="118" r="5" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"><title>B1 captura: 30.21 FPS (Hardware: Independent Flip)</title></circle>
+<text x="342.6" y="122" class="m">30.2</text>
+<circle cx="335.6" cy="142" r="5" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"><title>B1 captura: 30.26 FPS (Hardware: Independent Flip)</title></circle>
+<text x="345.6" y="146" class="m">30.3</text>
+<circle cx="334.4" cy="166" r="5" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"><title>B2 captura: 30.24 FPS (Hardware: Independent Flip)</title></circle>
+<text x="344.4" y="170" class="m">30.2</text>
+<circle cx="339.8" cy="190" r="5" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"><title>B2 captura: 30.33 FPS (Hardware: Independent Flip)</title></circle>
+<text x="349.8" y="194" class="m">30.3</text>
+<circle cx="309.8" cy="214" r="5" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>A2 captura: 29.83 FPS (Hardware: Legacy Flip)</title></circle>
+<text x="319.8" y="218" class="m">29.8</text>
+<circle cx="327.8" cy="238" r="5" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>A2 captura: 30.13 FPS (Hardware: Legacy Flip)</title></circle>
+<text x="337.8" y="242" class="m">30.1</text>
+<text x="560" y="40" class="t">1% Low (FPS)</text>
+<line x1="560.0" y1="55" x2="560.0" y2="252" class="g"/>
+<text x="560.0" y="270" class="m" text-anchor="middle">22</text>
+<line x1="620.0" y1="55" x2="620.0" y2="252" class="g"/>
+<text x="620.0" y="270" class="m" text-anchor="middle">24</text>
+<line x1="680.0" y1="55" x2="680.0" y2="252" class="g"/>
+<text x="680.0" y="270" class="m" text-anchor="middle">26</text>
+<line x1="740.0" y1="55" x2="740.0" y2="252" class="g"/>
+<text x="740.0" y="270" class="m" text-anchor="middle">28</text>
+<line x1="800.0" y1="55" x2="800.0" y2="252" class="g"/>
+<text x="800.0" y="270" class="m" text-anchor="middle">30</text>
+<circle cx="690.2" cy="70" r="5" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>A1 captura: 26.34 FPS (Hardware: Legacy Flip)</title></circle>
+<text x="700.2" y="74" class="m">26.3</text>
+<circle cx="709.7" cy="94" r="5" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>A1 captura: 26.99 FPS (Hardware: Legacy Flip)</title></circle>
+<text x="719.7" y="98" class="m">27.0</text>
+<circle cx="661.7" cy="118" r="5" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"><title>B1 captura: 25.39 FPS (Hardware: Independent Flip)</title></circle>
+<text x="671.7" y="122" class="m">25.4</text>
+<circle cx="724.1" cy="142" r="5" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"><title>B1 captura: 27.47 FPS (Hardware: Independent Flip)</title></circle>
+<text x="734.1" y="146" class="m">27.5</text>
+<circle cx="625.7" cy="166" r="5" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"><title>B2 captura: 24.19 FPS (Hardware: Independent Flip)</title></circle>
+<text x="635.7" y="170" class="m">24.2</text>
+<circle cx="734.6" cy="190" r="5" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"><title>B2 captura: 27.82 FPS (Hardware: Independent Flip)</title></circle>
+<text x="744.6" y="194" class="m">27.8</text>
+<circle cx="583.7" cy="214" r="5" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>A2 captura: 22.79 FPS (Hardware: Legacy Flip)</title></circle>
+<text x="593.7" y="218" class="m">22.8</text>
+<circle cx="711.8" cy="238" r="5" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>A2 captura: 27.06 FPS (Hardware: Legacy Flip)</title></circle>
+<text x="721.8" y="242" class="m">27.1</text>
+<circle cx="200" cy="296" r="5" fill="#2a78d6"/><text x="212" y="300" class="m">A: FSE 2,1,1,0 (como estaba)</text>
+<circle cx="530" cy="296" r="5" fill="#eb6834"/><text x="542" y="300" class="m">B: valores borrados (Windows decide)</text>
+</svg>

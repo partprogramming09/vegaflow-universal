@@ -75,6 +75,55 @@ foreach ($f in 'vegaflow_daemon.exe', 'uninstall.ps1', 'VERSION', 'install.json'
     Check "existe $f" (Test-Path (Join-Path $InstallDir $f))
 }
 Check '--version coincide con el paquete' ((& $exe --version) -match [regex]::Escape($version))
+# Runs the installed daemon; its stderr is output to check, not a terminating error under 'Stop'.
+function Invoke-Exe([string[]]$a) {
+    $old = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+    try { $out = & $exe @a 2>&1 | Out-String; $code = $LASTEXITCODE } finally { $ErrorActionPreference = $old }
+    [pscustomobject]@{ Code = $code; Output = $out }
+}
+# A mistyped option must stop the program, not start the real daemon (--dryrun used to run it for real).
+$r = Invoke-Exe @('--no-such-option', '--version')
+Check 'una opción desconocida se rechaza (código 2) y no sigue' ($r.Code -eq 2 -and $r.Output -notmatch [regex]::Escape($version)) "código $($r.Code)"
+# --dry-run with --monitor must simulate, never run the real monitor cycle.
+$r = Invoke-Exe @('--dry-run', '--monitor', '--once')
+Check '--dry-run --monitor solo simula' ($r.Code -eq 0 -and $r.Output -match 'DRY-RUN SIMULATION' -and $r.Output -notmatch 'LIVE TELEMETRY DASHBOARD') $r.Output
+# An option that needs a path must not take the next option as that path (--dxvk-install --dry-run lost the simulation).
+foreach ($opt in '--dxvk-install', '--dxvk-remove') {
+    $r = Invoke-Exe @('--dry-run', $opt, '--version')
+    Check "$opt sin ruta se rechaza (código 2)" ($r.Code -eq 2 -and $r.Output -notmatch '\[DXVK\]') "código $($r.Code): $($r.Output)"
+}
+# An empty path is a missing one. '""' is how Windows PowerShell 5.1 hands an empty argument to a program.
+$r = Invoke-Exe @('--dry-run', '--dxvk-install', '""')
+Check '--dxvk-install con ruta vacía se rechaza (código 2)' ($r.Code -eq 2 -and $r.Output -notmatch '\[DXVK\]') "código $($r.Code): $($r.Output)"
+# A dry run isolates nothing: it must say what it would do.
+$r = Invoke-Exe @('--dry-run', '--once')
+Check 'dry-run no dice que aisló' ($r.Output -notmatch 'Isolated in dry-run' -and $r.Output -match 'would be isolated') $r.Output
+# --observe is safe mode by choice: the notice must not blame crashes.
+$r = Invoke-Exe @('--observe', '--once')
+Check '--observe explica su modo seguro' ($r.Code -eq 0 -and $r.Output -match '--observe' -and $r.Output -notmatch 'cierres anormales') $r.Output
+# The monitor must honour safe mode too.
+$r = Invoke-Exe @('--observe', '--monitor', '--once')
+Check '--monitor respeta el modo seguro' ($r.Code -eq 0 -and $r.Output -match 'MODO SEGURO') $r.Output
+# --elevate on an already elevated process must go on with --observe, not exit doing nothing.
+$p = Start-Process -FilePath $exe -ArgumentList '--elevate', '--observe' -PassThru -WindowStyle Hidden
+Start-Sleep -Seconds 3
+$alive = -not $p.HasExited
+Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+Check '--elevate --observe ya elevado sí observa (sigue corriendo)' $alive "salió con código $($p.ExitCode)"
+# The arguments must reach the program as UTF-8: Windows hands main() the ANSI code page, which broke "ñ".
+$oldEnc = [Console]::OutputEncoding
+[Console]::OutputEncoding = [Text.Encoding]::UTF8
+try { $r = Invoke-Exe @('--Año') } finally { [Console]::OutputEncoding = $oldEnc }
+Check 'un argumento con ñ llega entero' ($r.Code -eq 2 -and $r.Output -match '--Año') $r.Output
+# A second start while a windowless instance runs must not claim to focus a window.
+$first = Start-Process -FilePath $exe -ArgumentList '--observe' -PassThru -WindowStyle Hidden
+Start-Sleep -Seconds 3
+$r = Invoke-Exe @('--observe')
+Stop-Process -Id $first.Id -Force -ErrorAction SilentlyContinue
+Check 'segundo arranque sin ventana lo dice' ($r.Code -eq 0 -and $r.Output -match 'already running' -and $r.Output -notmatch 'Focusing') $r.Output
+# Already elevated (this runs as Administrator), --elevate must not swallow --dry-run.
+$r = Invoke-Exe @('--elevate', '--dry-run')
+Check '--elevate --dry-run simula' ($r.Code -eq 0 -and $r.Output -match 'DRY-RUN SIMULATION') "código $($r.Code)"
 $acl = Get-Acl $InstallDir
 Check 'propietario: Administradores' ($acl.GetOwner([System.Security.Principal.SecurityIdentifier]).Value -eq 'S-1-5-32-544')
 # WriteData 0x2, AppendData 0x4, WriteExtendedAttributes 0x10, WriteAttributes 0x100, Delete 0x10000, ChangePermissions 0x40000, TakeOwnership 0x80000

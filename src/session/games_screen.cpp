@@ -31,7 +31,7 @@ const char* EngineLabel(GameEngineType t) {
 // The registry value ApplyEngineUmaPreset writes first for every game with an exe (DxgiFlipTweaks).
 std::string RegistryChange(const std::wstring& exe_path) {
     return "Registro, HKCU\\Software\\Microsoft\\DirectX\\UserGpuPreferences, valor " + WideToUtf8(exe_path) +
-           ": SwapEffectUpgradeEnable=1;GpuPreference=2;AutoHDREnable=0; (se mezcla con lo que ya hubiera en ese valor)";
+           ": SwapEffectUpgradeEnable=1; (se mezcla con lo que ya hubiera en ese valor; tu elección de gráfica y de HDR no cambia)";
 }
 
 // Keys of the Unreal block as written to Engine.ini: the lines of GenerateUnrealUmaBlock that set something.

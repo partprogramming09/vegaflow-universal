@@ -66,8 +66,8 @@ public:
         vegaflow::KernelSchedulerTweaks(reg_).SetDynamicPrioritySeparation(val, false);
     }
 
-    void SetGameDvrAndFseOptimized(bool optimize) override {
-        vegaflow::DisplayTweaks(reg_).SetGameDvrAndFseOptimized(optimize, false);
+    void SetGameDvrCaptureDisabled(bool disable) override {
+        vegaflow::DisplayTweaks(reg_).SetGameDvrCaptureDisabled(disable, false);
     }
 
     void SetApuLaptopPowerProfile(bool optimize, const vegaflow::ApuOptimizationPolicy& static_policy) override {

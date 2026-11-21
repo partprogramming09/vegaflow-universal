@@ -100,6 +100,7 @@ export default defineConfig({
             { text: '2026-11-09 laptop diagnosis', link: '/measurements/2026-11-09-diagnostico-laptop' },
             { text: '2026-11-14 package 0.1.0', link: '/measurements/2026-11-14-paquete-0.1.0' },
             { text: '2026-11-15 Octopath regression', link: '/measurements/2026-11-15-regresion-octopath' },
+            { text: '2026-11-20 FSE in Octopath', link: '/measurements/2026-11-20-fse-octopath' },
           ],
         },
       ],

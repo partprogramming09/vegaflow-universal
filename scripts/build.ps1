@@ -124,7 +124,8 @@ $Libs = @(
     "-ldwmapi",
     "-lws2_32",
     "-luserenv",
-    "-lbcrypt"
+    "-lbcrypt",
+    "-lsynchronization"  # WaitOnAddress, used by newer Rust std mutexes
 )
 
 $BaseFlags = @(

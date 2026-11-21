@@ -5,12 +5,12 @@ namespace vegaflow {
 using namespace graphics_internal;
 
 bool AmdDriverTweaks::ApplyVramReportingOverride(uint32_t target_mb, bool dry_run) {
-    if (dry_run) {
-        return true;
-    }
     // The 512 MB-style override only makes sense for the iGPU's shared pool; never on an eGPU or dGPU.
     if (!allow_vram_override_) {
         return false;
+    }
+    if (dry_run) {
+        return true;
     }
 
     bool updated_driver = false;

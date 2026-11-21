@@ -114,7 +114,12 @@ void PaintDashboard(HDC hdcMem, const RECT& rcClient, GuiWindowState* state) {
     wchar_t wsBuf[64];
     swprintf_s(wsBuf, L"Daemon WS: %llu KB", static_cast<unsigned long long>(state->data.daemon_private_ws_kb));
     DrawTextAt(hdcMem, 16, sideBottomY - 68, wsBuf, CLR_TEXT_MUTED, state->hFontSmall);
-    DrawTextAt(hdcMem, 16, sideBottomY - 50, L"Auto-Suspensión: ACTIVA", CLR_ACCENT_CYAN, state->hFontSmall);
+    // In safe mode VegaFlow changes nothing by itself, so the sidebar must not claim it does.
+    if (state->data.automatic) {
+        DrawTextAt(hdcMem, 16, sideBottomY - 50, L"Auto-Suspensión: ACTIVA", CLR_ACCENT_CYAN, state->hFontSmall);
+    } else {
+        DrawTextAt(hdcMem, 16, sideBottomY - 50, L"Modo seguro: sin cambios", CLR_ACCENT_AMBER, state->hFontSmall);
+    }
 
     // =========================================================================
     // 3. Main Content Area (modular tab dispatch)

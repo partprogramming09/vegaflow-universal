@@ -13,6 +13,7 @@ bool SettingIsOn(const SettingSpec& spec, const SettingsScreenInputs& in) {
     if (id == "mpo_disabled") return t.mpo_disabled;
     if (id == "mmcss_gaming") return t.mmcss_gaming_optimized;
     if (id == "game_dvr") return t.gamedvr_disabled;
+    if (id == "fse_compat") return t.fse_disabled;
     if (id == "memory_compression") return t.memory_compression_enabled;
     if (id == "power_profile") return t.apu_power_optimized;
     return false; // a catalog row without a case here is shown as off, never as applied

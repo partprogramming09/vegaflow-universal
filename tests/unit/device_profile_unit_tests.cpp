@@ -115,7 +115,7 @@ public:
     }
 
     void SetDynamicPrioritySeparation(uint32_t) override {}
-    void SetGameDvrAndFseOptimized(bool) override {}
+    void SetGameDvrCaptureDisabled(bool) override {}
 
     void SetApuLaptopPowerProfile(bool optimize, const vegaflow::ApuOptimizationPolicy& static_policy) override {
         if (optimize) {
@@ -401,6 +401,49 @@ void Test51() {
         (unreadable_ok ? "PASS" : "FAIL") + ", StaticVsLive: " +
         (static_vs_live_ok ? "PASS" : "FAIL") + ", HotPlug+Battery: " +
         (hotplug_and_battery_ok ? "PASS" : "FAIL"));
+}
+
+void Test101() {
+    // E1.6: the GUI hands SystemInfo the memory sample and tweak state it already has; the snapshot uses them as given.
+    vegaflow::SystemHardwareProfile hw{};
+    hw.gpu_probe_ok = true;
+    hw.ram_probe_ok = true;
+    hw.total_physical_ram_bytes = 16ULL << 30;
+    hw.primary_gpu.vendor = vegaflow::GpuVendor::AMD;
+    hw.primary_gpu.connection = vegaflow::GpuConnection::Integrated;
+
+    vegaflow::SystemMemoryTelemetry mem{};
+    mem.total_physical_bytes = 15ULL << 30;
+    mem.free_and_zero_bytes = 3ULL << 30;
+    mem.standby_bytes = 5ULL << 30;
+    mem.vram.valid = true;
+    mem.vram.local_budget_bytes = 1ULL << 30;
+    mem.vram.local_usage_bytes = 512ULL << 20;
+    vegaflow::SystemGraphicsTweaksState tweaks{};
+    tweaks.memory_compression_enabled = true;
+    tweaks.mmcss_gaming_optimized = true;
+
+    const auto s = vegaflow::SystemInfo::FromHardware(hw, mem, tweaks);
+    const auto pol = vegaflow::HardwareProfiler::BuildOptimizationPolicy(hw, mem.vram.local_budget_bytes);
+    const bool gpu_ok = s.gpu.dxgi_budget.valid && s.gpu.dxgi_budget.local_budget_bytes == mem.vram.local_budget_bytes &&
+                        s.gpu.dxgi_budget.local_usage_bytes == mem.vram.local_usage_bytes;
+    const bool ram_ok = s.ram.total_physical_bytes == mem.total_physical_bytes && s.ram.free_real_bytes == mem.free_and_zero_bytes &&
+                        s.ram.standby_cache_bytes == mem.standby_bytes;
+    const bool os_ok = s.os_kernel.memory_compression_enabled && s.os_kernel.mmcss_gaming_optimized;
+    const bool guard_ok = s.apu_guard.safe_vram_pool_mb == pol.safe_vram_pool_mb;
+    const bool live_ok = gpu_ok && ram_ok && os_ok && guard_ok;
+    auto pf = [](bool b) { return b ? "PASS" : "FAIL"; };
+
+    // A sample with no valid VRAM reading keeps the budget invalid (no made-up numbers) and the guard on the static policy.
+    vegaflow::SystemMemoryTelemetry no_vram{};
+    const auto n = vegaflow::SystemInfo::FromHardware(hw, no_vram, tweaks);
+    const bool invalid_ok = !n.gpu.dxgi_budget.valid && n.gpu.dxgi_budget.local_budget_bytes == 0 &&
+                            n.ram.total_physical_bytes == hw.total_physical_ram_bytes &&
+                            n.apu_guard.safe_vram_pool_mb == vegaflow::HardwareProfiler::BuildOptimizationPolicy(hw, 0).safe_vram_pool_mb;
+
+    RecordResult(live_ok && invalid_ok, "Test 101: SystemInfo built from the GUI's own memory sample and tweak state",
+                 std::string("gpu: ") + pf(gpu_ok) + ", ram: " + pf(ram_ok) + ", os: " + pf(os_ok) + ", guard: " + pf(guard_ok) +
+                 ", no VRAM reading: " + pf(invalid_ok));
 }
 
 } // namespace vftest

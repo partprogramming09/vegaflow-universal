@@ -26,12 +26,20 @@ void Test89() {
     const bool dotdot_refused = !IsAllowedRestoreTarget(0, 0, L"SOFTWARE\\Microsoft\\DirectX\\..\\Windows\\CurrentVersion\\Run");
     const bool empty_and_bad_hive_refused = !IsAllowedRestoreTarget(0, 0, L"") && !IsAllowedRestoreTarget(2, 2, L"System\\GameConfigStore");
 
+    // A record's name must not depend on the compiler (std::hash may change between builds): FNV-1a over UTF-16 units,
+    // reference value computed outside this code. Case does not matter; another value gets another name.
+    const bool stable_name = vegaflow::RegBackupRecordName(1, L"Software\\Test", L"Val") == L"v2-7cf486ac96987e88" &&
+                             vegaflow::RegBackupRecordName(1, L"SOFTWARE\\TEST", L"VAL") == L"v2-7cf486ac96987e88" &&
+                             vegaflow::RegBackupRecordName(1, L"Software\\Test", L"Other") != L"v2-7cf486ac96987e88" &&
+                             vegaflow::RegBackupRecordName(0, L"Software\\Test", L"Val") != L"v2-7cf486ac96987e88";
+
     const bool ok = real_targets && cross_hive_refused && wrong_hive_refused && slash_refused && unknown_key_refused && lookalike_refused && dotdot_refused &&
-                    empty_and_bad_hive_refused;
+                    empty_and_bad_hive_refused && stable_name;
     RecordResult(ok, "Test 89: RegBackup restore is limited to VegaFlow's own keys in the record's hive",
                  std::string("Real=") + (real_targets ? "OK" : "FAIL") + ", CrossHive=" + (cross_hive_refused ? "OK" : "FAIL") +
                      ", Unknown=" + (unknown_key_refused ? "OK" : "FAIL") + ", Lookalike=" + (lookalike_refused ? "OK" : "FAIL") +
-                     ", WrongHive=" + (wrong_hive_refused ? "OK" : "FAIL") + ", Slash=" + (slash_refused ? "OK" : "FAIL") + ", DotDot=" + (dotdot_refused ? "OK" : "FAIL") + ", Empty=" + (empty_and_bad_hive_refused ? "OK" : "FAIL"));
+                     ", WrongHive=" + (wrong_hive_refused ? "OK" : "FAIL") + ", Slash=" + (slash_refused ? "OK" : "FAIL") + ", DotDot=" + (dotdot_refused ? "OK" : "FAIL") + ", Empty=" + (empty_and_bad_hive_refused ? "OK" : "FAIL") +
+                     ", StableName=" + (stable_name ? "OK" : "FAIL"));
 }
 
 } // namespace vftest

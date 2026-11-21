@@ -140,7 +140,7 @@ Only lines from the real runs are shown. Indentation is trimmed.
 | 8 and 9 (safe mode in the monitor) | `vegaflow_daemon.exe --observe --monitor --once` (one line) | `[WARN] MODO SEGURO ACTIVO (pedido con --observe: solo observar): el monitor solo muestra datos, no aplica ajustes.` |
 | 6 (second copy, no window) | `--observe` started hidden, then a second `vegaflow_daemon.exe --observe` | `[INFO] VegaFlow Universal is already running in the background (no window to show).`, exit code 0 |
 | 1, 3 and 5 (flags) | `tests/package/package_tests.ps1` on the installed package (unknown option, `--dxvk-*` with no path, `--elevate --dry-run`, `--elevate --observe`, a "ñ" argument, monitor in safe mode, second copy) | `PACKAGE TESTS: 62 PASSED, 0 FAILED` |
-| 3 (quoting read back by Windows) | Suite, `[PASS]` lines | `[PASS] Test 97: --elevate forwards each argument whole, quoted when needed` and `[PASS] Test 98: the elevated instance reads back each argument unchanged, a path with an accent included` |
+| 3 (quoting read back by Windows) | Suite, `[PASS]` lines | `[PASS] Test 105: --elevate forwards each argument whole, quoted when needed` and `[PASS] Test 106: the elevated instance reads back each argument unchanged, a path with an accent included` |
 | 3 (the UAC prompt itself), 7 (journal question), restore, Ctrl+C, crash | Not reproduced: over SSH the process is already Administrator, so UAC never shows. | Not reproduced. |
 
 Source: runs on the test laptop on 2026-11-20, with the code of this branch merged over the CLI fixes.

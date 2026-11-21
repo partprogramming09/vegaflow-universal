@@ -49,7 +49,7 @@ int RunGuiMode(
     const std::string& journal_warning) {
     using namespace vegaflow;
     // Built once from the boot profile, the same way each optimizer used to rebuild it on every call.
-    const ApuOptimizationPolicy policy = HardwareProfiler::BuildOptimizationPolicy(hw);
+    ApuOptimizationPolicy policy = HardwareProfiler::BuildOptimizationPolicy(hw);
     SafeFileSystem file_system;
     WindowsRegistryPort reg;
     WindowsPowerPort power;
@@ -63,7 +63,8 @@ int RunGuiMode(
     std::string active_game_api;
     HWND active_game_hwnd = nullptr;
     if (!safe_mode) {
-        gfx.Display().SetGameDvrAndFseOptimized(true, false);
+        gfx.DxgiFlip().MigrateLegacyPreferences(false);
+        gfx.Display().SetGameDvrCaptureDisabled(true, false);
         if (gfx.PowerMode()) {
             gfx.PowerMode()->SetApuLaptopPowerProfile(true, policy, false);
         }
@@ -129,10 +130,21 @@ int RunGuiMode(
     callbacks.on_PollTelemetry = [&]() -> GuiDashboardData {
         std::function<void(const std::string&)> audit_fn = AddAuditLog;
         if (!safe_mode) {
+            const uint64_t prev_sig = hw.adapter_signature;
+            const uint8_t prev_pref = hw.user_gpu_pref;
             RunSingleIteration(
                 config, file_system, hw, cpu_orchestrator, mem_mgr,
                 game_active, active_game_pid, active_game_exe, active_game_api, active_game_hwnd,
                 &active_game_full_path, &cached_noisy_count, &audit_fn);
+            // The iteration re-reads the hardware when the adapters change; the tweaks, telemetry and screens follow it.
+            if (hw.adapter_signature != prev_sig || hw.user_gpu_pref != prev_pref) {
+                policy = HardwareProfiler::BuildOptimizationPolicy(hw);
+                gfx.Rebind(hw, policy);
+                mem_mgr.SetTargetLuid(hw.primary_gpu.luid);
+                game_actions.SetPolicy(policy);
+                settings_actions.SetPolicy(policy);
+                cached_tweaks = gfx.QuerySystemGraphicsTweaks();
+            }
         }
 
         if (!game_active) {
@@ -251,7 +263,7 @@ int RunGuiMode(
         data.ecoqos_processes_count = game_active ? cpu_orchestrator.GetThrottledBackgroundCount() : CountEcoQoSProcesses();
         data.io_priority_active = game_active;
         data.directflip_active = game_active
-            ? (gfx.DxgiFlip().HasDirectFlipUpgrade(active_game_full_path) || gfx.DxgiFlip().HasDirectFlipUpgrade(active_game_exe))
+            ? (gfx.DxgiFlip().HasFlipModelUpgrade(active_game_full_path) || gfx.DxgiFlip().HasFlipModelUpgrade(active_game_exe))
             : (CountDirectFlipConfiguredGames() > 0);
 
         data.daemon_private_ws_kb = daemon_ws / 1024;
@@ -261,7 +273,7 @@ int RunGuiMode(
         data.active_game_engine = active_game_engine;
         data.has_steam_games = !cached_steam_games.empty();
 
-        data.system_info = SystemInfo::FromHardware(hw, true);
+        data.system_info = SystemInfo::FromHardware(hw, mem_sample, cached_tweaks);
         data.sandbox_violations = SandboxGuard::GetViolationCount();
         data.sandbox_guard_active = true;
 
@@ -317,9 +329,17 @@ int RunGuiMode(
     callbacks.on_ToggleMmcssGaming = [&]() { return setting_said(settings_actions.ToggleMmcssGaming()); };
     callbacks.on_ToggleApuPowerMode = [&]() { return setting_said(settings_actions.ToggleApuPowerMode()); };
 
+    // Rebuilt only when the journal moved: the Historial tab polls this every telemetry tick.
+    std::optional<std::pair<ChangeJournal*, uint64_t>> history_seen;
+    session::HistoryScreenModel history_cache;
     callbacks.on_PollHistory = [&]() -> session::HistoryScreenModel {
         ChangeJournal* j = GetActiveChangeJournal();
-        return j ? session::BuildHistoryScreen(j->Entries()) : session::BuildHistoryScreen({});
+        const std::pair<ChangeJournal*, uint64_t> now{j, j ? j->Revision() : 0};
+        if (history_seen != now) {
+            history_cache = j ? session::BuildHistoryScreen(j->Entries()) : session::BuildHistoryScreen({});
+            history_seen = now;
+        }
+        return history_cache;
     };
 
     callbacks.on_UndoChange = [&](uint64_t journal_id) -> std::string {
@@ -412,7 +432,7 @@ int RunGuiMode(
         if (gfx.PowerMode() && gfx.PowerMode()->IsApuPowerModeApplied()) {
             gfx.PowerMode()->SetApuLaptopPowerProfile(false, policy, false);
         }
-        gfx.Display().SetGameDvrAndFseOptimized(false, false);
+        gfx.Display().SetGameDvrCaptureDisabled(false, false);
         gfx.RestoreAllRegistryBackups();
     }
     if (g_single_instance_mutex) {

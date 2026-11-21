@@ -4,10 +4,38 @@
 
 #include <array>
 #include <cwctype>
+#include <functional>
 #include <string>
 #include <string_view>
 
 namespace vegaflow {
+
+// The id a RegBackup record is named after: hive, subkey and value name, lower case.
+inline std::wstring RegBackupRecordId(int hive, std::wstring_view subkey, std::wstring_view name) {
+    std::wstring id = std::to_wstring(hive) + L"|";
+    for (wchar_t c : subkey) id.push_back(static_cast<wchar_t>(std::towlower(c)));
+    id += L"|";
+    for (wchar_t c : name) id.push_back(static_cast<wchar_t>(std::towlower(c)));
+    return id;
+}
+
+// Name used by builds up to 2026-11-20 (std::hash): still looked up so their records are found.
+inline std::wstring LegacyRegBackupRecordName(int hive, std::wstring_view subkey, std::wstring_view name) {
+    return std::to_wstring(std::hash<std::wstring>{}(RegBackupRecordId(hive, subkey, name)));
+}
+
+// FNV-1a (64 bits) over the UTF-16 units of the id: the same name with every compiler and build.
+inline std::wstring RegBackupRecordName(int hive, std::wstring_view subkey, std::wstring_view name) {
+    unsigned long long h = 0xcbf29ce484222325ULL;
+    for (wchar_t c : RegBackupRecordId(hive, subkey, name)) {
+        h ^= static_cast<unsigned long long>(static_cast<unsigned short>(c));
+        h *= 0x100000001b3ULL;
+    }
+    static constexpr wchar_t kHex[] = L"0123456789abcdef";
+    std::wstring out = L"v2-";
+    for (int shift = 60; shift >= 0; shift -= 4) out.push_back(kHex[(h >> shift) & 0xF]);
+    return out;
+}
 
 // hive ids as in registry.cpp: 0 = HKLM, 1 = HKCU. Each allowed key is tied to the hive VegaFlow edits it in.
 inline bool IsAllowedRestoreTarget(int hive, int hive_of_backup, std::wstring_view subkey) {

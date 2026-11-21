@@ -57,12 +57,18 @@ void Test91() {
     const bool dotdot_resolves = vegaflow::SandboxGuard::DirectoryContainsAntiCheat(base / L"clean_game" / L".." / L"ac_game");
     const bool write_blocked = !vegaflow::SandboxGuard::CanModifyGamePath(deep_ok / L"Binaries");
 
+    // A game too big to walk whole (more entries than the scan cap) is refused: the unread part could hold the anti-cheat.
+    const fs::path huge = base / L"huge_game" / L"Content";
+    fs::create_directories(huge, ec);
+    for (int i = 0; i <= 20000; ++i) { std::ofstream(huge / (std::to_wstring(i) + L".pak")); }
+    const bool cap_refuses = vegaflow::SandboxGuard::DirectoryContainsAntiCheat(base / L"huge_game");
+
     fs::remove_all(base.parent_path().parent_path(), ec);
-    const bool ok = clean_ok && subfolder_found && top_level_found && depth_is_bounded && missing_dir_safe && outside_library_not_walked && library_not_a_game && dotdot_resolves;
+    const bool ok = clean_ok && subfolder_found && top_level_found && depth_is_bounded && missing_dir_safe && outside_library_not_walked && library_not_a_game && dotdot_resolves && cap_refuses;
     RecordResult(ok, "Test 91: anti-cheat scan reaches subfolders of the game folder up to a bounded depth",
                  std::string("Clean=") + (clean_ok ? "OK" : "FAIL") + ", Subfolder=" + (subfolder_found ? "OK" : "FAIL") +
                      ", TopLevel=" + (top_level_found ? "OK" : "FAIL") + ", DepthBounded=" + (depth_is_bounded ? "OK" : "FAIL") +
-                     ", NoLibraryShallow=" + (outside_library_not_walked ? "OK" : "FAIL") + ", LibraryNotAGame=" + (library_not_a_game ? "OK" : "FAIL") + ", DotDot=" + (dotdot_resolves ? "OK" : "FAIL") + ", MissingDir=" + (missing_dir_safe ? "OK" : "FAIL") + ", WriteBlocked(info)=" + (write_blocked ? "yes" : "no"));
+                     ", NoLibraryShallow=" + (outside_library_not_walked ? "OK" : "FAIL") + ", LibraryNotAGame=" + (library_not_a_game ? "OK" : "FAIL") + ", DotDot=" + (dotdot_resolves ? "OK" : "FAIL") + ", MissingDir=" + (missing_dir_safe ? "OK" : "FAIL") + ", CapRefuses=" + (cap_refuses ? "OK" : "FAIL") + ", WriteBlocked(info)=" + (write_blocked ? "yes" : "no"));
 }
 
 } // namespace vftest

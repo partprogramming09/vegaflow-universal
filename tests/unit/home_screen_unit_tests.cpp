@@ -65,7 +65,7 @@ void Test70() {
     const auto a = hs::BuildHomeScreen(g, Equipment(), programs);
     RecordResult(a.game_active && a.game_title == "Juego detectado" && a.game_name == "Octopath Traveler II" &&
                      a.game_sub == "Unreal Engine 4/5 · DirectX 11 · en primer plano" && HasFact(a, "modo ahorro: 7") && HasFact(a, "disco alta pedida a Windows para el juego: sí") &&
-                     HasFact(a, "DirectFlip pedido a Windows para este juego: no") && a.background_text == "7 programas en modo ahorro",
+                     HasFact(a, "Modo flip pedido a Windows para este juego: no") && a.background_text == "7 programas en modo ahorro",
                  "Test 70.3: an open game shows its name, engine, API, plane and the telemetry facts as measured");
 
     // 4. Missing engine/API leave no stray separators; an unnamed game gets a plain name.

@@ -25,7 +25,9 @@ void RunMonitorDashboard(
     vegaflow::SystemHardwareProfile& hw,
     vegaflow::CpuOrchestrator& cpu_orchestrator,
     vegaflow::MemoryManager& mem_mgr,
-    bool once_mode) {
+    bool once_mode,
+    bool safe_mode,
+    const std::string& safe_reason) {
 
     using namespace vegaflow;
     SafeFileSystem file_system; // the real FileSystem port (SandboxGuard)
@@ -40,11 +42,17 @@ void RunMonitorDashboard(
     std::cout << "====================================================================================================\n";
     std::cout << "[RAM Libre | Standby List | VRAM Local | Juego Activo + API]\n";
     std::cout << "----------------------------------------------------------------------------------------------------\n";
+    if (safe_mode) {
+        std::cout << "[WARN] MODO SEGURO ACTIVO (" << safe_reason << "): el monitor solo muestra datos, no aplica ajustes.\n";
+    }
 
     auto print_line = [&]() {
-        RunSingleIteration(
-            config, file_system, hw, cpu_orchestrator, mem_mgr,
-            game_active, active_game_pid, active_game_exe, active_game_api, active_game_hwnd);
+        // In safe mode the monitor only reads; the cycle would change processes, memory and the registry.
+        if (!safe_mode) {
+            RunSingleIteration(
+                config, file_system, hw, cpu_orchestrator, mem_mgr,
+                game_active, active_game_pid, active_game_exe, active_game_api, active_game_hwnd);
+        }
 
         auto mem = mem_mgr.SampleTelemetry();
 

@@ -65,7 +65,7 @@ struct GameSessionEnvironment {
     virtual void QueryLiveMemory(uint64_t& out_local_vram_budget_bytes, uint64_t& out_local_vram_usage_bytes, bool& out_vram_valid) = 0;
 
     virtual void SetDynamicPrioritySeparation(uint32_t val) = 0;
-    virtual void SetGameDvrAndFseOptimized(bool optimize) = 0;
+    virtual void SetGameDvrCaptureDisabled(bool disable) = 0;
     virtual void SetApuLaptopPowerProfile(bool optimize, const ApuOptimizationPolicy& static_policy) = 0;
     virtual void ApplyDxgiFlipModelUpgrade(const std::wstring& exe_path) = 0;
 
@@ -97,17 +97,5 @@ void RunGameSessionCycle(
     GameSessionState& state,
     uint32_t* out_noisy_bg_count = nullptr,
     const std::function<void(const std::string&)>& audit_cb = {});
-
-// "Me fue mal en este juego": excludes exe_name immediately, persists config.json, logs a journal audit entry,
-// and reverts the active session if that exe is currently active.
-bool ExcludeGameAndRevert(
-    app::ConfigStore& config_store,
-    app::AppConfig& config,
-    const std::wstring& exe_name,
-    GameSessionEnvironment* env = nullptr,
-    CpuOrchestrator* cpu = nullptr,
-    GameSessionState* state = nullptr,
-    ChangeJournal* journal = nullptr,
-    std::string* out_why = nullptr);
 
 } // namespace vegaflow::session

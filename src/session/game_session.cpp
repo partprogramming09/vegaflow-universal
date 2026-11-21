@@ -264,7 +264,7 @@ void RunGameSessionCycle(
 
             const bool is_dx12 = (game.api == RenderApi::DirectX12 || game.api == RenderApi::Vulkan);
             env.SetDynamicPrioritySeparation(is_dx12 ? 0x26 : 0x28);
-            env.SetGameDvrAndFseOptimized(true);
+            env.SetGameDvrCaptureDisabled(true);
             if (static_policy.force_high_perf_power_plan) {
                 env.SetApuLaptopPowerProfile(true, static_policy);
             }
@@ -336,7 +336,7 @@ void RunGameSessionCycle(
         if (is_new_game && audit_cb) {
             audit_cb("[CPU] EcoQoS activado en procesos secundarios (" +
                      std::to_string(throttled) + " procesos en modo eficiencia térmica para ahorro APU).");
-            audit_cb("[I/O NT] Jerarquía I/O activada: IoPriorityHigh en juego (PID " +
+            audit_cb("[I/O NT] Jerarquía I/O activada: IoPriorityNormal en juego (PID " +
                      std::to_string(game.pid) + ") y IoPriorityVeryLow en procesos frenados.");
         }
 
@@ -363,64 +363,6 @@ void RunGameSessionCycle(
     } else {
         RefreshHardwareProfileIfChanged(device_probe, hw, 0);
     }
-}
-
-bool ExcludeGameAndRevert(
-    app::ConfigStore& config_store,
-    app::AppConfig& config,
-    const std::wstring& exe_name,
-    GameSessionEnvironment* env,
-    CpuOrchestrator* cpu,
-    GameSessionState* state,
-    ChangeJournal* journal,
-    std::string* out_why) {
-
-    std::wstring clean_name = std::filesystem::path(exe_name).filename().wstring();
-    const std::string utf8_name = app::WideToUtf8(clean_name);
-    if (!vf_rust_is_allowed_game_exe(utf8_name.data(), utf8_name.size())) {
-        if (out_why) *out_why = "El nombre del ejecutable no es válido para exclusión.";
-        return false;
-    }
-
-    const bool already_excluded = IsExeInList(config.process_policy.excluded_game_exes, clean_name);
-    if (!already_excluded) {
-        config.process_policy.excluded_game_exes.push_back(clean_name);
-        if (!config_store.Save(config, false, out_why)) {
-            config.process_policy.excluded_game_exes.pop_back();
-            return false;
-        }
-    }
-
-    if (journal) {
-        journal->RecordAuditEvent(
-            "game:" + utf8_name,
-            "Juego excluido por el usuario (Me fue mal en este juego)",
-            "Se excluyó " + utf8_name + " de futuras optimizaciones y se revirtió la sesión.");
-    }
-
-    if (state && state->game_active && EqualsIgnoreCase(state->active_game_exe, clean_name)) {
-        if (env) {
-            RestoreEndOfSession(*env, *state);
-        } else {
-            if (cpu) {
-                cpu->RestoreAll(false);
-            }
-            state->game_active = false;
-            state->active_game_pid = 0;
-            state->active_game_creation_time = 0;
-            state->active_game_exe.clear();
-            state->active_game_api.clear();
-            state->active_game_hwnd = nullptr;
-            state->active_game_path.clear();
-            state->active_game_anticheat = false;
-        }
-    } else if (!state && env) {
-        env->RestoreCpuAll();
-    } else if (!state && cpu) {
-        cpu->RestoreAll(false);
-    }
-
-    return true;
 }
 
 } // namespace vegaflow::session
