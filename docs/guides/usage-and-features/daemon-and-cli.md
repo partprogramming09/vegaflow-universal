@@ -17,6 +17,7 @@ VegaFlow can run as a background service, as a console tool, or as a native desk
 | `--status, -s` | Shows a detailed report of hardware, RAM and tweaks |
 | `--gui, -g` | Opens the native Win32/GDI window, with a system tray icon |
 | `--system-info` | Exports hardware, UMA and OS telemetry as JSON |
+| `--doctor [--json]` | Read-only diagnosis you can paste in an issue: free disk space, shader caches and manufacturer tools that fight VegaFlow |
 | `--monitor, -m` | Real-time console monitor (RAM, Standby List, VRAM, and the active game and API) |
 | `--purge-now, -p` | Forces an immediate purge of the Standby memory and a trim |
 | `--mpo-disable` | Disables Multi-Plane Overlay (MPO) in DWM |
@@ -59,6 +60,32 @@ VegaFlow can run as a background service, as a console tool, or as a native desk
   Kernel Memory Paging Shield: ACTIVE (DisablePagingExecutive=1, RAM Lock)
   AMD Tessellation Limiter   : 16x (Over-Geometry Capped)
   Windowed Flip Model        : READY (SwapEffectUpgradeEnable=1 on Launch)
+```
+
+##### Diagnosing "it runs badly": `--doctor`
+```powershell
+.\build\vegaflow_daemon.exe --doctor          # text
+.\build\vegaflow_daemon.exe --doctor --json   # the same for scripts
+```
+It only reads: it writes nothing and deletes nothing, and it works without administrator rights (it then says what it could not read). The exit code is `0` when all is well, `1` for warnings and `2` when something is critical, so a script can branch on it.
+
+| Check | Rule (in `rust/vegaflow-core/src/policy/doctor.rs`) |
+|---|---|
+| Free disk space (system drive, and the drive of the open game when it differs) | `Low` under 20 GiB or under 10 % free; `Critical` under 5 GiB, because the shader cache can no longer grow. Both limits are strict: exactly 20 GiB free of 100 GiB is fine. A failed probe is reported as "could not read", never divided |
+| Shader caches | Info when no cache folder exists; warning when no AMD or NVIDIA cache folder exists, or when the caches are empty on a critical disk; info over 10 GiB (deleting it is safe, the driver rebuilds it, and VegaFlow deletes nothing) |
+| Manufacturer tools | Warning for each of ASUS Armoury Crate, Lenovo Vantage and Legion Zone, MSI Center and Dragon Center, HP Omen Gaming Hub, MSI Afterburner, RTSS and AMD Ryzen Master that is running, with what it also changes (power plan, fan curves, GPU limits). Matched by file name, any letter case, with or without a path; one tool with three processes is one warning |
+
+The report is made to be pasted in public: the Windows user name in paths becomes `<usuario>`, and the computer and domain names become `<equipo>` and `<dominio>`. Lines are never cut. The executable names of the manufacturer tools are the ones the products ship today; vendors rename them between versions, so a missing warning is not proof that the tool is absent.
+
+Shape of the output (taken from the unit-test inputs, not yet captured on the test laptop):
+```text
+VegaFlow doctor 0.1.0
+Administrator: yes
+Disks:
+  System drive (C:\): 4.0 GiB free of 500.0 GiB
+Findings:
+  [CRITICAL] System drive (C:\) has only 4.0 GiB free: the shader cache cannot grow
+  [WARN] ASUS Armoury Crate is running and also changes the power plan and fan curves: it can fight VegaFlow over them
 ```
 
 ##### 2. Exporting telemetry and specifications as JSON:

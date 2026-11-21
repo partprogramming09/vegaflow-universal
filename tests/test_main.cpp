@@ -175,6 +175,7 @@ int main() {
         {106, vftest::Test106},
         {107, vftest::Test107},
         {108, vftest::Test108},  // E2.3
+        {109, vftest::Test109},  // E2.5
     };
     for (const auto& [number, run] : tests) {
         try {

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <utility>
 
 namespace vegaflow::session {
 
@@ -47,6 +48,27 @@ std::string Clean(std::string s) {
 void Line(std::string& out, const std::string& text) { out += Clean(text) + "\r\n"; }
 
 } // namespace
+
+std::string RedactReport(const std::string& text, const std::string& computer_name, const std::string& domain_name) {
+    std::string out = HideUserName(text);
+    const auto lower = [](char c) { return static_cast<char>(std::tolower(static_cast<unsigned char>(c))); };
+    for (const auto& [name, mark] : {std::pair<const std::string&, const char*>{computer_name, "<equipo>"}, {domain_name, "<dominio>"}}) {
+        if (name.size() < 2) continue; // a one-letter name would rewrite the whole text
+        std::string result;
+        size_t i = 0;
+        while (i < out.size()) {
+            const bool match = i + name.size() <= out.size() && std::equal(name.begin(), name.end(), out.begin() + static_cast<long>(i), [&](char a, char b) { return lower(a) == lower(b); });
+            if (match) {
+                result += mark;
+                i += name.size();
+            } else {
+                result += out[i++];
+            }
+        }
+        out = std::move(result);
+    }
+    return out;
+}
 
 std::string BuildReport(const ReportInputs& in) {
     std::string out;
