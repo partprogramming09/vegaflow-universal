@@ -1,0 +1,15 @@
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: "/rust/vegaflow-core"
+    schedule:
+      interval: weekly
+  # "npm" is Dependabot's ecosystem for npm, yarn and pnpm; it updates pnpm-lock.yaml.
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
