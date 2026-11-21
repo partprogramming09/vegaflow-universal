@@ -440,6 +440,27 @@ size_t vf_rust_bridge_layout(size_t* out, size_t cap);
    VF_SID_TRUSTED_INSTALLER, VF_INI_OK .. VF_INI_ERR_UNMATCHED_END_MARKER, VF_GPU_CONN_UNKNOWN .. VF_GPU_PREF_HIGH_PERF. Writes at most `cap` and returns how many there are. Checked by C++ Test 34. */
 size_t vf_rust_bridge_constants(uint32_t* out, size_t cap);
 
+/* E2.5 --doctor (rust/vegaflow-core/src/ffi/doctor.rs). Plain arrays, no structs. */
+
+/* 0 unknown (probe failed), 1 ok, 2 low, 3 critical. */
+uint8_t vf_rust_doctor_disk_advice(uint64_t free_bytes, uint64_t total_bytes);
+
+/* kind_exists[i]: 0 AMD, 1 NVIDIA, 2 generic D3D, plus 0x80 when the folder exists. `disk` is the value above. Writes up
+   to cap/2 pairs (severity 0 info / 1 warn, code 1 no_cache_dirs, 2 vendor_cache_missing, 3 empty_cache_low_disk,
+   4 cache_over_10gib) and returns how many findings there are. */
+size_t vf_rust_doctor_cache_findings(const uint8_t* kind_exists, const uint64_t* bytes, size_t count, uint8_t disk,
+                                     uint8_t* out, size_t cap);
+
+/* names_nul: process names or paths in UTF-8, each ended by NUL. Writes up to cap indexes of OEM tools (each once);
+   returns how many there are. */
+size_t vf_rust_doctor_oem_conflicts(const uint8_t* names_nul, size_t len, uint32_t* out, size_t cap);
+
+/* "product\tconflicts" of an OEM tool, UTF-8, no NUL. Returns the full length, 0 for an unknown index. */
+size_t vf_rust_doctor_oem_info(uint32_t index, uint8_t* buf, size_t cap);
+
+/* True when the bytes are one well-formed JSON value. */
+bool vf_rust_doctor_json_is_valid(const uint8_t* bytes, size_t len);
+
 #ifdef __cplusplus
 }
 #endif

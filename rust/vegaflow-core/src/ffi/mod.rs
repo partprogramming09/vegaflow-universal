@@ -17,6 +17,10 @@ pub use layout::*;
 pub use paths::*;
 pub use process::*;
 
+// E2.5
+mod doctor;
+pub use doctor::*;
+
 /// Runs `f` for an `extern "C"` function and returns `fallback` if it panics. A panic must never cross into C++ (that is
 /// undefined behaviour) and must not take the daemon down; every fallback is the cautious answer for its function
 /// (deny, assume anti-cheat present, do not confine, do not purge).
