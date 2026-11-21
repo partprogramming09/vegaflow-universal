@@ -52,3 +52,19 @@ jobs:
         run: scripts/build/build-cross.sh
         env:
           VF_CXX: x86_64-w64-mingw32-g++-posix
+
+  docs-build:
+    name: Docs build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4  # version from packageManager in package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Build the VitePress site (fails on dead links)
+        run: pnpm docs:build
