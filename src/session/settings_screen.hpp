@@ -10,7 +10,11 @@
 
 namespace vegaflow {
 
+// E2.2: policy/memory_compression.rs through the bridge (0 allowed, 1 discouraged, 2 unknown).
+enum class CompressionAdvice { Allowed, Discouraged, Unknown };
+
 struct SettingsScreenInputs {
+    CompressionAdvice compression_advice = CompressionAdvice::Unknown; // for the memory_compression_off row
     DeviceFacts device;
     bool show_experimental = false;
     SystemGraphicsTweaksState tweaks; // what QuerySystemGraphicsTweaks() read
@@ -24,6 +28,8 @@ struct SettingRow {
     std::string evidence_label; // "Recomendado", "No recomendado", "Sin efecto medido" or "Sin medir"
     std::string tip;            // the (i) text
     std::string preview;        // what pressing the switch would do now, written without touching anything
+    bool discouraged = false;   // E2.2: the machine's RAM says to leave this off (shown as "Desaconsejado")
+    bool needs_confirm = false; // E2.2: turning it on must ask first (discouraged, or the RAM could not be read)
 };
 
 struct SettingsFamilyModel {
