@@ -51,8 +51,9 @@ int RunDaemon(
                   << "Arrancando sin aplicar ajustes del sistema. Usa --restore-registry si necesitas revertir.\n";
     } else {
         gfx.DxgiFlip().MigrateLegacyPreferences(false);
-        gfx.Display().SetGameDvrCaptureDisabled(true, false);
-        if (gfx.PowerMode()) {
+        // E2.2: opt-in in config.json.
+        if (config.auto_game_dvr_off) gfx.Display().SetGameDvrCaptureDisabled(true, false);
+        if (config.auto_power_profile && gfx.PowerMode()) {
             gfx.PowerMode()->SetApuLaptopPowerProfile(true, policy, false);
         }
     }

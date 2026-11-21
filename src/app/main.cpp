@@ -232,7 +232,8 @@ int main(int argc, char* argv[]) {
     WindowsRegistryPort boot_reg;
     WindowsPowerPort boot_power;
     GraphicsOptimizer boot_opt(hw, boot_policy, boot_reg, &boot_power);
-    if (!safe_mode && priv.is_elevated && boot_policy.apply_uma_vram_reg_override && boot_opt.AmdDriver()) {
+    // E2.2: opt-in in config.json (auto_vram_reporting); unmeasured, so never on its own.
+    if (!safe_mode && priv.is_elevated && config.auto_vram_reporting && boot_policy.apply_uma_vram_reg_override && boot_opt.AmdDriver()) {
         boot_opt.AmdDriver()->ApplyVramReportingOverride(boot_policy.safe_vram_pool_mb, opts.dry_run_flag);
     }
 

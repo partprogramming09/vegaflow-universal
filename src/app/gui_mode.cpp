@@ -64,8 +64,9 @@ int RunGuiMode(
     HWND active_game_hwnd = nullptr;
     if (!safe_mode) {
         gfx.DxgiFlip().MigrateLegacyPreferences(false);
-        gfx.Display().SetGameDvrCaptureDisabled(true, false);
-        if (gfx.PowerMode()) {
+        // E2.2: opt-in in config.json.
+        if (config.auto_game_dvr_off) gfx.Display().SetGameDvrCaptureDisabled(true, false);
+        if (config.auto_power_profile && gfx.PowerMode()) {
             gfx.PowerMode()->SetApuLaptopPowerProfile(true, policy, false);
         }
     }
@@ -309,6 +310,11 @@ int RunGuiMode(
         }
         in.tweaks = cached_tweaks;
         in.memory_guard_active = policy.apply_uma_memory_guard && !safe_mode;
+        // E2.2: the rule lives in Rust (policy/memory_compression.rs); 0 allowed, 1 discouraged, anything else unknown.
+        const uint8_t advice = vf_rust_memory_compression_off_advice(hw.total_physical_ram_bytes / (1024ULL * 1024ULL), hw.ram_probe_ok);
+        in.compression_advice = advice == 0   ? CompressionAdvice::Allowed
+                                : advice == 1 ? CompressionAdvice::Discouraged
+                                              : CompressionAdvice::Unknown;
         return in;
     };
 
