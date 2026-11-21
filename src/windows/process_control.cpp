@@ -18,6 +18,9 @@ typedef LONG NTSTATUS;
 #endif
 
 constexpr ULONG ProcessIoPriorityInformationClass = 33;
+// IO_PRIORITY_HINT (ddk/wdm.h): VeryLow 0, Low 1, Normal 2, High 3.
+constexpr ULONG kIoPriorityVeryLow = 0;
+constexpr ULONG kIoPriorityNormal = 2;
 
 typedef NTSTATUS(NTAPI* PFN_NtSetInformationProcess)(
     HANDLE ProcessHandle,
@@ -190,7 +193,7 @@ bool WindowsProcessControl::BoostGameProcess(
             }
 
             if (auto pfn = GetNtSetInformationProcess()) {
-                ULONG io_prio = 2; // IoPriorityHigh
+                ULONG io_prio = kIoPriorityNormal; // makes sure the game is not below Normal
                 if (NT_SUCCESS(pfn(hGame, ProcessIoPriorityInformationClass, &io_prio, sizeof(io_prio)))) {
                     out.io_priority_elevated = true;
                 }
@@ -244,7 +247,7 @@ bool WindowsProcessControl::RestoreGameProcess(
     SetProcessInformation(hGame, ProcessMemoryPriority, &memPriority, sizeof(memPriority));
 
     if (auto pfn = GetNtSetInformationProcess()) {
-        ULONG io_prio = 1; // IoPriorityNormal
+        ULONG io_prio = kIoPriorityNormal;
         pfn(hGame, ProcessIoPriorityInformationClass, &io_prio, sizeof(io_prio));
     }
 
@@ -312,7 +315,7 @@ BackgroundApplyOutcome WindowsProcessControl::ApplyBackgroundPolicy(
         }
 
         if (auto pfn = GetNtSetInformationProcess()) {
-            ULONG io_prio = 0; // IoPriorityVeryLow
+            ULONG io_prio = kIoPriorityVeryLow;
             if (NT_SUCCESS(pfn(hBg, ProcessIoPriorityInformationClass, &io_prio, sizeof(io_prio)))) {
                 out.io_deprioritized = true;
                 out.modified = true;
@@ -388,7 +391,7 @@ bool WindowsProcessControl::RestoreBackgroundProcess(
         SetProcessInformation(hBg, ProcessMemoryPriority, &memPriority, sizeof(memPriority));
 
         if (auto pfn = GetNtSetInformationProcess()) {
-            ULONG io_prio = 1; // IoPriorityNormal
+            ULONG io_prio = kIoPriorityNormal;
             pfn(hBg, ProcessIoPriorityInformationClass, &io_prio, sizeof(io_prio));
         }
     }

@@ -100,9 +100,23 @@ std::string BuildManualRegHint(int hive, const std::wstring& subkey, const wchar
     return "reg add \"" + key_arg + "\" /v \"" + val_arg + "\" /t REG_BINARY /d " + EncodeHex(data) + " /f";
 }
 
-std::wstring RegBackupRecordName(int hive, const std::wstring& subkey, const wchar_t* name) {
-    const std::wstring id = std::to_wstring(hive) + L"|" + ToLowerW(subkey) + L"|" + ToLowerW(name ? name : L"");
-    return std::to_wstring(std::hash<std::wstring>{}(id));
+std::wstring RecordNameFor(int hive, const std::wstring& subkey, const wchar_t* name) {
+    return RegBackupRecordName(hive, subkey, name ? name : L"");
+}
+
+bool RecordExists(int hive, const std::wstring& record) {
+    HKEY h = nullptr;
+    if (RegOpenKeyExW(HkeyFromId(hive), (std::wstring(kRegBackupRoot) + L"\\" + record).c_str(), 0, KEY_READ, &h) != ERROR_SUCCESS) {
+        return false;
+    }
+    RegCloseKey(h);
+    return true;
+}
+
+// A record an older build wrote under the std::hash name, if there is one: it holds the true original.
+std::wstring ExistingLegacyRecord(int hive, const std::wstring& subkey, const wchar_t* name) {
+    const std::wstring legacy = LegacyRegBackupRecordName(hive, subkey, name ? name : L"");
+    return RecordExists(hive, legacy) ? legacy : std::wstring();
 }
 
 bool RegWriteString(HKEY h, const wchar_t* name, const std::wstring& v) {
@@ -130,7 +144,8 @@ bool RegReadDword(HKEY h, const wchar_t* name, DWORD& out) {
 }
 
 void RegBackupValue(int hive, const std::wstring& subkey, HKEY hKey, const wchar_t* name) {
-    const std::wstring path = std::wstring(kRegBackupRoot) + L"\\" + RegBackupRecordName(hive, subkey, name);
+    if (!ExistingLegacyRecord(hive, subkey, name).empty()) return; // first backup already taken by an older build
+    const std::wstring path = std::wstring(kRegBackupRoot) + L"\\" + RecordNameFor(hive, subkey, name);
     HKEY hb = nullptr;
     DWORD disposition = 0;
     if (RegCreateKeyExW(HkeyFromId(hive), path.c_str(), 0, nullptr, REG_OPTION_NON_VOLATILE,
@@ -456,7 +471,8 @@ bool WindowsRegistryPort::DeleteValue(
 
 bool WindowsRegistryPort::RestoreBackedUpValue(RegHive hive, const std::wstring& subkey, const std::wstring& name) {
     const int hid = HiveId(hive);
-    const bool ok = RegRestoreRecord(hid, RegBackupRecordName(hid, subkey, name.c_str()));
+    const std::wstring legacy = ExistingLegacyRecord(hid, subkey, name.c_str());
+    const bool ok = RegRestoreRecord(hid, legacy.empty() ? RecordNameFor(hid, subkey, name.c_str()) : legacy);
     if (ok) {
         JournalMarkRegRestored(hid, subkey, name.c_str());
     }

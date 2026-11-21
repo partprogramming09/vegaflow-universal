@@ -39,6 +39,12 @@ New native GUI (Win32, owner-draw controls reachable with Tab). Not tagged yet: 
 - Memory percent on Inicio is computed in 128 bits; path comparisons fold case the Windows way.
 
 ### Fixed
+- Safe mode is now honoured by `--monitor` too: before, `--observe --monitor` ran the real cycle. The safe-mode notice says why it is on (`--observe` or two unclean exits) instead of always blaming crashes, and the GUI sidebar shows "Modo seguro: sin cambios" instead of "Auto-Suspensión: ACTIVA". The dry-run `[KPI]` line now says FAILED at 15 MB or more instead of always "passed", the dry run says how many processes *would be* isolated, and a second start with no window to focus says so. Checked by C++ Test 104, the package test (60 passed) and a screenshot of the GUI in safe mode.
+- Registry backup records were named with `std::hash`, which a different compiler or build may compute differently; VegaFlow would then miss the first backup and save a value it had already changed as the "original". Records now use a fixed FNV-1a name, and records written by older builds are still found when backing up and restoring. C++ Tests 89 and 103.
+- Restoring a game or a background process set its I/O priority to 1, which Windows reads as Low (IO_PRIORITY_HINT: 0 VeryLow, 1 Low, 2 Normal), so every program VegaFlow had confined kept a low disk priority. It now goes back to Normal (2); crash recovery too. C++ Test 102 checks it on Windows.
+- `--dry-run` with `--monitor` now only simulates; before, the monitor ran the real cycle. An unknown or mistyped option (`--dryrun`) now stops with exit code 2 instead of being ignored and starting the real daemon. Checked by `tests/package/package_tests.ps1` (52 passed on the test laptop, 2026-11-20).
+- `--dxvk-install` and `--dxvk-remove` no longer take the next option as their path (`--dxvk-install --dry-run` used `--dry-run` as the folder and dropped the simulation); a missing path exits with code 2. A dry run of either now fails, instead of reporting success, when the game folder does not exist or may not be changed (anti-cheat or outside the allowed folders), as the real run would. `--elevate --dry-run` and `--elevate --observe` on an elevated process now simulate or observe instead of exiting, and `--elevate` hands every argument to the elevated instance whole, quoted by the Windows rules (a path ending in `\`, an empty value or one with a quote inside used to be split or merged; C++ Test 105). Checked by the package test (56 passed) and C++ Tests 16 and 102 (102 now also covers crash recovery).
+- A command-line path with "ñ" or an accent (`--dxvk-install "D:\Juegos\Año"`) arrived broken: Windows hands `main` its arguments in the ANSI code page (1252 on the test laptop) and VegaFlow read them as UTF-8. The arguments are now read from `GetCommandLineW`. C++ Test 106, which also checks that Windows reads back every argument `--elevate` forwards.
 - At start (not in `--observe` or safe mode), values that still hold the exact 0.1.x string
   `SwapEffectUpgradeEnable=1;GpuPreference=2;AutoHDREnable=0;` lose its GPU and HDR part and keep the Flip switch; each
   change is journaled and can be undone from Historial.
@@ -61,6 +67,8 @@ New native GUI (Win32, owner-draw controls reachable with Tab). Not tagged yet: 
 ### Removed
 - Unreachable handlers for the old "apply preset" and "elevate" buttons (a posted `WM_COMMAND` could have reached
   them) and the unused in-memory audit list.
+- `ExcludeGameAndRevert`, which nothing called: the GUI excludes a game through the Games screen and the next cycle
+  restores it. C++ Test 55 now checks that path.
 - `ApplyDirectFlipUpgrade` (`AutoFlipModel=1;DirectFlip=1`, keys with no official source) and
   `RemoveFlipModelUpgrade`, which deleted the whole per-game values; neither had a caller outside the tests. Undo goes
   through the change journal, which puts back the exact previous values.

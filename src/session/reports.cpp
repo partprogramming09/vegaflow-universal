@@ -380,7 +380,7 @@ void ExecuteDryRun(const AppConfig& config) {
             hw.cpu_topology.background_cpu_set_ids,
             bg_targets,
             true /* dry_run */);
-        std::cout << "  -> Background Sets to confine: " << hw.cpu_topology.background_cpu_set_ids.size() << " core IDs (Isolated in dry-run: " << cpu_res.background_processes_isolated << " targets)\n\n";
+        std::cout << "  -> Background Sets to confine: " << hw.cpu_topology.background_cpu_set_ids.size() << " core IDs (would be isolated: " << cpu_res.background_processes_isolated << " background processes; nothing changed)\n\n";
 
         std::cout << "[4/4] [DRY-RUN] Memory Manager Evaluation:\n";
         auto mem_res = mem_mgr.EvaluateAndOptimize(0, bg_pids, true /* dry_run */);
@@ -391,9 +391,16 @@ void ExecuteDryRun(const AppConfig& config) {
         cpu_orchestrator.RestoreAll(true);
     }
 
-    uint64_t daemon_ram = MemoryManager::GetCurrentProcessPrivateWorkingSetBytes();
-    std::cout << "[KPI] Daemon Memory Working Set: " << (static_cast<double>(daemon_ram) / (1024.0 * 1024.0)) << " MB (< 15 MB KPI passed)\n";
+    std::cout << MemoryKpiLine(MemoryManager::GetCurrentProcessPrivateWorkingSetBytes()) << "\n";
     std::cout << "================================================================================\n";
+}
+
+std::string MemoryKpiLine(uint64_t private_ws_bytes) {
+    std::ostringstream ss;
+    constexpr uint64_t kBudgetBytes = 15ULL * 1024 * 1024;
+    ss << "[KPI] Daemon Memory Working Set: " << (static_cast<double>(private_ws_bytes) / (1024.0 * 1024.0)) << " MB "
+       << (private_ws_bytes < kBudgetBytes ? "(< 15 MB KPI passed)" : "(>= 15 MB KPI FAILED)");
+    return ss.str();
 }
 
 } // namespace vegaflow::app

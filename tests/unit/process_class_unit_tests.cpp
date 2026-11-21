@@ -1,5 +1,5 @@
 // Unit tests for Phase 5: process classification TSV vectors, PID+creation_time safety, game switch restoration,
-// EcoOnly vs Throttle differentiation, DoNotTouch/unthrottled isolation, and ExcludeGameAndRevert.
+// EcoOnly vs Throttle differentiation, DoNotTouch/unthrottled isolation, and the GUI's game exclusion.
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -17,6 +17,7 @@
 #include "ports/process_control.hpp"
 #include "session/config.hpp"
 #include "session/game_session.hpp"
+#include "session/games_screen.hpp"
 #include "windows/text_convert.hpp"
 #include "windows/change_journal.hpp"
 
@@ -407,7 +408,7 @@ void Test55() {
                                             pc.procs[302].full_throttle_restore_calls == 0 &&
                                             !pc.procs[302].ecoqos);
 
-    // 2. "Me fue mal en este juego" (ExcludeGameAndRevert) + ConfigStore Phase 5 persistence roundtrip.
+    // 2. "Me fue mal en este juego" the way the GUI does it (ExcludeGame, then Save) + ConfigStore persistence roundtrip.
     InMemoryFileSystem fs;
     const std::wstring cfg_path = L"C:\\mock\\config.json";
     vegaflow::app::ConfigStore store(fs, cfg_path, true);
@@ -416,15 +417,8 @@ void Test55() {
     cfg.process_policy.category_actions.browsers = vegaflow::ProcessAction::EcoOnly;
     cfg.process_policy.exceptions.push_back({L"telegram.exe", vegaflow::ProcessAction::DoNotTouch});
 
-    vegaflow::FileChangeJournal journal(fs, vegaflow::SteadyClock::Instance(), L"C:\\mock\\journal.vfj");
-    vegaflow::session::GameSessionState state{};
-    state.game_active = true;
-    state.active_game_pid = 200;
-    state.active_game_exe = L"badgame.exe";
-
     std::string why;
-    const bool excluded_ok = vegaflow::session::ExcludeGameAndRevert(
-        store, cfg, L"badgame.exe", nullptr, &orch, &state, &journal, &why);
+    const bool excluded_ok = vegaflow::session::ExcludeGame(cfg, "badgame.exe", &why) && store.Save(cfg, false, &why);
 
     vegaflow::app::ConfigStore store2(fs, cfg_path, true);
     const vegaflow::app::AppConfig reloaded = store2.Load();
@@ -433,21 +427,19 @@ void Test55() {
                               reloaded.process_policy.exceptions.size() == 1 &&
                               reloaded.process_policy.excluded_game_exes.size() == 1 &&
                               reloaded.process_policy.excluded_game_exes[0] == L"badgame.exe";
-    const bool session_cleared = !state.game_active && state.active_game_pid == 0;
-    const bool journal_audited = !journal.Entries().empty();
 
     const bool ok = game_a_boosted && obs_untouched && spotify_eco_only && chrome_throttled &&
                     game_a_restored_on_switch && game_b_boosted && recycled_pid_untouched &&
                     game_b_restored && obs_never_restored && unrelated_never_touched &&
-                    spotify_restored_eco_only && excluded_ok && roundtrip_ok && session_cleared && journal_audited;
+                    spotify_restored_eco_only && excluded_ok && roundtrip_ok;
 
     std::string details =
         "Switch=" + std::string(game_a_restored_on_switch ? "OK" : "FAIL") +
         ", RecycledPidSafe=" + std::string(recycled_pid_untouched ? "OK" : "FAIL") +
         ", EcoOnly=" + std::string((spotify_eco_only && spotify_restored_eco_only) ? "OK" : "FAIL") +
         ", DoNotTouch=" + std::string((obs_untouched && obs_never_restored && unrelated_never_touched) ? "OK" : "FAIL") +
-        ", ExcludeAndReload=" + std::string((excluded_ok && roundtrip_ok && session_cleared && journal_audited) ? "OK" : "FAIL");
-    RecordResult(ok, "Test 55: CpuOrchestrator PID+FILETIME safety, game switch restore, and ExcludeGameAndRevert", details);
+        ", ExcludeAndReload=" + std::string((excluded_ok && roundtrip_ok) ? "OK" : "FAIL");
+    RecordResult(ok, "Test 55: CpuOrchestrator PID+FILETIME safety, game switch restore, and the GUI's game exclusion", details);
 }
 
 } // namespace vftest

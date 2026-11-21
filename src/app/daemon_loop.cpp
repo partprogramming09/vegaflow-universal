@@ -30,7 +30,8 @@ int RunDaemon(
     vegaflow::MemoryManager& mem_mgr,
     const vegaflow::PrivilegeStatus& priv,
     bool once_mode,
-    bool safe_mode) {
+    bool safe_mode,
+    const std::string& safe_reason) {
     using namespace vegaflow;
     // Built once from the boot profile, the same way each optimizer used to rebuild it on every call.
     ApuOptimizationPolicy policy = HardwareProfiler::BuildOptimizationPolicy(hw);
@@ -46,7 +47,7 @@ int RunDaemon(
     HWND active_game_hwnd = nullptr;
 
     if (safe_mode) {
-        std::cout << "[WARN] MODO SEGURO ACTIVO: VegaFlow detect\u00f3 2 o m\u00e1s cierres anormales seguidos. "
+        std::cout << "[WARN] MODO SEGURO ACTIVO (" << safe_reason << "): "
                   << "Arrancando sin aplicar ajustes del sistema. Usa --restore-registry si necesitas revertir.\n";
     } else {
         gfx.DxgiFlip().MigrateLegacyPreferences(false);
