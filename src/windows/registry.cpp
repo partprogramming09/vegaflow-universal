@@ -143,18 +143,19 @@ bool RegReadDword(HKEY h, const wchar_t* name, DWORD& out) {
     return RegQueryValueExW(h, name, nullptr, &type, reinterpret_cast<BYTE*>(&out), &size) == ERROR_SUCCESS && type == REG_DWORD;
 }
 
-void RegBackupValue(int hive, const std::wstring& subkey, HKEY hKey, const wchar_t* name) {
-    if (!ExistingLegacyRecord(hive, subkey, name).empty()) return; // first backup already taken by an older build
+// True when the original is saved (now or earlier); false when it could not be saved, so the caller must not write.
+bool RegBackupValue(int hive, const std::wstring& subkey, HKEY hKey, const wchar_t* name) {
+    if (!ExistingLegacyRecord(hive, subkey, name).empty()) return true; // first backup already taken by an older build
     const std::wstring path = std::wstring(kRegBackupRoot) + L"\\" + RecordNameFor(hive, subkey, name);
     HKEY hb = nullptr;
     DWORD disposition = 0;
     if (RegCreateKeyExW(HkeyFromId(hive), path.c_str(), 0, nullptr, REG_OPTION_NON_VOLATILE,
                         KEY_READ | KEY_WRITE, nullptr, &hb, &disposition) != ERROR_SUCCESS) {
-        return;
+        return false;
     }
     if (disposition == REG_OPENED_EXISTING_KEY) {
         RegCloseKey(hb);
-        return;
+        return true;
     }
 
     DWORD type = 0, size = 0;
@@ -166,14 +167,14 @@ void RegBackupValue(int hive, const std::wstring& subkey, HKEY hKey, const wchar
         if (RegQueryValueExW(hKey, name, nullptr, &type, data.data(), &size) != ERROR_SUCCESS) {
             RegCloseKey(hb);
             RegDeleteKeyW(HkeyFromId(hive), path.c_str());
-            return;
+            return false;
         }
         data.resize(size);
         present = true;
     } else if (probe != ERROR_FILE_NOT_FOUND) {
         RegCloseKey(hb);
         RegDeleteKeyW(HkeyFromId(hive), path.c_str());
-        return;
+        return false;
     }
 
     RegWriteString(hb, L"subkey", subkey);
@@ -182,8 +183,13 @@ void RegBackupValue(int hive, const std::wstring& subkey, HKEY hKey, const wchar
     RegWriteDword(hb, L"present", present ? 1 : 0);
     RegWriteDword(hb, L"type", type);
     const BYTE empty = 0;
-    RegSetValueExW(hb, L"data", 0, REG_BINARY, data.empty() ? &empty : data.data(), static_cast<DWORD>(data.size()));
+    const LSTATUS saved = RegSetValueExW(hb, L"data", 0, REG_BINARY, data.empty() ? &empty : data.data(), static_cast<DWORD>(data.size()));
     RegCloseKey(hb);
+    if (saved != ERROR_SUCCESS) {
+        RegDeleteKeyW(HkeyFromId(hive), path.c_str());
+        return false;
+    }
+    return true;
 }
 
 uint64_t JournalBeginRegChange(int hive, const std::wstring& subkey, HKEY hKey, const wchar_t* name,
@@ -402,7 +408,8 @@ bool WindowsRegistryPort::WriteValue(
     const int hid = HiveId(hive);
     uint64_t jid = 0;
     if (backup_and_journal) {
-        RegBackupValue(hid, subkey, key.get(), name.c_str());
+        // No copy, no write: the user's value must never be lost.
+        if (!RegBackupValue(hid, subkey, key.get(), name.c_str())) return false;
         jid = JournalBeginRegChange(hid, subkey, key.get(), name.c_str(), after_preview, reason);
     }
 
@@ -576,6 +583,26 @@ bool WindowsRegistryPort::IsMemoryCompressionEnabled() {
     return enabled;
 }
 
+namespace {
+
+constexpr char kMemCompressionTarget[] = "MMAgent\\MemoryCompression";
+
+bool RunMmAgent(bool enable);
+
+// Pending/Committed MemoryCompression entries, oldest first.
+std::vector<const JournalEntry*> OpenMemoryCompressionEntries(const ChangeJournal& journal) {
+    std::vector<const JournalEntry*> open;
+    for (const JournalEntry& e : journal.Entries()) {
+        if (e.kind == JournalTargetKind::MemoryCompression &&
+            (e.status == JournalEntryStatus::Pending || e.status == JournalEntryStatus::Committed)) {
+            open.push_back(&e);
+        }
+    }
+    return open;
+}
+
+} // namespace
+
 bool WindowsRegistryPort::SetMemoryCompressionEnabled(bool enable, bool dry_run) {
     if (dry_run) {
         return true;
@@ -583,21 +610,52 @@ bool WindowsRegistryPort::SetMemoryCompressionEnabled(bool enable, bool dry_run)
 
     ChangeJournal* journal = GetActiveChangeJournal();
     uint64_t jid = 0;
+    bool had_open_entry = false;
     if (journal) {
         const bool was_enabled = IsMemoryCompressionEnabled();
-        if (!enable) {
+        had_open_entry = !OpenMemoryCompressionEntries(*journal).empty();
+        // Turning it on is journaled too (unless it only undoes an open "off" entry), so it can be undone.
+        if (!enable || (!was_enabled && !had_open_entry)) {
             JournalEntry e;
             e.kind = JournalTargetKind::MemoryCompression;
-            e.target = "MMAgent\\MemoryCompression";
-            e.reason = "Desactivar compresión de memoria";
+            e.target = kMemCompressionTarget;
+            e.reason = enable ? "Activar compresión de memoria" : "Desactivar compresión de memoria";
             e.before_value = was_enabled ? "Activada" : "Desactivada";
-            e.after_value = "Desactivada";
-            e.manual_fix_hint = "powershell -Command \"Enable-MMAgent -MemoryCompression\"";
+            e.after_value = enable ? "Activada" : "Desactivada";
+            e.manual_fix_hint = enable ? "powershell -Command \"Disable-MMAgent -MemoryCompression\""
+                                       : "powershell -Command \"Enable-MMAgent -MemoryCompression\"";
             e.orig_mem_compression_enabled = was_enabled;
             jid = journal->RecordPending(std::move(e));
         }
     }
 
+    const bool ok = RunMmAgent(enable);
+    if (journal) {
+        if (enable && ok && had_open_entry) {
+            journal->MarkMatchingReverted(JournalTargetKind::MemoryCompression, kMemCompressionTarget);
+        } else if (jid != 0) {
+            if (ok) journal->MarkCommitted(jid);
+            else journal->MarkFailed(jid, "MMAgent devolvió error");
+        }
+    }
+    return ok;
+}
+
+// Puts compression back to what the oldest open journal entry saw. No open entry: VegaFlow changed nothing, so it stays as it is.
+bool WindowsRegistryPort::RevertMemoryCompressionChange(bool dry_run) {
+    ChangeJournal* journal = GetActiveChangeJournal();
+    if (!journal) return true;
+    const auto open = OpenMemoryCompressionEntries(*journal);
+    if (open.empty() || dry_run) return true;
+    const bool original = open.front()->orig_mem_compression_enabled;
+    if (!RunMmAgent(original)) return false;
+    journal->MarkMatchingReverted(JournalTargetKind::MemoryCompression, kMemCompressionTarget);
+    return true;
+}
+
+namespace {
+
+bool RunMmAgent(bool enable) {
     std::wstring cmd = L"powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden -Command \"";
     cmd += enable ? L"Enable-MMAgent -MemoryCompression\"" : L"Disable-MMAgent -MemoryCompression\"";
 
@@ -624,7 +682,6 @@ bool WindowsRegistryPort::SetMemoryCompressionEnabled(bool enable, bool dry_run)
     );
 
     if (!created) {
-        if (journal && jid != 0) journal->MarkFailed(jid, "No se pudo lanzar PowerShell");
         return false;
     }
 
@@ -668,17 +725,10 @@ bool WindowsRegistryPort::SetMemoryCompressionEnabled(bool enable, bool dry_run)
     CloseHandle(pi.hThread);
     CloseHandle(pi.hProcess);
 
-    const bool ok = (wait_res == WAIT_OBJECT_0 && exit_code == 0);
-    if (journal) {
-        if (enable && ok) {
-            journal->MarkMatchingReverted(JournalTargetKind::MemoryCompression, "MMAgent\\MemoryCompression");
-        } else if (jid != 0) {
-            if (ok) journal->MarkCommitted(jid);
-            else journal->MarkFailed(jid, "MMAgent devolvió error");
-        }
-    }
-    return ok;
+    return wait_res == WAIT_OBJECT_0 && exit_code == 0;
 }
+
+} // namespace
 
 std::vector<ShaderCacheReport> WindowsRegistryPort::InspectShaderCaches() {
     std::vector<ShaderCacheReport> reports;

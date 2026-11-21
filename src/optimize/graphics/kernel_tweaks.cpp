@@ -17,6 +17,10 @@ bool KernelSchedulerTweaks::SetMemoryCompressionEnabled(bool enable, bool dry_ru
     return reg_.SetMemoryCompressionEnabled(enable, dry_run);
 }
 
+bool KernelSchedulerTweaks::RevertMemoryCompressionChange(bool dry_run) {
+    return reg_.RevertMemoryCompressionChange(dry_run);
+}
+
 bool KernelSchedulerTweaks::IsMemoryCompressionEnabled() {
     return reg_.IsMemoryCompressionEnabled();
 }
@@ -35,7 +39,7 @@ bool KernelSchedulerTweaks::SetDynamicPrioritySeparation(uint32_t value, bool dr
         kPriorityControlPath,
         L"Win32PrioritySeparation",
         RegValue::MakeDword(value),
-        !is_default,
+        true, // also the factory value: the copy keeps the user's own value for the restore below
         "Prioridad de quantum CPU en juego",
         hexbuf);
 
@@ -67,7 +71,7 @@ bool KernelSchedulerTweaks::SetKernelMemoryPagingShield(bool enable, bool dry_ru
         kMemoryManagementPath,
         L"DisablePagingExecutive",
         RegValue::MakeDword(disable_paging),
-        enable,
+        true,
         "Blindaje de memoria del kernel",
         "1");
 
@@ -76,7 +80,7 @@ bool KernelSchedulerTweaks::SetKernelMemoryPagingShield(bool enable, bool dry_ru
         kMemoryManagementPath,
         L"LargeSystemCache",
         RegValue::MakeDword(large_cache),
-        enable,
+        true,
         "Evitar desplazamiento por cach\u00e9",
         "0");
 

@@ -49,6 +49,7 @@ public:
 
     bool IsMemoryCompressionEnabled() override;
     bool SetMemoryCompressionEnabled(bool enable, bool dry_run = false) override;
+    bool RevertMemoryCompressionChange(bool dry_run = false) override;
     std::vector<ShaderCacheReport> InspectShaderCaches() override;
 
     uint64_t BeginDxgiPreferenceChange(
