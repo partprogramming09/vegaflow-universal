@@ -22,6 +22,7 @@ struct MemoryPurgeConfig {
 
 struct MemoryActionReport {
     bool standby_purged = false;
+    uint8_t purge_level = 0;  // E2.3: level of the NT purge that ran (1 low-priority, 2 whole list), 0 when none
     uint32_t background_processes_trimmed = 0;
     bool skipped_due_to_cooldown = false;
     bool skipped_due_to_disk_io = false;
@@ -103,6 +104,8 @@ private:
     uint32_t guard_interventions_count_ = 0;
     double last_dxgi_pressure_ratio_ = 0.0;
     bool last_guard_triggered_ = false;
+    // E2.3: level of the last successful purge in this pressure episode; back to 0 when a tick sees no pressure.
+    uint8_t last_purge_level_ = 0;
 };
 
 } // namespace vegaflow

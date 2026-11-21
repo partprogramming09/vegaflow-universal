@@ -70,7 +70,8 @@ void RunMonitorDashboard(
            << "VRAM: " << vram_used_mb << "/" << vram_budget_mb << " MB | "
            << "Juego: " << game_info
            << "]";
-        std::cout << ss.str() << "\n";
+        // std::endl flushes: with stdout redirected to a file nothing reached the file before the process ended.
+        std::cout << ss.str() << "\n" << GpuMemoryLine(mem.vram) << std::endl;
     };
 
     if (once_mode) {

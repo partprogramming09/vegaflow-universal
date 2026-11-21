@@ -115,6 +115,7 @@ $CommonSources = @(Get-CppSources "src" | Where-Object { $AppSources -notcontain
 $Libs = @(
     "-lntdll",
     "-ldxgi",
+    "-lpdh",
     "-ladvapi32",
     "-lpsapi",
     "-luser32",

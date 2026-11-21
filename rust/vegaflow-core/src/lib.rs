@@ -37,7 +37,9 @@ mod tests {
             free_and_zero_bytes: 3000 * mb,
             standby_bytes: 2048 * mb,
             local_budget_bytes: 4096 * mb,
-            local_usage_bytes: 3686 * mb, // ~90%
+            gpu_shared_usage_bytes: 3686 * mb, // ~90%
+            gpu_dedicated_usage_bytes: 0,
+            last_purge_level: 0,
             vram_valid: true,
             memory_lists_valid: true,
             is_uma_gpu: true,
@@ -53,14 +55,14 @@ mod tests {
             dry_run: false,
         };
         let dec = vf_rust_evaluate_memory_purge(&input);
-        assert!(dec.should_purge_standby);
+        assert_eq!(dec.purge_level, 1);
         assert!(dec.should_trim_background);
         assert!(dec.guard_triggered);
         assert!(dec.dxgi_over_ceiling);
         assert_eq!(dec.total_interventions, 3);
 
         let null_dec = vf_rust_evaluate_memory_purge(std::ptr::null());
-        assert!(!null_dec.should_purge_standby);
+        assert_eq!(null_dec.purge_level, 0);
         assert!(!null_dec.should_trim_background);
         assert!(!null_dec.guard_triggered);
 

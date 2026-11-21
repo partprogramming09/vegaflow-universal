@@ -108,7 +108,8 @@ MemoryActionReport MemoryManager::EvaluateAndOptimize(
     input.free_and_zero_bytes = telemetry.free_and_zero_bytes;
     input.standby_bytes = telemetry.standby_bytes;
     input.local_budget_bytes = telemetry.vram.local_budget_bytes;
-    input.local_usage_bytes = telemetry.vram.local_usage_bytes;
+    input.gpu_shared_usage_bytes = telemetry.vram.gpu_shared_usage_bytes;
+    input.gpu_dedicated_usage_bytes = telemetry.vram.gpu_dedicated_usage_bytes;
     input.vram_valid = telemetry.vram.valid;
     input.memory_lists_valid = telemetry.memory_lists_valid;
     input.is_uma_gpu = config_.is_uma_architecture;
@@ -121,9 +122,15 @@ MemoryActionReport MemoryManager::EvaluateAndOptimize(
     input.max_game_disk_read_bytes_per_sec = config_.max_game_disk_read_bytes_per_sec;
     input.pressure_threshold_override = 0.0; // Single source of truth in Rust memory_purge.rs
     input.prev_interventions = guard_interventions_count_;
+    input.last_purge_level = last_purge_level_;
     input.dry_run = dry_run;
 
     const VfMemoryPurgeDecision dec = vf_rust_evaluate_memory_purge(&input);
+
+    // The episode ends when a tick sees no pressure (a dry run never changes state).
+    if (!dry_run && !dec.memory_pressure) {
+        last_purge_level_ = 0;
+    }
 
     if (dec.skipped_due_to_cooldown) {
         report.skipped_due_to_cooldown = true;
@@ -139,7 +146,7 @@ MemoryActionReport MemoryManager::EvaluateAndOptimize(
         return report;
     }
 
-    if (!dec.should_purge_standby && !dec.should_trim_background) {
+    if (dec.purge_level == VF_PURGE_LEVEL_NONE && !dec.should_trim_background) {
         if (!telemetry.memory_lists_valid || telemetry.total_physical_bytes == 0) {
             report.reason = "System memory list telemetry unavailable; purge skipped";
         } else {
@@ -163,11 +170,16 @@ MemoryActionReport MemoryManager::EvaluateAndOptimize(
     // Record purge/trim timestamp for shared cooldown across both EvaluateAndOptimize and EvaluateUmaPressureGuard.
     last_purge_time_ = clock_.Now();
 
-    if (dec.should_purge_standby) {
-        const StandbyPurgeOutcome outcome = control_.PurgeStandbyList(false);
+    if (dec.purge_level != VF_PURGE_LEVEL_NONE) {
+        const StandbyPurgeOutcome outcome = control_.PurgeStandbyList(dec.purge_level, false);
         report.standby_purged = outcome.succeeded;
         if (outcome.succeeded) {
-            report.reason = "Standby list purged successfully and background processes trimmed";
+            // Only a successful purge climbs the ladder: a failed one (no privilege) fails the same way at level 2.
+            last_purge_level_ = dec.purge_level;
+            report.purge_level = dec.purge_level;
+            report.reason = dec.purge_level == VF_PURGE_LEVEL_LOW
+                ? "Low-priority standby list purged (level 1) and background processes trimmed"
+                : "Whole standby list purged (level 2, pressure persisted) and background processes trimmed";
         } else if (outcome.privilege_missing) {
             report.reason = "Background Working Sets trimmed (" +
                 std::to_string(report.background_processes_trimmed) +
@@ -201,7 +213,8 @@ ManualPurgeReport MemoryManager::ForcePurgeNow(const std::vector<uint32_t>& back
     const std::vector<uint32_t> trimmable = FilterTrimmableBackgroundPids(0, background_pids);
     report.trimmed_processes = control_.TrimProcessWorkingSets(trimmable);
 
-    const StandbyPurgeOutcome outcome = control_.PurgeStandbyList(false);
+    // A manual purge is the user's explicit request: the whole standby list.
+    const StandbyPurgeOutcome outcome = control_.PurgeStandbyList(VF_PURGE_LEVEL_FULL, false);
     report.standby_purge_succeeded = outcome.succeeded;
     if (outcome.succeeded) {
         last_purge_time_ = clock_.Now();
@@ -225,7 +238,7 @@ uint64_t MemoryManager::GetCurrentProcessPrivateWorkingSetBytes() {
 }
 
 bool MemoryManager::PurgeStandbyList(bool dryRun) {
-    const StandbyPurgeOutcome outcome = DefaultWindowsMemoryControl().PurgeStandbyList(dryRun);
+    const StandbyPurgeOutcome outcome = DefaultWindowsMemoryControl().PurgeStandbyList(VF_PURGE_LEVEL_FULL, dryRun);
     if (outcome.succeeded && !dryRun) {
         DefaultWindowsMemoryControl().TrimProcessWorkingSets({DefaultWindowsMemoryProbe().CurrentProcessId()});
     }
@@ -262,7 +275,8 @@ UmaGuardStatus MemoryManager::EvaluateUmaPressureGuard(
     input.free_and_zero_bytes = telem.free_and_zero_bytes;
     input.standby_bytes = telem.standby_bytes;
     input.local_budget_bytes = telem.vram.local_budget_bytes;
-    input.local_usage_bytes = telem.vram.local_usage_bytes;
+    input.gpu_shared_usage_bytes = telem.vram.gpu_shared_usage_bytes;
+    input.gpu_dedicated_usage_bytes = telem.vram.gpu_dedicated_usage_bytes;
     input.vram_valid = telem.vram.valid;
     input.memory_lists_valid = telem.memory_lists_valid;
     input.is_uma_gpu = is_uma_gpu;
@@ -276,6 +290,7 @@ UmaGuardStatus MemoryManager::EvaluateUmaPressureGuard(
     input.max_game_disk_read_bytes_per_sec = config_.max_game_disk_read_bytes_per_sec;
     input.pressure_threshold_override = policy.runtime_pressure_threshold;
     input.prev_interventions = guard_interventions_count_;
+    input.last_purge_level = last_purge_level_;  // the guard only trims, but the decision sees the same episode
     input.dry_run = dry_run;
 
     const VfMemoryPurgeDecision dec = vf_rust_evaluate_memory_purge(&input);

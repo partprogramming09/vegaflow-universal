@@ -19,6 +19,7 @@
 #include "session/restore.hpp"
 #include "app/app_state.hpp"
 #include "session/config.hpp"
+#include "session/doctor.hpp"
 #include "session/reports.hpp"
 #include "session/run_cycle.hpp"
 #include "ui/app_identity.hpp"
@@ -30,9 +31,14 @@ namespace vegaflow::app {
 std::optional<int> ParseCommandLine(int argc, char* argv[], CliOptions& opts) {
     // A path value must be there and must not be the next option (--dxvk-install --dry-run lost the simulation).
     auto has_value = [&](int i) { return i + 1 < argc && argv[i + 1][0] != '\0' && argv[i + 1][0] != '-'; };
+    bool doctor = false, doctor_json = false; // E2.5
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
-        if (arg == "--status" || arg == "-s") {
+        if (arg == "--doctor") {
+            doctor = true;
+        } else if (arg == "--json") {
+            doctor_json = true;
+        } else if (arg == "--status" || arg == "-s") {
             opts.status_flag = true;
         } else if (arg == "--dry-run" || arg == "-d") {
             opts.dry_run_flag = true;
@@ -88,6 +94,7 @@ std::optional<int> ParseCommandLine(int argc, char* argv[], CliOptions& opts) {
             std::cout << "Usage: vegaflow_daemon [OPTIONS]\n\n";
             std::cout << "Options:\n";
             std::cout << "  --status, -s             Display detailed hardware, RAM, MPO, and system telemetry report.\n";
+            std::cout << "  --doctor [--json]        Read-only diagnosis (disk space, shader caches, OEM tools); exit 0 ok, 1 warnings, 2 critical.\n";
             std::cout << "  --dry-run, -d            Simulate evaluation cycles without modifying processes or registry.\n";
             std::cout << "  --once, -1               Execute one optimization evaluation cycle and exit cleanly.\n";
             std::cout << "  --elevate, -e            Relaunch current executable with Administrator privileges (UAC).\n";
@@ -119,6 +126,13 @@ std::optional<int> ParseCommandLine(int argc, char* argv[], CliOptions& opts) {
             std::cerr << "[ERROR] Unknown option or missing value: " << arg << " (see --help)\n";
             return 2;
         }
+    }
+
+    // E2.5: read-only, so it runs before the automatic UAC relaunch and works without administrator rights.
+    if (doctor) return vegaflow::session::RunDoctor(doctor_json, ui::kVersion);
+    if (doctor_json) {
+        std::cerr << "[ERROR] --json is only valid with --doctor (see --help)\n";
+        return 2;
     }
 
     return std::nullopt;
@@ -232,9 +246,15 @@ std::optional<int> RunOneShotCommand(const CliOptions& opts, int argc, char* arg
     }
 
     if (opts.mem_compression_on_flag) {
-        bool ok = vegaflow::KernelSchedulerTweaks(reg).SetMemoryCompressionEnabled(true, opts.dry_run_flag);
-        std::cout << "[MemCompression] SetMemoryCompressionEnabled(true) " << (opts.dry_run_flag ? "[DRY-RUN] " : "")
-                  << (ok ? "SUCCEEDED. Windows Memory Compression restored." : "FAILED. Administrator privileges required.") << "\n";
+        // Not a blind Enable-MMAgent: only an open journal entry (VegaFlow turned it off) is reverted.
+        vegaflow::SteadyClock clock;
+        vegaflow::FileChangeJournal journal(file_system, clock, vegaflow::JournalFilePath());
+        const bool loaded = journal.Load() && !journal.Header().corrupt;
+        if (loaded) vegaflow::SetActiveChangeJournal(&journal);
+        bool ok = loaded && vegaflow::KernelSchedulerTweaks(reg).RevertMemoryCompressionChange(opts.dry_run_flag);
+        vegaflow::SetActiveChangeJournal(nullptr);
+        std::cout << "[MemCompression] RevertMemoryCompressionChange() " << (opts.dry_run_flag ? "[DRY-RUN] " : "")
+                  << (ok ? "SUCCEEDED. Memory Compression is as VegaFlow found it (unchanged if VegaFlow never turned it off)." : "FAILED. Administrator privileges required, or the change journal is unreadable.") << "\n";
         return ok ? 0 : 1;
     }
 

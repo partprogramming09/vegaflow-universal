@@ -1,0 +1,33 @@
+# --doctor rules, shared by Rust tests (policy/doctor.rs) and C++ unit tests. Tab-separated; GiB = 1024^3 bytes.
+# disk   <name> <free_bytes> <total_bytes> <unknown|ok|low|critical>
+# cache  <name> <disk: unknown|ok|low|critical> <dirs> <expected finding codes, comma-separated, "-" for none>
+#          dirs = kind:exists:bytes joined by ";" (kind a|n|g = AMD|NVIDIA|generic D3D; exists 1|0); "-" for no dirs
+#          codes: no_cache_dirs, vendor_cache_missing, empty_cache_low_disk, cache_over_10gib
+# oem    <name> <running processes joined by "|"> <expected products joined by "|", sorted, "-" for none>
+disk	4 GiB free of 500	4294967296	536870912000	critical
+disk	exactly 5 GiB free of 100 (low, not critical)	5368709120	107374182400	low
+disk	exactly 20 GiB free of 100 is ok (edge)	21474836480	107374182400	ok
+disk	one byte under 20 GiB of 100	21474836479	107374182400	low
+disk	99 GiB free of 1000 GiB is under 10 percent	106300440576	1073741824000	low
+disk	exactly 10 percent free of 1000 GiB is ok (edge)	107374182400	1073741824000	ok
+disk	30 GiB free of 100	32212254720	107374182400	ok
+disk	probe failed, total 0	0	0	unknown
+disk	free larger than total (bad probe)	5000	4000	unknown
+disk	huge disk, 15 percent free	1649267441664	10995116277760	ok
+cache	no dirs at all	ok	-	no_cache_dirs
+cache	12 GiB AMD cache	ok	a:1:12884901888	cache_over_10gib
+cache	exactly 10 GiB is not over	ok	a:1:10737418240	-
+cache	healthy AMD cache	ok	a:1:1048576;g:1:2048	-
+cache	only generic D3D cache, no vendor	ok	g:1:1048576	vendor_cache_missing
+cache	vendor dir listed but missing	ok	a:0:0;n:0:0	vendor_cache_missing
+cache	empty caches on a critical disk	critical	a:1:0;g:1:0	empty_cache_low_disk
+cache	empty caches on a healthy disk	ok	a:1:0;g:1:0	-
+oem	Armoury Crate running	ArmouryCrate.exe	ASUS Armoury Crate
+oem	upper case name	ARMOURYCRATE.EXE	ASUS Armoury Crate
+oem	name with a Windows path	C:\Program Files\ASUS\ArmouryCrate.exe	ASUS Armoury Crate
+oem	name with a Unix path	/opt/asus/armourycrate.exe	ASUS Armoury Crate
+oem	three processes of one tool	ArmouryCrate.exe|ArmouryCrate.Service.exe|ArmouryCrate.UserSessionHelper.exe	ASUS Armoury Crate
+oem	three different tools	MSIAfterburner.exe|RTSS.exe|LegionZone.exe	Lenovo Legion Zone|MSI Afterburner|RTSS
+oem	nothing relevant	explorer.exe|notepad.exe	-
+oem	no processes at all		-
+oem	a lookalike is not a match	ArmouryCrateFake.exe.txt	-

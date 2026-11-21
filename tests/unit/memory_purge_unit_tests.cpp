@@ -5,6 +5,7 @@
 
 #include "bridge/rust_bridge.h"
 #include "optimize/memory_manager.hpp"
+#include "session/reports.hpp"
 #include "ports/clock.hpp"
 #include "ports/memory_control.hpp"
 #include "ports/memory_probe.hpp"
@@ -69,6 +70,7 @@ public:
     std::vector<uint32_t> trimmed_pids;
     int trim_call_count = 0;
     int purge_call_count = 0;
+    std::vector<int> purge_levels;  // E2.3: level of every real (non dry-run) NT purge call
     bool next_purge_succeeds = true;
 
     uint32_t TrimProcessWorkingSets(const std::vector<uint32_t>& pids) override {
@@ -79,7 +81,7 @@ public:
         return static_cast<uint32_t>(pids.size());
     }
 
-    vegaflow::StandbyPurgeOutcome PurgeStandbyList(bool dry_run) override {
+    vegaflow::StandbyPurgeOutcome PurgeStandbyList(uint8_t level, bool dry_run) override {
         vegaflow::StandbyPurgeOutcome out{};
         if (dry_run) {
             out.succeeded = true;
@@ -87,6 +89,7 @@ public:
             return out;
         }
         ++purge_call_count;
+        purge_levels.push_back(level);
         out.succeeded = next_purge_succeeds;
         out.detail = out.succeeded ? "Standby purged (fake)" : "Standby purge failed (fake)";
         return out;
@@ -94,24 +97,27 @@ public:
 };
 
 bool MatchesOutcome(const VfMemoryPurgeDecision& dec, const std::string& expected) {
+    const bool none = dec.purge_level == VF_PURGE_LEVEL_NONE;
     if (expected == "NONE") {
-        return !dec.should_purge_standby && !dec.should_trim_background &&
-               !dec.skipped_due_to_cooldown && !dec.skipped_due_to_disk_io;
+        return none && !dec.should_trim_background && !dec.skipped_due_to_cooldown && !dec.skipped_due_to_disk_io;
     }
     if (expected == "INVALID") {
-        return !dec.should_purge_standby && !dec.should_trim_background && !dec.guard_triggered;
+        return none && !dec.should_trim_background && !dec.guard_triggered;
     }
-    if (expected == "PURGE_AND_TRIM") {
-        return dec.should_purge_standby && dec.should_trim_background;
+    if (expected == "PURGE_LOW") {
+        return dec.purge_level == VF_PURGE_LEVEL_LOW && dec.should_trim_background;
+    }
+    if (expected == "PURGE_FULL") {
+        return dec.purge_level == VF_PURGE_LEVEL_FULL && dec.should_trim_background;
     }
     if (expected == "UMA_TRIM_ONLY") {
-        return !dec.should_purge_standby && dec.should_trim_background && dec.guard_triggered;
+        return none && dec.should_trim_background && dec.guard_triggered;
     }
     if (expected == "COOLDOWN") {
-        return !dec.should_purge_standby && !dec.should_trim_background && dec.skipped_due_to_cooldown;
+        return none && !dec.should_trim_background && dec.skipped_due_to_cooldown;
     }
     if (expected == "DISK_IO") {
-        return !dec.should_purge_standby && !dec.should_trim_background && dec.skipped_due_to_disk_io;
+        return none && !dec.should_trim_background && dec.skipped_due_to_disk_io;
     }
     return false;
 }
@@ -124,7 +130,7 @@ void Test53() {
     int vec_mismatch = 0;
     std::string first_bad;
     ForEachTsvRow("tests/vectors/memory_purge.tsv", [&](const std::vector<std::string>& col, const std::string&) {
-        if (col.size() != 16) {
+        if (col.size() != 17) {
             ++vec_mismatch;
             if (first_bad.empty()) first_bad = "bad columns";
             return;
@@ -136,7 +142,8 @@ void Test53() {
         in.free_and_zero_bytes = std::stoull(col[2]) * kMB;
         in.standby_bytes = std::stoull(col[3]) * kMB;
         in.local_budget_bytes = std::stoull(col[4]) * kMB;
-        in.local_usage_bytes = std::stoull(col[5]) * kMB;
+        in.gpu_shared_usage_bytes = std::stoull(col[5]) * kMB;
+        in.last_purge_level = static_cast<uint8_t>(std::stoul(col[16]));
         in.vram_valid = (col[6] == "1");
         in.memory_lists_valid = (col[7] == "1");
         in.is_uma_gpu = (col[8] == "1");
@@ -156,7 +163,7 @@ void Test53() {
             if (first_bad.empty()) first_bad = col[0];
         }
     });
-    const bool vectors_ok = (vec_total >= 18 && vec_mismatch == 0);
+    const bool vectors_ok = (vec_total >= 32 && vec_mismatch == 0);
 
     // 2. Per-tick disk I/O rate sampling across idle ticks before early exits.
     bool disk_peak_ok = false;
@@ -202,7 +209,7 @@ void Test53() {
         probe.telemetry.memory_lists_valid = false;
         probe.telemetry.vram.valid = true;
         probe.telemetry.vram.local_budget_bytes = 4096 * kMB;
-        probe.telemetry.vram.local_usage_bytes = 3900 * kMB;
+        probe.telemetry.vram.gpu_shared_usage_bytes = 3900 * kMB;
         probe.image_name_by_pid[200] = "chrome.exe";
 
         vegaflow::MemoryPurgeConfig cfg{};
@@ -233,7 +240,7 @@ void Test53() {
         probe.telemetry.memory_lists_valid = true;
         probe.telemetry.vram.valid = true;
         probe.telemetry.vram.local_budget_bytes = 4096 * kMB;
-        probe.telemetry.vram.local_usage_bytes = 3686 * kMB; // 90% >= 85%
+        probe.telemetry.vram.gpu_shared_usage_bytes = 3686 * kMB; // 90% >= 85%
 
         // Background mix: protected apps + trimmable browsers
         probe.image_name_by_pid[10] = "C:\\Program Files\\obs-studio\\bin\\64bit\\OBS64.EXE";
@@ -334,6 +341,165 @@ void Test92() {
                  std::string("Default=") + (default_is_zero ? "OK" : "FAIL") + ", Igpu=" + (igpu_ok ? "OK" : "FAIL") +
                      ", Egpu=" + (egpu_ok ? "OK" : "FAIL") + ", Unknown=" + (unknown_is_invalid ? "OK" : "FAIL") +
                      ", Back=" + (back_ok ? "OK" : "FAIL") + ", Evaluate=" + (evaluate_uses_target ? "OK" : "FAIL"));
+}
+
+void Test110() {
+    // E2.3 closing: --monitor and --status print the global GPU usage, the DXGI budgets and whether PDH answered.
+    constexpr uint64_t kMB = 1024ULL * 1024ULL;
+    FakeMemoryProbe probe;
+    probe.telemetry.vram.valid = true;
+    probe.telemetry.vram.gpu_shared_usage_bytes = 140 * kMB;     // values measured on the laptop with Get-Counter
+    probe.telemetry.vram.gpu_dedicated_usage_bytes = 271 * kMB;
+    probe.telemetry.vram.local_budget_bytes = 4096 * kMB;
+    probe.telemetry.vram.non_local_budget_bytes = 8192 * kMB;
+    const std::string ok_line = vegaflow::app::GpuMemoryLine(probe.SampleSystemMemory().vram);
+    const bool ok_exact = ok_line ==
+        "[GPU] Shared: 140 MB | Dedicated: 271 MB | DXGI Budget Local: 4096 MB / Non-Local: 8192 MB | PDH: OK";
+
+    probe.telemetry.vram = {};  // PDH did not answer: zeros and an explicit UNAVAILABLE, never a silent 0 MB reading
+    const std::string bad_line = vegaflow::app::GpuMemoryLine(probe.SampleSystemMemory().vram);
+    const bool bad_exact = bad_line ==
+        "[GPU] Shared: 0 MB | Dedicated: 0 MB | DXGI Budget Local: 0 MB / Non-Local: 0 MB | PDH: UNAVAILABLE (RAM-only guard)";
+
+    RecordResult(ok_exact && bad_exact, "Test 110: the GPU memory line fixes the --monitor/--status format", ok_line + " || " + bad_line);
+}
+
+void Test108() {
+    // E2.3: staged standby purge (level 1 then 2 by attempts) and the global GPU counter feeding the UMA guard.
+    constexpr uint64_t kMB = 1024ULL * 1024ULL;
+    std::string failed;
+    auto check = [&failed](bool ok, const char* name) {
+        if (!ok) failed += std::string(failed.empty() ? "" : ", ") + name;
+    };
+    // Pressure from RAM alone: free 1000 MB (< 1200 min), standby 4 GB, PDH not available (vram invalid).
+    auto make_probe = [&](FakeMemoryProbe& p) {
+        p.telemetry.total_physical_bytes = 16384 * kMB;
+        p.telemetry.free_and_zero_bytes = 1000 * kMB;
+        p.telemetry.standby_bytes = 4096 * kMB;
+        p.telemetry.memory_lists_valid = true;
+        p.image_name_by_pid[200] = "chrome.exe";
+    };
+    const std::chrono::seconds kPause(91);
+
+    {  // 1, 2: level 1 first, level 2 after the pause while the pressure lasts, and it stays at 2
+        ManualClock clock; FakeMemoryProbe probe; FakeMemoryControl control;
+        make_probe(probe);
+        vegaflow::MemoryManager mgr({}, clock, probe, control);
+        auto r1 = mgr.EvaluateAndOptimize(0, {200}, false);
+        clock.now += kPause;
+        auto r2 = mgr.EvaluateAndOptimize(0, {200}, false);
+        clock.now += kPause;
+        mgr.EvaluateAndOptimize(0, {200}, false);
+        check(control.purge_levels == std::vector<int>({1, 2, 2}), "1/2 levels 1,2,2");
+        check(r1.standby_purged && r1.purge_level == 1 && r2.purge_level == 2, "1/2 report levels");
+    }
+    {  // 3: the pressure goes away for one tick, then returns: new episode, level 1 again
+        ManualClock clock; FakeMemoryProbe probe; FakeMemoryControl control;
+        make_probe(probe);
+        vegaflow::MemoryManager mgr({}, clock, probe, control);
+        mgr.EvaluateAndOptimize(0, {200}, false);
+        clock.now += kPause;
+        probe.telemetry.free_and_zero_bytes = 8000 * kMB;
+        mgr.EvaluateAndOptimize(0, {200}, false);
+        clock.now += kPause;
+        probe.telemetry.free_and_zero_bytes = 1000 * kMB;
+        mgr.EvaluateAndOptimize(0, {200}, false);
+        check(control.purge_levels == std::vector<int>({1, 1}), "3 new episode restarts at level 1");
+    }
+    {  // 3b: global shared usage above the budget (146 %) is clamped to 100 %, no overflow, one level-1 purge
+        ManualClock clock; FakeMemoryProbe probe; FakeMemoryControl control;
+        make_probe(probe);
+        probe.telemetry.free_and_zero_bytes = 4000 * kMB;
+        probe.telemetry.vram.valid = true;
+        probe.telemetry.vram.local_budget_bytes = 4096 * kMB;
+        probe.telemetry.vram.gpu_shared_usage_bytes = 6000 * kMB;
+        vegaflow::MemoryManager mgr({}, clock, probe, control);
+        vegaflow::ApuOptimizationPolicy policy{};
+        policy.tier = vegaflow::ApuTier::Tier2_MidVegaUMA;
+        policy.gpu_connection = vegaflow::GpuConnection::Integrated;
+        policy.apply_uma_memory_guard = true;
+        const auto guard = mgr.EvaluateUmaPressureGuard(probe.telemetry, policy, {}, true);
+        mgr.EvaluateAndOptimize(0, {200}, false);
+        check(guard.guard_triggered && guard.dxgi_budget_utilization == 1.0, "3b utilization clamped to 1.0");
+        check(control.purge_levels == std::vector<int>({1}), "3b level follows the rule");
+    }
+    {  // 3c, 5: the same purge asked twice in one lap -> one NT call; the second is held by the pause
+        ManualClock clock; FakeMemoryProbe probe; FakeMemoryControl control;
+        make_probe(probe);
+        vegaflow::MemoryManager mgr({}, clock, probe, control);
+        mgr.EvaluateAndOptimize(0, {200}, false);
+        auto again = mgr.EvaluateAndOptimize(0, {200}, false);
+        check(control.purge_call_count == 1 && again.skipped_due_to_cooldown && again.purge_level == 0, "3c/5 one NT call");
+    }
+    {  // 4: standby below the minimum, discrete GPU -> no purge and no trim
+        ManualClock clock; FakeMemoryProbe probe; FakeMemoryControl control;
+        make_probe(probe);
+        probe.telemetry.standby_bytes = 1000 * kMB;
+        vegaflow::MemoryPurgeConfig cfg{};
+        cfg.is_uma_architecture = false;
+        vegaflow::MemoryManager mgr(cfg, clock, probe, control);
+        mgr.EvaluateAndOptimize(0, {200}, false);
+        check(control.purge_call_count == 0 && control.trim_call_count == 0, "4 standby below minimum");
+    }
+    {  // 7: PDH failed (vram invalid): the GPU signal is ignored, RAM alone decides
+        ManualClock clock; FakeMemoryProbe probe; FakeMemoryControl control;
+        make_probe(probe);
+        probe.telemetry.free_and_zero_bytes = 8000 * kMB;
+        probe.telemetry.vram.valid = false;
+        probe.telemetry.vram.local_budget_bytes = 4096 * kMB;
+        probe.telemetry.vram.gpu_shared_usage_bytes = 4000 * kMB;
+        vegaflow::MemoryManager mgr({}, clock, probe, control);
+        mgr.EvaluateAndOptimize(0, {200}, false);
+        const bool quiet = control.purge_call_count == 0;
+        probe.telemetry.free_and_zero_bytes = 900 * kMB;
+        mgr.EvaluateAndOptimize(0, {200}, false);
+        check(quiet && control.purge_levels == std::vector<int>({1}), "7 RAM alone decides");
+    }
+    {  // 8: budget 0 -> no division by zero, no GPU signal; 10: discrete GPU near its budget does not count
+        ManualClock clock; FakeMemoryProbe probe; FakeMemoryControl control;
+        make_probe(probe);
+        probe.telemetry.free_and_zero_bytes = 8000 * kMB;
+        probe.telemetry.vram.valid = true;
+        probe.telemetry.vram.local_budget_bytes = 0;
+        probe.telemetry.vram.gpu_shared_usage_bytes = 3000 * kMB;
+        vegaflow::MemoryManager mgr({}, clock, probe, control);
+        mgr.EvaluateAndOptimize(0, {200}, false);
+        check(control.purge_call_count == 0, "8 budget 0");
+
+        FakeMemoryProbe probe2; FakeMemoryControl control2;
+        make_probe(probe2);
+        probe2.telemetry.free_and_zero_bytes = 8000 * kMB;
+        probe2.telemetry.vram.valid = true;
+        probe2.telemetry.vram.local_budget_bytes = 8192 * kMB;
+        probe2.telemetry.vram.gpu_shared_usage_bytes = 8000 * kMB;
+        vegaflow::MemoryPurgeConfig cfg{};
+        cfg.is_uma_architecture = false;
+        vegaflow::MemoryManager mgr2(cfg, clock, probe2, control2);
+        mgr2.EvaluateAndOptimize(0, {200}, false);
+        check(control2.purge_call_count == 0 && control2.trim_call_count == 0, "10 discrete GPU signal ignored");
+    }
+    {  // 9: dry_run decides but never calls NT, trims nothing and does not advance the level or the pause
+        ManualClock clock; FakeMemoryProbe probe; FakeMemoryControl control;
+        make_probe(probe);
+        vegaflow::MemoryManager mgr({}, clock, probe, control);
+        auto dry = mgr.EvaluateAndOptimize(0, {200}, true);
+        check(control.purge_call_count == 0 && control.trim_call_count == 0 && !dry.standby_purged, "9 dry run touches nothing");
+        mgr.EvaluateAndOptimize(0, {200}, false);
+        check(control.purge_levels == std::vector<int>({1}), "9 dry run did not advance the level");
+    }
+    {  // a failed purge (no privilege) does not climb to level 2: level 2 would fail the same way
+        ManualClock clock; FakeMemoryProbe probe; FakeMemoryControl control;
+        make_probe(probe);
+        control.next_purge_succeeds = false;
+        vegaflow::MemoryManager mgr({}, clock, probe, control);
+        mgr.EvaluateAndOptimize(0, {200}, false);
+        clock.now += kPause;
+        mgr.EvaluateAndOptimize(0, {200}, false);
+        check(control.purge_levels == std::vector<int>({1, 1}), "failed purge does not escalate");
+    }
+
+    RecordResult(failed.empty(), "Test 108: E2.3 staged standby purge (level 1 then 2) and global GPU counter in the UMA guard",
+                 failed.empty() ? "all 11 cases pass" : "failed: " + failed);
 }
 
 } // namespace vftest

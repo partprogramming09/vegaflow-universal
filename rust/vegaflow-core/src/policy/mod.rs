@@ -15,3 +15,6 @@ pub mod path_policy;
 pub mod process_class;
 pub mod steam_library;
 pub mod sandbox_core;
+
+// E2.5
+pub mod doctor;

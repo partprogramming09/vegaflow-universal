@@ -23,7 +23,7 @@ class WindowsMemoryControl final : public MemoryControl {
 public:
     WindowsMemoryControl();
     uint32_t TrimProcessWorkingSets(const std::vector<uint32_t>& pids) override;
-    StandbyPurgeOutcome PurgeStandbyList(bool dry_run) override;
+    StandbyPurgeOutcome PurgeStandbyList(uint8_t level, bool dry_run) override;
 };
 
 MemoryProbe& DefaultWindowsMemoryProbe();

@@ -101,6 +101,8 @@ public:
 
     virtual bool IsMemoryCompressionEnabled() = 0;
     virtual bool SetMemoryCompressionEnabled(bool enable, bool dry_run = false) = 0;
+    // Undoes what VegaFlow's journal says it changed in compression; with no open entry it changes nothing (true).
+    virtual bool RevertMemoryCompressionChange(bool dry_run = false) = 0;
     virtual std::vector<ShaderCacheReport> InspectShaderCaches() = 0;
 
     // Optional ChangeJournal hooks for per-exe DXGI UserGpuPreferences + AppCompatFlags\Layers changes.

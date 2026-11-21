@@ -31,6 +31,15 @@ bool DisplayTweaks::SetMpoDisabled(bool disable, bool dry_run) {
     if (reg_.RestoreBackedUpValue(RegHive::LocalMachine, kDwmPath, L"OverlayTestMode")) {
         return true;
     }
+    // No copy: save the current value first (DeleteValue never copies), so nothing is lost.
+    RegValue current;
+    if (!reg_.ReadValue(RegHive::LocalMachine, kDwmPath, L"OverlayTestMode", current)) {
+        return true; // already absent
+    }
+    if (!reg_.WriteValue(RegHive::LocalMachine, kDwmPath, L"OverlayTestMode", current, true,
+                         "Devolver MPO (DWM)", "")) {
+        return false;
+    }
     if (reg_.DeleteValue(RegHive::LocalMachine, kDwmPath, L"OverlayTestMode", true)) {
         return true;
     }
@@ -39,7 +48,7 @@ bool DisplayTweaks::SetMpoDisabled(bool disable, bool dry_run) {
         kDwmPath,
         L"OverlayTestMode",
         RegValue::MakeDword(0u),
-        false);
+        true);
 }
 
 void DisplayTweaks::QueryMpoState(bool& out_disabled, uint32_t& out_overlay_test_mode) {

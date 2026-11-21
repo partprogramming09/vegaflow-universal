@@ -69,6 +69,7 @@ public:
     explicit KernelSchedulerTweaks(RegistryPort& reg) : reg_(reg) {}
 
     bool SetMemoryCompressionEnabled(bool enable, bool dry_run = false);
+    bool RevertMemoryCompressionChange(bool dry_run = false);
     bool IsMemoryCompressionEnabled();
     bool SetDynamicPrioritySeparation(uint32_t value, bool dry_run = false);
     uint32_t QueryDynamicPrioritySeparation();

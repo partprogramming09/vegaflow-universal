@@ -11,7 +11,8 @@ fn base() -> VfMemoryPurgeInput {
         free_and_zero_bytes: 8 * 1024 * MB,
         standby_bytes: 1024 * MB,
         local_budget_bytes: 0,
-        local_usage_bytes: 0,
+        gpu_shared_usage_bytes: 0,
+        gpu_dedicated_usage_bytes: 0,
         vram_valid: false,
         memory_lists_valid: true,
         is_uma_gpu: false,
@@ -24,6 +25,7 @@ fn base() -> VfMemoryPurgeInput {
         max_game_disk_read_bytes_per_sec: 0,
         pressure_threshold_override: 0.0,
         prev_interventions: 0,
+        last_purge_level: 0,
         dry_run: false,
     }
 }
@@ -60,7 +62,7 @@ fn utilization_is_zero_when_vram_is_not_valid_even_with_a_budget() {
     let mut i = base();
     i.vram_valid = false;
     i.local_budget_bytes = 100;
-    i.local_usage_bytes = 50;
+    i.gpu_shared_usage_bytes = 50;
     assert_eq!(evaluate_memory_purge(&i).dxgi_budget_utilization, 0.0);
 }
 
@@ -69,7 +71,7 @@ fn utilization_is_usage_over_budget_when_vram_is_valid() {
     let mut i = base();
     i.vram_valid = true;
     i.local_budget_bytes = 200;
-    i.local_usage_bytes = 50;
+    i.gpu_shared_usage_bytes = 50;
     assert_eq!(evaluate_memory_purge(&i).dxgi_budget_utilization, 0.25);
 }
 
@@ -78,7 +80,7 @@ fn utilization_is_zero_for_a_zero_budget_with_usage() {
     let mut i = base();
     i.vram_valid = true;
     i.local_budget_bytes = 0;
-    i.local_usage_bytes = 50;
+    i.gpu_shared_usage_bytes = 50;
     assert_eq!(evaluate_memory_purge(&i).dxgi_budget_utilization, 0.0);
 }
 
@@ -87,7 +89,7 @@ fn utilization_is_zero_not_nan_for_a_zero_budget_without_usage() {
     let mut i = base();
     i.vram_valid = true;
     i.local_budget_bytes = 0;
-    i.local_usage_bytes = 0;
+    i.gpu_shared_usage_bytes = 0;
     let d = evaluate_memory_purge(&i);
     assert!(!d.dxgi_budget_utilization.is_nan());
     assert_eq!(d.dxgi_budget_utilization, 0.0);
@@ -100,7 +102,7 @@ fn uma_at(usage: u64, threshold: f64) -> VfMemoryPurgeInput {
     i.is_uma_gpu = true;
     i.vram_valid = true;
     i.local_budget_bytes = 100;
-    i.local_usage_bytes = usage;
+    i.gpu_shared_usage_bytes = usage;
     i.free_and_zero_bytes = 4096 * MB; // not critical
     i.pressure_threshold_override = threshold;
     i
@@ -181,20 +183,20 @@ fn low_free(free_mb: u64) -> VfMemoryPurgeInput {
 #[test]
 fn free_ram_one_below_the_minimum_wants_a_standby_purge() {
     let d = evaluate_memory_purge(&low_free(1999));
-    assert!(d.should_purge_standby);
+    assert!(d.purge_level > 0);
     assert!(d.should_trim_background);
 }
 
 #[test]
 fn free_ram_exactly_at_the_minimum_wants_no_purge() {
     let d = evaluate_memory_purge(&low_free(2000));
-    assert!(!d.should_purge_standby);
+    assert_eq!(d.purge_level, 0);
     assert!(!d.should_trim_background);
 }
 
 #[test]
 fn free_ram_one_above_the_minimum_wants_no_purge() {
-    assert!(!evaluate_memory_purge(&low_free(2001)).should_purge_standby);
+    assert_eq!(evaluate_memory_purge(&low_free(2001)).purge_level, 0);
 }
 
 // --- shared cooldown ---
@@ -210,7 +212,7 @@ fn cooling(elapsed_ms: i64) -> VfMemoryPurgeInput {
 fn cooldown_remaining_is_the_difference_in_whole_seconds() {
     let d = evaluate_memory_purge(&cooling(10_000));
     assert!(d.skipped_due_to_cooldown);
-    assert!(!d.should_purge_standby);
+    assert_eq!(d.purge_level, 0);
     assert!(!d.should_trim_background);
     assert_eq!(d.cooldown_remaining_seconds, 50);
 }
@@ -232,14 +234,14 @@ fn cooldown_just_before_expiry_still_skips() {
 fn cooldown_exactly_expired_does_not_skip() {
     let d = evaluate_memory_purge(&cooling(60_000));
     assert!(!d.skipped_due_to_cooldown);
-    assert!(d.should_purge_standby);
+    assert!(d.purge_level > 0);
 }
 
 #[test]
 fn never_purged_before_does_not_cool_down() {
     let d = evaluate_memory_purge(&cooling(-1));
     assert!(!d.skipped_due_to_cooldown);
-    assert!(d.should_purge_standby);
+    assert!(d.purge_level > 0);
 }
 
 #[test]
@@ -248,7 +250,7 @@ fn zero_cooldown_never_skips_even_right_after_a_purge() {
     i.cooldown_seconds = 0;
     let d = evaluate_memory_purge(&i);
     assert!(!d.skipped_due_to_cooldown);
-    assert!(d.should_purge_standby);
+    assert!(d.purge_level > 0);
 }
 
 // --- disk I/O gating ---
@@ -264,14 +266,14 @@ fn reading(read: u64, max: u64) -> VfMemoryPurgeInput {
 fn a_zero_disk_limit_disables_the_gate() {
     let d = evaluate_memory_purge(&reading(500 * MB, 0));
     assert!(!d.skipped_due_to_disk_io);
-    assert!(d.should_purge_standby);
+    assert!(d.purge_level > 0);
 }
 
 #[test]
 fn reading_above_the_limit_skips_the_purge() {
     let d = evaluate_memory_purge(&reading(101, 100));
     assert!(d.skipped_due_to_disk_io);
-    assert!(!d.should_purge_standby);
+    assert_eq!(d.purge_level, 0);
     assert!(!d.should_trim_background);
 }
 
@@ -279,7 +281,7 @@ fn reading_above_the_limit_skips_the_purge() {
 fn reading_exactly_at_the_limit_does_not_skip() {
     let d = evaluate_memory_purge(&reading(100, 100));
     assert!(!d.skipped_due_to_disk_io);
-    assert!(d.should_purge_standby);
+    assert!(d.purge_level > 0);
 }
 
 // --- standby floor and shared cooldown ---
@@ -290,9 +292,9 @@ fn a_standby_purge_needs_at_least_min_standby_mb_of_standby_memory() {
     i.free_and_zero_bytes = 500 * MB; // below min_free_ram_mb (1000)
     i.standby_bytes = 200 * MB;
     i.min_standby_mb = 200;
-    assert!(evaluate_memory_purge(&i).should_purge_standby);
+    assert!(evaluate_memory_purge(&i).purge_level > 0);
     i.min_standby_mb = 201;
-    assert!(!evaluate_memory_purge(&i).should_purge_standby);
+    assert_eq!(evaluate_memory_purge(&i).purge_level, 0);
 }
 
 #[test]
@@ -305,7 +307,7 @@ fn the_cooldown_also_holds_back_the_uma_guard_trim() {
     let held = evaluate_memory_purge(&i);
     assert!(held.free_ram_critical && held.guard_triggered);
     assert!(held.skipped_due_to_cooldown);
-    assert!(!held.should_trim_background && !held.should_purge_standby);
+    assert!(!held.should_trim_background && held.purge_level == 0);
 
     i.elapsed_since_last_purge_ms = 60_000;
     let released = evaluate_memory_purge(&i);

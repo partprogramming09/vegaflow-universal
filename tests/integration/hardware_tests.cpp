@@ -206,7 +206,7 @@ void Test25() {
         healthy_telem.memory_lists_valid = true;
         healthy_telem.vram.valid = true;
         healthy_telem.vram.local_budget_bytes = 4096ULL * 1024 * 1024;
-        healthy_telem.vram.local_usage_bytes = 2000ULL * 1024 * 1024;
+        healthy_telem.vram.gpu_shared_usage_bytes = 2000ULL * 1024 * 1024;
 
         auto healthy_status = mem_mgr.EvaluateUmaPressureGuard(healthy_telem, mid_policy, {}, true /* dry_run */);
         bool healthy_ok = (healthy_status.guard_triggered == false);
@@ -219,7 +219,7 @@ void Test25() {
         pressured_telem.memory_lists_valid = true;
         pressured_telem.vram.valid = true;
         pressured_telem.vram.local_budget_bytes = 4096ULL * 1024 * 1024;
-        pressured_telem.vram.local_usage_bytes = 3686ULL * 1024 * 1024;
+        pressured_telem.vram.gpu_shared_usage_bytes = 3686ULL * 1024 * 1024;
 
         auto pressured_status = mem_mgr.EvaluateUmaPressureGuard(pressured_telem, mid_policy, {}, true /* dry_run */);
         const double threshold = vf_rust_vram_pressure_threshold();
@@ -365,7 +365,7 @@ void Test26() {
         high_press_telem.memory_lists_valid = true;
         high_press_telem.vram.valid = true;
         high_press_telem.vram.local_budget_bytes = 4096ULL * 1024 * 1024;
-        high_press_telem.vram.local_usage_bytes = 3686ULL * 1024 * 1024;
+        high_press_telem.vram.gpu_shared_usage_bytes = 3686ULL * 1024 * 1024;
 
         test_mem_mgr.EvaluateUmaPressureGuard(high_press_telem, test_policy, {}, true /* dry_run */);
 
@@ -383,7 +383,7 @@ void Test26() {
         healthy_telem2.memory_lists_valid = true;
         healthy_telem2.vram.valid = true;
         healthy_telem2.vram.local_budget_bytes = 4096ULL * 1024 * 1024;
-        healthy_telem2.vram.local_usage_bytes = 1843ULL * 1024 * 1024;
+        healthy_telem2.vram.gpu_shared_usage_bytes = 1843ULL * 1024 * 1024;
 
         test_mem_mgr.EvaluateUmaPressureGuard(healthy_telem2, test_policy, {}, true /* dry_run */);
 

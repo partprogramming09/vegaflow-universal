@@ -31,7 +31,7 @@ pub extern "C" fn vf_rust_evaluate_memory_purge(input: *const VfMemoryPurgeInput
     ffi_guard(unsafe { core::mem::zeroed() }, || {
         if input.is_null() {
             return VfMemoryPurgeDecision {
-                should_purge_standby: false,
+                purge_level: 0,
                 should_trim_background: false,
                 skipped_due_to_cooldown: false,
                 skipped_due_to_disk_io: false,
@@ -39,6 +39,7 @@ pub extern "C" fn vf_rust_evaluate_memory_purge(input: *const VfMemoryPurgeInput
                 guard_triggered: false,
                 dxgi_over_ceiling: false,
                 free_ram_critical: false,
+                memory_pressure: false,
                 dxgi_budget_utilization: 0.0,
                 available_os_headroom_mb: 0,
                 total_interventions: 0,

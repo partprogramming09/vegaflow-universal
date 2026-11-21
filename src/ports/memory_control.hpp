@@ -20,7 +20,8 @@ public:
     virtual ~MemoryControl() = default;
 
     virtual uint32_t TrimProcessWorkingSets(const std::vector<uint32_t>& pids) = 0;
-    virtual StandbyPurgeOutcome PurgeStandbyList(bool dry_run) = 0;
+    // level 1 = low-priority standby only (NT command 5), 2 = whole standby list (NT command 4); 0 does nothing.
+    virtual StandbyPurgeOutcome PurgeStandbyList(uint8_t level, bool dry_run) = 0;
 };
 
 } // namespace vegaflow
