@@ -144,13 +144,13 @@ void Test109() {
                      Has(r16.text, "144.0 MiB (340 files)") && !Has(r16.text, "NVIDIA") && !Has(r16.text, "Juan") && Has(r16.text, "<usuario>") &&
                      Has(r16.json, "\"shader_caches\":[{\"kind\":\"D3D\"") && Has(r16.json, "\"bytes\":150994944,\"files\":340") &&
                      !Has(r16.json, "Juan") && JsonOk(r16.json),
-                 "Test 107.16: healthy shader caches are listed with kind, size and files, in the text and the JSON", r16.text + r16.json);
+                 "Test 109.16: healthy shader caches are listed with kind, size and files, in the text and the JSON", r16.text + r16.json);
     auto unread = Healthy();
     unread.caches_probed = false;
     unread.caches.clear();
     const auto r17 = gs::BuildDoctorReport(unread);
     RecordResult(Has(r17.text, "Shader caches:\n  could not read") && Has(r17.json, "\"shader_caches\":[]") && JsonOk(r17.json),
-                 "Test 107.17: an unreadable cache probe says so and the JSON list is empty", r17.text + r17.json);
+                 "Test 109.17: an unreadable cache probe says so and the JSON list is empty", r17.text + r17.json);
 
     // RedactReport on its own: keeps line breaks and length, hides the names case-insensitively.
     const std::string red = gs::RedactReport("a\r\nC:\\Users\\Ana\\x on desktop-abc of Corp-Dom\r\n" + std::string(300, 'z'), "DESKTOP-ABC", "CORP-DOM");
