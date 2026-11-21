@@ -86,7 +86,7 @@ The header `rust_bridge.h` is written by hand (it is not generated with cbindgen
 #### 3.1. Memory purge and UMA pressure guard (`memory_purge.rs`; NT calls in C++)
 - **`#[repr(C)]` structures:** `VfMemoryPurgeInput` and `VfMemoryPurgeDecision` (`src/bridge/rust_bridge.h`, lines 14–47). The structures from the design, `VfUmaTelemetryInput`, `VfUmaGuardDecision` and `VfNtMemoryListSample`, are no longer defined in the header.
 - **Exported functions (`extern "C"`)**:
-  - `VfMemoryPurgeDecision vf_rust_evaluate_memory_purge(const VfMemoryPurgeInput* input);` (the design called it `vf_rust_evaluate_uma_pressure`; `src/bridge/rust_bridge.h:71`, `rust/vegaflow-core/src/ffi.rs:169`)
+  - `VfMemoryPurgeDecision vf_rust_evaluate_memory_purge(const VfMemoryPurgeInput* input);` (the design called it `vf_rust_evaluate_uma_pressure`; `src/bridge/rust_bridge.h:71`, `rust/vegaflow-core/src/ffi/hardware.rs:30`)
     - Computes `dxgi_budget_utilization = local_usage_bytes / local_budget_bytes` (if `vram_valid && local_budget_bytes > 0`).
     - Triggers the guard when the GPU is UMA (`is_uma_gpu`) and either `dxgi_budget_utilization >= 0.85` (the threshold can be overridden with `pressure_threshold_override`) or `free_and_zero_bytes` is below `1536 MB`.
     - Increments `total_interventions` by `1` when `guard_triggered` is true.

@@ -28,7 +28,7 @@ vegaflow-universal/
 │       ├── Cargo.toml            # staticlib/rlib with LTO and panic = unwind (ffi_guard catches the panics)
 │       └── src/
 │           ├── lib.rs            # Declares the modules and the tests of the FFI boundary
-│           ├── ffi.rs            # All the vf_rust_* functions exported to C++ (pointers and ffi_guard)
+│           ├── ffi/              # All the vf_rust_* functions exported to C++, one file per domain (mod.rs holds ffi_guard)
 │           └── policy/           # The rules, one per file, with no pointers or system calls
 │               ├── apu_tier.rs     # APU tier (1 to 4)
 │               ├── config_file.rs  # Read and save config.json without losing unknown keys

@@ -1,5 +1,5 @@
 //! The rules: pure decisions over plain data, one per file. No pointers, no FFI, no system calls;
-//! the exported C functions that call them are in `ffi.rs`.
+//! the exported C functions that call them are in `ffi/`.
 
 pub mod apu_tier;
 pub mod config_file;
