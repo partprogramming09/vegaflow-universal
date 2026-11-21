@@ -133,12 +133,12 @@ The header `rust_bridge.h` is written by hand (it is not generated with cbindgen
 
 ---
 
-### 4. Integration into the build pipeline (`scripts/build.ps1`)
+### 4. Integration into the build pipeline (`scripts/build/build.ps1`)
 
 1. **Rust GNU target check (design step):**
-   - The design asked to make sure the `x86_64-pc-windows-gnu` target is installed (`rustup target add x86_64-pc-windows-gnu`). `scripts/build.ps1` does not run `rustup`, so this step is manual.
-2. **Rust build and test step in `scripts/build.ps1`:**
-   - Before invoking `g++`, `scripts/build.ps1` builds `rust/vegaflow-core` with `cargo build --release --target x86_64-pc-windows-gnu --manifest-path rust/vegaflow-core/Cargo.toml`.
+   - The design asked to make sure the `x86_64-pc-windows-gnu` target is installed (`rustup target add x86_64-pc-windows-gnu`). `scripts/build/build.ps1` does not run `rustup`, so this step is manual.
+2. **Rust build and test step in `scripts/build/build.ps1`:**
+   - Before invoking `g++`, `scripts/build/build.ps1` builds `rust/vegaflow-core` with `cargo build --release --target x86_64-pc-windows-gnu --manifest-path rust/vegaflow-core/Cargo.toml`.
    - If `-RunTests` is passed, it first runs `cargo test --target x86_64-pc-windows-gnu --manifest-path rust/vegaflow-core/Cargo.toml`.
    - Passes the path of `rust/vegaflow-core/target/x86_64-pc-windows-gnu/release/libvegaflow_core.a` to the link arguments of `vegaflow_daemon.exe` and `vegaflow_tests.exe`, before the system libraries (`-lntdll -lws2_32 -luserenv -ladvapi32 ...`).
 
@@ -170,7 +170,7 @@ The header `rust_bridge.h` is written by hand (it is not generated with cbindgen
 
 1. **Rust unit suite (`cargo test`):**
    - 100% of tests passing in `rust/vegaflow-core` (UMA pressure guard, memory purge rule, topology partitioning 4600H / Zen4c / 4C..8C, confinement hysteresis and anti-cheat signatures).
-2. **Integrated C++20 + Rust suite (`scripts/build.ps1 -RunTests`):**
+2. **Integrated C++20 + Rust suite (`scripts/build/build.ps1 -RunTests`):**
    - The 30 existing tests plus the new **Test 31 (`Hybrid Rust FFI Core (Zero-Allocation Memory Purge, L3 Topology, Hysteresis & Anti-Cheat Scanner)`)** must pass with the result **`TEST RESULTS: 31 PASSED, 0 FAILED`**.
 3. **Hardware and system invariants (`vegaflow-methodology`):**
    - Private working set (`Private Working Set`) of the daemon and the tests **$< 15.0\text{ MB}$** (target $< 3.5\text{ MB}$).

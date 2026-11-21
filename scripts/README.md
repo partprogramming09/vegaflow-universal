@@ -2,14 +2,21 @@
 
 Solo Windows (PowerShell) salvo `remote/`, que corre en la Mac. Ninguno forma parte del producto: son para compilar, medir y probar.
 
-## Compilar
+## Compilar: `build/`
 
 | Script | Qué hace |
 | --- | --- |
-| `build.ps1` | Compila el daemon y la suite de pruebas; con `-RunTests` corre la suite entera |
-| `build-cross.sh` | Lo mismo desde un Mac o Linux con mingw-w64 (compilación cruzada); los `.exe` se prueban luego en Windows |
-| `package.sh` | Arma `dist/VegaFlow-<versión>-win-x64.zip` (daemon, `install.ps1`, `uninstall.ps1`, `SHA256SUMS`); se niega si `Cargo.toml`, `src/ui/app_identity.hpp` y el `CHANGELOG.md` no coinciden. Los scripts del paquete están en `scripts/package/`; su prueba, en `tests/package/package_tests.ps1` |
-| `check_layers.sh` | Comprueba que cada carpeta de `src/` solo incluye las capas permitidas (tabla en el plan maestro, sección 3b); corre en el CI |
+| `build/build.ps1` | Compila el daemon y la suite de pruebas; con `-RunTests` corre la suite entera |
+| `build/build-cross.sh` | Lo mismo desde un Mac o Linux con mingw-w64 (compilación cruzada); los `.exe` se prueban luego en Windows |
+| `build/package.sh` | Arma `dist/VegaFlow-<versión>-win-x64.zip` (daemon, `install.ps1`, `uninstall.ps1`, `SHA256SUMS`); se niega si `Cargo.toml`, `src/ui/app_identity.hpp` y el `CHANGELOG.md` no coinciden. Los scripts del paquete están en `scripts/package/`; su prueba, en `tests/package/package_tests.ps1` |
+
+Los tres suben dos niveles hasta la raíz del repo (`cd "$(dirname "$0")/../.."`, `Split-Path` dos veces) y solo se corren desde un clon.
+
+## CI: `ci/`
+
+| Script | Qué hace |
+| --- | --- |
+| `ci/check_layers.sh` | Comprueba que cada carpeta de `src/` solo incluye las capas permitidas (tabla en el plan maestro, sección 3b); corre en el CI |
 
 ## Medir (PresentMon y A/B)
 
@@ -32,9 +39,9 @@ Solo Windows (PowerShell) salvo `remote/`, que corre en la Mac. Ninguno forma pa
 | `hold_timer.ps1` | Pide una resolución de temporizador NT y la mantiene |
 | `sleep_probe.ps1` | Mide cuánto dura `Sleep(1)` de verdad |
 
-## Por qué la carpeta es plana
+## Por qué los de medir y de estado siguen en la raíz
 
-Los scripts no se agrupan en subcarpetas a propósito. Se buscan entre sí con `$PSScriptRoot`, y existe una copia plana instalada en `C:\ProgramData\VegaFlow` (la que usan las tareas programadas y `scripts/remote/`), así que cada script debe funcionar con las dos disposiciones. Moverlos exige reescribir esas rutas y volver a desplegar como administrador, y no se puede comprobar sin un juego abierto. Por eso el orden por tema vive en las tablas de arriba y no en carpetas.
+Los `.ps1` de medir y de estado de Windows no se mueven a una subcarpeta a propósito. Corren en dos disposiciones: el clon y una copia plana desplegada (`vfdev` y `remote/gui-install.sh` copian `bench.ps1`, `bench_pack.ps1` y `ab_loop_task.ps1` a `C:\dev\vf-pkg\scripts\`; `setup_tasks.ps1` y `remote/deploy_package.ps1` copian `tweaks_state.ps1`, `games_tweak.ps1` y `ab_profile.ps1` a `C:\ProgramData\VegaFlow`). Su ruta asume que están un nivel bajo la raíz: `bench.ps1`, `bench_pack.ps1`, `ab_loop.ps1`, `ab_loop_task.ps1` y `hold_timer.ps1` usan `Split-Path $PSScriptRoot` para `bench\results`, y `setup_tasks.ps1` busca `..\build` y `..\config`. En `scripts/bench/` el clon escribiría en `scripts/bench/results`, y cambiarlo a dos niveles rompería la copia desplegada; ninguna de las dos cosas se puede comprobar sin el laptop y un juego abierto. Por eso el orden por tema de esos scripts vive en las tablas de arriba y no en carpetas.
 
 ## `remote/`: operar el laptop desde la Mac
 

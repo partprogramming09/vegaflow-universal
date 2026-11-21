@@ -1,6 +1,6 @@
 # Build and test
 
-**In short:** This page explains how to turn VegaFlow's source code into the Windows program and how to run its test suite. On a Windows PC, `scripts/build.ps1` does both steps with one command. From a Mac or Linux, `scripts/build-cross.sh` builds the same files for Windows; this is called *cross-compiling*. For example, `powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1 -RunTests` builds the daemon (the background program) and the test suite, then runs the C++ tests.
+**In short:** This page explains how to turn VegaFlow's source code into the Windows program and how to run its test suite. On a Windows PC, `scripts/build/build.ps1` does both steps with one command. From a Mac or Linux, `scripts/build/build-cross.sh` builds the same files for Windows; this is called *cross-compiling*. For example, `powershell -ExecutionPolicy Bypass -File .\scripts\build\build.ps1 -RunTests` builds the daemon (the background program) and the test suite, then runs the C++ tests.
 
 **Reader:** people
 
@@ -19,15 +19,15 @@ A *toolchain* is the set of tools that compile and link the code.
 
 ### 5.2. Automated build (PowerShell)
 
-The project includes the script [`scripts/build.ps1`](https://github.com/partprogramming09/vegaflow-universal/blob/main/scripts/build.ps1). It finds MinGW g++ (in `PATH`, in Scoop or in `C:\msys64`), checks that `cargo` (Rust's build tool) is installed, builds the Rust core, and then builds both executables. It finds every `.cpp` file under `src/` on its own. With `-RunTests`, it also runs `cargo test` on the Rust core before running the C++ suite.
+The project includes the script [`scripts/build/build.ps1`](https://github.com/partprogramming09/vegaflow-universal/blob/main/scripts/build/build.ps1). It finds MinGW g++ (in `PATH`, in Scoop or in `C:\msys64`), checks that `cargo` (Rust's build tool) is installed, builds the Rust core, and then builds both executables. It finds every `.cpp` file under `src/` on its own. With `-RunTests`, it also runs `cargo test` on the Rust core before running the C++ suite.
 
 ```powershell
 # Build vegaflow_daemon.exe and vegaflow_tests.exe:
-powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\build\build.ps1
 
 # Build and run the C++ suite right away (the last recorded run, 2026-11-19, printed
 # `TEST RESULTS: 328 PASSED, 0 FAILED`; the number grows with each new test, so don't copy it from here):
-powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1 -RunTests
+powershell -ExecutionPolicy Bypass -File .\scripts\build\build.ps1 -RunTests
 ```
 
 #### Building from a Mac or Linux (cross-compiling)
@@ -35,14 +35,14 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1 -RunTests
 ```bash
 brew install mingw-w64                      # once
 rustup target add x86_64-pc-windows-gnu     # once
-scripts/build-cross.sh                      # builds build/vegaflow_daemon.exe and build/vegaflow_tests.exe
+scripts/build/build-cross.sh                      # builds build/vegaflow_daemon.exe and build/vegaflow_tests.exe
 ```
 
 It uses the same flags and libraries as `build.ps1` and compiles in parallel. It finds the sources with `find` over `src/` and `tests/`, so a new `.cpp` file is included without editing any list. You run the `.exe` files on a Windows PC; you don't need to compile there.
 
 #### Continuous integration (GitHub Actions)
 
-The file `.github/workflows/ci.yml` runs three jobs on GitHub's machines: the layer check (`scripts/check_layers.sh`), the Rust core tests, and the cross-compilation of the daemon and the suite. The C++ tests don't run there. They change the Windows registry (the settings database) and the power plan (the energy profile) of a real Windows machine, and they need a GPU. So they are run by hand on the test laptop. A public repository must not register that laptop as its own runner, because any *fork* (a copy of the repository) could run code on it.
+The file `.github/workflows/ci.yml` runs three jobs on GitHub's machines: the layer check (`scripts/ci/check_layers.sh`), the Rust core tests, and the cross-compilation of the daemon and the suite. The C++ tests don't run there. They change the Windows registry (the settings database) and the power plan (the energy profile) of a real Windows machine, and they need a GPU. So they are run by hand on the test laptop. A public repository must not register that laptop as its own runner, because any *fork* (a copy of the repository) could run code on it.
 
 #### Testing only the Rust core (any machine, including a Mac)
 
@@ -104,16 +104,16 @@ Where each test lives:
 - `tests/unit/`: these use fake ports (stand-ins for the file system, the registry and the clock), so they don't write game files or the registry.
 - `tests/test_main.cpp`: runs the tests in order. At the end, a guard returns the system to its previous state. Don't interrupt it halfway.
 
-The Rust rules are tested separately with `cargo test` (270 tests passed on 2026-11-21), and the layers of `src/` are checked with `scripts/check_layers.sh`.
+The Rust rules are tested separately with `cargo test` (270 tests passed on 2026-11-21), and the layers of `src/` are checked with `scripts/ci/check_layers.sh`.
 
 ---
 
 ## 7. The installation package
 
-The package is built on a Mac or Linux, with the same tools that `scripts/build-cross.sh` needs (mingw-w64 and the Rust target), plus `zip` and `shasum` (a SHA-256 hash tool):
+The package is built on a Mac or Linux, with the same tools that `scripts/build/build-cross.sh` needs (mingw-w64 and the Rust target), plus `zip` and `shasum` (a SHA-256 hash tool):
 
 ```bash
-scripts/package.sh                     # builds dist/VegaFlow-<version>-win-x64.zip and its .sha256
+scripts/build/package.sh                     # builds dist/VegaFlow-<version>-win-x64.zip and its .sha256
 ```
 
 Before it compiles anything, the script requires the version to match in three places: `rust/vegaflow-core/Cargo.toml`, `src/ui/app_identity.hpp`, and an entry `## [version]` in `CHANGELOG.md`. If not, it stops. Then it runs `build-cross.sh` and gathers into `dist/` the daemon, `install.ps1` and `uninstall.ps1` (from `scripts/package/`), `config/config.json`, `VERSION`, the license, `CHANGELOG.md` and `README.md`. It writes `SHA256SUMS`, which holds the SHA-256 hash of each of those 8 files, and then compresses everything. `dist/` is not uploaded to git.

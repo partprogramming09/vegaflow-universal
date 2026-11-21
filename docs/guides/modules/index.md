@@ -13,7 +13,7 @@ This section explains how the code is organized and where each piece lives. Each
 
 ## How the layers fit together
 
-Each folder of `src/` may only include the folders listed for it (its own folder is always allowed). The table is the same as the `allowed()` function in `scripts/check_layers.sh`; if one changes, the other changes too.
+Each folder of `src/` may only include the folders listed for it (its own folder is always allowed). The table is the same as the `allowed()` function in `scripts/ci/check_layers.sh`; if one changes, the other changes too.
 
 ### Layer table
 

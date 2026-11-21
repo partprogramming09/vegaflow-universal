@@ -1,16 +1,16 @@
 #!/bin/bash
 # Builds dist/VegaFlow-<version>-win-x64.zip from the cross-compiled daemon and scripts/package/.
 # The version comes from rust/vegaflow-core/Cargo.toml and must match src/ui/app_identity.hpp and CHANGELOG.md must have an entry for it.
-# Needs what scripts/build-cross.sh needs (mingw-w64, the Rust target) plus zip and shasum.
+# Needs what scripts/build/build-cross.sh needs (mingw-w64, the Rust target) plus zip and shasum.
 set -euo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 
 VERSION="$(sed -n 's/^version = "\(.*\)"/\1/p' rust/vegaflow-core/Cargo.toml | head -n1)"
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "error: no MAJOR.MINOR.PATCH in Cargo.toml: '$VERSION'" >&2; exit 1; }
 grep -q "kVersion\[\] = \"$VERSION\"" src/ui/app_identity.hpp || { echo "error: src/ui/app_identity.hpp kVersion is not $VERSION" >&2; exit 1; }
 grep -q "^## \[$VERSION\]" CHANGELOG.md || { echo "error: CHANGELOG.md has no entry for $VERSION" >&2; exit 1; }
 
-bash scripts/build-cross.sh
+bash scripts/build/build-cross.sh
 
 NAME="VegaFlow-$VERSION-win-x64"
 STAGE="dist/$NAME"

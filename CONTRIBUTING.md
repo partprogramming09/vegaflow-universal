@@ -14,7 +14,7 @@ Use the issue forms. A good report says what you did, what you expected and what
 ## Send a change
 1. Fork the repository and create a branch whose name says what changes.
 2. Make small commits with [Conventional Commits](https://www.conventionalcommits.org/) messages (`feat:`, `fix:`, `docs:`).
-3. Write or update the tests and run them: they must pass. On Windows, `powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1 -RunTests` builds the daemon and runs the C++ suite; `cargo test` in `rust/vegaflow-core` runs the Rust tests on any OS. The C++ suite changes the registry and the power plan for real and restores them at the end: do not stop it halfway. Details in [Build and test](docs/guides/build-and-test.md).
+3. Write or update the tests and run them: they must pass. On Windows, `powershell -ExecutionPolicy Bypass -File .\scripts\build\build.ps1 -RunTests` builds the daemon and runs the C++ suite; `cargo test` in `rust/vegaflow-core` runs the Rust tests on any OS. The C++ suite changes the registry and the power plan for real and restores them at the end: do not stop it halfway. Details in [Build and test](docs/guides/build-and-test.md).
 4. Every function that changes the system takes a `dry_run` parameter, and nothing is ever injected into or written to a game that uses anti-cheat: all disk and process work goes through `SandboxGuard`.
 5. If the change alters behaviour, update the documentation (in English, under `docs/guides/`) and the [CHANGELOG](CHANGELOG.md) in the same pull request. An optimization without its own measurement is listed as not measured in [`docs/measurements/verification-status.md`](docs/measurements/verification-status.md).
 6. Open the pull request and fill in its template.

@@ -1,12 +1,12 @@
 #!/bin/bash
 # Cross-compile the Windows daemon and the test suite on macOS/Linux with mingw-w64.
-# Same flags and libraries as scripts/build.ps1; the sources are found by globbing src/ so a new .cpp is
+# Same flags and libraries as scripts/build/build.ps1; the sources are found by globbing src/ so a new .cpp is
 # picked up without editing a list. Output: build/vegaflow_daemon.exe and build/vegaflow_tests.exe.
 #
 # Needs: x86_64-w64-mingw32-g++ (e.g. `brew install mingw-w64`) and the Rust target
 #        (`rustup target add x86_64-pc-windows-gnu`). Override the compiler with VF_CXX.
 set -euo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 
 CXX="${VF_CXX:-x86_64-w64-mingw32-g++}"
 TARGET="x86_64-pc-windows-gnu"

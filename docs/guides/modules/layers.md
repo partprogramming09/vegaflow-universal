@@ -27,6 +27,6 @@ Terms: a **port** is a small interface (for example, "read and write the registr
 
 ### What the repository checks
 
-- `scripts/check_layers.sh` checks every `#include` in `src/` against the [layer table](./index.md#layer-table): 272 includes checked, layers respected (2026-11-14). It runs in CI.
+- `scripts/ci/check_layers.sh` checks every `#include` in `src/` against the [layer table](./index.md#layer-table): 272 includes checked, layers respected (2026-11-14). It runs in CI.
 - `session/` still includes headers from `windows/`, `detect/` and `optimize/`. The script allows them as **migration** (they are marked that way in its table) until each piece sits behind a port. What is gone from `session/` are the Win32 calls.
 - The tests that touch the real registry are only in `tests/integration/`; `tests/unit/` uses fake ports. C++ suite on the test laptop, 2026-11-14: `57 PASSED, 0 FAILED`.

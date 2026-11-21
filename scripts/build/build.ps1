@@ -7,9 +7,9 @@
 .PARAMETER RunTests
     Runs vegaflow_tests.exe after the build completes successfully.
 .EXAMPLE
-    .\scripts\build.ps1
+    .\scripts\build\build.ps1
 .EXAMPLE
-    .\scripts\build.ps1 -RunTests
+    .\scripts\build\build.ps1 -RunTests
 #>
 [CmdletBinding()]
 param(
@@ -17,7 +17,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$ProjectRoot = Split-Path -Parent $PSScriptRoot
+$ProjectRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 Set-Location $ProjectRoot
 
 Write-Host "=====================================================" -ForegroundColor Cyan
@@ -102,7 +102,7 @@ Write-Host "[OK] libvegaflow_core.a generada exitosamente." -ForegroundColor Gre
 # 4. Common parameters and sources
 $IncludeFlags = @("-Isrc")
 
-# Sources are found on disk, the same way scripts/build-cross.sh does, so moving or adding a .cpp needs no edit here.
+# Sources are found on disk, the same way scripts/build/build-cross.sh does, so moving or adding a .cpp needs no edit here.
 # src/app/ holds the daemon entry points; everything else in src/ is shared by the daemon and the test suite.
 function Get-CppSources([string]$dir) {
     # -Filter also matches 8.3 short names (e.g. .cppx), so the extension is checked exactly.

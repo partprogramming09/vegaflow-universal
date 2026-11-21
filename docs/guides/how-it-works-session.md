@@ -128,7 +128,7 @@ Output from the test run of 2026-11-20 on the test laptop (Ryzen 5 4600H, Vega 6
 On Windows, in the repository folder:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1 -RunTests
+powershell -ExecutionPolicy Bypass -File .\scripts\build\build.ps1 -RunTests
 ```
 
 The last line should read `TEST RESULTS: 328 PASSED, 0 FAILED`. The number grows as tests are added. The full procedure is in [build and test](./build-and-test.md).

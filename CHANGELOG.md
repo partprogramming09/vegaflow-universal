@@ -21,7 +21,7 @@ New native GUI (Win32, owner-draw controls reachable with Tab). Not tagged yet: 
 - Inicio card "¿Algo va mal?": "Devolver todo a como estaba" and "Copiar informe" (plain text on the clipboard: version, machine, memory, the last 30 changes with before and after; the Windows user name in any path is replaced by <usuario>).
 - `dxvk.conf.vegaflow.bak`: the game's own `dxvk.conf` is copied before DXVK is deployed and put back on removal.
 - `session/` layer: pure screen models and the action objects behind the buttons, tested with in-memory fakes of the
-  file system, registry, power plan and clock. `scripts/check_layers.sh` enforces that `ui` includes only `session`
+  file system, registry, power plan and clock. `scripts/ci/check_layers.sh` enforces that `ui` includes only `session`
   and `model`.
 - WCAG contrast test of the palette; adversarial tests for every new screen and action object.
 - `--observe` with `--gui`: opens the window without automatic changes. Remote jobs to open, drive and close the

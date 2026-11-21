@@ -42,7 +42,7 @@ $hashAb = (Get-FileHash (Join-Path $dir 'ab_profile.ps1') -Algorithm SHA256).Has
 
 # The daemon and its config are copied to the protected folder: the elevated task runs nothing from a user-writable folder.
 $daemonSrc = Join-Path $PSScriptRoot '..\build\vegaflow_daemon.exe'
-if (-not (Test-Path $daemonSrc)) { throw "Falta $daemonSrc; compila con scripts\build.ps1." }
+if (-not (Test-Path $daemonSrc)) { throw "Falta $daemonSrc; compila con scripts\build\build.ps1." }
 Copy-Item $daemonSrc (Join-Path $dir 'vegaflow_daemon.exe') -Force
 New-Item -ItemType Directory -Force -Path (Join-Path $dir 'config'), (Join-Path $dir 'logs') | Out-Null
 # A reinstall keeps the settings already there; any other config.json is replaced by the one from the repository.

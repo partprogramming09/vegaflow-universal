@@ -3,7 +3,7 @@
 # a folder may only include the folders listed for it. Exits 1 and lists every broken include.
 # Runs in CI (.github/workflows/ci.yml). Bash 3.2 compatible (macOS).
 set -u
-cd "$(dirname "$0")/.." || exit 2
+cd "$(dirname "$0")/../.." || exit 2
 
 # Folders each layer may include (its own folder is always allowed).
 # "Migration" entries are the old folders (detect/, optimize/): they go away phase by phase
@@ -34,7 +34,7 @@ while IFS= read -r line; do
     [ "$from" = "$to" ] && continue
     ok="$(allowed "$from")"
     if [ "$ok" = "UNKNOWN" ]; then
-        echo "unknown layer: src/$from (add it to scripts/check_layers.sh)"; fail=1; continue
+        echo "unknown layer: src/$from (add it to scripts/ci/check_layers.sh)"; fail=1; continue
     fi
     case " $ok " in *" $to "*) ;; *) echo "$file: $from/ must not include $to/ (${line#*:})"; fail=1 ;; esac
 done < <(grep -rnE '^[[:space:]]*#[[:space:]]*include[[:space:]]*[<"][^">/]+/' src --include='*.cpp' --include='*.hpp' --include='*.h' --include='*.inl' --include='*.ipp')

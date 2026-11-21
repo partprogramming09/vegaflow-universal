@@ -36,7 +36,7 @@ The figures come from PresentMon, with their method and limits, in [`docs/measur
 
 ## Install
 
-The `VegaFlow-0.1.0-win-x64.zip` package holds the daemon and two PowerShell scripts. It is built with `scripts/package.sh`. Unzip it and, in PowerShell as administrator, from the unzipped folder:
+The `VegaFlow-0.1.0-win-x64.zip` package holds the daemon and two PowerShell scripts. It is built with `scripts/build/package.sh`. Unzip it and, in PowerShell as administrator, from the unzipped folder:
 
 | Command | What it does |
 | --- | --- |
@@ -49,13 +49,13 @@ The `VegaFlow-0.1.0-win-x64.zip` package holds the daemon and two PowerShell scr
 
 ## Build and test
 
-The program runs on Windows only. It is built with MinGW-w64 g++ 13+ and cargo with the `x86_64-pc-windows-gnu` target. From a Mac or Linux you can cross-compile (`scripts/build-cross.sh`, needs mingw-w64) and run the `.exe` files on a Windows machine.
+The program runs on Windows only. It is built with MinGW-w64 g++ 13+ and cargo with the `x86_64-pc-windows-gnu` target. From a Mac or Linux you can cross-compile (`scripts/build/build-cross.sh`, needs mingw-w64) and run the `.exe` files on a Windows machine.
 
 | Command | Where | Last real result |
 | --- | --- | --- |
-| `powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1 -RunTests` | Windows | builds the daemon and runs the C++ suite: `TEST RESULTS: 328 PASSED, 0 FAILED` (2026-11-21) |
+| `powershell -ExecutionPolicy Bypass -File .\scripts\build\build.ps1 -RunTests` | Windows | builds the daemon and runs the C++ suite: `TEST RESULTS: 328 PASSED, 0 FAILED` (2026-11-21) |
 | `cargo test --manifest-path rust/vegaflow-core/Cargo.toml` | any OS | 270 passed, 0 failed (2026-11-21, macOS) |
-| `bash scripts/check_layers.sh` | any OS | `[OK] layers respected (389 includes checked)` |
+| `bash scripts/ci/check_layers.sh` | any OS | `[OK] layers respected (389 includes checked)` |
 | `pnpm install && pnpm docs:build` | any OS | builds this documentation as a site |
 
 The C++ suite changes the registry and the power plan for real and restores them at the end: do not stop it halfway. Guide: [Build and test](docs/guides/build-and-test.md).

@@ -26,7 +26,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Check includes against the layer table
-        run: scripts/check_layers.sh
+        run: scripts/ci/check_layers.sh
 
   rust-core:
     name: Rust core tests
@@ -49,6 +49,6 @@ jobs:
           sudo apt-get install -y --no-install-recommends g++-mingw-w64-x86-64-posix
           rustup target add x86_64-pc-windows-gnu
       - name: Build the daemon and the test suite
-        run: scripts/build-cross.sh
+        run: scripts/build/build-cross.sh
         env:
           VF_CXX: x86_64-w64-mingw32-g++-posix

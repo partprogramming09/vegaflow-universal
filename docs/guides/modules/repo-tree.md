@@ -1,6 +1,6 @@
 # Modules: repository tree
 
-**In short:** this page is a map of the repository, folder by folder, from the build scripts to the tests. Use it to find where a file lives. For example, `scripts/check_layers.sh` checks that each folder of `src/` uses only the layers allowed for it, and it runs in the CI. The meaning of the layers is explained in [Code layers](./layers.md).
+**In short:** this page is a map of the repository, folder by folder, from the build scripts to the tests. Use it to find where a file lives. For example, `scripts/ci/check_layers.sh` checks that each folder of `src/` uses only the layers allowed for it, and it runs in the CI. The meaning of the layers is explained in [Code layers](./layers.md).
 
 **Reader:** people
 
@@ -15,10 +15,13 @@ vegaflow-universal/
 ├── assets/
 │   └── dxvk/                     # Put the DXVK DLLs here (not included; see its README)
 ├── scripts/
-│   ├── build.ps1                 # Automated PowerShell build and test script
-│   ├── build-cross.sh            # The same, from a Mac or Linux
-│   ├── check_layers.sh           # Checks the layers of src/ (runs in CI)
-│   ├── package.sh                # Builds dist/VegaFlow-<version>-win-x64.zip
+│   ├── build/
+│   │   ├── build.ps1             # Automated PowerShell build and test script
+│   │   ├── build-cross.sh        # The same, from a Mac or Linux
+│   │   └── package.sh            # Builds dist/VegaFlow-<version>-win-x64.zip
+│   ├── ci/
+│   │   └── check_layers.sh       # Checks the layers of src/ (runs in CI)
+│   ├── *.ps1                     # Measurement and Windows-state scripts (flat on purpose, see scripts/README.md)
 │   └── package/                  # What goes inside the zip: install.ps1 and uninstall.ps1 (see the install guide)
 ├── rust/
 │   └── vegaflow-core/            # High-security Rust hybrid core and zero-allocation FFI

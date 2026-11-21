@@ -8,7 +8,7 @@
 #   vfdev deploy                      installs the vegaflow package, the tasks and the compiled daemon (administrator over SSH, no UAC)
 #   vfdev sync                        brings the current branch's commits to the repository on the laptop (bundle + fast-forward)
 #   vfdev build-test                  builds and runs the tests on the laptop; exits with an error if any fails
-#   vfdev cross-test                  builds on the Mac (scripts/build-cross.sh), sends only the .exe files and their data to the laptop and just runs the tests there
+#   vfdev cross-test                  builds on the Mac (scripts/build/build-cross.sh), sends only the .exe files and their data to the laptop and just runs the tests there
 #   vfdev stats FILE|- [PREFIX]       groups result rows by condition: n, mean, median and range
 #   vfdev fetch PREFIX [DEST]         fetches from the laptop the JSON and frame CSVs of captures whose label starts with PREFIX
 #   vfdev frames GLOB_A GLOB_B        compares two conditions using the frame CSVs: grouped frames and confidence interval
@@ -99,7 +99,7 @@ build-test)
     require_idle
     # The log is redirected by cmd (process level): redirecting inside PowerShell turns cargo's stderr into a
     # terminating error because build.ps1 sets $ErrorActionPreference = "Stop".
-    script="\$env:Path = '$MINGW;' + \$env:Path; Set-Location '$LAPTOP_REPO'; cmd /c \"powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\build.ps1 -RunTests > \$env:TEMP\\vf-build-test.log 2>&1\"; 'exit=' + \$LASTEXITCODE; Select-String 'FAILED|PASSED|error' \$env:TEMP\\vf-build-test.log | Select-Object -Last 6 | ForEach-Object { \$_.Line }"
+    script="\$env:Path = '$MINGW;' + \$env:Path; Set-Location '$LAPTOP_REPO'; cmd /c \"powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\build\\build.ps1 -RunTests > \$env:TEMP\\vf-build-test.log 2>&1\"; 'exit=' + \$LASTEXITCODE; Select-String 'FAILED|PASSED|error' \$env:TEMP\\vf-build-test.log | Select-Object -Last 6 | ForEach-Object { \$_.Line }"
     enc="$(printf '%s' "$script" | iconv -f UTF-8 -t UTF-16LE | base64 | LC_ALL=C tr -d '\n')"
     out="$(remote "powershell -NoProfile -EncodedCommand $enc" 2>&1 | LC_ALL=C tr -d '\r' | grep -v '^<\|CLIXML\|^$')"
     printf '%s\n' "$out"
@@ -108,7 +108,7 @@ build-test)
 cross-test)
     # Build on the Mac, copy only the executables and the data files the suite reads, and just run them on the laptop.
     require_idle
-    "$REPO/scripts/build-cross.sh" || exit 1
+    "$REPO/scripts/build/build-cross.sh" || exit 1
     RUN_DIR="${VFJOB_RUN_DIR:-C:\\dev\\vf-run}"
     COPYFILE_DISABLE=1 tar -C "$REPO" -czf - build/vegaflow_tests.exe build/vegaflow_daemon.exe config tests/vectors assets 2>/dev/null |
         remote "powershell -NoProfile -Command \"New-Item -ItemType Directory -Force $RUN_DIR | Out-Null; tar -xzf - -C $RUN_DIR\"" 2>&1 | grep -v 'CLIXML' | head -3

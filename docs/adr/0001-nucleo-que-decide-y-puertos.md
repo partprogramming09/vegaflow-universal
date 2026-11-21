@@ -4,7 +4,7 @@
 
 **Reader:** people. Date: 2026-11-08 (proposal). Status: **accepted** on 2026-11-14.
 
-**Evidence of acceptance (2026-11-14):** phases 1 to 8 and R3 are done; `scripts/check_layers.sh` passes (272 includes, layers respected), and `src/session/` no longer calls Win32 directly. Result in [modules](../guides/modules/).
+**Evidence of acceptance (2026-11-14):** phases 1 to 8 and R3 are done; `scripts/ci/check_layers.sh` passes (272 includes, layers respected), and `src/session/` no longer calls Win32 directly. Result in [modules](../guides/modules/).
 
 ## Context
 
@@ -76,7 +76,7 @@ The rules of the decision:
 
 - Improvements are made **in pieces** (the *strangler* pattern: the new code grows around the old and replaces it bit by bit), within the phases of the master plan (working material, outside the repository). In each phase the decision moves into the core and the action goes behind its port.
 - Moving files and changing logic always go in **separate commits**.
-- The rule "dependencies point inward" is checked by a script in CI (`scripts/check_layers.sh`). The header of the C++ ↔ Rust bridge is generated from Rust with cbindgen (a tool that writes C headers from Rust code), so the two sides cannot drift apart.
+- The rule "dependencies point inward" is checked by a script in CI (`scripts/ci/check_layers.sh`). The header of the C++ ↔ Rust bridge is generated from Rust with cbindgen (a tool that writes C headers from Rust code), so the two sides cannot drift apart.
 - Idle use must stay below 15 MB. Virtual calls cost nanoseconds, so they do not affect it, but it is measured at the end.
 - **This decision is reviewed** if more than 12 ports are needed in total, if a single phase needs more than 2 new ones, or if idle use goes above 15 MB.
 - **Reviewed 2026-11-09:** it reached 11 ports when configuration and the change journal were added, and dropped to 10 when frame capture was removed (phase 6). The decision stands, because each port replaces a test that touched the real system. New limit: 12.

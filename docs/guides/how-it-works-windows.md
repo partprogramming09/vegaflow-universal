@@ -10,7 +10,7 @@ Before a registry value is changed, its original value is saved, so `--restore-r
 
 VegaFlow changes Windows settings: process priorities, memory, power, registry values and game files. These are the risky calls. A wrong path could write into Windows' own folders, and a registry value changed and never restored would stay changed after VegaFlow closes.
 
-The layer rule is that calls into Windows live here. The architecture record says `session/` no longer calls Win32 directly, and `scripts/check_layers.sh` checks which folders may depend on this one. Some other folders still include `windows.h` for its types, so the rule is kept by those checks, not by the compiler. Win32 is the Windows programming interface, the set of functions a C++ program uses to ask Windows for things. Before this layer was split out, the optimizers called Windows themselves, so the tests changed the real registry and power plan ([ADR 0001](../adr/0001-nucleo-que-decide-y-puertos.md)).
+The layer rule is that calls into Windows live here. The architecture record says `session/` no longer calls Win32 directly, and `scripts/ci/check_layers.sh` checks which folders may depend on this one. Some other folders still include `windows.h` for its types, so the rule is kept by those checks, not by the compiler. Win32 is the Windows programming interface, the set of functions a C++ program uses to ask Windows for things. Before this layer was split out, the optimizers called Windows themselves, so the tests changed the real registry and power plan ([ADR 0001](../adr/0001-nucleo-que-decide-y-puertos.md)).
 
 Terms used below. A **port** is an interface: a list of functions with no Windows code in it. A **fake** is a stand-in that a test puts in place of the real one. A **junction** is a folder shortcut that Windows follows as if it were the real folder. A **handle** is Windows' reference to an open file or process; the code wraps it so it is always closed ([unique_handle.hpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/unique_handle.hpp)).
 
@@ -195,7 +195,7 @@ All lines below were run on the test laptop on 2026-11-20 and are trimmed from t
 | Journal crash recovery | Suite, Test 49 and Test 50 | `[PASS] Test 49: Change journal atomic writes, crash recovery, Safe Mode, and corrupt handling (fresh: PASS, crash1: PASS, ..., safe mode: PASS, corrupt: PASS, ...)` and `[PASS] Test 50: Real disk FileChangeJournal + WindowsSystemUndo restores HKCU registry and game INI after crash (setup: PASS, restored 2/2: PASS, HKCU==123: PASS, INI exact: PASS)` |
 | `--system-info` JSON | `vegaflow_daemon.exe --system-info` | The JSON excerpt in "A concrete example" |
 | `--status` lines | `vegaflow_daemon.exe --status` | The lines in "A concrete example" |
-| Whole suite | `scripts/build.ps1 -RunTests` | `TEST RESULTS: 328 PASSED, 0 FAILED` |
+| Whole suite | `scripts/build/build.ps1 -RunTests` | `TEST RESULTS: 328 PASSED, 0 FAILED` |
 | `--restore-registry` run from the command line | not run | not reproduced |
 | Standby purge without Administrator | not run | not reproduced |
 | The exact refusal message of a write | not run; Test 17 shows PASS only | not reproduced |

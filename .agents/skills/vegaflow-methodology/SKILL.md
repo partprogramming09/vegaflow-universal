@@ -145,13 +145,13 @@ Cada cambio en VegaFlow Universal debe cumplir con el siguiente protocolo estric
 ### 1. Compilación
 VegaFlow utiliza MinGW-w64 (`g++` 16.x) bajo un entorno Windows. Dado que el compilador reside en el perfil de usuario, compila siempre ejecutando:
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\build\build.ps1
 ```
 
 ### 2. Ejecución de la Suite de Pruebas Unitarias
 El proyecto contiene 57 pruebas de C++ (`build.ps1 -RunTests`) y 252 de Rust (`cargo test` en `rust/vegaflow-core`, cifra de 2026-11-15) que validan todas las invariantes matemáticas y de seguridad:
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1 -RunTests
+powershell -ExecutionPolicy Bypass -File .\scripts\build\build.ps1 -RunTests
 ```
 **Criterio de Aceptación Innegociable**: El resultado final debe ser exactamente:
 `TEST RESULTS: 30 PASSED, 0 FAILED`.

@@ -113,7 +113,7 @@ VegaFlow Universal has reached the maturity of its optimization core and softwar
   - [`src/ui/`](https://github.com/partprogramming09/vegaflow-universal/tree/main/src/ui): native Win32/GDI window in Slate/Zinc Dark mode, tabs and components.
   - [`src/windows/`](https://github.com/partprogramming09/vegaflow-universal/tree/main/src/windows): calls to undocumented NTDLL functions and security privileges.
   - [`src/app/`](https://github.com/partprogramming09/vegaflow-universal/tree/main/src/app) and [`src/bridge/`](https://github.com/partprogramming09/vegaflow-universal/tree/main/src/bridge): the daemon's entry point and the C++ ↔ Rust contract.
-- **Build automation:** the [`scripts/build.ps1`](https://github.com/partprogramming09/vegaflow-universal/blob/main/scripts/build.ps1) script detects the MinGW-w64 `g++` compiler (on the PATH or installed with Scoop), uses C++20 flags with fully static linking (`-static -static-libgcc -static-libstdc++`, so the program needs no extra runtime DLLs), and can run the tests with `-RunTests`.
+- **Build automation:** the [`scripts/build/build.ps1`](https://github.com/partprogramming09/vegaflow-universal/blob/main/scripts/build/build.ps1) script detects the MinGW-w64 `g++` compiler (on the PATH or installed with Scoop), uses C++20 flags with fully static linking (`-static -static-libgcc -static-libstdc++`, so the program needs no extra runtime DLLs), and can run the tests with `-RunTests`.
 - **Version control and cleanliness:** the `build/` folder holds no leftovers (`*.o`, `*.old*`, logs) and the `.gitignore` is standardized.
 
 #### 1.2. Universal classification engine and guards (`ApuCapabilityGuard`)

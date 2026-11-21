@@ -1,5 +1,6 @@
 # Build artifacts and compiled binaries
 build/
+!scripts/build/
 build/*.o
 build/*.obj
 build/*.old*

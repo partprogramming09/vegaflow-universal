@@ -25,7 +25,7 @@ You should see `True`. If you see `False`, don't install it: download the zip ag
 
 This hash only proves that the zip matches its `.sha256` file. Both files are published as attachments on the same GitHub release page (checked with `gh release view v0.1.0`; they are uploaded by hand, since there is no release workflow under `.github/workflows/`). So the check catches a damaged download, but it does not protect you if someone changes both files on that page. The zip is not signed; that guarantee would need a *code-signing certificate* (a certificate that proves who published the program).
 
-**Only the executable.** The release also includes a loose `vegaflow_daemon.exe` with its own `.sha256`, the same file that is inside the zip (checked with `gh release view v0.1.0`; it is uploaded by hand, since `scripts/package.sh` does not create a separate copy). If you run it from a folder where standard accounts can write (Downloads, the desktop), VegaFlow shows a warning, uses its factory values and saves no configuration. It is a way to try it, not to install it. To keep its configuration, install it with `install.ps1`. See [`security.md`](./security.md), point 5.
+**Only the executable.** The release also includes a loose `vegaflow_daemon.exe` with its own `.sha256`, the same file that is inside the zip (checked with `gh release view v0.1.0`; it is uploaded by hand, since `scripts/build/package.sh` does not create a separate copy). If you run it from a folder where standard accounts can write (Downloads, the desktop), VegaFlow shows a warning, uses its factory values and saves no configuration. It is a way to try it, not to install it. To keep its configuration, install it with `install.ps1`. See [`security.md`](./security.md), point 5.
 
 ## Step 2 of 5: unzip
 
@@ -159,7 +159,7 @@ The script prints `PACKAGE TESTS: N PASSED, M FAILED`. Last run on the test lapt
 
 ## Build the package
 
-It is built on a Mac or Linux with `scripts/package.sh`. See [`build-and-test.md`](./build-and-test.md).
+It is built on a Mac or Linux with `scripts/build/package.sh`. See [`build-and-test.md`](./build-and-test.md).
 
 ## Related documents
 
