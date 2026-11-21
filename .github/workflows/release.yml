@@ -1,0 +1,34 @@
+# Builds the Windows zip with scripts/build/package.sh and attaches it to a GitHub Release for the pushed v* tag.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Package and publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install mingw-w64 (POSIX threads), zip and the Rust target
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends g++-mingw-w64-x86-64-posix zip
+          rustup target add x86_64-pc-windows-gnu
+      - name: Check the tag matches the version in Cargo.toml
+        run: |
+          VERSION="$(sed -n 's/^version = "\(.*\)"/\1/p' rust/vegaflow-core/Cargo.toml | head -n1)"
+          [ "$GITHUB_REF_NAME" = "v$VERSION" ] || { echo "error: tag $GITHUB_REF_NAME does not match Cargo.toml version $VERSION" >&2; exit 1; }
+      - name: Build the zip
+        run: bash scripts/build/package.sh
+        env:
+          VF_CXX: x86_64-w64-mingw32-g++-posix
+      - name: Publish the release
+        run: gh release create "$GITHUB_REF_NAME" dist/VegaFlow-*-win-x64.zip dist/VegaFlow-*-win-x64.zip.sha256 --title "$GITHUB_REF_NAME" --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}
