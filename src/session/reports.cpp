@@ -213,6 +213,7 @@ void PrintStatusReport() {
     } else {
         std::cout << "  Local VRAM Usage / Budget  : N/A (Standard DXGI query unavailable)\n";
     }
+    std::cout << "  " << GpuMemoryLine(mem.vram) << "\n";
     std::cout << "\n";
 
     std::cout << "[SHADER CACHES DETECTED]\n";
@@ -393,6 +394,15 @@ void ExecuteDryRun(const AppConfig& config) {
 
     std::cout << MemoryKpiLine(MemoryManager::GetCurrentProcessPrivateWorkingSetBytes()) << "\n";
     std::cout << "================================================================================\n";
+}
+
+std::string GpuMemoryLine(const VideoMemoryTelemetry& vram) {
+    constexpr uint64_t kMb = 1024ULL * 1024ULL;
+    std::ostringstream ss;
+    ss << "[GPU] Shared: " << vram.gpu_shared_usage_bytes / kMb << " MB | Dedicated: " << vram.gpu_dedicated_usage_bytes / kMb
+       << " MB | DXGI Budget Local: " << vram.local_budget_bytes / kMb << " MB / Non-Local: "
+       << vram.non_local_budget_bytes / kMb << " MB | PDH: " << (vram.valid ? "OK" : "UNAVAILABLE (RAM-only guard)");
+    return ss.str();
 }
 
 std::string MemoryKpiLine(uint64_t private_ws_bytes) {
