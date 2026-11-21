@@ -9,8 +9,12 @@
 #include <windows.h>
 #include <psapi.h>
 #include <dxgi1_4.h>
+#include <pdh.h>
+#include <pdhmsg.h>
 
 #include <cstdint>
+#include <cwchar>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -25,6 +29,7 @@ typedef LONG NTSTATUS;
 
 constexpr ULONG kSystemMemoryListInformationClass = 80;
 constexpr ULONG kMemoryPurgeStandbyListCommand = 4;
+constexpr ULONG kMemoryPurgeLowPriorityStandbyListCommand = 5;
 constexpr ULONG_PTR kPageSizeBytes = 4096;
 constexpr const wchar_t* kSeProfileSingleProcess = L"SeProfileSingleProcessPrivilege";
 constexpr const wchar_t* kSeIncreaseQuota = L"SeIncreaseQuotaPrivilege";
@@ -114,6 +119,74 @@ std::string WideToUtf8Mem(const wchar_t* str, int len) {
     return out;
 }
 
+// E2.3: global GPU memory (all processes) from PDH. DXGI CurrentUsage is this process only, so the guard never saw the game's VRAM.
+struct GpuMemoryQuery {
+    uint64_t luid = 0;
+    PDH_HQUERY query = nullptr;
+    PDH_HCOUNTER shared = nullptr;
+    PDH_HCOUNTER dedicated = nullptr;
+};
+
+// Sums every instance of a wildcard counter (one adapter can expose several `_phys_N` instances).
+bool SumCounterInstances(PDH_HCOUNTER counter, uint64_t& out) {
+    DWORD bytes = 0;
+    DWORD items = 0;
+    if (PdhGetFormattedCounterArrayW(counter, PDH_FMT_LARGE, &bytes, &items, nullptr) != static_cast<PDH_STATUS>(PDH_MORE_DATA) ||
+        bytes == 0) {
+        return false;
+    }
+    std::vector<unsigned char> buffer(bytes);
+    auto* array = reinterpret_cast<PDH_FMT_COUNTERVALUE_ITEM_W*>(buffer.data());
+    if (PdhGetFormattedCounterArrayW(counter, PDH_FMT_LARGE, &bytes, &items, array) != ERROR_SUCCESS || items == 0) {
+        return false;
+    }
+    uint64_t sum = 0;
+    for (DWORD i = 0; i < items; ++i) {
+        const DWORD status = array[i].FmtValue.CStatus;
+        if (status != PDH_CSTATUS_VALID_DATA && status != PDH_CSTATUS_NEW_DATA) return false;
+        if (array[i].FmtValue.largeValue > 0) sum += static_cast<uint64_t>(array[i].FmtValue.largeValue);
+    }
+    out = sum;
+    return true;
+}
+
+// PdhAddEnglishCounterW: the localized names of PdhAddCounterW do not match on a Spanish Windows.
+// false = counters unavailable (old Windows, no GPU counters): the caller marks the VRAM signal invalid.
+bool QueryGpuAdapterMemory(uint64_t luid, uint64_t& shared, uint64_t& dedicated) {
+    static std::mutex mutex;
+    static GpuMemoryQuery cached;
+    std::lock_guard<std::mutex> lock(mutex);
+
+    if (cached.query && cached.luid != luid) {
+        PdhCloseQuery(cached.query);
+        cached = GpuMemoryQuery{};
+    }
+    if (!cached.query) {
+        wchar_t instance[64]{};
+        std::swprintf(instance, 64, L"luid_0x%08X_0x%08X_phys_*", static_cast<unsigned>(luid >> 32),
+                      static_cast<unsigned>(luid & 0xFFFFFFFFu));
+        const std::wstring prefix = std::wstring(L"\\GPU Adapter Memory(") + instance + L")\\";
+        GpuMemoryQuery fresh{};
+        fresh.luid = luid;
+        const bool ok = PdhOpenQueryW(nullptr, 0, &fresh.query) == ERROR_SUCCESS &&
+                        PdhAddEnglishCounterW(fresh.query, (prefix + L"Shared Usage").c_str(), 0, &fresh.shared) == ERROR_SUCCESS &&
+                        PdhAddEnglishCounterW(fresh.query, (prefix + L"Dedicated Usage").c_str(), 0, &fresh.dedicated) == ERROR_SUCCESS;
+        if (!ok) {
+            if (fresh.query) PdhCloseQuery(fresh.query);
+            return false;
+        }
+        cached = fresh;
+    }
+
+    if (PdhCollectQueryData(cached.query) != ERROR_SUCCESS) return false;
+    uint64_t shared_sum = 0;
+    uint64_t dedicated_sum = 0;
+    if (!SumCounterInstances(cached.shared, shared_sum) || !SumCounterInstances(cached.dedicated, dedicated_sum)) return false;
+    shared = shared_sum;
+    dedicated = dedicated_sum;
+    return true;
+}
+
 } // namespace
 
 SystemMemoryTelemetry WindowsMemoryProbe::SampleSystemMemory(uint64_t target_luid) const {
@@ -198,13 +271,22 @@ SystemMemoryTelemetry WindowsMemoryProbe::SampleSystemMemory(uint64_t target_lui
                     }
                 }
                 if (adapter) {
+                    uint64_t adapter_luid = target_luid;
+                    DXGI_ADAPTER_DESC1 adapter_desc{};
+                    if (SUCCEEDED(adapter->GetDesc1(&adapter_desc))) {
+                        adapter_luid = (static_cast<uint64_t>(static_cast<uint32_t>(adapter_desc.AdapterLuid.HighPart)) << 32) |
+                                       adapter_desc.AdapterLuid.LowPart;
+                    }
                     IDXGIAdapter3* adapter3 = nullptr;
                     if (SUCCEEDED(adapter->QueryInterface(__uuidof(IDXGIAdapter3), reinterpret_cast<void**>(&adapter3))) && adapter3) {
                         DXGI_QUERY_VIDEO_MEMORY_INFO localInfo{};
                         if (SUCCEEDED(adapter3->QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &localInfo))) {
                             telemetry.vram.local_budget_bytes = localInfo.Budget;
-                            telemetry.vram.local_usage_bytes = localInfo.CurrentUsage;
-                            telemetry.vram.valid = true;
+                            telemetry.vram.local_usage_bytes = localInfo.CurrentUsage;  // this process only
+                            // Valid only with the global counters too: without them the guard would read the per-process number.
+                            telemetry.vram.valid = adapter_luid != 0 &&
+                                QueryGpuAdapterMemory(adapter_luid, telemetry.vram.gpu_shared_usage_bytes,
+                                                      telemetry.vram.gpu_dedicated_usage_bytes);
                         }
                         DXGI_QUERY_VIDEO_MEMORY_INFO nonLocalInfo{};
                         if (SUCCEEDED(adapter3->QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_NON_LOCAL, &nonLocalInfo))) {
@@ -275,8 +357,12 @@ uint32_t WindowsMemoryControl::TrimProcessWorkingSets(const std::vector<uint32_t
     return trimmed;
 }
 
-StandbyPurgeOutcome WindowsMemoryControl::PurgeStandbyList(bool dry_run) {
+StandbyPurgeOutcome WindowsMemoryControl::PurgeStandbyList(uint8_t level, bool dry_run) {
     StandbyPurgeOutcome outcome{};
+    if (level != 1 && level != 2) {
+        outcome.detail = "No standby purge level requested";
+        return outcome;
+    }
     if (dry_run) {
         outcome.succeeded = true;
         outcome.detail = "Dry-run: standby list purge simulated";
@@ -293,7 +379,7 @@ StandbyPurgeOutcome WindowsMemoryControl::PurgeStandbyList(bool dry_run) {
         return outcome;
     }
 
-    ULONG cmd = kMemoryPurgeStandbyListCommand;
+    ULONG cmd = (level == 1) ? kMemoryPurgeLowPriorityStandbyListCommand : kMemoryPurgeStandbyListCommand;
     NTSTATUS status = pfnNtSet(
         kSystemMemoryListInformationClass,
         &cmd,
@@ -302,7 +388,7 @@ StandbyPurgeOutcome WindowsMemoryControl::PurgeStandbyList(bool dry_run) {
     outcome.nt_status = static_cast<int32_t>(status);
     if (NT_SUCCESS(status)) {
         outcome.succeeded = true;
-        outcome.detail = "Standby list purged successfully";
+        outcome.detail = level == 1 ? "Low-priority standby list purged successfully" : "Standby list purged successfully";
     } else if (status == static_cast<NTSTATUS>(0xC0000061L)) {
         outcome.succeeded = false;
         outcome.privilege_missing = true;

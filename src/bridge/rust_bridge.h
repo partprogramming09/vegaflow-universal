@@ -16,7 +16,9 @@ typedef struct VfMemoryPurgeInput {
     uint64_t free_and_zero_bytes;
     uint64_t standby_bytes;
     uint64_t local_budget_bytes;
-    uint64_t local_usage_bytes;
+    // E2.3: global GPU usage from PDH (all processes); DXGI CurrentUsage is per process and no longer an input.
+    uint64_t gpu_shared_usage_bytes;
+    uint64_t gpu_dedicated_usage_bytes;
     bool vram_valid;
     bool memory_lists_valid;
     bool is_uma_gpu;
@@ -29,11 +31,17 @@ typedef struct VfMemoryPurgeInput {
     uint64_t max_game_disk_read_bytes_per_sec;
     double pressure_threshold_override;
     uint32_t prev_interventions;
+    uint8_t last_purge_level;  // E2.3: level applied earlier in this pressure episode (0 none, 1 low, 2 full)
     bool dry_run;
 } VfMemoryPurgeInput;
 
+// E2.3: purge levels carried by VfMemoryPurgeDecision.purge_level
+#define VF_PURGE_LEVEL_NONE 0
+#define VF_PURGE_LEVEL_LOW 1   // NT command 5: low-priority standby list + background trim
+#define VF_PURGE_LEVEL_FULL 2  // NT command 4: whole standby list + background trim
+
 typedef struct VfMemoryPurgeDecision {
-    bool should_purge_standby;
+    uint8_t purge_level;  // E2.3: replaces should_purge_standby
     bool should_trim_background;
     bool skipped_due_to_cooldown;
     bool skipped_due_to_disk_io;
@@ -41,6 +49,7 @@ typedef struct VfMemoryPurgeDecision {
     bool guard_triggered;
     bool dxgi_over_ceiling;
     bool free_ram_critical;
+    bool memory_pressure;  // E2.3: pressure exists even if cooldown or disk I/O held the action back
     double dxgi_budget_utilization;
     uint64_t available_os_headroom_mb;
     uint32_t total_interventions;
