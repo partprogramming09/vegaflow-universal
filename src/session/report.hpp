@@ -20,4 +20,9 @@ struct ReportInputs {
 // spaces; at most the 30 newest changes are listed, with the total.
 std::string BuildReport(const ReportInputs& in);
 
+// For text pasted in public (`--doctor`): hides the Windows user name in paths (Users\<usuario>) and replaces the computer
+// and domain names, in any letter case, with <equipo> and <dominio>. Unlike BuildReport it keeps line breaks and does not
+// cut anything. An empty name is ignored.
+std::string RedactReport(const std::string& text, const std::string& computer_name, const std::string& domain_name);
+
 } // namespace vegaflow::session
