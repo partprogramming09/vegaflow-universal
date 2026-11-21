@@ -38,6 +38,14 @@ std::string Gib(uint64_t bytes) {
     return buf;
 }
 
+// MiB under 1 GiB, GiB above: a 144 MB cache reads better as 144.0 MiB than as 0.1 GiB.
+std::string Size(uint64_t bytes) {
+    if (bytes >= 1024ull * 1024 * 1024) return Gib(bytes);
+    char buf[32];
+    std::snprintf(buf, sizeof buf, "%.1f MiB", static_cast<double>(bytes) / (1024.0 * 1024.0));
+    return buf;
+}
+
 std::string JsonString(const std::string& s) {
     std::string out = "\"";
     for (const unsigned char c : s) {
@@ -148,6 +156,19 @@ DoctorReport BuildDoctorReport(const DoctorInputs& in) {
 
     r.text = "VegaFlow doctor " + hide(in.version) + "\nAdministrator: " + (in.elevated ? "yes" : "no") + "\nDisks:\n";
     for (const std::string& l : disk_lines) r.text += "  " + l + "\n";
+    r.text += "Shader caches:\n";
+    std::string caches_json;
+    if (!in.caches_probed) r.text += "  could not read\n";
+    for (const DoctorCacheDir& c : in.caches) {
+        if (!c.exists) continue; // a folder that is not there has nothing to show
+        const uint8_t k = CacheKindByte(c) & 0x7F;
+        const char* kind = k == 0 ? "AMD" : k == 1 ? "NVIDIA" : "D3D";
+        const std::string path = hide(c.path);
+        r.text += std::string("  ") + kind + ": " + path + ": " + Size(c.bytes) + " (" + std::to_string(c.files) + " files)\n";
+        caches_json += std::string(caches_json.empty() ? "" : ",") + "{\"kind\":\"" + kind + "\",\"path\":" + JsonString(path) +
+                       ",\"bytes\":" + std::to_string(c.bytes) + ",\"files\":" + std::to_string(c.files) + "}";
+    }
+    if (in.caches_probed && caches_json.empty()) r.text += "  none found\n";
     r.text += "Findings:\n";
     if (findings.empty()) r.text += "  [OK] nothing to report\n";
     std::string findings_json;
@@ -157,7 +178,7 @@ DoctorReport BuildDoctorReport(const DoctorInputs& in) {
         findings_json += std::string(i ? "," : "") + "{\"severity\":\"" + SeverityWord(findings[i].severity) + "\",\"text\":" + JsonString(t) + "}";
     }
     r.json = "{\"version\":" + JsonString(hide(in.version)) + ",\"elevated\":" + (in.elevated ? "true" : "false") +
-             ",\"exit_code\":" + std::to_string(r.exit_code) + ",\"disks\":[" + disks_json + "],\"findings\":[" + findings_json + "]}";
+             ",\"exit_code\":" + std::to_string(r.exit_code) + ",\"disks\":[" + disks_json + "],\"shader_caches\":[" + caches_json + "],\"findings\":[" + findings_json + "]}";
     return r;
 }
 

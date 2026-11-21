@@ -75,6 +75,8 @@ It only reads: it writes nothing and deletes nothing, and it works without admin
 | Shader caches | Info when no cache folder exists; warning when no AMD or NVIDIA cache folder exists, or when the caches are empty on a critical disk; info over 10 GiB (deleting it is safe, the driver rebuilds it, and VegaFlow deletes nothing) |
 | Manufacturer tools | Warning for each of ASUS Armoury Crate, Lenovo Vantage and Legion Zone, MSI Center and Dragon Center, HP Omen Gaming Hub, MSI Afterburner, RTSS and AMD Ryzen Master that is running, with what it also changes (power plan, fan curves, GPU limits). Matched by file name, any letter case, with or without a path; one tool with three processes is one warning |
 
+The report also lists every shader cache folder that exists (kind, path, size and file count; `shader_caches` in the JSON), so a healthy cache is visible too, not only a problem.
+
 The report is made to be pasted in public: the Windows user name in paths becomes `<usuario>`, and the computer and domain names become `<equipo>` and `<dominio>`. Lines are never cut. The executable names of the manufacturer tools are the ones the products ship today; vendors rename them between versions, so a missing warning is not proof that the tool is absent.
 
 Shape of the output (taken from the unit-test inputs, not yet captured on the test laptop):
@@ -83,6 +85,8 @@ VegaFlow doctor 0.1.0
 Administrator: yes
 Disks:
   System drive (C:\): 4.0 GiB free of 500.0 GiB
+Shader caches:
+  AMD: C:\Users\<usuario>\AppData\Local\AMD\DxCache: 144.0 MiB (340 files)
 Findings:
   [CRITICAL] System drive (C:\) has only 4.0 GiB free: the shader cache cannot grow
   [WARN] ASUS Armoury Crate is running and also changes the power plan and fan curves: it can fight VegaFlow over them

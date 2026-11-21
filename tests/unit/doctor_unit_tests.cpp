@@ -132,6 +132,26 @@ void Test109() {
     RecordResult(Has(r13.text, long_path) && Has(r13.json, std::string(400, 'p') + "\\\\end") && JsonOk(r13.json),
                  "Test 109.13: a path over 200 characters is not cut");
 
+    // 14. Healthy caches are listed too (kind, size, files), in the text and in the JSON, with the user name hidden; a folder
+    // that does not exist is not listed; a cache that could not be read says so.
+    auto caches = Healthy();
+    caches.caches.clear();
+    caches.caches.push_back({"C:\\Users\\Juan\\AppData\\Local\\D3DSCache", 3 * 1024 * 1024, 12, true});
+    caches.caches.push_back({"C:\\Users\\Juan\\AppData\\Local\\AMD\\DxCache", 144ull * 1024 * 1024, 340, true});
+    caches.caches.push_back({"C:\\Users\\Juan\\AppData\\Local\\NVIDIA\\DXCache", 0, 0, false});
+    const auto r16 = gs::BuildDoctorReport(caches);
+    RecordResult(Has(r16.text, "Shader caches:") && Has(r16.text, "D3D") && Has(r16.text, "3.0 MiB (12 files)") && Has(r16.text, "AMD") &&
+                     Has(r16.text, "144.0 MiB (340 files)") && !Has(r16.text, "NVIDIA") && !Has(r16.text, "Juan") && Has(r16.text, "<usuario>") &&
+                     Has(r16.json, "\"shader_caches\":[{\"kind\":\"D3D\"") && Has(r16.json, "\"bytes\":150994944,\"files\":340") &&
+                     !Has(r16.json, "Juan") && JsonOk(r16.json),
+                 "Test 107.16: healthy shader caches are listed with kind, size and files, in the text and the JSON", r16.text + r16.json);
+    auto unread = Healthy();
+    unread.caches_probed = false;
+    unread.caches.clear();
+    const auto r17 = gs::BuildDoctorReport(unread);
+    RecordResult(Has(r17.text, "Shader caches:\n  could not read") && Has(r17.json, "\"shader_caches\":[]") && JsonOk(r17.json),
+                 "Test 107.17: an unreadable cache probe says so and the JSON list is empty", r17.text + r17.json);
+
     // RedactReport on its own: keeps line breaks and length, hides the names case-insensitively.
     const std::string red = gs::RedactReport("a\r\nC:\\Users\\Ana\\x on desktop-abc of Corp-Dom\r\n" + std::string(300, 'z'), "DESKTOP-ABC", "CORP-DOM");
     RecordResult(Has(red, "\r\n") && !Has(red, "Ana") && !Has(red, "abc") && !Has(red, "Dom") && red.size() > 300,
