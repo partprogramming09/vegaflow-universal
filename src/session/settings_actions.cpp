@@ -75,12 +75,12 @@ std::string SettingsActions::ToggleApuPowerMode() {
 
 void SettingsActions::ResetAll(size_t* reverted, size_t* total) {
     auto& gfx = d_.gfx;
-    gfx.Display().SetMpoDisabled(false, false);
+    // MPO is not written here: if VegaFlow changed it, its RegBackup copy is put back below; otherwise it is the user's.
     if (gfx.AmdDriver()) {
         gfx.AmdDriver()->SetShaderCacheForced(false, d_.policy, false);
         gfx.AmdDriver()->RestoreVramReporting(false);
     }
-    gfx.KernelScheduler().SetMemoryCompressionEnabled(true, false);
+    gfx.KernelScheduler().RevertMemoryCompressionChange(false); // only what the journal says VegaFlow changed
     gfx.Mmcss().SetGamingProfileOptimized(false, false);
     gfx.Display().SetGameDvrCaptureDisabled(false, false);
     gfx.Display().SetFullscreenOptimizationsDisabled(false, false);

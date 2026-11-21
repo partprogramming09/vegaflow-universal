@@ -232,9 +232,15 @@ std::optional<int> RunOneShotCommand(const CliOptions& opts, int argc, char* arg
     }
 
     if (opts.mem_compression_on_flag) {
-        bool ok = vegaflow::KernelSchedulerTweaks(reg).SetMemoryCompressionEnabled(true, opts.dry_run_flag);
-        std::cout << "[MemCompression] SetMemoryCompressionEnabled(true) " << (opts.dry_run_flag ? "[DRY-RUN] " : "")
-                  << (ok ? "SUCCEEDED. Windows Memory Compression restored." : "FAILED. Administrator privileges required.") << "\n";
+        // Not a blind Enable-MMAgent: only an open journal entry (VegaFlow turned it off) is reverted.
+        vegaflow::SteadyClock clock;
+        vegaflow::FileChangeJournal journal(file_system, clock, vegaflow::JournalFilePath());
+        const bool loaded = journal.Load() && !journal.Header().corrupt;
+        if (loaded) vegaflow::SetActiveChangeJournal(&journal);
+        bool ok = loaded && vegaflow::KernelSchedulerTweaks(reg).RevertMemoryCompressionChange(opts.dry_run_flag);
+        vegaflow::SetActiveChangeJournal(nullptr);
+        std::cout << "[MemCompression] RevertMemoryCompressionChange() " << (opts.dry_run_flag ? "[DRY-RUN] " : "")
+                  << (ok ? "SUCCEEDED. Memory Compression is as VegaFlow found it (unchanged if VegaFlow never turned it off)." : "FAILED. Administrator privileges required, or the change journal is unreadable.") << "\n";
         return ok ? 0 : 1;
     }
 

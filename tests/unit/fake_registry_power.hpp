@@ -44,6 +44,7 @@ public:
     std::vector<FakeRegOp> deletes;
     bool memory_compression_enabled = true;
     std::set<std::wstring> fail_write_subkeys; // lowercase subkeys whose WriteValue returns false (permission denied)
+    std::set<std::wstring> fail_backup_subkeys;  // lowercase subkeys whose RegBackup copy cannot be written: WriteValue(backup=true) refuses
     std::set<std::wstring> fail_restore_subkeys; // lowercase subkeys whose RestoreBackedUpValue fails and keeps the value
     std::vector<bool> dxgi_journal_results;    // the succeeded flag of each EndDxgiPreferenceChange
     std::vector<vegaflow::ShaderCacheReport> shader_caches;
@@ -109,6 +110,7 @@ public:
         const std::string& = {}) override {
         writes.push_back({ hive, subkey, name });
         if (fail_write_subkeys.count(Lower(subkey)) > 0) return false;
+        if (backup_and_journal && fail_backup_subkeys.count(Lower(subkey)) > 0) return false;
         Key k = MakeKey(hive, subkey, name);
         if (backup_and_journal && backups.find(k) == backups.end()) {
             auto cur = values.find(k);
@@ -198,8 +200,20 @@ public:
 
     bool IsMemoryCompressionEnabled() override { return memory_compression_enabled; }
 
+    // Like the real journal: the state before VegaFlow's first change, kept until it is reverted.
+    std::optional<bool> compression_journal_original;
+
     bool SetMemoryCompressionEnabled(bool enable, bool dry_run = false) override {
-        if (!dry_run) memory_compression_enabled = enable;
+        if (dry_run) return true;
+        if (!compression_journal_original && (!enable || !memory_compression_enabled)) compression_journal_original = memory_compression_enabled;
+        memory_compression_enabled = enable;
+        return true;
+    }
+
+    bool RevertMemoryCompressionChange(bool dry_run = false) override {
+        if (dry_run || !compression_journal_original) return true;
+        memory_compression_enabled = *compression_journal_original;
+        compression_journal_original.reset();
         return true;
     }
 
