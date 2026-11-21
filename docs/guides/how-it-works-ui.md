@@ -108,7 +108,7 @@ Known differences, checked in the code and not fixed by this page:
 | 3 and 5 (tab 3) | Opened tab 3 on the laptop, screenshot. How the tab was opened is not recorded | [gui-uma-cores.png](./img/gui-uma-cores.png): "Procesos en segundo plano detectados: 22 \| Procesos aislados en núcleos secundarios: 0" |
 | 6 (Tab key reaches the buttons) | Keyboard run | not reproduced |
 | 8 (restore message brings the window forward) | `scripts/remote/vfdev run gui-second` on the laptop, with one GUI open | `segunda salio=True (codigo 0); GUIs abiertas=1; ventana al frente es la primera=True` |
-| Whole suite | Full C++ suite | `TEST RESULTS: 320 PASSED, 0 FAILED` |
+| Whole suite | Full C++ suite | `TEST RESULTS: 328 PASSED, 0 FAILED` |
 
 ## Check it yourself
 
