@@ -20,6 +20,8 @@
     at the end, or by the octo-close job when -Leave 1 keeps the game open for another job (ab).
     Labels: <Prefix>-<cond>-bNN[cK] counted captures; wu-<Prefix>-... warm-up and chk-<Prefix>-... load check (not counted).
     Screenshots: C:\ProgramData\VegaFlow\screens\<Prefix>-bNN-title.png, -loaded.png and -fail.png.
+    A cancel or timeout kills this script before its finally block: Engine.ini keeps the last variant and the game stays
+    open. Run the octo-close job to put both back.
 #>
 param(
     [Parameter(Mandatory)][ValidatePattern('^(factory|streaming|visual|async|full|keep)(,(factory|streaming|visual|async|full|keep)){0,19}$')][string]$Conditions,

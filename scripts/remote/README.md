@@ -69,6 +69,7 @@ Cada condición es un lanzamiento (~7 min con `Warmup=1 Captures=1`): cierra el 
 - El `Engine.ini` que encuentra se guarda en `C:\ProgramData\VegaFlow\octo\Engine.orig.ini`; `octo_close.ps1` lo devuelve, compara el SHA-256 y borra la copia. Se niega si esa copia ya trae `[SystemSettings]` (no sabría cuál es el de fábrica). Aun así, copia tú el `Engine.ini` fuera de la carpeta del juego antes de empezar.
 - Mide con el daemon apagado (se niega si está corriendo). Etiquetas: `<Prefix>-<cond>-bNN[cK]` cuentan; `wu-…` (calentamiento) y `chk-…` (comprobación) no, y no comparten prefijo con las que cuentan, así que `vfdev fetch <Prefix>` trae solo las buenas.
 - Capturas de verificación: `C:\ProgramData\VegaFlow\screens\<Prefix>-bNN-title.png`, `-loaded.png`; `vfdev octo` las trae a `build/octo/` (o `VFJOB_OCTO_OUT`).
+- **Si se cancela `octo` o se pasa de su límite**, el ejecutor mata su árbol de procesos y el `finally` no corre: `Engine.ini` queda con la última variante, la copia sigue en `C:\ProgramData\VegaFlow\octo` y el juego (hijo de Steam, no del trabajo) sigue abierto. Arréglalo con `vfdev run octo-close`.
 - SCSKiller: la línea de inicio dice si corre y si su `d3d11.dll` está en la carpeta del juego; cerrarlo es a mano (procedimiento autorizado en la memoria del proyecto).
 
 ## Seguridad
@@ -91,6 +92,7 @@ scripts/remote/vfdev deploy
 ## Límites
 
 - Un trabajo a la vez (cola máxima de 20) y solo sesión 1: no hay trabajos de sesión 0.
+- Un daemon de `main` copiado a `C:\ProgramData\VegaFlow` sin `config\change_journal.vfj` se cuelga en su primer arranque por `VegaFlow-Start`: hace por consola la pregunta del punto de restauración (`src/app/main.cpp:214-216`) y la consola oculta de la tarea cuenta como interactiva. Detalle y cómo se siguió: `docs/measurements/2026-11-22-octopath-f2-4.md`.
 - Tras un reinicio hace falta iniciar sesión en el laptop; el inicio automático no funciona con la cuenta de Microsoft actual.
 - Solo `gui-keys` pulsa teclas (Tab, Enter, Esc, Espacio, flechas, Ctrl+1..8) y solo si la ventana en primer plano es la GUI de prueba; `{SPACE}` activa los botones owner-draw, Enter no. `gui` abre `--gui --observe` (sin cambios automáticos). Para ver la pantalla: `vfdev run screenshot Name=x` y `scp` del PNG. Usa Desktop Duplication (`method=dda`), que ve juegos a pantalla completa; el GDI de antes salía negro en esos casos y queda como respaldo (`method=gdi`). Sin `setup_capture.ps1` instalado, cae al respaldo.
 - El MCP `vfjob` ya no existe y se quitó de la configuración de Claude Code el 2026-11-05.
