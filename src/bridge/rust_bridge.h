@@ -483,6 +483,11 @@ bool vf_rust_doctor_json_is_valid(const uint8_t* bytes, size_t len);
    Discouraged at 16384 MB or less. Vectors: tests/vectors/memory_compression.tsv. */
 uint8_t vf_rust_memory_compression_off_advice(uint64_t total_ram_mb, bool probe_ok);
 
+// E2.7
+/* True when the config.json number with this VF_CONFIG_KEY_* bit takes effect while VegaFlow runs; false (read once at
+   start: Configuración says "restart") for the five numbers and for an unknown bit. */
+bool vf_rust_config_number_applies_live(uint32_t key_bit);
+
 #ifdef __cplusplus
 }
 #endif

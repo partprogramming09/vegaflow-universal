@@ -180,6 +180,7 @@ int main() {
         {111, vftest::Test111},  // E2.2
         {112, vftest::Test112},  // E2.6
         {113, vftest::Test113},  // refused background process journaled once
+        {115, vftest::Test115},  // E2.7
     };
     for (const auto& [number, run] : tests) {
         try {
