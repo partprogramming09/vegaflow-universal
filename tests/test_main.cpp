@@ -206,6 +206,7 @@ int main() {
         {137, vftest::Test137},  // a startup question reads one line key by key (Enter, Backspace, UTF-8, long line)
         {138, vftest::Test138},  // the startup question limit is absolute and a key after it does not count
         {139, vftest::Test139},  // end of input or a failed read is no answer and discards pending keys
+        {140, vftest::Test140},  // a filtered token cannot hard-link a protected file it cannot write
     };
     for (const auto& [number, run] : tests) {
         try {
