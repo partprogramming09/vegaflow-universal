@@ -177,13 +177,13 @@ bool RegBackupValue(int hive, const std::wstring& subkey, HKEY hKey, const wchar
         return false;
     }
 
-    RegWriteString(hb, L"subkey", subkey);
-    RegWriteString(hb, L"name", name);
-    RegWriteDword(hb, L"hive", static_cast<DWORD>(hive));
-    RegWriteDword(hb, L"present", present ? 1 : 0);
-    RegWriteDword(hb, L"type", type);
+    // A record missing any field cannot restore the original, so every write must succeed.
+    const bool fields_saved = RegWriteString(hb, L"subkey", subkey) && RegWriteString(hb, L"name", name) &&
+                              RegWriteDword(hb, L"hive", static_cast<DWORD>(hive)) &&
+                              RegWriteDword(hb, L"present", present ? 1 : 0) && RegWriteDword(hb, L"type", type);
     const BYTE empty = 0;
-    const LSTATUS saved = RegSetValueExW(hb, L"data", 0, REG_BINARY, data.empty() ? &empty : data.data(), static_cast<DWORD>(data.size()));
+    const LSTATUS saved = fields_saved ? RegSetValueExW(hb, L"data", 0, REG_BINARY, data.empty() ? &empty : data.data(), static_cast<DWORD>(data.size()))
+                                       : ERROR_WRITE_FAULT;
     RegCloseKey(hb);
     if (saved != ERROR_SUCCESS) {
         RegDeleteKeyW(HkeyFromId(hive), path.c_str());
