@@ -36,15 +36,15 @@ void CpuOrchestrator::RestoreTrackedGame() {
     if (last_optimized_game_pid_ == 0 || !pc_) {
         return;
     }
-    if (last_optimized_game_creation_time_ == 0 ||
-        pc_->VerifyProcessIdentity(last_optimized_game_pid_, last_optimized_game_creation_time_)) {
-        pc_->RestoreGameProcess(
-            last_optimized_game_pid_,
-            last_optimized_game_creation_time_,
-            last_game_orig_priority_class_);
-    }
+    // A process that exited has nothing left to give back; a live one that refuses keeps its journal entry pending.
+    const bool alive = last_optimized_game_creation_time_ == 0 ||
+        pc_->VerifyProcessIdentity(last_optimized_game_pid_, last_optimized_game_creation_time_);
+    const bool given_back = !alive || pc_->RestoreGameProcess(
+        last_optimized_game_pid_,
+        last_optimized_game_creation_time_,
+        last_game_orig_priority_class_);
 
-    if (ChangeJournal* journal = GetActiveChangeJournal()) {
+    if (ChangeJournal* journal = given_back ? GetActiveChangeJournal() : nullptr) {
         journal->MarkMatchingReverted(
             JournalTargetKind::ProcessState,
             "PID:" + std::to_string(last_optimized_game_pid_));
@@ -253,8 +253,8 @@ CpuOptimizationResult CpuOrchestrator::ApplyOptimizations(
                     }
                     // Also drop if this PID became the active game.
                     if (game_pid != 0 && entry.pid == game_pid) {
-                        pc_->RestoreBackgroundProcess(entry.pid, entry.creation_time, entry.action);
-                        if (ChangeJournal* journal = GetActiveChangeJournal()) {
+                        const bool given_back = pc_->RestoreBackgroundProcess(entry.pid, entry.creation_time, entry.action);
+                        if (ChangeJournal* journal = given_back ? GetActiveChangeJournal() : nullptr) {
                             journal->MarkMatchingReverted(JournalTargetKind::ProcessState, "PID:" + std::to_string(entry.pid));
                         }
                         return true;
@@ -293,8 +293,8 @@ CpuOptimizationResult CpuOrchestrator::ApplyOptimizations(
 
             if (target.action == ProcessAction::DoNotTouch || target.action == ProcessAction::BoostAsGame) {
                 if (!dry_run && existing != modified_background_.end()) {
-                    pc_->RestoreBackgroundProcess(existing->pid, existing->creation_time, existing->action);
-                    if (ChangeJournal* journal = GetActiveChangeJournal()) {
+                    const bool given_back = pc_->RestoreBackgroundProcess(existing->pid, existing->creation_time, existing->action);
+                    if (ChangeJournal* journal = given_back ? GetActiveChangeJournal() : nullptr) {
                         journal->MarkMatchingReverted(JournalTargetKind::ProcessState, "PID:" + std::to_string(existing->pid));
                     }
                     modified_background_.erase(existing);
@@ -386,10 +386,9 @@ void CpuOrchestrator::RestoreAll(bool dry_run) {
     RestoreTrackedGame();
 
     for (const auto& entry : modified_background_) {
-        if (entry.creation_time == 0 || pc_->VerifyProcessIdentity(entry.pid, entry.creation_time)) {
-            pc_->RestoreBackgroundProcess(entry.pid, entry.creation_time, entry.action);
-        }
-        if (ChangeJournal* journal = GetActiveChangeJournal()) {
+        const bool alive = entry.creation_time == 0 || pc_->VerifyProcessIdentity(entry.pid, entry.creation_time);
+        const bool given_back = !alive || pc_->RestoreBackgroundProcess(entry.pid, entry.creation_time, entry.action);
+        if (ChangeJournal* journal = given_back ? GetActiveChangeJournal() : nullptr) {
             journal->MarkMatchingReverted(JournalTargetKind::ProcessState, "PID:" + std::to_string(entry.pid));
         }
     }

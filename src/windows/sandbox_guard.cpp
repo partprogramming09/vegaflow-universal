@@ -386,15 +386,18 @@ bool SandboxGuard::DirectoryContainsAntiCheat(const std::filesystem::path& dir) 
         }
 
         // Inspect the files and subdirectories present in the folder
-        for (const auto& entry : std::filesystem::directory_iterator(
-                 current, std::filesystem::directory_options::skip_permission_denied, ec)) {
-            if (ec) break;
-
-            std::wstring filename = entry.path().filename().wstring();
+        // increment(ec) instead of ++ (which throws). A listing cut by an error cannot prove "no anti-cheat here",
+        // so it answers true (blocked), never false.
+        std::error_code list_ec;
+        std::filesystem::directory_iterator it(
+            current, std::filesystem::directory_options::skip_permission_denied, list_ec);
+        for (const std::filesystem::directory_iterator end; !list_ec && it != end; it.increment(list_ec)) {
+            std::wstring filename = it->path().filename().wstring();
             if (PathContainsAntiCheatSignature(filename)) {
                 return true;
             }
         }
+        if (list_ec) return true;
 
         // Stop when we reach the project root or the drive root
         if (current == current.root_path()) {

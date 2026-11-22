@@ -151,4 +151,31 @@ void Test83() {
                      ", restored: " + pass(restored) + ", backup removed after copy: " + pass(bak_removed));
 }
 
+// F1.7: a failed copy of the original DLL must not leave the game without any DLL (DXVK's was deleted before the copy).
+void Test131() {
+    std::error_code ec;
+    const std::filesystem::path dir = std::filesystem::temp_directory_path(ec) / L"vegaflow_unit_dxvk131";
+    std::filesystem::remove_all(dir, ec);
+    std::filesystem::create_directories(dir, ec);
+    const std::wstring exe = (dir / L"game.exe").wstring();
+    auto Touch = [&](const wchar_t* name, const std::string& body) { std::ofstream(dir / name, std::ios::binary) << body; };
+    Touch(L"d3d11.dll", "DXVK");
+    Touch(L"dxgi.dll", "DXVK");
+    Touch(L"d3d11.dll.original.bak", "ORIGINAL");
+    Touch(L"dxgi.dll.original.bak", "ORIGINAL");
+    Touch(L"dxvk.conf", "# VegaFlow DXVK AMD Vega 6 Profile\n");
+
+    FakeFileSystem fs;
+    fs.fail_copy = true;
+    std::string msg;
+    const bool refused = !vegaflow::DxvkManager(fs).RemoveDxvk(exe, false, &msg);
+    bool dll_kept = true;
+    for (const auto& r : fs.removes) {
+        if (r.size() >= 4 && r.compare(r.size() - 4, 4, L".dll") == 0) dll_kept = false;
+    }
+    std::filesystem::remove_all(dir, ec);
+    RecordResult(refused && dll_kept, "Test 131: a failed copy of the original DLL leaves DXVK's DLL in place, not an empty folder (F1.7)",
+                 std::string("Refused=") + (refused ? "1" : "0") + ", DllKept=" + (dll_kept ? "1" : "0"));
+}
+
 } // namespace vftest

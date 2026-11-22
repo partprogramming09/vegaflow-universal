@@ -25,12 +25,21 @@ bool KernelSchedulerTweaks::IsMemoryCompressionEnabled() {
     return reg_.IsMemoryCompressionEnabled();
 }
 
-bool KernelSchedulerTweaks::SetDynamicPrioritySeparation(uint32_t value, bool dry_run) {
+bool KernelSchedulerTweaks::SetDynamicPrioritySeparation(uint32_t value, bool dry_run, bool user_off) {
     if (dry_run) {
         return true;
     }
 
-    const bool is_default = (value == 0x02u);
+    // Giving back never writes the factory value: with VegaFlow's copy the user's value returns, without one it was never
+    // touched. Only the user's own "off" in Ajustes writes it, after its copy.
+    if (value == 0x02u && user_off) {
+        return UserOffValue(reg_, RegHive::LocalMachine, kPriorityControlPath, L"Win32PrioritySeparation", RegValue::MakeDword(0x02u),
+                            "Prioridad de quantum CPU stock", "0x2");
+    }
+    if (value == 0x02u) {
+        reg_.RestoreBackedUpValue(RegHive::LocalMachine, kPriorityControlPath, L"Win32PrioritySeparation");
+        return true;
+    }
     char hexbuf[16]{};
     std::snprintf(hexbuf, sizeof(hexbuf), "0x%x", value);
 
@@ -39,13 +48,9 @@ bool KernelSchedulerTweaks::SetDynamicPrioritySeparation(uint32_t value, bool dr
         kPriorityControlPath,
         L"Win32PrioritySeparation",
         RegValue::MakeDword(value),
-        true, // also the factory value: the copy keeps the user's own value for the restore below
+        true,
         "Prioridad de quantum CPU en juego",
         hexbuf);
-
-    if (is_default) {
-        reg_.RestoreBackedUpValue(RegHive::LocalMachine, kPriorityControlPath, L"Win32PrioritySeparation");
-    }
     return set_ok;
 }
 
@@ -58,12 +63,25 @@ uint32_t KernelSchedulerTweaks::QueryDynamicPrioritySeparation() {
     return 2u;
 }
 
-bool KernelSchedulerTweaks::SetKernelMemoryPagingShield(bool enable, bool dry_run) {
+bool KernelSchedulerTweaks::SetKernelMemoryPagingShield(bool enable, bool dry_run, bool user_off) {
     if (dry_run) {
         return true;
     }
 
-    const uint32_t disable_paging = enable ? 1u : 0u;
+    // Giving it back is never a write: with VegaFlow's copy the user's values return, without one they were never touched.
+    if (!enable && user_off) {
+        constexpr auto LM = RegHive::LocalMachine;
+        const bool a = UserOffValue(reg_, LM, kMemoryManagementPath, L"DisablePagingExecutive", RegValue::MakeDword(0u), "Blindaje de memoria stock", "0");
+        const bool b = UserOffValue(reg_, LM, kMemoryManagementPath, L"LargeSystemCache", RegValue::MakeDword(0u), "Caché de sistema stock", "0");
+        return a && b;
+    }
+    if (!enable) {
+        reg_.RestoreBackedUpValue(RegHive::LocalMachine, kMemoryManagementPath, L"DisablePagingExecutive");
+        reg_.RestoreBackedUpValue(RegHive::LocalMachine, kMemoryManagementPath, L"LargeSystemCache");
+        return true;
+    }
+
+    const uint32_t disable_paging = 1u;
     const uint32_t large_cache = 0u;
 
     const bool st1 = reg_.WriteValue(
@@ -84,10 +102,6 @@ bool KernelSchedulerTweaks::SetKernelMemoryPagingShield(bool enable, bool dry_ru
         "Evitar desplazamiento por cach\u00e9",
         "0");
 
-    if (!enable) {
-        reg_.RestoreBackedUpValue(RegHive::LocalMachine, kMemoryManagementPath, L"DisablePagingExecutive");
-        reg_.RestoreBackedUpValue(RegHive::LocalMachine, kMemoryManagementPath, L"LargeSystemCache");
-    }
     return st1 && st2;
 }
 

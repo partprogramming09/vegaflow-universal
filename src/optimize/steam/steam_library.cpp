@@ -65,7 +65,11 @@ std::vector<SteamGameEntry> SteamEngineOptimizer::ScanSteamLibrary() {
     }
 
     for (const auto& sdir : steamapps_dirs) {
-        for (const auto& entry : std::filesystem::directory_iterator(sdir, ec)) {
+        // increment(ec) instead of ++ (which throws): a listing cut by an error keeps the games found so far.
+        std::error_code it_ec;
+        std::filesystem::directory_iterator it(sdir, it_ec);
+        for (const std::filesystem::directory_iterator end; !it_ec && it != end; it.increment(it_ec)) {
+            const auto& entry = *it;
             if (!entry.is_regular_file(ec)) continue;
             std::wstring filename = entry.path().filename().wstring();
             if (filename.rfind(L"appmanifest_", 0) == 0 && EndsWithInsensitiveW(filename, L".acf")) {

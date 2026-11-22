@@ -32,6 +32,14 @@ inline constexpr const wchar_t* kUmdBoostValues[] = {
     L"Tessellation", L"Main3D_DEF", L"TurboSync", L"DisableFlipQueueOptimization"
 };
 
+// The user's own "off" in Ajustes: VegaFlow's copy goes back if it has one; if not (the value may already equal VegaFlow's),
+// the factory value is written after its copy is taken, so the switch cannot stay stuck on. Give-back paths never use this.
+inline bool UserOffValue(RegistryPort& reg, RegHive hive, const wchar_t* path, const wchar_t* name, const RegValue& factory,
+                         const char* reason, const char* after) {
+    if (reg.RestoreBackedUpValue(hive, path, name)) return true;
+    return reg.WriteValue(hive, path, name, factory, true, reason, after);
+}
+
 inline std::wstring ToLower(std::wstring_view str) {
     std::wstring result;
     result.reserve(str.size());

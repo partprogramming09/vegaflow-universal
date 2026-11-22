@@ -51,6 +51,7 @@ test tests/unit/equipment_screen_unit_tests.cpp
 test tests/unit/ffi_callback_guard_unit_tests.cpp
 test tests/unit/fse_compat_unit_tests.cpp
 test tests/unit/gamedvr_restore_unit_tests.cpp
+test tests/unit/give_back_no_blind_write_unit_tests.cpp
 test tests/unit/gpu_usage_unit_tests.cpp
 test tests/unit/gui_wiring_unit_tests.cpp
 test tests/unit/memcompression_journal_unit_tests.cpp
@@ -67,6 +68,7 @@ test tests/unit/wake_loop_unit_tests.cpp
 exclude tests/unit/cli_forward_unit_tests.cpp compile
 exclude tests/unit/device_profile_unit_tests.cpp compile
 exclude tests/unit/process_class_unit_tests.cpp compile
+exclude tests/unit/power_balanced_unit_tests.cpp compile
 exclude tests/unit/reports_log_unit_tests.cpp compile
 exclude tests/unit/config_actions_unit_tests.cpp link
 exclude tests/unit/adapter_refresh_unit_tests.cpp link
@@ -86,6 +88,7 @@ exclude tests/unit/history_screen_unit_tests.cpp link
 exclude tests/unit/home_screen_adversarial_unit_tests.cpp link
 exclude tests/unit/home_screen_unit_tests.cpp link
 exclude tests/unit/ini_unit_tests.cpp link
+exclude tests/unit/game_file_safety_unit_tests.cpp compile
 exclude tests/unit/journal_unit_tests.cpp link
 exclude tests/unit/memory_purge_unit_tests.cpp link
 exclude tests/unit/programs_screen_adversarial_unit_tests.cpp link

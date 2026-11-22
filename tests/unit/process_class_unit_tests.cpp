@@ -78,6 +78,7 @@ struct FakeProc {
     uint64_t creation_time = 0;
     bool alive = true;
     bool bg_refuse = false; // ApplyBackgroundPolicy answers modified=false (a protected service)
+    bool restore_fails = false; // alive, but the restore calls are refused (access denied)
     uint32_t priority_class = NORMAL_PRIORITY_CLASS;
     bool ecoqos = false;
     bool mem_deprioritized = false;
@@ -164,6 +165,7 @@ public:
             it->second.recycled_wrong_touch_calls++;
             return false;
         }
+        if (it->second.restore_fails) return false;
         it->second.restore_game_calls++;
         it->second.priority_class = orig_priority_class;
         it->second.cpu_sets.clear();
@@ -230,6 +232,7 @@ public:
             it->second.recycled_wrong_touch_calls++;
             return false;
         }
+        if (it->second.restore_fails) return false;
         it->second.bg_restore_calls++;
         it->second.ecoqos = false;
         if (applied_action == vegaflow::ProcessAction::EcoOnly) {
@@ -486,6 +489,55 @@ void Test113() {
     RecordResult(ok, "Test 113: a background process that refuses the policy is journaled once per (pid, creation_time)",
                  "EntriesSameProcess=" + std::to_string(same_process) + " (want 1), AfterRecycle=" +
                      std::to_string(after_recycle) + " (want 2)");
+}
+
+void Test125() {
+    // F1.4: a process that exited has nothing left to give back (entry closed); one that is alive and refuses the restore stays pending.
+    using vegaflow::JournalEntryStatus;
+    FakeFileSystem fs;
+    FakeWallClock clock;
+    vegaflow::FileChangeJournal journal(fs, clock, L"C:\\VegaFlow\\config\\change_journal.vfj");
+    journal.Load();
+    journal.BeginSession();
+    vegaflow::ChangeJournal* previous = vegaflow::GetActiveChangeJournal();
+    vegaflow::SetActiveChangeJournal(&journal);
+
+    auto status_of = [&](const std::string& target) {
+        JournalEntryStatus s = JournalEntryStatus::Reverted;
+        bool found = false;
+        for (const auto& e : journal.Entries()) {
+            if (e.target == target) { s = e.status; found = true; }
+        }
+        return found ? s : JournalEntryStatus::Reverted;
+    };
+    auto run = [&](bool game_alive, bool game_refuses, bool bg_alive, bool bg_refuses) {
+        FakeProcessControl pc;
+        pc.procs[100].creation_time = 1001;
+        pc.procs[300].creation_time = 3001;
+        const std::vector<vegaflow::BackgroundProcessTarget> targets = {
+            {300, 3001, L"spotify.exe", L"C:\\Spotify\\Spotify.exe", vegaflow::ProcessClass::Music, vegaflow::ProcessAction::EcoOnly},
+        };
+        vegaflow::CpuOrchestrator orch(pc);
+        orch.ApplyOptimizations(100, 1001, 0, true, {0, 1}, {2, 3}, targets, false);
+        pc.procs[100].alive = game_alive;
+        pc.procs[100].restore_fails = game_refuses;
+        pc.procs[300].alive = bg_alive;
+        pc.procs[300].restore_fails = bg_refuses;
+        orch.RestoreAll(false);
+        return std::make_pair(status_of("PID:100"), status_of("PID:300"));
+    };
+    const auto both_ok = run(true, false, true, false);
+    const auto refused = run(true, true, true, true);
+    const auto exited = run(false, false, false, false);
+    vegaflow::SetActiveChangeJournal(previous);
+
+    const bool restored_closes = both_ok.first == JournalEntryStatus::Reverted && both_ok.second == JournalEntryStatus::Reverted;
+    const bool refusal_stays = refused.first != JournalEntryStatus::Reverted && refused.second != JournalEntryStatus::Reverted;
+    const bool exit_closes = exited.first == JournalEntryStatus::Reverted && exited.second == JournalEntryStatus::Reverted;
+    RecordResult(restored_closes && refusal_stays && exit_closes,
+                 "Test 125: a refused process restore stays pending in the journal, an exited process is closed (F1.4)",
+                 std::string("RestoredCloses=") + (restored_closes ? "1" : "0") + ", RefusalStaysPending=" + (refusal_stays ? "1" : "0") +
+                     ", ExitedCloses=" + (exit_closes ? "1" : "0"));
 }
 
 } // namespace vftest

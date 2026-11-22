@@ -154,5 +154,19 @@ void Test117();  // shutdown gives GameDVR back only if VegaFlow turned it off
 void Test118();  // shutdown restores the power plan only if VegaFlow applied its profile
 void Test119();  // memory compression entries close only when the original state is reached
 void Test120();  // GPU usage is the PDH sum when valid, DXGI otherwise
+void Test121();  // F1.1 restoring an absent value without access to its key stays pending
+void Test122();  // F1.2 giving back never writes a factory value without VegaFlow's copy
+void Test123();  // F1.3 no journal entry, no per-exe DXGI write
+void Test124();  // F1.4 giving a process back leaves EcoQoS to Windows
+void Test125();  // F1.4 a refused process restore stays pending in the journal
+void Test126();  // F1.5 game files: copy before every write, foreign .bak ignored, real empty config kept
+void Test127();  // F1.6 Volver todo names failed registry copies and keeps safe mode on a partial restore
+void Test128();  // F1.6 power profile needs a read of the original and restores into its own plan
+void Test129();  // F1.6 the seven power settings exist in the real plan; apply + give back leaves it identical
+void Test130();  // F1.6 a setting the plan lacks is skipped, the other six are saved and given back
+void Test131();  // F1.7 a failed copy of the original DLL leaves DXVK's DLL in place
+void Test132();  // F1.2 the manual off of Ajustes writes the factory value with a copy
+void Test133();  // F1.7 review: the manual MMCSS off gives back the legacy value copies too
+void Test134();  // F1.2 review: the manual Balanced journals the plan it finds before writing
 
 } // namespace vftest

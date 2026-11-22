@@ -54,8 +54,8 @@ std::string SettingsActions::ToggleVramOverride() {
 std::string SettingsActions::ToggleMmcssGaming() {
     auto& gfx = d_.gfx;
     const bool target = !gfx.QuerySystemGraphicsTweaks().mmcss_gaming_optimized;
-    const bool ok = gfx.Mmcss().SetGamingProfileOptimized(target, false);
-    if (ok) gfx.KernelScheduler().SetDynamicPrioritySeparation(target ? 0x26 : 0x02, false);
+    const bool ok = gfx.Mmcss().SetGamingProfileOptimized(target, false, !target);
+    if (ok) gfx.KernelScheduler().SetDynamicPrioritySeparation(target ? 0x26 : 0x02, false, !target);
     return Said(ok ? (target ? "Planificador MMCSS Gaming + Quantum CPU (0x26) Activado" : "Planificador MMCSS y Quantum CPU restaurados a Stock Windows")
                    : "Fallo al optimizar MMCSS/Quantum (Requiere Administrador)",
                 "Ajuste Kernel MMCSS/Quantum: ");
@@ -112,19 +112,19 @@ std::string SettingsActions::Set(const std::string& id, bool turn_on) {
     } else if (id == "power_profile") {
         msg = toggle_if(cur.apu_power_optimized, &SettingsActions::ToggleApuPowerMode);
     } else if (id == "mmcss_gaming") {
-        const bool ok = gfx.Mmcss().SetGamingProfileOptimized(turn_on, false);
+        const bool ok = gfx.Mmcss().SetGamingProfileOptimized(turn_on, false, !turn_on);
         msg = ok ? (turn_on ? "Prioridad de multimedia para juegos activada" : "Prioridad de multimedia devuelta al valor de Windows")
                  : "No se pudo cambiar la prioridad de multimedia (hace falta ser administrador)";
     } else if (id == "priority_separation") {
-        const bool ok = gfx.KernelScheduler().SetDynamicPrioritySeparation(turn_on ? 0x26 : 0x02, false);
+        const bool ok = gfx.KernelScheduler().SetDynamicPrioritySeparation(turn_on ? 0x26 : 0x02, false, !turn_on);
         msg = ok ? (turn_on ? "Tiempo de CPU para la ventana activa: 0x26" : "Tiempo de CPU devuelto al valor de Windows (2)")
                  : "No se pudo cambiar Win32PrioritySeparation (hace falta ser administrador)";
     } else if (id == "paging_shield") {
-        const bool ok = gfx.KernelScheduler().SetKernelMemoryPagingShield(turn_on, false);
+        const bool ok = gfx.KernelScheduler().SetKernelMemoryPagingShield(turn_on, false, !turn_on);
         msg = ok ? (turn_on ? "Núcleo de Windows fijado en la RAM" : "Núcleo de Windows devuelto al comportamiento normal")
                  : "No se pudo cambiar el blindaje del núcleo (hace falta ser administrador)";
     } else if (id == "game_dvr") {
-        const bool ok = gfx.Display().SetGameDvrCaptureDisabled(turn_on, false);
+        const bool ok = gfx.Display().SetGameDvrCaptureDisabled(turn_on, false, !turn_on);
         msg = ok ? (turn_on ? "Grabación de Xbox Game Bar apagada" : "Grabación de Xbox Game Bar devuelta a Windows")
                  : "No se pudo cambiar la grabación de Game Bar";
     } else if (id == "fse_compat") {

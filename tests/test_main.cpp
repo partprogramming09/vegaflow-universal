@@ -187,6 +187,20 @@ int main() {
         {118, vftest::Test118},  // shutdown restores the power plan only if VegaFlow applied its profile
         {119, vftest::Test119},  // memory compression entries close only when the original state is reached
         {120, vftest::Test120},  // GPU usage is the PDH sum when valid, DXGI otherwise
+        {121, vftest::Test121},  // F1.1 restoring an absent value without access to its key stays pending
+        {122, vftest::Test122},  // F1.2 giving back never writes a factory value without VegaFlow's copy
+        {123, vftest::Test123},  // F1.3 no journal entry, no per-exe DXGI write
+        {124, vftest::Test124},  // F1.4 giving a process back leaves EcoQoS to Windows
+        {125, vftest::Test125},  // F1.4 a refused process restore stays pending in the journal
+        {126, vftest::Test126},  // F1.5 game files: copy before every write, foreign .bak ignored, real empty config kept
+        {127, vftest::Test127},  // F1.6 Volver todo names failed registry copies and keeps safe mode on a partial restore
+        {128, vftest::Test128},  // F1.6 power profile needs a read of the original and restores into its own plan
+        {129, vftest::Test129},  // F1.6 the seven power settings exist in the real plan; apply + give back leaves it identical
+        {130, vftest::Test130},  // F1.6 a setting the plan lacks is skipped, the other six are saved and given back
+        {131, vftest::Test131},  // F1.7 a failed copy of the original DLL leaves DXVK's DLL in place
+        {132, vftest::Test132},  // F1.2 the manual off of Ajustes writes the factory value with a copy
+        {133, vftest::Test133},  // F1.7 review: the manual MMCSS off gives back the legacy value copies too
+        {134, vftest::Test134},  // F1.2 review: the manual Balanced journals the plan it finds before writing
     };
     for (const auto& [number, run] : tests) {
         try {

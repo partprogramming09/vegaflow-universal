@@ -179,9 +179,17 @@ bool ExecuteRestorePointOffer(
 }
 
 std::string RestoreAllMessage(const RestoreReport& journal_report, size_t registry_reverted, size_t registry_total) {
-    if (journal_report.total_count > 0) return journal_report.summary_message;
+    if (journal_report.total_count > 0) {
+        if (registry_reverted >= registry_total) return journal_report.summary_message;
+        return journal_report.summary_message + " Del registro se devolvieron " + std::to_string(registry_reverted) + " de " +
+               std::to_string(registry_total) + ".";
+    }
     if (registry_total > 0) return "Se devolvieron " + std::to_string(registry_reverted) + " de " + std::to_string(registry_total) + ".";
     return "Se devolvieron 0 de 0 (ajustes en valores originales de Windows).";
+}
+
+bool RestoreAllSucceeded(const RestoreReport& journal_report, size_t registry_reverted, size_t registry_total) {
+    return journal_report.all_succeeded && journal_report.failed_count == 0 && registry_reverted >= registry_total;
 }
 
 } // namespace vegaflow::session

@@ -418,7 +418,9 @@ void SupplementOrFallbackWithDxgi(
         IDXGIFactory1* factory = nullptr;
         if (SUCCEEDED(pCreateDXGIFactory1(__uuidof(IDXGIFactory1), reinterpret_cast<void**>(&factory))) && factory) {
             IDXGIAdapter1* adapter = nullptr;
-            for (UINT i = 0; factory->EnumAdapters1(i, &adapter) != DXGI_ERROR_NOT_FOUND; ++i) {
+            for (UINT i = 0;; ++i) {
+                // Any failure ends the walk: only DXGI_ERROR_NOT_FOUND is the normal end, and on others `adapter` is not valid.
+                if (FAILED(factory->EnumAdapters1(i, &adapter)) || !adapter) break;
                 DXGI_ADAPTER_DESC1 desc{};
                 if (SUCCEEDED(adapter->GetDesc1(&desc))) {
                     const bool is_software = (desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) != 0 || (desc.VendorId == 0x1414);
@@ -456,6 +458,7 @@ void SupplementOrFallbackWithDxgi(
                     }
                 }
                 adapter->Release();
+                adapter = nullptr;
             }
             factory->Release();
         }

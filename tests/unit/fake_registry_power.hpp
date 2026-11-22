@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cwctype>
+#include <functional>
 #include <map>
 #include <optional>
 #include <set>
@@ -47,6 +48,7 @@ public:
     std::set<std::wstring> fail_backup_subkeys;  // lowercase subkeys whose RegBackup copy cannot be written: WriteValue(backup=true) refuses
     std::set<std::wstring> fail_restore_subkeys; // lowercase subkeys whose RestoreBackedUpValue fails and keeps the value
     std::vector<bool> dxgi_journal_results;    // the succeeded flag of each EndDxgiPreferenceChange
+    bool dxgi_journal_off = false;             // BeginDxgiPreferenceChange returns 0, as with an absent or corrupt journal
     std::vector<vegaflow::ShaderCacheReport> shader_caches;
 
     void SeedValue(vegaflow::RegHive hive, const std::wstring& subkey, const std::wstring& name, const vegaflow::RegValue& val) {
@@ -220,6 +222,7 @@ public:
     std::vector<vegaflow::ShaderCacheReport> InspectShaderCaches() override { return shader_caches; }
 
     uint64_t BeginDxgiPreferenceChange(const std::wstring&, const std::wstring&, const std::string&) override {
+        if (dxgi_journal_off) return 0;  // no active journal, or a corrupt one: no copy of the original was kept
         return dxgi_journal_results.size() + 1;
     }
     void EndDxgiPreferenceChange(uint64_t, bool succeeded) override { dxgi_journal_results.push_back(succeeded); }
@@ -233,14 +236,28 @@ public:
     int apply_count = 0;
     int query_count = 0;
 
+    bool read_ok = true;                                            // false: the active plan cannot be read
+    std::map<std::string, vegaflow::ApuPowerPlanValues> other_plans; // values written into a plan that is not the active one
+
+    bool ApplyApuPlan(const std::string& guid, const vegaflow::ApuPowerPlanValues& values) override {
+        if (guid == scheme_guid) return ApplyActiveApuPlan(values);
+        ++apply_count;
+        other_plans[guid] = values;
+        return true;
+    }
+
     bool ReadActiveApuPlan(std::string& out_scheme_guid, vegaflow::ApuPowerPlanValues& out_values) override {
         ++read_count;
+        if (!read_ok) return false;
         out_scheme_guid = scheme_guid;
         out_values = current;
         return true;
     }
 
+    std::function<void()> on_apply;                                 // runs just before each write to the active plan
+
     bool ApplyActiveApuPlan(const vegaflow::ApuPowerPlanValues& values) override {
+        if (on_apply) on_apply();
         ++apply_count;
         current = values;
         return true;

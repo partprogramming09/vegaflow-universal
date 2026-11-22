@@ -20,7 +20,9 @@
 #include <filesystem>
 #include <sstream>
 
+#include "ports/power.hpp"
 #include "windows/config_location.hpp"
+#include "windows/power_settings.hpp"
 #include "windows/reg_restore_scope.hpp"
 #include "windows/unique_handle.hpp"
 
@@ -406,33 +408,23 @@ bool RevertPowerPlanEntry(const JournalEntry& e, std::string* out_err) {
         return false;
     }
 
-    static const GUID GUID_PCIEXPRESS_SETTINGS_SUBGROUP = {0x501a4d13, 0x42af, 0x4429, {0x9f, 0xd1, 0xa8, 0x21, 0x8c, 0x26, 0x8e, 0x20}};
-    static const GUID GUID_PCIEXPRESS_ASPM = {0xee12f906, 0xd277, 0x404b, {0xb6, 0xda, 0xe5, 0xfa, 0x1a, 0x57, 0x6d, 0xf5}};
-    static const GUID GUID_PROCESSOR_SETTINGS_SUBGROUP = {0x54533251, 0x82be, 0x4824, {0x96, 0xc1, 0x47, 0xb6, 0x0b, 0x74, 0x0d, 0x00}};
-    static const GUID GUID_PROCESSOR_PERF_BOOST_MODE = {0xbe337238, 0x0d82, 0x4146, {0xa9, 0x60, 0x4f, 0x37, 0x49, 0xd4, 0x70, 0xc7}};
-    static const GUID GUID_PROCESSOR_CORE_PARKING_MIN_CORES = {0x0cc5b647, 0xc1df, 0x4637, {0x89, 0x1a, 0xde, 0xc3, 0x5c, 0x31, 0x85, 0x83}};
-    static const GUID GUID_PROCESSOR_FREQUENCY_MAX = {0x75b64e17, 0x1334, 0x44c1, {0x8c, 0xbe, 0xec, 0x61, 0x99, 0xea, 0xe7, 0x25}};
-    static const GUID GUID_PROCESSOR_FREQUENCY_MAX_ALT = {0x75b0ae3f, 0xbce0, 0x45a7, {0x8c, 0x89, 0xc9, 0x61, 0x1c, 0x25, 0xe1, 0x00}};
-    static const GUID GUID_PROCESSOR_THROTTLE_MAXIMUM = {0xbc5038f7, 0x23e0, 0x4960, {0x96, 0xda, 0x33, 0xab, 0xaf, 0x59, 0x35, 0xec}};
-    static const GUID GUID_PROCESSOR_ENERGY_PERF_PREFERENCE = {0x36687f9e, 0xe3a5, 0x4dbf, {0xb1, 0xdc, 0x15, 0xeb, 0x38, 0x1c, 0x68, 0x63}};
-
-    struct Pair { const GUID* sub; const GUID* set; };
-    const Pair pairs[7] = {
-        {&GUID_PCIEXPRESS_SETTINGS_SUBGROUP, &GUID_PCIEXPRESS_ASPM},
-        {&GUID_PROCESSOR_SETTINGS_SUBGROUP, &GUID_PROCESSOR_PERF_BOOST_MODE},
-        {&GUID_PROCESSOR_SETTINGS_SUBGROUP, &GUID_PROCESSOR_CORE_PARKING_MIN_CORES},
-        {&GUID_PROCESSOR_SETTINGS_SUBGROUP, &GUID_PROCESSOR_FREQUENCY_MAX},
-        {&GUID_PROCESSOR_SETTINGS_SUBGROUP, &GUID_PROCESSOR_FREQUENCY_MAX_ALT},
-        {&GUID_PROCESSOR_SETTINGS_SUBGROUP, &GUID_PROCESSOR_THROTTLE_MAXIMUM},
-        {&GUID_PROCESSOR_SETTINGS_SUBGROUP, &GUID_PROCESSOR_ENERGY_PERF_PREFERENCE},
-    };
-
-    for (size_t i = 0; i < 7; ++i) {
-        pWriteAc(nullptr, &scheme, pairs[i].sub, pairs[i].set, e.ac_values[i]);
-        if (pWriteDc) pWriteDc(nullptr, &scheme, pairs[i].sub, pairs[i].set, e.dc_values[i]);
+    // A failed write means the plan is not given back, even if PowerSetActiveScheme then succeeds.
+    DWORD write_err = ERROR_SUCCESS;
+    for (size_t i = 0; i < kApuPowerSettingCount; ++i) {
+        if (e.ac_values[i] == kApuPowerSettingAbsent) continue;  // the plan had no such setting
+        DWORD r = pWriteAc(nullptr, &scheme, &kApuPowerSettings[i].subgroup, &kApuPowerSettings[i].setting, e.ac_values[i]);
+        if (r != ERROR_SUCCESS && write_err == ERROR_SUCCESS) write_err = r;
+        if (pWriteDc) {
+            r = pWriteDc(nullptr, &scheme, &kApuPowerSettings[i].subgroup, &kApuPowerSettings[i].setting, e.dc_values[i]);
+            if (r != ERROR_SUCCESS && write_err == ERROR_SUCCESS) write_err = r;
+        }
     }
     const DWORD res = pSet(nullptr, &scheme);
     FreeLibrary(hPowr);
+    if (write_err != ERROR_SUCCESS) {
+        if (out_err) *out_err = "No se pudo escribir un valor del plan de energía (código Windows " + std::to_string(write_err) + ")";
+        return false;
+    }
     if (res != ERROR_SUCCESS) {
         if (out_err) *out_err = "PowerSetActiveScheme devolvió error " + std::to_string(res);
         return false;
@@ -570,7 +562,8 @@ bool RevertGameConfigEntry(FileSystem& fs, const JournalEntry& e, std::string* o
         if (out_err) *out_err = "No se pudo leer la copia de seguridad del juego";
         return false;
     }
-    if (bak_bytes.empty() || bak_bytes.find("; VegaFlow Empty Backup") != std::string::npos) {
+    // Only VegaFlow's mark means "the file did not exist"; an empty copy is a config the user really had.
+    if (bak_bytes == "; VegaFlow Empty Backup\n") {
         if (fs.Exists(e.file_path) && !fs.Remove(e.file_path)) {
             if (out_err) *out_err = "No se pudo borrar el archivo creado por VegaFlow";
             return false;

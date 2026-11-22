@@ -201,7 +201,10 @@ bool SteamEngineOptimizer::RestoreApuShadowConfig(
     const std::wstring vbakW = iniW + L".vegaflow.bak";
     const std::wstring legacyBakW = iniW + L".bak";
     const bool hasVbak = fs_.Exists(vbakW);
-    const bool hasLegacyBak = !hasVbak && fs_.Exists(legacyBakW);
+    // A generic Engine.ini.bak may belong to another tool: it counts only when it carries VegaFlow's "file did not exist" mark.
+    std::string legacyBakContent;
+    const bool hasLegacyBak = !hasVbak && fs_.Exists(legacyBakW) && fs_.Read(legacyBakW, legacyBakContent) &&
+                              legacyBakContent.find(kEmptyBackupSentinel) != std::string::npos;
     const std::wstring activeBakW = hasVbak ? vbakW : legacyBakW;
     const bool bakExists = hasVbak || hasLegacyBak;
     const bool iniExists = fs_.Exists(iniW);
@@ -289,8 +292,16 @@ bool SteamEngineOptimizer::RestoreApuShadowConfig(
         }
         return true;
     }
+    // No copy of the user's file exists: make one before writing. It is dropped afterwards (a stale copy would later
+    // "restore" the keys); if the write fails the file is put back from it first, and if even that fails the copy stays.
+    if (!fs_.Copy(iniW, vbakW, true, false)) {
+        return false;
+    }
     const bool wrote = fs_.Write(iniW, outBytes, false);
-    if (wrote) {
+    if (!wrote) {
+        if (fs_.Copy(vbakW, iniW, true, false)) fs_.Remove(vbakW, false);
+    } else {
+        fs_.Remove(vbakW, false);
         if (ChangeJournal* journal = GetActiveChangeJournal()) {
             journal->MarkMatchingReverted(JournalTargetKind::GameConfigFile, "GameFile:" + WideToUtf8Shadow(iniW));
         }

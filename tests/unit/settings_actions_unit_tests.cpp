@@ -1,6 +1,7 @@
 // Unit tests: the switches of the Ajustes screen (phase G). Each row of the catalog is turned on through SettingsActions
 // with an in-memory registry and power plan, and what it writes is compared with what the row says it changes.
 
+#include "optimize/graphics/graphics_internal.hpp"
 #include "session/restore.hpp"
 #include "session/settings_actions.hpp"
 #include "session/settings_catalog.hpp"
@@ -189,6 +190,118 @@ void Test75() {
     const bool r = gs::RestoreAllMessage({}, 2, 5) == "Se devolvieron 2 de 5.";
     const bool none = gs::RestoreAllMessage({}, 0, 0).find("0 de 0") != std::string::npos;
     RecordResult(j && r && none, "Test 75: the Volver todo sentence names the journal summary, else the registry count, else 0 of 0");
+}
+
+void Test127() {
+    // F1.6: the journal's "3 of 3" must not hide that 3 of 5 registry copies were not put back; safe mode stays then.
+    vegaflow::RestoreReport journal;
+    journal.total_count = 3;
+    journal.reverted_count = 3;
+    journal.summary_message = "Se devolvieron 3 de 3.";
+    const std::string partial = gs::RestoreAllMessage(journal, 2, 5);
+    const bool names_both = partial.find("3 de 3") != std::string::npos && partial.find("2 de 5") != std::string::npos;
+    const bool clean_ok = gs::RestoreAllMessage(journal, 4, 4) == "Se devolvieron 3 de 3.";
+    vegaflow::RestoreReport journal_failed = journal;
+    journal_failed.all_succeeded = false;
+    journal_failed.failed_count = 1;
+    const bool ends_safe_mode = gs::RestoreAllSucceeded(journal, 5, 5) && gs::RestoreAllSucceeded({}, 0, 0) &&
+                                !gs::RestoreAllSucceeded(journal, 2, 5) && !gs::RestoreAllSucceeded({}, 2, 5) &&
+                                !gs::RestoreAllSucceeded(journal_failed, 5, 5);
+    RecordResult(names_both && clean_ok && ends_safe_mode,
+                 "Test 127: Volver todo names the failed registry copies and does not leave safe mode on a partial restore (F1.6)",
+                 "message: " + partial);
+}
+
+// F1.2 (revised): the manual "off" of Ajustes writes the factory value after taking VegaFlow's copy, so a switch whose
+// value already equals VegaFlow's (no copy yet) cannot get stuck on. Only the give-back paths are restore-only.
+void Test132() {
+    namespace v = vegaflow;
+    using v::RegHive;
+    using v::RegValue;
+    constexpr auto LM = RegHive::LocalMachine;
+    constexpr auto CU = RegHive::CurrentUser;
+    const std::wstring store = L"System\\GameConfigStore";
+    const std::wstring dvr = L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\GameDVR";
+    const std::wstring prio = L"SYSTEM\\CurrentControlSet\\Control\\PriorityControl";
+    const std::wstring mem = L"SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Memory Management";
+    const std::wstring mm = v::graphics_internal::kMmcssProfilePath;
+    const std::wstring games = v::graphics_internal::kMmcssGamesPath;
+
+    FakeRegistryPort reg;
+    FakePowerPort power;
+    // Values equal to VegaFlow's own, with no RegBackup copy (the user, or an old build, set them).
+    reg.SeedValue(CU, store, L"GameDVR_Enabled", RegValue::MakeDword(0));
+    reg.SeedValue(CU, dvr, L"AppCaptureEnabled", RegValue::MakeDword(0));
+    reg.SeedValue(LM, prio, L"Win32PrioritySeparation", RegValue::MakeDword(0x26));
+    reg.SeedValue(LM, mem, L"DisablePagingExecutive", RegValue::MakeDword(1));
+    reg.SeedValue(LM, mem, L"LargeSystemCache", RegValue::MakeDword(0));
+    reg.SeedValue(LM, mm, L"SystemResponsiveness", RegValue::MakeDword(10));
+    reg.SeedValue(LM, games, L"Priority", RegValue::MakeDword(6));
+    reg.SeedValue(LM, games, L"Scheduling Category", RegValue::MakeString(L"High"));
+    reg.SeedValue(LM, games, L"SFIO Priority", RegValue::MakeString(L"High"));
+    v::SystemHardwareProfile hw{};
+    v::ApuOptimizationPolicy policy{};
+    v::GraphicsOptimizer gfx(hw, policy, reg, &power);
+    gs::SettingsActions act(gs::SettingsActionsDeps{gfx, policy, [&]() { return policy; }, nullptr});
+
+    auto dword = [&](RegHive h, const std::wstring& k, const std::wstring& n) -> int64_t {
+        RegValue val;
+        return reg.ReadValue(h, k, n, val) ? static_cast<int64_t>(val.dword) : -1;
+    };
+    act.Set("game_dvr", false);
+    act.Set("mmcss_gaming", false);
+    act.Set("priority_separation", false);
+    act.Set("paging_shield", false);
+    const bool factory = dword(CU, store, L"GameDVR_Enabled") == 1 && dword(CU, dvr, L"AppCaptureEnabled") == 1 &&
+                         dword(LM, mm, L"SystemResponsiveness") == 20 && dword(LM, games, L"Priority") == 2 &&
+                         dword(LM, prio, L"Win32PrioritySeparation") == 0x02;
+    // The shield's factory values (0/0) are written too, after the copy of 1/0.
+    const bool shield = dword(LM, mem, L"DisablePagingExecutive") == 0;
+    const bool copies = reg.HasBackup(CU, store, L"GameDVR_Enabled") && reg.HasBackup(LM, mm, L"SystemResponsiveness") &&
+                        reg.HasBackup(LM, prio, L"Win32PrioritySeparation") && reg.HasBackup(LM, mem, L"DisablePagingExecutive");
+
+    // The Ajustes toggle that pairs MMCSS with the quantum behaves the same.
+    FakeRegistryPort reg2;
+    reg2.SeedValue(LM, mm, L"SystemResponsiveness", RegValue::MakeDword(10));
+    reg2.SeedValue(LM, games, L"Priority", RegValue::MakeDword(6));
+    reg2.SeedValue(LM, games, L"Scheduling Category", RegValue::MakeString(L"High"));
+    reg2.SeedValue(LM, games, L"SFIO Priority", RegValue::MakeString(L"High"));
+    v::GraphicsOptimizer gfx2(hw, policy, reg2, &power);
+    gs::SettingsActions act2(gs::SettingsActionsDeps{gfx2, policy, [&]() { return policy; }, nullptr});
+    const std::string said = act2.ToggleMmcssGaming();
+    RegValue sys;
+    const bool toggle_off = reg2.ReadValue(LM, mm, L"SystemResponsiveness", sys) && sys.dword == 20 &&
+                            said.find("Fallo") == std::string::npos;
+
+    RecordResult(factory && shield && copies && toggle_off,
+                 "Test 132: the manual off of Ajustes writes the factory value with VegaFlow's copy, so it cannot stay stuck on (F1.2)",
+                 std::string("Factory=") + (factory ? "1" : "0") + ", Shield=" + (shield ? "1" : "0") + ", Copies=" + (copies ? "1" : "0") +
+                     ", ToggleOff=" + (toggle_off ? "1" : "0"));
+}
+
+// F1.7 review: the manual off also gives back the copies of the legacy MMCSS values VegaFlow no longer writes
+// (GPU Priority, Background Only, Clock Rate) without writing a factory value for them.
+void Test133() {
+    namespace v = vegaflow;
+    using v::RegValue;
+    constexpr auto LM = v::RegHive::LocalMachine;
+    const std::wstring games = v::graphics_internal::kMmcssGamesPath;
+    FakeRegistryPort reg;
+    FakePowerPort power;
+    reg.SeedValue(LM, games, L"Clock Rate", RegValue::MakeDword(2710));
+    reg.SeedLegacyBackup(LM, games, L"Clock Rate", RegValue::MakeDword(10000));
+    reg.SeedValue(LM, games, L"GPU Priority", RegValue::MakeDword(8));
+    reg.SeedLegacyBackup(LM, games, L"GPU Priority", std::nullopt);
+    v::SystemHardwareProfile hw{};
+    v::ApuOptimizationPolicy policy{};
+    v::GraphicsOptimizer gfx(hw, policy, reg, &power);
+    gs::SettingsActions act(gs::SettingsActionsDeps{gfx, policy, [&]() { return policy; }, nullptr});
+    act.Set("mmcss_gaming", false);
+    RegValue clock;
+    const bool clock_back = reg.ReadValue(LM, games, L"Clock Rate", clock) && clock.dword == 10000 && !reg.HasBackup(LM, games, L"Clock Rate");
+    const bool gpu_gone = !reg.HasValue(LM, games, L"GPU Priority") && !reg.HasBackup(LM, games, L"GPU Priority");
+    RecordResult(clock_back && gpu_gone, "Test 133: the manual MMCSS off gives back the copies of Clock Rate and GPU Priority too (F1.7 review)",
+                 std::string("ClockRateBack=") + (clock_back ? "1" : "0") + ", GpuPriorityGone=" + (gpu_gone ? "1" : "0"));
 }
 
 } // namespace vftest

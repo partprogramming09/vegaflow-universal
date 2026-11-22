@@ -77,7 +77,11 @@ bool DxgiFlipTweaks::ApplyFlipModelUpgrade(
         return true;
     }
 
+    // The journal entry is the copy of the user's original: without it nothing is written.
     const uint64_t j_id = reg_.BeginDxgiPreferenceChange(exe_full_path, final_value, "DXGI Flip Model upgrade");
+    if (j_id == 0) {
+        return false;
+    }
     const bool prefs_changed = final_value != old_prefs;
     const bool prefs_ok = !prefs_changed ||
         reg_.WriteValue(RegHive::CurrentUser, kUserGpuPrefsPath, exe_full_path, RegValue::MakeString(final_value), false);
@@ -101,13 +105,17 @@ size_t DxgiFlipTweaks::MigrateLegacyPreferences(bool dry_run) {
         }
         std::wstring migrated = prefs;
         migrated.replace(pos, legacy.size(), L"SwapEffectUpgradeEnable=1;");
-        ++changed;
         if (dry_run) {
+            ++changed;
             continue;
         }
         const uint64_t j_id = reg_.BeginDxgiPreferenceChange(exe, migrated, "Quitar GpuPreference/AutoHDR de VegaFlow 0.1.x");
+        if (j_id == 0) {
+            continue;  // no journal entry, no copy of the original: leave the user's value
+        }
         const bool ok = reg_.WriteValue(RegHive::CurrentUser, kUserGpuPrefsPath, exe, RegValue::MakeString(migrated), false);
         reg_.EndDxgiPreferenceChange(j_id, ok);
+        if (ok) ++changed;
     }
     return changed;
 }
