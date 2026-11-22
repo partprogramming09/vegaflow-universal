@@ -155,5 +155,6 @@ void Test118();  // shutdown restores the power plan only if VegaFlow applied it
 void Test119();  // memory compression entries close only when the original state is reached
 void Test120();  // GPU usage is the PDH sum when valid, DXGI otherwise
 void Test121();  // F1.1 restoring an absent value without access to its key stays pending
+void Test122();  // F1.2 giving back never writes a factory value without VegaFlow's copy
 
 } // namespace vftest

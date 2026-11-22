@@ -188,6 +188,7 @@ int main() {
         {119, vftest::Test119},  // memory compression entries close only when the original state is reached
         {120, vftest::Test120},  // GPU usage is the PDH sum when valid, DXGI otherwise
         {121, vftest::Test121},  // F1.1 restoring an absent value without access to its key stays pending
+        {122, vftest::Test122},  // F1.2 giving back never writes a factory value without VegaFlow's copy
     };
     for (const auto& [number, run] : tests) {
         try {

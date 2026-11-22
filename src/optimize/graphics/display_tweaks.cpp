@@ -68,20 +68,18 @@ bool DisplayTweaks::SetGameDvrCaptureDisabled(bool disable, bool dry_run) {
         return true;
     }
 
+    // Giving it back is never a write: with VegaFlow's copy the user's value returns, without one it was never touched.
+    if (!disable) return RestoreGameDvrCapture(false);
+
     struct Item { const wchar_t* path; const wchar_t* name; const char* reason; };
     static constexpr Item kItems[] = {
         {kGameConfigStorePath, L"GameDVR_Enabled", "Desactivar GameDVR"},
         {kGameDvrPath, L"AppCaptureEnabled", "Desactivar GameDVR (AppCapture)"},
     };
-    const uint32_t val = disable ? 0u : 1u;
     bool success = true;
     for (const Item& it : kItems) {
-        if (!reg_.WriteValue(RegHive::CurrentUser, it.path, it.name, RegValue::MakeDword(val), disable, it.reason,
-                             std::to_string(val))) {
+        if (!reg_.WriteValue(RegHive::CurrentUser, it.path, it.name, RegValue::MakeDword(0u), true, it.reason, "0")) {
             success = false;
-        }
-        if (!disable) {
-            reg_.RestoreBackedUpValue(RegHive::CurrentUser, it.path, it.name);
         }
     }
     return success;

@@ -9,36 +9,32 @@ bool MmcssTweaks::SetGamingProfileOptimized(bool optimize, bool dry_run) {
         return true;
     }
 
-    const uint32_t sys_resp = optimize ? 10u : 20u;
-    const bool profile_ok = reg_.WriteValue(
-        RegHive::LocalMachine,
-        kMmcssProfilePath,
-        L"SystemResponsiveness",
-        RegValue::MakeDword(sys_resp),
-        optimize,
-        "MMCSS SystemResponsiveness gaming",
-        "10");
-
-    const uint32_t prio = optimize ? 6u : 2u;
-    const std::wstring sched_cat = optimize ? L"High" : L"Medium";
-    const std::wstring sfio_prio = optimize ? L"High" : L"Normal";
-
-    const bool s2 = reg_.WriteValue(
-        RegHive::LocalMachine, kMmcssGamesPath, L"Priority",
-        RegValue::MakeDword(prio), optimize, "MMCSS Tasks\\Games gaming", "6");
-    const bool s3 = reg_.WriteValue(
-        RegHive::LocalMachine, kMmcssGamesPath, L"Scheduling Category",
-        RegValue::MakeString(sched_cat), optimize, "MMCSS Tasks\\Games gaming", "High");
-    const bool s4 = reg_.WriteValue(
-        RegHive::LocalMachine, kMmcssGamesPath, L"SFIO Priority",
-        RegValue::MakeString(sfio_prio), optimize, "MMCSS Tasks\\Games gaming", "High");
-
+    // Giving it back is never a write: with VegaFlow's copy the user's values return, without one they were never touched.
     if (!optimize) {
         reg_.RestoreBackedUpValue(RegHive::LocalMachine, kMmcssProfilePath, L"SystemResponsiveness");
         for (const wchar_t* n : kMmcssGamesCleanupValues) {
             reg_.RestoreBackedUpValue(RegHive::LocalMachine, kMmcssGamesPath, n);
         }
+        return true;
     }
+
+    const bool profile_ok = reg_.WriteValue(
+        RegHive::LocalMachine,
+        kMmcssProfilePath,
+        L"SystemResponsiveness",
+        RegValue::MakeDword(10u),
+        true,
+        "MMCSS SystemResponsiveness gaming",
+        "10");
+    const bool s2 = reg_.WriteValue(
+        RegHive::LocalMachine, kMmcssGamesPath, L"Priority",
+        RegValue::MakeDword(6u), true, "MMCSS Tasks\\Games gaming", "6");
+    const bool s3 = reg_.WriteValue(
+        RegHive::LocalMachine, kMmcssGamesPath, L"Scheduling Category",
+        RegValue::MakeString(L"High"), true, "MMCSS Tasks\\Games gaming", "High");
+    const bool s4 = reg_.WriteValue(
+        RegHive::LocalMachine, kMmcssGamesPath, L"SFIO Priority",
+        RegValue::MakeString(L"High"), true, "MMCSS Tasks\\Games gaming", "High");
     return profile_ok && s2 && s3 && s4;
 }
 

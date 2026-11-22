@@ -74,7 +74,7 @@ void Test107() {
     bool c8;
     { Rig r; r.reg.SeedValue(LM, kPrio, L"Win32PrioritySeparation", v::RegValue::MakeDword(0x18));
       r.reg.fail_backup_subkeys.insert(FakeRegistryPort::Lower(kPrio));
-      const bool ok = r.gfx->KernelScheduler().SetDynamicPrioritySeparation(0x02, false);
+      const bool ok = r.gfx->KernelScheduler().SetDynamicPrioritySeparation(0x26, false);  // F1.2: giving back (0x02) never writes
       c8 = !ok && r.Is(kPrio, L"Win32PrioritySeparation", 0x18); }
     // 9: dry_run writes nothing.
     bool c9;
