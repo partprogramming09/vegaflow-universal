@@ -17,6 +17,7 @@ struct SettingsActionsDeps {
     ApuOptimizationPolicy policy;                                // the boot policy
     std::function<ApuOptimizationPolicy()> live_policy;          // the same, with the video budget read now
     std::function<void(const std::string&)> audit;               // one line in the audit log
+    std::function<std::string(bool)> set_engine_presets;         // F2.3: saves auto_engine_presets in config.json; returns the sentence
 };
 
 class SettingsActions {

@@ -28,6 +28,7 @@ struct AppConfig {
     bool auto_priority_separation = false;
     bool auto_game_dvr_off = false;
     bool auto_power_profile = false;
+    bool auto_engine_presets = false; // F2.3: the 28 Unreal Engine values of Engine.ini (a game file), same rule
     vegaflow::MemoryPurgeConfig memory{};
     vegaflow::ProcessPolicyConfig process_policy{};
     std::vector<std::wstring> custom_game_exes;

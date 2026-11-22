@@ -127,6 +127,8 @@ std::string SettingsActions::Set(const std::string& id, bool turn_on) {
         const bool ok = gfx.Display().SetGameDvrCaptureDisabled(turn_on, false, !turn_on);
         msg = ok ? (turn_on ? "Grabación de Xbox Game Bar apagada" : "Grabación de Xbox Game Bar devuelta a Windows")
                  : "No se pudo cambiar la grabación de Game Bar";
+    } else if (id == "engine_presets") {
+        msg = d_.set_engine_presets ? d_.set_engine_presets(turn_on) : "El preset de Unreal Engine no está disponible aquí";
     } else if (id == "fse_compat") {
         const bool ok = gfx.Display().SetFullscreenOptimizationsDisabled(turn_on, false);
         msg = ok ? (turn_on ? "Optimizaciones de pantalla completa apagadas (modo compatibilidad)"

@@ -63,6 +63,12 @@ const std::vector<SettingSpec> kCatalog = {
      "Plan de energía activo (enchufado y con batería): administración de energía del vínculo PCI Express, modo de refuerzo del procesador, preferencia de rendimiento energético, frecuencia máxima del procesador, aparcado de núcleos y acelerador del procesador",
      "Vínculo PCI Express Desactivado, modo de refuerzo 4, preferencia de rendimiento 25, frecuencia máxima según el nivel de tu equipo, aparcado de núcleos 50, acelerador 100",
      true, false},
+    {"engine_presets", SettingFamily::Windows, "Preset de Unreal Engine al detectar un juego",
+     "Cuando VegaFlow detecta un juego con Unreal Engine, escribe 28 opciones gráficas en su Engine.ini (sombras, texturas, niebla, desenfoque). Apagado, no toca ese archivo.",
+     true, Evidence::NotMeasured, false, false,
+     "Clave auto_engine_presets de config.json; con ella encendida, el Engine.ini de cada juego con Unreal Engine (se guarda antes Engine.ini.vegaflow.bak)",
+     "Escribe un bloque marcado [VegaFlowUMA_Start] a [VegaFlowUMA_End] en Engine.ini; el interruptor solo cambia lo que hará VegaFlow con los juegos que abras después",
+     true, false, true, true},
 };
 
 } // namespace
@@ -114,6 +120,9 @@ std::vector<FamilyView> VisibleFamilies(const DeviceFacts& device, bool show_exp
 }
 
 std::string ChangeDescription(const SettingSpec& spec) {
+    if (spec.config_key) {
+        return std::string(spec.target) + ". " + spec.change + ". Se guarda la copia .vegaflow.bak de cada juego y se puede deshacer desde Juegos.";
+    }
     if (!spec.undoable) {
         return std::string(spec.target) + ". " + spec.change + ". No guarda ningún valor original: es una acción puntual, no hay nada que deshacer.";
     }

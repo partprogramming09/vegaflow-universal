@@ -125,6 +125,7 @@ struct ApuOptimizationPolicy {
 
     // DirectX 12 Specialization
     bool disable_dx12_async_compute = true;
+    uint64_t decision_reasons = 0; // F2.7: VF_REASON_* bits of the rules that decided this policy (policy/device_profile.rs)
     uint32_t ue_max_csm_resolution = 1024;
     uint32_t ue_max_shadow_cascades = 2;
     bool disable_volumetric_fog = true;

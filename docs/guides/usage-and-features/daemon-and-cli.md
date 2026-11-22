@@ -86,6 +86,8 @@ It only reads: it writes nothing and deletes nothing, and it works without admin
 | Shader caches | Info when no cache folder exists; warning when no AMD or NVIDIA cache folder exists, or when the caches are empty on a critical disk; info over 10 GiB (deleting it is safe, the driver rebuilds it, and VegaFlow deletes nothing) |
 | Manufacturer tools | Warning for each of ASUS Armoury Crate, Lenovo Vantage and Legion Zone, MSI Center and Dragon Center, HP Omen Gaming Hub, MSI Afterburner, RTSS and AMD Ryzen Master that is running, with what it also changes (power plan, fan curves, GPU limits). Matched by file name, any letter case, with or without a path; one tool with three processes is one warning |
 
+The report also says why the hardware profile is what it is ("Hardware profile, why:" in the text, `profile_reasons` in the JSON, and `[WHY THIS PROFILE]` in `--status`): one plain-text line per rule that fired (tier rule, memory pool, thread count, eGPU, no GPU found, ...). They come from a bit mask (`VfDecisionReason`, `reasons` in `VfDeviceProfileDecision`) built by `rust/vegaflow-core/src/policy/device_profile.rs`; `tests/vectors/device_profiles.tsv` holds the expected mask for each machine.
+
 The report also lists every shader cache folder that exists (kind, path, size and file count; `shader_caches` in the JSON), so a healthy cache is visible too, not only a problem.
 
 The report is made to be pasted in public: the Windows user name in paths becomes `<usuario>`, and the computer and domain names become `<equipo>` and `<dominio>`. Lines are never cut. The executable names of the manufacturer tools are the ones the products ship today; vendors rename them between versions, so a missing warning is not proof that the tool is absent.

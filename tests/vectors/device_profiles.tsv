@@ -22,33 +22,44 @@
 # 19: exp_ram_purge (0|1)
 # 20: exp_high_perf_power (0|1)
 # 21: exp_block_drivers (0|1)
-ryzen_4600h_vega_laptop_ac	0x1002:0x1636:512:1:1:0:0:AMD Radeon(TM) Graphics	0	16384	1	6	0x17	0x60	x64	ac	1	1	0	integrated	1	2	1	1	1	1	1	0
-ryzen_4600h_vega_laptop_battery	0x1002:0x1636:512:1:1:0:0:AMD Radeon(TM) Graphics	0	16384	1	6	0x17	0x60	x64	battery	1	1	0	integrated	1	2	1	1	1	1	0	0
-ryzen_4600h_vega_battery_saver	0x1002:0x1636:512:1:1:0:0:AMD Radeon(TM) Graphics	0	16384	1	6	0x17	0x60	x64	saver	1	1	0	integrated	1	2	1	1	1	1	0	0
-power_unknown_disables_power_plan	0x1002:0x1636:512:1:1:0:0:AMD Radeon(TM) Graphics	0	16384	1	6	0x17	0x60	x64	unknown	0	1	0	integrated	1	2	1	1	1	1	0	0
-rdna2_680m_16gb	0x1002:0x1681:512:1:1:0:0:AMD Radeon 680M Graphics	0	16384	1	8	0x19	0x44	x64	ac	1	1	0	integrated	2	3	1	1	1	1	1	0
-rdna3_780m_4gb_bios_vram_is_still_tier3	0x1002:0x15bf:4096:1:1:0:0:AMD Radeon 780M Graphics	0	32768	1	8	0x19	0x74	x64	ac	1	1	0	integrated	3	3	1	1	1	1	1	0
-rog_ally_z1_extreme_8gb_bios_vram	0x1002:0x15bf:8192:1:1:0:0:AMD Radeon Graphics	0	16384	1	8	0x19	0x74	x64	ac	1	1	0	integrated	3	3	1	1	1	1	1	0
-legion_go_z1_extreme_4gb_bios_vram	0x1002:0x15c8:4096:1:1:0:0:AMD Radeon Graphics	0	16384	1	8	0x19	0x78	x64	ac	1	1	0	integrated	3	3	1	1	1	1	1	0
-ryzen_7000_desktop_raphael_generic_name	0x1002:0x164e:512:1:1:0:0:AMD Radeon(TM) Graphics	0	32768	1	8	0x19	0x61	x64	ac	0	1	0	integrated	2	3	1	1	1	1	1	0
-ryzen_9000_desktop_granite_ridge_is_rdna2	0x1002:0x13c0:512:1:1:0:0:AMD Radeon(TM) Graphics	0	32768	1	8	0x1a	0x44	x64	ac	0	1	0	integrated	2	3	1	1	1	1	1	0
-steam_deck_lcd_vangogh_generic_name	0x1002:0x163f:1024:1:1:0:0:AMD Custom GPU 0405	0	16384	1	4	0x17	0x90	x64	ac	1	1	0	integrated	2	1	1	1	1	1	1	0
-steam_deck_oled_sephiroth	0x1002:0x1435:1024:1:1:0:0:AMD Custom GPU 0932	0	16384	1	4	0x17	0x90	x64	ac	1	1	0	integrated	2	1	1	1	1	1	1	0
-intel_uhd_630_gen9	0x8086:0x3e92:128:1:1:0:0:Intel(R) UHD Graphics 630	0	16384	1	6	0x06	0x9e	x64	ac	0	1	0	integrated	4	1	1	1	0	1	1	0
-intel_uhd_770_12th_gen_is_xe	0x8086:0x4680:128:1:1:0:0:Intel(R) UHD Graphics 770	0	32768	1	16	0x06	0x97	x64	ac	0	1	0	integrated	5	3	1	1	0	1	1	0
-intel_iris_xe_mobile_8c	0x8086:0x9a49:128:1:1:0:0:Intel(R) Iris(R) Xe Graphics	0	16384	1	8	0x06	0x8c	x64	ac	1	1	0	integrated	5	3	1	1	0	1	1	0
-intel_arc_integrated_meteor_lake	0x8086:0x7d55:128:1:1:0:0:Intel(R) Arc(TM) Graphics	0	32768	1	14	0x06	0xaa	x64	ac	1	1	0	integrated	5	3	1	1	0	1	1	0
-intel_hybrid_laptop_igpu	0x8086:0xa7a0:128:1:1:0:0:Intel(R) Iris(R) Xe Graphics	0	16384	1	14	0x06	0xba	x64	ac	1	1	0	integrated	5	3	1	1	0	1	1	0
-laptop_igpu_plus_nvidia_default_picks_dgpu	0x1002:0x1636:512:1:1:0:0:AMD Radeon(TM) Graphics;0x10de:0x2520:6144:1:0:0:0:NVIDIA GeForce RTX 3060 Laptop GPU	0	16384	1	8	0x19	0x50	x64	ac	1	1	1	discrete	6	4	0	0	0	1	1	0
-laptop_igpu_plus_nvidia_power_saving_picks_igpu	0x1002:0x1636:512:1:1:0:0:AMD Radeon(TM) Graphics;0x10de:0x2520:6144:1:0:0:0:NVIDIA GeForce RTX 3060 Laptop GPU	1	16384	1	8	0x19	0x50	x64	ac	1	1	0	integrated	1	2	1	1	1	1	1	0
-laptop_igpu_plus_nvidia_high_perf_picks_dgpu	0x1002:0x1636:512:1:1:0:0:AMD Radeon(TM) Graphics;0x10de:0x2520:6144:1:0:0:0:NVIDIA GeForce RTX 3060 Laptop GPU	2	16384	1	8	0x19	0x50	x64	ac	1	1	1	discrete	6	4	0	0	0	1	1	0
-desktop_amd_rx_7800xt_dedicated	0x1002:0x747e:16384:1:0:0:0:AMD Radeon RX 7800 XT	0	32768	1	8	0x19	0x61	x64	ac	0	1	0	discrete	6	4	0	0	0	1	1	0
-desktop_x3d_nvidia_rtx4070_dedicated	0x10de:0x2786:12288:1:0:0:0:NVIDIA GeForce RTX 4070	0	32768	1	8	0x19	0x61	x64	ac	0	1	0	discrete	6	4	0	0	0	1	1	0
-threadripper_over64t_dedicated	0x10de:0x2684:24576:1:0:0:0:NVIDIA GeForce RTX 4090	0	131072	1	64	0x19	0x11	x64	ac	0	1	0	discrete	6	4	0	0	0	1	1	0
-egpu_dxcore_detachable_over_igpu	0x8086:0x9a49:128:1:1:0:0:Intel(R) Iris(R) Xe Graphics;0x10de:0x2504:12288:1:0:1:0:NVIDIA GeForce RTX 3060	0	32768	1	8	0x06	0x8c	x64	ac	1	1	1	external	6	4	0	0	0	1	1	0
-egpu_setupapi_removal_policy_only	0x1002:0x1681:512:1:1:0:0:AMD Radeon 680M Graphics;0x1002:0x7480:8192:1:0:0:1:AMD Radeon RX 7600	0	32768	1	8	0x19	0x44	x64	ac	1	1	1	external	6	4	0	0	0	1	1	0
-windows_on_arm_snapdragon_blocks_drivers	0x5143:0x0c36:512:1:1:0:0:Qualcomm Adreno X1-85 GPU	0	16384	1	12	0x00	0x00	arm64_emu	ac	1	1	0	integrated	0	2	1	1	0	1	1	1
-no_dxcore_even_small_vram_stays_unknown_prudent	0x1002:0x1636:512:0:0:0:0:AMD Radeon(TM) Graphics	0	16384	1	6	0x17	0x60	x64	ac	1	0	0	unknown	6	4	0	0	0	1	1	1
-gpu_probe_failed_prudent_fallback	-	0	16384	1	6	0x17	0x60	x64	ac	0	1	-1	unknown	6	4	0	0	0	1	1	1
-unknown_integrated_arch_uses_tier2	0x9999:0x0001:512:1:1:0:0:Future Integrated GPU	0	16384	1	6	0x00	0x00	x64	ac	0	1	0	integrated	0	2	1	1	0	1	1	0
-ram_probe_failed_disables_purge_and_guard	0x1002:0x1636:512:1:1:0:0:AMD Radeon(TM) Graphics	0	0	0	6	0x17	0x60	x64	ac	1	1	0	integrated	1	1	1	0	1	0	1	0
+# 22: exp_reasons (hex mask: one bit per rule that decided the profile; bit numbers are VF_REASON_* in policy/device_profile.rs)
+#     0 no adapter | 1 pref power saving | 2 pref high perf | 3 picked external | 4 picked discrete | 5 picked integrated
+#     6 picked first | 7 several adapters | 8 connection unknown | 9 arm64 | 10 arch by device id | 11 arch by name
+#     12 arch by cpuid | 13 arch unresolved | 14 arch override | 15 tier discrete | 16 tier entry (ram) | 17 tier entry (cores)
+#     18 tier entry (intel uhd) | 19 tier advanced (gpu) | 20 tier advanced (ram) | 21 tier mid | 22 cores unknown | 23 ram probe failed
+#     24 power ac | 25 power battery | 26 power saver | 27 power unknown | 28 uma guard | 29 visual cuts | 30 vram override
+#     31 egpu streaming on | 32 egpu streaming off | 33 pool tier 1 | 34 pool tier 2 | 35 pool tier 3 | 36 pool tier 4 | 37 async compute off
+ryzen_4600h_vega_laptop_ac	0x1002:0x1636:512:1:1:0:0:AMD Radeon(TM) Graphics	0	16384	1	6	0x17	0x60	x64	ac	1	1	0	integrated	1	2	1	1	1	1	1	0	0x2471200420
+ryzen_4600h_vega_laptop_battery	0x1002:0x1636:512:1:1:0:0:AMD Radeon(TM) Graphics	0	16384	1	6	0x17	0x60	x64	battery	1	1	0	integrated	1	2	1	1	1	1	0	0	0x2472200420
+ryzen_4600h_vega_battery_saver	0x1002:0x1636:512:1:1:0:0:AMD Radeon(TM) Graphics	0	16384	1	6	0x17	0x60	x64	saver	1	1	0	integrated	1	2	1	1	1	1	0	0	0x2474200420
+power_unknown_disables_power_plan	0x1002:0x1636:512:1:1:0:0:AMD Radeon(TM) Graphics	0	16384	1	6	0x17	0x60	x64	unknown	0	1	0	integrated	1	2	1	1	1	1	0	0	0x2478200420
+rdna2_680m_16gb	0x1002:0x1681:512:1:1:0:0:AMD Radeon 680M Graphics	0	16384	1	8	0x19	0x44	x64	ac	1	1	0	integrated	2	3	1	1	1	1	1	0	0x871080420
+rdna3_780m_4gb_bios_vram_is_still_tier3	0x1002:0x15bf:4096:1:1:0:0:AMD Radeon 780M Graphics	0	32768	1	8	0x19	0x74	x64	ac	1	1	0	integrated	3	3	1	1	1	1	1	0	0x871080420
+rog_ally_z1_extreme_8gb_bios_vram	0x1002:0x15bf:8192:1:1:0:0:AMD Radeon Graphics	0	16384	1	8	0x19	0x74	x64	ac	1	1	0	integrated	3	3	1	1	1	1	1	0	0x871080420
+legion_go_z1_extreme_4gb_bios_vram	0x1002:0x15c8:4096:1:1:0:0:AMD Radeon Graphics	0	16384	1	8	0x19	0x78	x64	ac	1	1	0	integrated	3	3	1	1	1	1	1	0	0x871080420
+ryzen_7000_desktop_raphael_generic_name	0x1002:0x164e:512:1:1:0:0:AMD Radeon(TM) Graphics	0	32768	1	8	0x19	0x61	x64	ac	0	1	0	integrated	2	3	1	1	1	1	1	0	0x871080420
+ryzen_9000_desktop_granite_ridge_is_rdna2	0x1002:0x13c0:512:1:1:0:0:AMD Radeon(TM) Graphics	0	32768	1	8	0x1a	0x44	x64	ac	0	1	0	integrated	2	3	1	1	1	1	1	0	0x871080420
+steam_deck_lcd_vangogh_generic_name	0x1002:0x163f:1024:1:1:0:0:AMD Custom GPU 0405	0	16384	1	4	0x17	0x90	x64	ac	1	1	0	integrated	2	1	1	1	1	1	1	0	0x2271020420
+steam_deck_oled_sephiroth	0x1002:0x1435:1024:1:1:0:0:AMD Custom GPU 0932	0	16384	1	4	0x17	0x90	x64	ac	1	1	0	integrated	2	1	1	1	1	1	1	0	0x2271020420
+intel_uhd_630_gen9	0x8086:0x3e92:128:1:1:0:0:Intel(R) UHD Graphics 630	0	16384	1	6	0x06	0x9e	x64	ac	0	1	0	integrated	4	1	1	1	0	1	1	0	0x2231040420
+intel_uhd_770_12th_gen_is_xe	0x8086:0x4680:128:1:1:0:0:Intel(R) UHD Graphics 770	0	32768	1	16	0x06	0x97	x64	ac	0	1	0	integrated	5	3	1	1	0	1	1	0	0x831080420
+intel_iris_xe_mobile_8c	0x8086:0x9a49:128:1:1:0:0:Intel(R) Iris(R) Xe Graphics	0	16384	1	8	0x06	0x8c	x64	ac	1	1	0	integrated	5	3	1	1	0	1	1	0	0x831080420
+intel_arc_integrated_meteor_lake	0x8086:0x7d55:128:1:1:0:0:Intel(R) Arc(TM) Graphics	0	32768	1	14	0x06	0xaa	x64	ac	1	1	0	integrated	5	3	1	1	0	1	1	0	0x831080420
+intel_hybrid_laptop_igpu	0x8086:0xa7a0:128:1:1:0:0:Intel(R) Iris(R) Xe Graphics	0	16384	1	14	0x06	0xba	x64	ac	1	1	0	integrated	5	3	1	1	0	1	1	0	0x831080420
+laptop_igpu_plus_nvidia_default_picks_dgpu	0x1002:0x1636:512:1:1:0:0:AMD Radeon(TM) Graphics;0x10de:0x2520:6144:1:0:0:0:NVIDIA GeForce RTX 3060 Laptop GPU	0	16384	1	8	0x19	0x50	x64	ac	1	1	1	discrete	6	4	0	0	0	1	1	0	0x1001008090
+laptop_igpu_plus_nvidia_power_saving_picks_igpu	0x1002:0x1636:512:1:1:0:0:AMD Radeon(TM) Graphics;0x10de:0x2520:6144:1:0:0:0:NVIDIA GeForce RTX 3060 Laptop GPU	1	16384	1	8	0x19	0x50	x64	ac	1	1	0	integrated	1	2	1	1	1	1	1	0	0x2471200482
+laptop_igpu_plus_nvidia_high_perf_picks_dgpu	0x1002:0x1636:512:1:1:0:0:AMD Radeon(TM) Graphics;0x10de:0x2520:6144:1:0:0:0:NVIDIA GeForce RTX 3060 Laptop GPU	2	16384	1	8	0x19	0x50	x64	ac	1	1	1	discrete	6	4	0	0	0	1	1	0	0x1001008084
+desktop_amd_rx_7800xt_dedicated	0x1002:0x747e:16384:1:0:0:0:AMD Radeon RX 7800 XT	0	32768	1	8	0x19	0x61	x64	ac	0	1	0	discrete	6	4	0	0	0	1	1	0	0x1001008010
+desktop_x3d_nvidia_rtx4070_dedicated	0x10de:0x2786:12288:1:0:0:0:NVIDIA GeForce RTX 4070	0	32768	1	8	0x19	0x61	x64	ac	0	1	0	discrete	6	4	0	0	0	1	1	0	0x1001008010
+threadripper_over64t_dedicated	0x10de:0x2684:24576:1:0:0:0:NVIDIA GeForce RTX 4090	0	131072	1	64	0x19	0x11	x64	ac	0	1	0	discrete	6	4	0	0	0	1	1	0	0x1001008010
+egpu_dxcore_detachable_over_igpu	0x8086:0x9a49:128:1:1:0:0:Intel(R) Iris(R) Xe Graphics;0x10de:0x2504:12288:1:0:1:0:NVIDIA GeForce RTX 3060	0	32768	1	8	0x06	0x8c	x64	ac	1	1	1	external	6	4	0	0	0	1	1	0	0x1101008088
+egpu_setupapi_removal_policy_only	0x1002:0x1681:512:1:1:0:0:AMD Radeon 680M Graphics;0x1002:0x7480:8192:1:0:0:1:AMD Radeon RX 7600	0	32768	1	8	0x19	0x44	x64	ac	1	1	1	external	6	4	0	0	0	1	1	0	0x1101008088
+windows_on_arm_snapdragon_blocks_drivers	0x5143:0x0c36:512:1:1:0:0:Qualcomm Adreno X1-85 GPU	0	16384	1	12	0x00	0x00	arm64_emu	ac	1	1	0	integrated	0	2	1	1	0	1	1	1	0x2431202220
+no_dxcore_even_small_vram_stays_unknown_prudent	0x1002:0x1636:512:0:0:0:0:AMD Radeon(TM) Graphics	0	16384	1	6	0x17	0x60	x64	ac	1	0	0	unknown	6	4	0	0	0	1	1	1	0x1001008140
+gpu_probe_failed_prudent_fallback	-	0	16384	1	6	0x17	0x60	x64	ac	0	1	-1	unknown	6	4	0	0	0	1	1	1	0x1001000001
+unknown_integrated_arch_uses_tier2	0x9999:0x0001:512:1:1:0:0:Future Integrated GPU	0	16384	1	6	0x00	0x00	x64	ac	0	1	0	integrated	0	2	1	1	0	1	1	0	0x2431202020
+ram_probe_failed_disables_purge_and_guard	0x1002:0x1636:512:1:1:0:0:AMD Radeon(TM) Graphics	0	0	0	6	0x17	0x60	x64	ac	1	1	0	integrated	1	1	1	0	1	0	1	0	0x2261810420
+amd_unknown_id_name_780m_uses_name	0x1002:0xfffe:512:1:1:0:0:AMD Radeon 780M Graphics	0	16384	1	8	0x19	0x61	x64	ac	1	1	0	integrated	3	3	1	1	1	1	1	0	0x871080820
+amd_unknown_id_generic_name_cpuid_rdna3	0x1002:0xfffe:512:1:1:0:0:AMD Radeon(TM) Graphics	0	16384	1	8	0x19	0x74	x64	ac	1	1	0	integrated	3	3	1	1	1	1	1	0	0x871081020
+cores_unknown_assumed_four	0x1002:0x1636:512:1:1:0:0:AMD Radeon(TM) Graphics	0	16384	1	0	0x17	0x60	x64	ac	1	1	0	integrated	1	1	1	1	1	1	1	0	0x2271420420
+two_gpus_no_dxcore_picks_first	0x1002:0x1636:512:0:0:0:0:AMD Radeon(TM) Graphics;0x10de:0x2520:6144:0:0:0:0:NVIDIA GeForce RTX 3060 Laptop GPU	0	16384	1	8	0x19	0x50	x64	ac	1	0	0	unknown	6	4	0	0	0	1	1	1	0x10010081c0

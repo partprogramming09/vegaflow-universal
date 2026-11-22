@@ -236,6 +236,9 @@ void PrintStatusReport() {
     const int uma_thresh_pct = static_cast<int>(policy.runtime_pressure_threshold * 100.0 + 0.5);
     std::cout << "  Live DXGI Budget Pressure  : " << static_cast<int>(uma_guard.dxgi_budget_utilization * 100.0) << "% (Threshold: " << uma_thresh_pct << "% -> " << (uma_guard.guard_triggered ? "PRESSURE GUARD ACTIVE" : "HEALTHY") << ")\n\n";
 
+    const std::string why = WhyThisProfileSection(HardwareProfiler::DecisionReasonTexts(policy.decision_reasons));
+    if (!why.empty()) std::cout << why << "\n";
+
     std::cout << "[SYSTEM GRAPHICS TWEAKS]\n";
     std::cout << "  Multi-Plane Overlay (MPO)  : " << (tweaks.mpo_disabled ? "DISABLED (OverlayTestMode=5, undocumented)" : "ENABLED (Windows Default)") << "\n";
     if (gfx.AmdDriver()) {
@@ -471,6 +474,13 @@ std::string GpuMemoryLine(const VideoMemoryTelemetry& vram) {
        << " MB | DXGI Budget Local: " << vram.local_budget_bytes / kMb << " MB / Non-Local: "
        << vram.non_local_budget_bytes / kMb << " MB | PDH: " << (vram.valid ? "OK" : "UNAVAILABLE (RAM-only guard)");
     return ss.str();
+}
+
+std::string WhyThisProfileSection(const std::vector<std::string>& reasons) {
+    if (reasons.empty()) return "";
+    std::string out = "[WHY THIS PROFILE]\n";
+    for (const std::string& line : reasons) out += "  - " + line + "\n";
+    return out;
 }
 
 std::string MemoryKpiLine(uint64_t private_ws_bytes) {

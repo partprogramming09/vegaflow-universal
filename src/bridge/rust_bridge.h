@@ -197,6 +197,7 @@ size_t vf_rust_steam_library_paths(const char* vdf, size_t len, VfSteamLibraryFn
 #define VF_CONFIG_KEY_AUTO_PRIORITY_SEPARATION (1u << 14)
 #define VF_CONFIG_KEY_AUTO_GAME_DVR_OFF        (1u << 15)
 #define VF_CONFIG_KEY_AUTO_POWER_PROFILE       (1u << 16)
+#define VF_CONFIG_KEY_AUTO_ENGINE_PRESETS      (1u << 17) /* F2.3 */
 /* Results of vf_rust_config_save. */
 #define VF_CONFIG_SAVE_OK       0u
 #define VF_CONFIG_SAVE_BLOCKED  1u /* the current file has a VF_CONFIG_BLOCKS_SAVE status */
@@ -278,6 +279,7 @@ typedef struct VfConfigSettings {
     bool auto_priority_separation;
     bool auto_game_dvr_off;
     bool auto_power_profile;
+    bool auto_engine_presets;        /* F2.3: the Unreal Engine preset written to Engine.ini */
 } VfConfigSettings;
 
 typedef struct VfConfigLoad {
@@ -436,7 +438,12 @@ typedef struct VfDeviceProfileDecision {
     uint32_t amd_tessellation_cap;
     uint32_t dxvk_compiler_threads;
     bool disable_dx12_async_compute;
+    uint64_t reasons;                /* F2.7: one VF_REASON_* bit per rule that decided the fields above (device_profile.rs) */
 } VfDeviceProfileDecision;
+
+/* Calls on_line once per bit set in `mask`, in bit order, with the plain sentence of that rule (UTF-8, not NUL-ended).
+   Bits with no rule are skipped. Returns how many lines were sent. */
+uint32_t vf_rust_decision_reason_texts(uint64_t mask, VfUtf8Fn on_line, void* ctx);
 
 bool vf_rust_evaluate_device_profile(
     const VfGpuAdapterInput* adapters,

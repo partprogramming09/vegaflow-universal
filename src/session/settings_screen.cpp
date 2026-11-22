@@ -16,6 +16,7 @@ bool SettingIsOn(const SettingSpec& spec, const SettingsScreenInputs& in) {
     if (id == "fse_compat") return t.fse_disabled;
     if (id == "memory_compression_off") return !t.memory_compression_enabled; // on = VegaFlow (or the user) turned it off
     if (id == "power_profile") return t.apu_power_optimized;
+    if (id == "engine_presets") return in.auto_engine_presets;
     return false; // a catalog row without a case here is shown as off, never as applied
 }
 
@@ -32,6 +33,10 @@ std::string EvidenceLabel(const SettingSpec& spec) {
 std::string SettingPreview(const SettingSpec& spec, bool on_now, bool elevated) {
     std::string t = std::string("Ahora: ") + (on_now ? "encendido" : "apagado") + ".\n";
     if (!spec.user_switch) return t + "VegaFlow lo decide solo: no hay interruptor que pulsar.";
+    if (spec.config_key) { // nothing is written to the system now, so there is no "original value" to give back
+        return t + (on_now ? "Si lo apagas: los juegos que abras después no se tocan. Lo ya escrito se quita desde Juegos."
+                           : "Si lo enciendes: al detectar un juego con Unreal Engine, VegaFlow escribe un bloque en su Engine.ini (con copia .vegaflow.bak). Ahora no cambia nada.");
+    }
     t += on_now ? "Si lo apagas: VegaFlow devuelve el valor que tenía antes."
                 : std::string("Si lo enciendes: VegaFlow escribe ") + spec.change + " en " + spec.target + ".";
     t += std::string("\nSe puede deshacer: ") + (spec.undoable ? "sí, desde Historial." : "no: no deja un valor original guardado.");

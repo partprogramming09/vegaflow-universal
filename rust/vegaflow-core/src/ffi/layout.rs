@@ -59,7 +59,7 @@ fn bridge_layout() -> Vec<usize> {
     layout!(v, VfAllowedRoot, path, len, writable);
     layout!(v, VfConfigSettings, poll_interval_ms, cooldown_seconds,
         restrict_game_cpu_sets, min_free_ram_mb, min_standby_mb, max_game_disk_read_mb_s, auto_vram_reporting,
-        auto_priority_separation, auto_game_dvr_off, auto_power_profile);
+        auto_priority_separation, auto_game_dvr_off, auto_power_profile, auto_engine_presets);
     layout!(v, VfConfigLoad, settings, status, rejected_keys);
     layout!(v, VfAceEntry, mask, sid_kind, allows, inherit_only);
     layout!(v, VfIniKv, key, key_len, value, value_len);
@@ -71,7 +71,7 @@ fn bridge_layout() -> Vec<usize> {
     layout!(v, VfDeviceProfileDecision, selected_gpu_index, gpu_probe_ok, gpu_connection, gpu_arch_gen,
         apu_tier, apply_visual_cuts, apply_uma_memory_guard, apply_uma_vram_reg_override, allow_ram_purge,
         force_high_perf_power_plan, block_driver_tweaks, apply_egpu_streaming_tweaks, safe_vram_pool_mb,
-        amd_tessellation_cap, dxvk_compiler_threads, disable_dx12_async_compute);
+        amd_tessellation_cap, dxvk_compiler_threads, disable_dx12_async_compute, reasons);
     layout!(v, VfProcessCategoryActions, recording_streaming, calls_voice, messaging, browsers,
         stores_launchers, music, cloud_sync);
     layout!(v, VfProcessDecision, process_class, action, protected_by_anticheat, path_verified);

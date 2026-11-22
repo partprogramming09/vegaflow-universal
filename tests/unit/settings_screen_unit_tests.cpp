@@ -58,6 +58,7 @@ void Test63() {
         {"memory_compression_off", [](SettingsScreenInputs& i) { i.tweaks.memory_compression_enabled = false; }},
         {"power_profile", [](SettingsScreenInputs& i) { i.tweaks.apu_power_optimized = true; }},
         {"memory_guard", [](SettingsScreenInputs& i) { i.memory_guard_active = true; }},
+        {"engine_presets", [](SettingsScreenInputs& i) { i.auto_engine_presets = true; }},
     };
     bool isolated = true;
     std::string bad;

@@ -4,6 +4,7 @@
 #include "../test_support.hpp"
 
 #include "bridge/rust_bridge.h"
+#include "detect/hardware_profiler.hpp"
 #include "session/doctor.hpp"
 #include "session/report.hpp"
 
@@ -151,6 +152,23 @@ void Test109() {
     const auto r17 = gs::BuildDoctorReport(unread);
     RecordResult(Has(r17.text, "Shader caches:\n  could not read") && Has(r17.json, "\"shader_caches\":[]") && JsonOk(r17.json),
                  "Test 109.17: an unreadable cache probe says so and the JSON list is empty", r17.text + r17.json);
+
+    // F2.7. The reasons that decided the hardware profile are listed in plain text and in the JSON; with none, no section.
+    auto why = Healthy();
+    why.profile_reasons = {"The integrated GPU was chosen.", "Tier 2 (mid): none of the entry or advanced rules matched."};
+    const auto r18 = gs::BuildDoctorReport(why);
+    const auto r18_none = gs::BuildDoctorReport(Healthy());
+    RecordResult(Has(r18.text, "Hardware profile, why:\n  - The integrated GPU was chosen.\n  - Tier 2 (mid)") &&
+                     Has(r18.json, "\"profile_reasons\":[\"The integrated GPU was chosen.\",\"Tier 2 (mid)") && JsonOk(r18.json) &&
+                     !Has(r18_none.text, "Hardware profile") && Has(r18_none.json, "\"profile_reasons\":[]") && JsonOk(r18_none.json),
+                 "Test 109.18: the profile reasons are listed in the text and the JSON; with none there is no section and the JSON list is empty",
+                 r18.text + r18.json);
+    // The words come from the Rust table: one line per bit, bit order, bits with no rule skipped.
+    const auto lines = vegaflow::HardwareProfiler::DecisionReasonTexts((1ull << 37) | 1ull | (1ull << 60));
+    RecordResult(lines.size() == 2 && lines[0].find("No graphics adapter") != std::string::npos &&
+                     lines[1].find("async compute is off") != std::string::npos &&
+                     vegaflow::HardwareProfiler::DecisionReasonTexts(0).empty(),
+                 "Test 109.19: DecisionReasonTexts asks Rust for one sentence per set bit, in bit order, and skips bits with no rule");
 
     // RedactReport on its own: keeps line breaks and length, hides the names case-insensitively.
     const std::string red = gs::RedactReport("a\r\nC:\\Users\\Ana\\x on desktop-abc of Corp-Dom\r\n" + std::string(300, 'z'), "DESKTOP-ABC", "CORP-DOM");
