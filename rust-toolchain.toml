@@ -1,0 +1,6 @@
+# Exact Rust version for local builds and CI: a newer stable once broke the Windows link (fb28f43).
+# To upgrade, change it here, run the CI and the laptop suite, and commit the bump on its own.
+[toolchain]
+channel = "1.98.1"
+profile = "minimal"
+targets = ["x86_64-pc-windows-gnu"]
