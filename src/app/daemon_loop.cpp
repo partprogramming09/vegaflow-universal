@@ -83,6 +83,12 @@ int RunDaemon(
 
     // Named so an elevated script can request a clean shutdown (RestoreAll) without a console.
     g_stop_event = CreateEventW(nullptr, TRUE, FALSE, L"Global\\VegaFlowStop");
+    if (!g_stop_event) {
+        // Without SeCreateGlobalPrivilege (not elevated) the Global name is refused; Ctrl+C still needs a handle to wake the wait.
+        std::cerr << "[WARN] Could not create Global\\VegaFlowStop (error " << GetLastError()
+                  << "): an external stop script will not work; Ctrl+C still does.\n";
+        g_stop_event = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    }
     if (!SetConsoleCtrlHandler(ConsoleCtrlHandler, TRUE)) {
         std::cerr << "[WARN] Failed to set console control handler.\n";
     }
@@ -147,6 +153,10 @@ int RunDaemon(
     };
 
     session::RunWakeLoop(event_source, SteadyClock::Instance(), config.poll_interval_ms, hooks);
+    // A stop nobody asked for (wait failed) must not look like a clean shutdown.
+    if (g_running.load() && (!g_stop_event || WaitForSingleObject(g_stop_event, 0) != WAIT_OBJECT_0)) {
+        std::cerr << "[WARN] The wait loop ended without a stop request (the wait itself failed, error " << GetLastError() << ").\n";
+    }
 
     if (g_stop_event) {
         CloseHandle(g_stop_event);
