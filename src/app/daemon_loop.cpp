@@ -20,6 +20,8 @@
 #include "windows/safe_file_system.hpp"
 #include "session/run_cycle.hpp"
 #include "windows/text_convert.hpp"
+#include "windows/event_sources.hpp"
+#include "session/wake_loop.hpp"
 
 namespace vegaflow::app {
 
@@ -77,7 +79,7 @@ int RunDaemon(
         return 0;
     }
 
-    // Continuous Daemon Mode (Zero aggressive polling via Waitable Timer)
+    // Continuous Daemon Mode: wakes on events (E2.4); a timer is only a heartbeat
     auto steam_games = SteamEngineOptimizer::ScanSteamLibrary();
     SyncSteamGamesToCustomExes(steam_games, config);
 
@@ -87,68 +89,50 @@ int RunDaemon(
         std::cerr << "[WARN] Failed to set console control handler.\n";
     }
 
-    HANDLE waitable_timer = CreateWaitableTimerExW(
-        nullptr,
-        nullptr,
-        0x00000002 /* CREATE_WAITABLE_TIMER_HIGH_RESOLUTION */,
-        TIMER_ALL_ACCESS);
-    if (!waitable_timer) {
-        waitable_timer = CreateWaitableTimerW(nullptr, FALSE, nullptr);
-    }
-
-    if (!waitable_timer) {
-        std::cerr << "[ERROR] Failed to create Windows Waitable Timer (Error: " << GetLastError() << ")\n";
-        return 1;
-    }
-
-    LARGE_INTEGER due_time;
-    due_time.QuadPart = -10000LL * config.poll_interval_ms; // 100ns units, negative for relative
-    if (!SetWaitableTimer(waitable_timer, &due_time, config.poll_interval_ms, nullptr, nullptr, FALSE)) {
-        std::cerr << "[ERROR] SetWaitableTimer failed (Error: " << GetLastError() << ")\n";
-        CloseHandle(waitable_timer);
-        return 1;
-    }
+    // E2.4: created on this thread, which is the one that waits (the hook and the message window need its queue).
+    WindowsEventSource event_source(g_stop_event);
 
     std::cout << "================================================================================\n";
     std::cout << "            VEGAFLOW DAEMON INITIALIZED                                    \n";
-    std::cout << "  Poll Interval : " << config.poll_interval_ms << " ms (Waitable Timer)\n";
+    if (event_source.EventsActive()) {
+        std::cout << "  Wake-up       : events (idle safety net " << session::kIdleSafetyNetMs / 1000 << " s, "
+                  << config.poll_interval_ms << " ms while a game runs)\n";
+    } else {
+        std::cout << "  Poll Interval : " << session::kPollFallbackMs << " ms (events unavailable)\n";
+    }
     std::cout << "  Architecture  : " << HardwareProfiler::MemArchToString(hw.primary_gpu.mem_arch) << "\n";
     if (!priv.is_elevated) {
         std::cout << "  [WARN] Running without Administrator privileges: Standby List purge requires Admin.\n";
         std::cout << "         Run with --elevate to grant full access.\n";
     }
     DWORD session_id = 0;
-    if (ProcessIdToSessionId(GetCurrentProcessId(), &session_id) && session_id == 0) {
-        std::cout << "  [WARN] Running in Windows session 0 (no desktop): game detection will not see any window.\n";
+    if (ProcessIdToSessionId(GetCurrentProcessId(), &session_id)) {
+        if (const char* warn = session::NoDesktopWarning(session_id)) std::cout << "  " << warn << "\n";
     }
     std::cout << "  Press Ctrl+C to terminate cleanly.\n";
     std::cout << "================================================================================\n";
 
-    HANDLE wait_handles[2] = { g_stop_event, waitable_timer };
-
-    while (g_running.load()) {
-        DWORD wait_res = WaitForMultipleObjects(2, wait_handles, FALSE, INFINITE);
-        if (wait_res == WAIT_OBJECT_0) {
-            break;
-        } else if (wait_res == WAIT_OBJECT_0 + 1) {
-            if (!safe_mode) {
-                const uint64_t prev_sig = hw.adapter_signature;
-                const uint8_t prev_pref = hw.user_gpu_pref;
-                RunSingleIteration(
-                    config, file_system, hw, cpu_orchestrator, mem_mgr,
-                    game_active, active_game_pid, active_game_exe, active_game_api, active_game_hwnd);
-                // The iteration re-reads the hardware when the adapters change; the tweaks and telemetry follow it.
-                if (hw.adapter_signature != prev_sig || hw.user_gpu_pref != prev_pref) {
-                    policy = HardwareProfiler::BuildOptimizationPolicy(hw);
-                    gfx.Rebind(hw, policy);
-                    mem_mgr.SetTargetLuid(hw.primary_gpu.luid);
-                }
-            }
-        } else {
-            break;
+    session::WakeLoopHooks hooks;
+    hooks.should_stop = [] { return !g_running.load(); };
+    hooks.game_active = [&] { return game_active; };
+    hooks.log = [](const std::string& m) { std::cerr << m << "\n"; };
+    hooks.iterate = [&](const session::WakeSet& wake, bool check_adapters) {
+        if (safe_mode) return;
+        const uint64_t prev_sig = hw.adapter_signature;
+        const uint8_t prev_pref = hw.user_gpu_pref;
+        RunSingleIteration(
+            config, file_system, hw, cpu_orchestrator, mem_mgr,
+            game_active, active_game_pid, active_game_exe, active_game_api, active_game_hwnd,
+            nullptr, nullptr, nullptr, check_adapters);
+        // The iteration re-reads the hardware when the adapters change, and a power-source change recomputes the
+        // static policy; the tweaks and telemetry follow it.
+        if (wake.power || hw.adapter_signature != prev_sig || hw.user_gpu_pref != prev_pref) {
+            policy = HardwareProfiler::BuildOptimizationPolicy(hw);
+            gfx.Rebind(hw, policy);
+            mem_mgr.SetTargetLuid(hw.primary_gpu.luid);
         }
-    }
-
+    };
+    hooks.cleanup = [&] {
     std::cout << "\n[INFO] Shutdown signal received. Cleaning up resources...\n";
     if (!safe_mode) {
         if (game_active) {
@@ -164,9 +148,10 @@ int RunDaemon(
         const bool registry_restored = gfx.RestoreAllRegistryBackups();
         std::cout << "[INFO] Registry values restored to their original state: " << (registry_restored ? "yes" : "partially or not (see --restore-registry)") << "\n";
     }
+    };
 
-    CancelWaitableTimer(waitable_timer);
-    CloseHandle(waitable_timer);
+    session::RunWakeLoop(event_source, SteadyClock::Instance(), config.poll_interval_ms, hooks);
+
     if (g_stop_event) {
         CloseHandle(g_stop_event);
         g_stop_event = nullptr;

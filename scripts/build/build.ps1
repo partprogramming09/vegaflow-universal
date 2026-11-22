@@ -126,6 +126,7 @@ $Libs = @(
     "-lws2_32",
     "-luserenv",
     "-lbcrypt",
+    "-lcfgmgr32",  # CM_Register_Notification (E2.4 display-adapter events)
     "-lsynchronization"  # WaitOnAddress, used by newer Rust std mutexes
 )
 
