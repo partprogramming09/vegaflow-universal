@@ -147,6 +147,20 @@
         "ScriptSha256": "^[0-9a-fA-F]{64}$"
       }
     },
+    "first-start": {
+      "script": "first_start.ps1",
+      "timeout_s": 240,
+      "session": 1,
+      "description": "First unattended start of a daemon staged by vfdev first-start, with no journal: does it reach Global\\VegaFlowStop in bounded time",
+      "params": {
+        "ExeSha256": "^[0-9a-fA-F]{64}$",
+        "Mode": "^(hidden|task|wt)$",
+        "Arg": "^(none|once|dry-run)$",
+        "Stdin": "^(console|file|pipe)$",
+        "Journal": "^(none|unclean|corrupt)$",
+        "Answer": "^(none|n)$"
+      }
+    },
     "octo": {
       "script": "octo.ps1",
       "timeout_s": 14400,

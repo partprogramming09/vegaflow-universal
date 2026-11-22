@@ -169,5 +169,9 @@ void Test131();  // F1.7 a failed copy of the original DLL leaves DXVK's DLL in 
 void Test132();  // F1.2 the manual off of Ajustes writes the factory value with a copy
 void Test133();  // F1.7 review: the manual MMCSS off gives back the legacy value copies too
 void Test134();  // F1.2 review: the manual Balanced journals the plan it finds before writing
+void Test136();  // startup questions ask only a visible console; no answer is the safe default
+void Test137();  // a startup question reads one line key by key (Enter, Backspace, UTF-8, long line)
+void Test138();  // the startup question limit is absolute and a key after it does not count
+void Test139();  // end of input or a failed read is no answer and discards pending keys
 
 } // namespace vftest

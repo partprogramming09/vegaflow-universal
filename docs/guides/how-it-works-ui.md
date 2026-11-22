@@ -27,7 +27,7 @@ Where the 53 % comes from, with the screenshot numbers:
 - Used memory = 15788 − 7454 = 8334 MB (`session/home_screen.cpp:60-62`).
 - Percent = (8334 × 100 + 15788 / 2) / 15788, using whole numbers = 841294 / 15788 = 53 (`session/home_screen.cpp:63`).
 - The 7454 MB is free memory plus standby memory (the cache Windows gives back on request): `in.ram_available_mb = d.free_ram_mb + d.standby_ram_mb` (`ui/home_view.cpp:35`).
-- The words "Modo seguro" (safe mode) appear because the window was opened with `--observe`. The flag is set in `cli.cpp:39-40`, turned into safe mode in `main.cpp:195`, and `gui_mode.cpp:271` sets `automatic = !safe_mode`. The view copies it (`home_view.cpp:37`), and `session/home_screen.cpp:44-47` writes "En espera" (waiting) and "Modo seguro: VegaFlow no detecta juegos" (safe mode: VegaFlow does not detect games).
+- The words "Modo seguro" (safe mode) appear because the window was opened with `--observe`. The flag is set in `cli.cpp:39-40`, turned into safe mode in `main.cpp:167`, and `gui_mode.cpp:271` sets `automatic = !safe_mode`. The view copies it (`home_view.cpp:37`), and `session/home_screen.cpp:44-47` writes "En espera" (waiting) and "Modo seguro: VegaFlow no detecta juegos" (safe mode: VegaFlow does not detect games).
 
 Second example, tab 3 ([screenshot](./img/gui-uma-cores.png)): the 12 threads are labelled. Threads 0 and 1 say "DPC / ISR" (Windows work that runs at high priority), 2 to 9 say "JUEGO" (game), 10 and 11 say "FONDO" (background). Below the map: "Procesos en segundo plano detectados: 22" (background processes found: 22). Tab 3 is still the old drawing: `gui_tabs.cpp` reads the telemetry struct directly and has no `session/` model yet.
 
@@ -44,7 +44,7 @@ Second example, tab 3 ([screenshot](./img/gui-uma-cores.png)): the 12 threads ar
 | 5. Paint the screen | [home_view.cpp:215](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/ui/home_view.cpp#L215), [home_view.cpp:260](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/ui/home_view.cpp#L260) | Cards are drawn with GDI; "% en uso" is printed from `memory_percent`, or "Sin dato" (no data) when it is unknown | The bar shows the same number as the text, so colour is never the only cue |
 | 6. A press: button or click | [gui_window.cpp:570-573](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/ui/gui_window.cpp#L570-L573), [gui_window.cpp:507-521](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/ui/gui_window.cpp#L507-L521), [home_view.cpp:323](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/ui/home_view.cpp#L323) | Native buttons send `WM_COMMAND` to their view; GDI boxes are found with a point-in-rectangle test; the action is a callback into the app | The window does not do the action; it asks the app and shows the sentence that comes back |
 | 7. Change tab | [gui_window.cpp:214-221](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/ui/gui_window.cpp#L214-L221), [gui_window.cpp:224-242](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/ui/gui_window.cpp#L224-L242) | `current_tab` changes, the view of the old tab is hidden, the new one is shown and refreshed | Only one screen has native controls in front, so Tab never lands on a hidden button |
-| 8. Second start | [main.cpp:128-137](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/app/main.cpp#L128-L137), [gui_window.cpp:303-309](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/ui/gui_window.cpp#L303-L309) | The second program finds the window by its class and posts the registered restore message; the window shows and focuses itself | A normal click cannot cross the privilege filter (see below), so only this one message is let through |
+| 8. Second start | [main.cpp:101-110](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/app/main.cpp#L101-L110), [gui_window.cpp:303-309](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/ui/gui_window.cpp#L303-L309) | The second program finds the window by its class and posts the registered restore message; the window shows and focuses itself | A normal click cannot cross the privilege filter (see below), so only this one message is let through |
 
 The step numbers match the diagram. Steps 1 and 2 run once. Steps 3 to 5 repeat every tick. Steps 6 to 8 run when the person acts.
 
@@ -81,7 +81,7 @@ How they talk: the window holds one `GuiWindowState` (`gui_components.hpp:115`) 
 - **No RAM total.** If the telemetry cannot read the memory, the model says "No se pudo leer la memoria del equipo." (could not read the machine's memory) and the card shows "Sin dato" (no data) instead of a percent (`session/home_screen.cpp:57-59`, `ui/home_view.cpp:260`). The card still draws.
 - **Window hidden or minimized.** The timer still polls, but skips the repaint and the screen refresh (`gui_window.cpp:526`, `:534-536`). Nothing is drawn for a window nobody sees.
 - **A notice survives the poll.** Each poll replaces the data, so the window keeps the previous status sentence when the new one is empty (`gui_window.cpp:528-532`). A result shown in the status bar is not wiped by the next tick.
-- **Second start, no window found.** `main.cpp` posts the message only if `FindWindowW` finds the window; otherwise it prints "already running in the background (no window to show)" and exits with 0 (`main.cpp:130-137`).
+- **Second start, no window found.** `main.cpp` posts the message only if `FindWindowW` finds the window; otherwise it prints "already running in the background (no window to show)" and exits with 0 (`main.cpp:103-110`).
 - **Second start, low rights.** The filter lets only the restore message through; the other messages from a lower-rights program are refused by Windows (`gui_window.cpp:365`).
 - **A failed action.** Each action returns a sentence, and the window puts it in the status bar (`gui_window.hpp:111-113`, for example the tray purge at `gui_window.cpp:592-595`). The person sees why nothing changed.
 
@@ -108,7 +108,7 @@ Known differences, checked in the code and not fixed by this page:
 | 3 and 5 (tab 3) | Opened tab 3 on the laptop, screenshot. How the tab was opened is not recorded | [gui-uma-cores.png](./img/gui-uma-cores.png): "Procesos en segundo plano detectados: 22 \| Procesos aislados en núcleos secundarios: 0" |
 | 6 (Tab key reaches the buttons) | Keyboard run | not reproduced |
 | 8 (restore message brings the window forward) | `scripts/remote/vfdev run gui-second` on the laptop, with one GUI open | `segunda salio=True (codigo 0); GUIs abiertas=1; ventana al frente es la primera=True` |
-| Whole suite | Full C++ suite | `TEST RESULTS: 411 PASSED, 0 FAILED` |
+| Whole suite | Full C++ suite | `TEST RESULTS: 415 PASSED, 0 FAILED` |
 
 ## Check it yourself
 

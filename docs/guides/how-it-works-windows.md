@@ -168,8 +168,8 @@ The code does not say why the NT functions are loaded by name instead of being l
 - **An NT function is missing.** The purge reports `NtSetSystemInformation not available in ntdll.dll`. The I/O priority step is skipped without a message.
 - **A registry restore points at a key VegaFlow never edits.** The restore returns `false`. The record stays in place (it is deleted only after a successful restore), so nothing is lost.
 - **Some values could not be restored.** `--restore-registry` prints `Se devolvieron X de Y` (X of Y restored) and exits with code 1 (`cli.cpp:310-312`).
-- **The journal is corrupt.** The command prints `Diario de cambios corrupto (...); restaurando copias de respaldo del registro directamente` and restores from the registry backups directly (`cli.cpp:292-294`). At startup the program warns and tells the user to run `--restore-registry` (`main.cpp:158`).
-- **The program crashed during a session.** The next start reports `Se detectó un cierre anterior no limpio` (an unclean previous exit) and offers to undo the changes (`main.cpp:173-190`). Two unclean exits in a row start safe mode (`change_journal.cpp:834`).
+- **The journal is corrupt.** The command prints `Diario de cambios corrupto (...); restaurando copias de respaldo del registro directamente` and restores from the registry backups directly (`cli.cpp:292-294`). At startup the program warns and tells the user to run `--restore-registry` (`main.cpp:131`).
+- **The program crashed during a session.** The next start reports `Se detectó un cierre anterior no limpio` (an unclean previous exit) and offers to undo the changes (`main.cpp:146-162`). Two unclean exits in a row start safe mode (`change_journal.cpp:834`).
 - **DXCore is missing.** The probe falls back to DXGI (`device_probe.cpp:398-403`), so the hardware report still appears.
 
 ## Evidence that it works this way
@@ -195,7 +195,7 @@ All lines below were run on the test laptop on 2026-11-20 and are trimmed from t
 | Journal crash recovery | Suite, Test 49 and Test 50 | `[PASS] Test 49: Change journal atomic writes, crash recovery, Safe Mode, and corrupt handling (fresh: PASS, crash1: PASS, ..., safe mode: PASS, corrupt: PASS, ...)` and `[PASS] Test 50: Real disk FileChangeJournal + WindowsSystemUndo restores HKCU registry and game INI after crash (setup: PASS, restored 2/2: PASS, HKCU==123: PASS, INI exact: PASS)` |
 | `--system-info` JSON | `vegaflow_daemon.exe --system-info` | The JSON excerpt in "A concrete example" |
 | `--status` lines | `vegaflow_daemon.exe --status` | The lines in "A concrete example" |
-| Whole suite | `scripts/build/build.ps1 -RunTests` | `TEST RESULTS: 411 PASSED, 0 FAILED` |
+| Whole suite | `scripts/build/build.ps1 -RunTests` | `TEST RESULTS: 415 PASSED, 0 FAILED` |
 | `--restore-registry` run from the command line | not run | not reproduced |
 | Standby purge without Administrator | not run | not reproduced |
 | The exact refusal message of a write | not run; Test 17 shows PASS only | not reproduced |

@@ -61,6 +61,7 @@ vegaflow-universal/
 │   │   ├── system_info.*         # SystemInfo report (hardware, UMA, RAM, OS and JSON); the Windows readings are requested from windows/system_counters
 │   │   ├── config.*              # ConfigStore: read and save config.json (rules in Rust) and the game list
 │   │   ├── restore.*             # Startup evaluation, journal recovery, history format, restore point and `RestoreAllMessage`
+│   │   ├── startup_prompts.*     # Who may be asked at startup (only a visible console) and the safe default when nobody answers
 │   │   ├── *_screen.*            # Pure models of the screens (home, settings, games, history, config, programs, equipment, requirements)
 │   │   ├── settings_catalog.*    # Catalog of settings for the System settings screen (families by hardware, experimental, evidence)
 │   │   └── *_actions.*           # What the buttons do: `GameActions`, `SettingsActions` and `ConfigActions`
@@ -76,7 +77,8 @@ vegaflow-universal/
 │   │   └── change_journal.hpp    # Atomic change journal and the system's undo port
 │   ├── model/                    # Shared types, no logic
 │   │   ├── hardware.hpp          # GPU (connection, PCI IDs, driver), CPU, disk, power, Tier and policy
-│   │   └── game.hpp              # Detected game, graphics API and process classification/policy
+│   │   ├── game.hpp              # Detected game, graphics API and process classification/policy
+│   │   └── console.hpp           # `StdinKind`: where stdin comes from (visible or hidden console, pipe, file)
 │   ├── detect/                   # What hardware and which game are present
 │   │   ├── hardware_profiler.*   # Orchestration of the universal probe and policy from Rust (`device_profile.rs`)
 │   │   └── process_detector.*    # Game detection (path + 3D DLL + generic AC signals) and classification via Rust
@@ -115,6 +117,7 @@ vegaflow-universal/
 │   │   ├── nt_defs.hpp           # Typedefs and undocumented native NTDLL calls
 │   │   ├── system_counters.*     # Readings for the report and the GUI: processes in EcoQoS, games with Direct Flip, L3 cache (with CPUID fallback), DIMM slots via SMBIOS and window ids
 │   │   ├── text_convert.*        # UTF-8 <-> UTF-16 (`Utf8ToWide`, `WideToUtf8`)
+│   │   ├── console_prompt.*      # `ClassifyStdin` and `ConsoleKeyInput`: the real console for a question with a time limit
 │   │   ├── unique_handle.hpp     # Automatic closing of handles, registry keys and searches (RAII)
 │   │   ├── device_probe.*        # Real Windows probe (DXCore COM, DXGI, SetupAPI RemovalPolicy, Storage SeekPenalty/BusType, Power, IsWow64Process2)
 │   │   ├── memory.*              # Windows implementation of MemoryProbe and MemoryControl (ntdll, DXGI, working sets)

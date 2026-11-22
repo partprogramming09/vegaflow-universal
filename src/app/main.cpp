@@ -6,9 +6,8 @@
 #endif
 #include <windows.h>
 
-#include <algorithm>
-#include <cctype>
 #include <iostream>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -20,6 +19,7 @@
 #include "app/cli.hpp"
 #include "session/config.hpp"
 #include "session/restore.hpp"
+#include "session/startup_prompts.hpp"
 #include "app/daemon_loop.hpp"
 #include "app/gui_mode.hpp"
 #include "app/monitor.hpp"
@@ -28,6 +28,7 @@
 #include "windows/text_convert.hpp"
 #include "windows/change_journal.hpp"
 #include "windows/command_line.hpp"
+#include "windows/console_prompt.hpp"
 #include "windows/config_location.hpp"
 #include "windows/power.hpp"
 #include "windows/registry.hpp"
@@ -42,41 +43,13 @@ LONG WINAPI VegaFlowCrashHandler(EXCEPTION_POINTERS* /*ep*/) {
     return EXCEPTION_EXECUTE_HANDLER;
 }
 
-bool HasInteractiveConsole() {
-    HANDLE hIn = GetStdHandle(STD_INPUT_HANDLE);
-    if (!hIn || hIn == INVALID_HANDLE_VALUE) return false;
-    DWORD mode = 0;
-    return GetFileType(hIn) == FILE_TYPE_CHAR && GetConsoleMode(hIn, &mode) != 0;
-}
-
-bool TryReadPromptAnswer(const std::string& prompt, std::string& out_answer) {
-    out_answer.clear();
-    HANDLE hIn = GetStdHandle(STD_INPUT_HANDLE);
-    if (!hIn || hIn == INVALID_HANDLE_VALUE) return false;
-    const DWORD type = GetFileType(hIn);
-    if (type == FILE_TYPE_CHAR) {
-        DWORD mode = 0;
-        if (!GetConsoleMode(hIn, &mode)) return false;
-        std::cout << prompt << std::flush;
-        return static_cast<bool>(std::getline(std::cin, out_answer));
-    }
-    if (type == FILE_TYPE_PIPE) {
-        DWORD avail = 0;
-        if (!PeekNamedPipe(hIn, nullptr, 0, nullptr, &avail, nullptr) || avail == 0) {
-            return false;
-        }
-        std::cout << prompt << std::flush;
-        return static_cast<bool>(std::getline(std::cin, out_answer));
-    }
-    return false;
-}
-
-bool IsAffirmative(std::string s, bool empty_means_yes) {
-    while (!s.empty() && std::isspace(static_cast<unsigned char>(s.front()))) s.erase(s.begin());
-    while (!s.empty() && std::isspace(static_cast<unsigned char>(s.back()))) s.pop_back();
-    if (s.empty()) return empty_means_yes;
-    std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-    return (s == "s" || s == "si" || s == "sí" || s == "y" || s == "yes");
+// A startup question: nullopt when nobody can answer (hidden console, pipe, file) or nobody did in time, so an unattended start never waits.
+std::optional<std::string> AskPerson(const std::string& prompt) {
+    if (!vegaflow::session::CanAskPerson(vegaflow::ClassifyStdin())) return std::nullopt;
+    vegaflow::ConsoleKeyInput keys;
+    auto answer = vegaflow::session::ReadLineWithDeadline(keys, vegaflow::SteadyClock::Instance(), std::cout, prompt, vegaflow::session::kStartupPromptTimeoutMs);
+    if (!answer) std::cout << "[INFO] Sin respuesta a tiempo: no se cambia nada.\n";
+    return answer;
 }
 
 struct JournalSessionGuard {
@@ -179,9 +152,8 @@ int main(int argc, char* argv[]) {
                 journal_warning = rec_notice;
             }
         } else {
-            std::string ans;
-            if (TryReadPromptAnswer("¿Devolver los cambios pendientes a como estaban? [S/n]: ", ans) &&
-                IsAffirmative(ans, true)) {
+            if (vegaflow::session::ShouldRevertPending(
+                    AskPerson("¿Devolver los cambios pendientes a como estaban? [S/n] (30 s): "))) {
                 auto rep = vegaflow::session::RestoreAllRecordedChanges(journal, system_undo, opts.dry_run_flag);
                 WindowsRegistryPort().RestoreAllBackups();
                 std::cout << "[Restore] " << rep.summary_message << "\n";
@@ -211,12 +183,13 @@ int main(int argc, char* argv[]) {
                 if (!rp_msg.empty() && journal_warning.empty()) {
                     journal_warning = rp_msg;
                 }
-            } else if (!opts.once_flag && HasInteractiveConsole()) {
-                std::string ans;
-                if (TryReadPromptAnswer("¿Crear un punto de restauración de Windows antes del primer cambio del registro? [s/N]: ", ans)) {
+            } else if (!opts.once_flag) {
+                // No answer leaves the journal unmarked: the next attended start offers it again.
+                if (const auto accepted = vegaflow::session::RestorePointAnswer(AskPerson(
+                        "¿Crear un punto de restauración de Windows antes del primer cambio del registro? [s/N] (30 s): "))) {
                     std::string rp_msg;
                     vegaflow::session::ExecuteRestorePointOffer(
-                        journal, system_undo, IsAffirmative(ans, false),
+                        journal, system_undo, *accepted,
                         "VegaFlow Universal - Antes del primer cambio del registro", &rp_msg);
                     std::cout << "[RestorePoint] " << rp_msg << "\n";
                 }
