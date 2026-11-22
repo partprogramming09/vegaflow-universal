@@ -7,6 +7,7 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#include <sddl.h>
 
 #include <atomic>
 #include <cstdint>
@@ -75,6 +76,18 @@ struct HandleCloser {
     }
 };
 
+// F3.4: the lock is created by whoever writes first, often the elevated daemon; the default DACL would then shut out the
+// GUI. SYSTEM and Administrators get everything; the interactive user gets only SYNCHRONIZE | MUTEX_MODIFY_STATE.
+HANDLE CreateSessionLogLock() {
+    SECURITY_ATTRIBUTES sa{sizeof sa, nullptr, FALSE};
+    const bool dacl = ConvertStringSecurityDescriptorToSecurityDescriptorW(L"D:(A;;GA;;;SY)(A;;GA;;;BA)(A;;0x100001;;;IU)",
+                                                                           SDDL_REVISION_1, &sa.lpSecurityDescriptor, nullptr);
+    // shortcut: if the descriptor cannot be built the default DACL is used (the old behaviour), not a failed log.
+    HANDLE h = CreateMutexW(dacl ? &sa : nullptr, FALSE, L"Local\\VegaFlowLog");
+    if (dacl) LocalFree(sa.lpSecurityDescriptor);
+    return h;
+}
+
 // Renames an oversized log to <name>.1 (replacing the old one). Caller holds the log mutex.
 void RotateIfTooBig(const std::filesystem::path& p) {
     WIN32_FILE_ATTRIBUTE_DATA info{};
@@ -126,7 +139,7 @@ bool SaveSessionReportToFile(
         const std::string text = block.str();
 
         // One lock covers the size check, the rotation and the write, so the GUI and the daemon never interleave.
-        HandleCloser lock{CreateMutexW(nullptr, FALSE, L"Local\\VegaFlowLog")};
+        HandleCloser lock{CreateSessionLogLock()};
         if (!lock.h) return false;
         const DWORD waited = WaitForSingleObject(lock.h, 5000);
         if (waited != WAIT_OBJECT_0 && waited != WAIT_ABANDONED) return false;
@@ -149,6 +162,31 @@ bool SaveSessionReportToFile(
     } catch (...) {
         return false;
     }
+}
+
+bool SessionLogLockAllowsInteractiveUsers() {
+    HandleCloser lock{CreateSessionLogLock()};
+    if (!lock.h) return false;
+    DWORD need = 0;
+    GetKernelObjectSecurity(lock.h, DACL_SECURITY_INFORMATION, nullptr, 0, &need);
+    if (need == 0) return false;
+    std::vector<BYTE> sd(need);
+    if (!GetKernelObjectSecurity(lock.h, DACL_SECURITY_INFORMATION, sd.data(), need, &need)) return false;
+    BOOL present = FALSE, defaulted = FALSE;
+    PACL acl = nullptr;
+    if (!GetSecurityDescriptorDacl(sd.data(), &present, &acl, &defaulted) || !present || !acl) return false;
+    BYTE sid[SECURITY_MAX_SID_SIZE];
+    DWORD sid_len = sizeof sid;
+    if (!CreateWellKnownSid(WinInteractiveSid, nullptr, sid, &sid_len)) return false;
+    constexpr DWORD kWanted = SYNCHRONIZE | MUTEX_MODIFY_STATE;
+    for (DWORD i = 0; i < acl->AceCount; ++i) {
+        void* ace = nullptr;
+        if (!GetAce(acl, i, &ace)) continue;
+        auto* a = static_cast<ACCESS_ALLOWED_ACE*>(ace);
+        if (a->Header.AceType == ACCESS_ALLOWED_ACE_TYPE && (a->Mask & kWanted) == kWanted &&
+            EqualSid(reinterpret_cast<PSID>(&a->SidStart), sid)) return true;
+    }
+    return false;
 }
 
 void PrintStatusReport() {

@@ -27,6 +27,9 @@ bool SaveSessionReportToFile(
     uint32_t pid = 0,
     const std::string& file_path = kSessionLogDefaultPath);
 
+// F3.4: true when the log lock's DACL lets the interactive user wait on it and release it (checked on the real object).
+bool SessionLogLockAllowsInteractiveUsers();
+
 void PrintStatusReport();
 void ExecutePurgeNow(bool dry_run);
 void ExecuteDryRun(const AppConfig& config);
