@@ -1,18 +1,20 @@
 #pragma once
-// Console questions that can never wait forever: what stdin is, and a line read with a deadline.
-
-#include <optional>
-#include <string>
+// Console questions that can never wait forever: what stdin is, and its key events for a read with a deadline.
 
 #include "model/console.hpp"
+#include "ports/key_input.hpp"
 
 namespace vegaflow {
 
 // Classifies stdin; a console whose window is hidden (scheduled task, Start-Process -WindowStyle Hidden) is HiddenConsole.
 StdinKind ClassifyStdin();
 
-// Prints the prompt and reads one line from the console input as UTF-8, key by key, until Enter or timeout_ms.
-// nullopt on timeout or read error: the caller takes its no-answer default. Call only for StdinKind::VisibleConsole.
-std::optional<std::string> ReadConsoleLine(const std::string& prompt, unsigned timeout_ms);
+// The real console input. The deadline and the key rules live in session::ReadLineWithDeadline; this only waits for
+// and reads one event, and Discard flushes the console input buffer. Use only for StdinKind::VisibleConsole.
+class ConsoleKeyInput final : public KeyInput {
+public:
+    KeyRead Next(std::chrono::milliseconds max_wait) override;
+    void Discard() override;
+};
 
 } // namespace vegaflow

@@ -1,14 +1,29 @@
 #pragma once
 
+#include <cstddef>
+#include <iosfwd>
 #include <optional>
 #include <string>
 
 #include "model/console.hpp"
+#include "ports/clock.hpp"
+#include "ports/key_input.hpp"
 
 namespace vegaflow::session {
 
 // How long a startup question waits for a person before taking its safe default.
 inline constexpr unsigned kStartupPromptTimeoutMs = 30000;
+
+// Longest line a startup question keeps; further characters are dropped (the answers are one word).
+inline constexpr size_t kMaxPromptLine = 256;
+
+// Prints the prompt to out, then reads one line key by key until Enter or until timeout_ms have passed on the clock,
+// echoing what is typed (Backspace erases; other control keys and surrogate halves are ignored). Returns the line as
+// UTF-8, or nullopt when nobody answered in time, the input ended or the read failed: the caller takes its safe
+// default, and keys still waiting in the input are discarded so a half answer cannot reach the next question.
+// A key that arrives exactly at the deadline counts; one a moment later does not.
+std::optional<std::string> ReadLineWithDeadline(KeyInput& input, const Clock& clock, std::ostream& out,
+                                                const std::string& prompt, unsigned timeout_ms);
 
 // True only for a visible console: a hidden one (scheduled task, Start-Process -WindowStyle Hidden), a pipe, a file or
 // no stdin never has anyone typing, so asking there would only wait.

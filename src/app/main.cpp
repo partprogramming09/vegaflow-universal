@@ -43,11 +43,11 @@ LONG WINAPI VegaFlowCrashHandler(EXCEPTION_POINTERS* /*ep*/) {
     return EXCEPTION_EXECUTE_HANDLER;
 }
 
-// A startup question for a person: nullopt when nobody can answer (hidden console, pipe, file) or nobody did in time,
-// so an unattended start (installer task at logon, VegaFlow-Start) never waits.
+// A startup question: nullopt when nobody can answer (hidden console, pipe, file) or nobody did in time, so an unattended start never waits.
 std::optional<std::string> AskPerson(const std::string& prompt) {
     if (!vegaflow::session::CanAskPerson(vegaflow::ClassifyStdin())) return std::nullopt;
-    auto answer = vegaflow::ReadConsoleLine(prompt, vegaflow::session::kStartupPromptTimeoutMs);
+    vegaflow::ConsoleKeyInput keys;
+    auto answer = vegaflow::session::ReadLineWithDeadline(keys, vegaflow::SteadyClock::Instance(), std::cout, prompt, vegaflow::session::kStartupPromptTimeoutMs);
     if (!answer) std::cout << "[INFO] Sin respuesta a tiempo: no se cambia nada.\n";
     return answer;
 }

@@ -8,10 +8,6 @@
 
 #include "windows/console_prompt.hpp"
 
-#include <iostream>
-
-#include "windows/text_convert.hpp"
-
 namespace vegaflow {
 
 StdinKind ClassifyStdin() {
@@ -30,35 +26,19 @@ StdinKind ClassifyStdin() {
     }
 }
 
-std::optional<std::string> ReadConsoleLine(const std::string& prompt, unsigned timeout_ms) {
+KeyRead ConsoleKeyInput::Next(std::chrono::milliseconds max_wait) {
     HANDLE in = GetStdHandle(STD_INPUT_HANDLE);
-    std::cout << prompt << std::flush;
-    // Key events instead of std::getline: getline has no deadline, and one typed key would make it wait for Enter forever.
-    std::wstring line;
-    const ULONGLONG deadline = GetTickCount64() + timeout_ms;
-    for (ULONGLONG now = GetTickCount64(); now < deadline; now = GetTickCount64()) {
-        if (WaitForSingleObject(in, static_cast<DWORD>(deadline - now)) != WAIT_OBJECT_0) break;
-        INPUT_RECORD rec{};
-        DWORD read = 0;
-        if (!ReadConsoleInputW(in, &rec, 1, &read) || read == 0) break;
-        if (rec.EventType != KEY_EVENT || !rec.Event.KeyEvent.bKeyDown) continue; // mouse, focus, resize, key up
-        const wchar_t c = rec.Event.KeyEvent.uChar.UnicodeChar;
-        if (c == L'\r') {
-            std::cout << "\n";
-            return app::WideToUtf8(line);
-        }
-        if (c == L'\b') {
-            if (!line.empty()) {
-                line.pop_back();
-                std::cout << "\b \b" << std::flush;
-            }
-        } else if (c >= 0x20) {
-            line.push_back(c);
-            std::cout << app::WideToUtf8(std::wstring(1, c)) << std::flush;
-        }
-    }
-    std::cout << "\n";
-    return std::nullopt;
+    if (WaitForSingleObject(in, static_cast<DWORD>(max_wait.count())) != WAIT_OBJECT_0) return {KeyRead::Kind::Timeout, 0};
+    INPUT_RECORD rec{};
+    DWORD read = 0;
+    if (!ReadConsoleInputW(in, &rec, 1, &read)) return {KeyRead::Kind::Failed, 0};
+    if (read == 0) return {KeyRead::Kind::Eof, 0};
+    if (rec.EventType != KEY_EVENT || !rec.Event.KeyEvent.bKeyDown) return {KeyRead::Kind::Ignored, 0}; // mouse, focus, resize, key up
+    return {KeyRead::Kind::Key, static_cast<char16_t>(rec.Event.KeyEvent.uChar.UnicodeChar)};
+}
+
+void ConsoleKeyInput::Discard() {
+    FlushConsoleInputBuffer(GetStdHandle(STD_INPUT_HANDLE));
 }
 
 } // namespace vegaflow

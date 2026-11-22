@@ -117,7 +117,7 @@ vegaflow-universal/
 │   │   ├── nt_defs.hpp           # Typedefs and undocumented native NTDLL calls
 │   │   ├── system_counters.*     # Readings for the report and the GUI: processes in EcoQoS, games with Direct Flip, L3 cache (with CPUID fallback), DIMM slots via SMBIOS and window ids
 │   │   ├── text_convert.*        # UTF-8 <-> UTF-16 (`Utf8ToWide`, `WideToUtf8`)
-│   │   ├── console_prompt.*      # `ClassifyStdin` and `ReadConsoleLine`: a console question with a time limit
+│   │   ├── console_prompt.*      # `ClassifyStdin` and `ConsoleKeyInput`: the real console for a question with a time limit
 │   │   ├── unique_handle.hpp     # Automatic closing of handles, registry keys and searches (RAII)
 │   │   ├── device_probe.*        # Real Windows probe (DXCore COM, DXGI, SetupAPI RemovalPolicy, Storage SeekPenalty/BusType, Power, IsWow64Process2)
 │   │   ├── memory.*              # Windows implementation of MemoryProbe and MemoryControl (ntdll, DXGI, working sets)

@@ -203,6 +203,9 @@ int main() {
         {134, vftest::Test134},  // F1.2 review: the manual Balanced journals the plan it finds before writing
         {135, vftest::Test135},  // F2.7 review: no reasons, no [WHY THIS PROFILE] header
         {136, vftest::Test136},  // startup questions ask only a visible console; no answer is the safe default
+        {137, vftest::Test137},  // a startup question reads one line key by key (Enter, Backspace, UTF-8, long line)
+        {138, vftest::Test138},  // the startup question limit is absolute and a key after it does not count
+        {139, vftest::Test139},  // end of input or a failed read is no answer and discards pending keys
     };
     for (const auto& [number, run] : tests) {
         try {
