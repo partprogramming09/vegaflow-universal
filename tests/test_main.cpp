@@ -202,6 +202,7 @@ int main() {
         {133, vftest::Test133},  // F1.7 review: the manual MMCSS off gives back the legacy value copies too
         {134, vftest::Test134},  // F1.2 review: the manual Balanced journals the plan it finds before writing
         {135, vftest::Test135},  // F2.7 review: no reasons, no [WHY THIS PROFILE] header
+        {136, vftest::Test136},  // startup questions ask only a visible console; no answer is the safe default
     };
     for (const auto& [number, run] : tests) {
         try {
