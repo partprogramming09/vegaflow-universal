@@ -94,6 +94,8 @@ private:
     ProcessControl* pc_ = nullptr;
 
     std::vector<TrackedBackgroundProcess> modified_background_;
+    // Processes that refused the policy (modified=false): not retried nor journaled again while the same process lives.
+    std::vector<TrackedBackgroundProcess> refused_background_;
     std::unordered_map<uint32_t, std::pair<uint64_t, uint64_t>> bg_cpu_prev_; // pid -> {creation_time, cpu_100ns}
     uint64_t bg_prev_tick_ms_ = 0;
     bool bg_confine_active_ = false;

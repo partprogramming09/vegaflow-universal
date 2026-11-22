@@ -20,6 +20,8 @@
 #include "session/games_screen.hpp"
 #include "windows/text_convert.hpp"
 #include "windows/change_journal.hpp"
+#include "fake_change_journal.hpp"
+#include "fake_file_system.hpp"
 
 #include "../test_support.hpp"
 
@@ -75,6 +77,7 @@ std::wstring ExtractFileName(const std::wstring& path) {
 struct FakeProc {
     uint64_t creation_time = 0;
     bool alive = true;
+    bool bg_refuse = false; // ApplyBackgroundPolicy answers modified=false (a protected service)
     uint32_t priority_class = NORMAL_PRIORITY_CLASS;
     bool ecoqos = false;
     bool mem_deprioritized = false;
@@ -181,6 +184,7 @@ public:
             it->second.recycled_wrong_touch_calls++;
             return out;
         }
+        if (it->second.bg_refuse) return out;
         out.modified = true;
         out.power_throttling_applied = true;
         if (!dry_run) {
@@ -440,6 +444,48 @@ void Test55() {
         ", DoNotTouch=" + std::string((obs_untouched && obs_never_restored && unrelated_never_touched) ? "OK" : "FAIL") +
         ", ExcludeAndReload=" + std::string((excluded_ok && roundtrip_ok) ? "OK" : "FAIL");
     RecordResult(ok, "Test 55: CpuOrchestrator PID+FILETIME safety, game switch restore, and the GUI's game exclusion", details);
+}
+
+void Test113() {
+    // A background process that refuses the policy is journaled once per (pid, creation_time), not once per cycle.
+    FakeFileSystem fs;
+    FakeWallClock clock;
+    vegaflow::FileChangeJournal journal(fs, clock, L"C:\\VegaFlow\\config\\change_journal.vfj");
+    journal.Load();
+    journal.BeginSession();
+    vegaflow::ChangeJournal* previous = vegaflow::GetActiveChangeJournal();
+    vegaflow::SetActiveChangeJournal(&journal);
+
+    FakeProcessControl pc;
+    pc.procs[100].creation_time = 1001; // game
+    pc.procs[400].creation_time = 4001; // protected service
+    pc.procs[400].bg_refuse = true;
+    const std::vector<vegaflow::BackgroundProcessTarget> targets = {
+        {400, 4001, L"eabackgroundservice.exe", L"C:\\Program Files\\EA\\svc.exe", vegaflow::ProcessClass::Unknown, vegaflow::ProcessAction::Throttle},
+    };
+    const auto bg_entries = [&] {
+        size_t n = 0;
+        for (const auto& e : journal.Entries()) if (e.target == "PID:400") ++n;
+        return n;
+    };
+
+    vegaflow::CpuOrchestrator orch(pc);
+    for (int i = 0; i < 5; ++i) orch.ApplyOptimizations(100, 1001, 0, false, {0, 1}, {2, 3}, targets, false);
+    const size_t same_process = bg_entries();
+
+    // The same pid is recycled by a new process (other creation_time): it is tried again.
+    pc.procs[400].creation_time = 4002;
+    const std::vector<vegaflow::BackgroundProcessTarget> targets2 = {
+        {400, 4002, L"eabackgroundservice.exe", L"C:\\Program Files\\EA\\svc.exe", vegaflow::ProcessClass::Unknown, vegaflow::ProcessAction::Throttle},
+    };
+    for (int i = 0; i < 5; ++i) orch.ApplyOptimizations(100, 1001, 0, false, {0, 1}, {2, 3}, targets2, false);
+    const size_t after_recycle = bg_entries();
+
+    vegaflow::SetActiveChangeJournal(previous);
+    const bool ok = same_process <= 1 && after_recycle == 2;
+    RecordResult(ok, "Test 113: a background process that refuses the policy is journaled once per (pid, creation_time)",
+                 "EntriesSameProcess=" + std::to_string(same_process) + " (want 1), AfterRecycle=" +
+                     std::to_string(after_recycle) + " (want 2)");
 }
 
 } // namespace vftest
