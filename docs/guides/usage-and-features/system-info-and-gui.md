@@ -13,7 +13,7 @@ The [`SystemInfo`](https://github.com/partprogramming09/vegaflow-universal/blob/
 - **Zen 2 CPU detection:** reads the *brand string* with native `CPUID` instructions (*AMD Ryzen 5 4600H with Radeon Graphics*). It works out the topology of 6 physical and 12 logical cores, the 7 nm Renoir architecture, an 8 MB L3 cache and a boost target of 4.0 GHz, with no STAPM cap (`cpu_stapm_cap_mhz = 0`).
 - **Graphics and UMA memory topology (Vega 6):** compares the BIOS's fictitious report (512 MB) with the system's real shared UMA memory (~7.7 GB). It also polls dynamic VRAM budgets in real time through `IDXGIAdapter3::QueryVideoMemoryInfo`.
 - **RAM topology from firmware (SMBIOS Type 17):** reads the SMBIOS `RSMB` tables (`GetSystemFirmwareTable`), finds 2 populated DIMM modules and checks the 128-bit bus in **Dual-Channel** (~42 GB/s of bandwidth). It shows a breakdown of real free memory, the Standby List and modified pages.
-- **NT kernel:** reports the exact Windows 11 build (Build 26300 with UBR), the MMCSS GPU priority (8) and the memory compression state.
+- **NT kernel:** reports the exact Windows 11 build (Build 26300 with UBR), whether the MMCSS gaming profile is applied, and the memory compression state.
 - **Standard JSON export:** supports the `--system-info` command, which prints the full hardware and system profile as standard JSON for other tools to read.
 
 ### 2.8. Visual Redesign of the GUI (Clean Slate / Nordic Dark Mode)

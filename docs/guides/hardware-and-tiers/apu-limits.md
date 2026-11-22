@@ -22,12 +22,17 @@ For compatibility with legacy 32-bit software, AMD BIOSes and drivers often repo
 - **VegaFlow's technical fix:** turn off the engine's restriction and tell it to use the real physical memory:
   ```ini
   r.Streaming.LimitPoolSizeToVRAM=0
-  r.Streaming.PoolSize=3000
+  r.Streaming.PoolSize=<tier pool, see below>
   r.Streaming.FullyLoadUsedTextures=1
   r.Streaming.FramesForFullUpdate=1
-  r.Streaming.MaxNumTexturesToStreamPerFrame=100
+  r.Streaming.MaxNumTexturesToStreamPerFrame=120
   r.Streaming.Boost=1.5
   ```
+  The pool is not one fixed number. It is the tier's safe pool (`device_profile.rs:306-326`), and `src/optimize/steam/engine_presets.cpp` writes it only on integrated GPUs (`:146-168`):
+  - Tier 1: 22% of RAM, kept between 1536 and 2048 MB.
+  - Tier 2: 4096 MB.
+  - Tier 3: 30% of RAM, kept between 4096 and 8192 MB.
+  - Tier 4: no UMA block, because it is not integrated.
 
 ### 2.3. Missing GPL (`VK_EXT_graphics_pipeline_library`) in AMD GCN 5 / Vega drivers
 AMD's official Adrenalin drivers for the Vega architecture do not expose the Vulkan extension `VK_EXT_graphics_pipeline_library`.
@@ -55,5 +60,5 @@ AMD's official Adrenalin drivers for the Vega architecture do not expose the Vul
 In APU laptops, the CPU and the GPU share the same heatsink and the same power package. If the CPU climbs to 4.0 GHz at 1.35V while drawing 35W, the iGPU is throttled to 600-800 MHz.
 - **VegaFlow fix:** a specialized APU power profile (`SetApuLaptopPowerProfile`):
   - Limits boost mode to *Efficient Aggressive*; the frequency ceiling comes from `policy.cpu_stapm_cap_mhz` (currently `0`, no ceiling) and the maximum throttle is left at 100%. There is no 3.2 GHz cap in the code.
-  - The CPU comfortably runs at only 12-14W, leaving 20W of continuous TDP so the Radeon Vega 6 can work at its stable maximum of 1500 MHz without thermal drops.
+  - The power figures for this profile (CPU draw, power headroom, GPU clock) are not measured in this repository ([verification status](../../measurements/verification-status.md)).
   - Turns PCIe ASPM off in AC mode to remove latency on the Infinity Fabric bus.

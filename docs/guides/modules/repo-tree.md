@@ -35,10 +35,12 @@ vegaflow-universal/
 │               ├── config_rules.rs # config.json ranges and allowed game names
 │               ├── cpu_governor.rs # CPU Sets within the process group (L3/CCX, hybrid with LP E-core exclusion) and the confinement hysteresis
 │               ├── device_profile.rs # Universal machine profile: GPU (PCI ID/DXCore/pref), power, ARM64 and cautious flags
+│               ├── doctor.rs       # --doctor rules: free disk for the shader cache, cache state, and OEM tools that fight VegaFlow
 │               ├── file_access.rs  # Full SandboxGuard decision: blacklist, local path, anti-cheat and allowed folders
 │               ├── folder_trust.rs # Can only administrators write this folder? (owner and DACL)
 │               ├── ini_merge.rs    # Atomic editor for .ini (Unreal) and boot.config (Unity), preserving BOM/UTF-16/CRLF
 │               ├── json_text.rs    # Strict JSON reader and writer, no dependencies
+│               ├── memory_compression.rs # Should Windows memory compression be turned off? Not at 16 GB of RAM or less
 │               ├── memory_purge.rs # Single purge rule and UMA guard (85% threshold, 90s pause, disk, and the factory "No tocar" ("do not touch") list)
 │               ├── path_policy.rs  # SandboxGuard path blacklist
 │               ├── process_class.rs # Process classification and action (OBS/Discord, "No tocar", verified path, exceptions and AC)

@@ -29,6 +29,17 @@ VegaFlow can run as a background service, as a console tool, or as a native desk
 | `--apu-gpu-priority` | Activates the thermal and power profile with GPU priority (no STAPM frequency cap) |
 | `--apu-balanced` | Restores the standard balanced power profile |
 | `--dry-run, -d` | Simulates evaluation cycles without changing the system |
+| `--observe` | Safe mode on demand: nothing changes by itself, and no restore point is offered. It applies to every mode, not only `--gui` |
+| `--once, -1` | Runs one evaluation cycle and exits |
+| `--elevate, -e` | Restarts VegaFlow with Administrator rights (a Windows UAC prompt). If it already has them, it only says so and exits, unless another option is given |
+| `--shader-cache-default` | Puts the AMD driver's shader cache back to the driver default |
+| `--mem-compression-on` | Turns Windows memory compression back on, but only if VegaFlow turned it off (it reverts only its own journal entry) |
+| `--vram-override` | Reports the tier's safe VRAM pool to DXGI and the AMD driver (4096 MB on Tier 2; see [APU tiers](../hardware-and-tiers/tiers-and-guards.md)) |
+| `--vram-restore` | Puts back the AMD VRAM reporting that VegaFlow saved. If nothing was saved, nothing changes |
+| `--restore-registry` | Undoes every change still recorded in the journal, and every registry backup VegaFlow made. Exit code 0 only if all of them come back |
+| `--recover` | Same as `--restore-registry`; use it after a crash |
+| `--create-restore-point` | Tries to create a Windows System Restore Point now |
+| `--version` | Prints the version and exits |
 | `--help, -h` | Prints the manual of options |
 
 #### Practical examples:
@@ -49,11 +60,11 @@ VegaFlow can run as a background service, as a console tool, or as a native desk
   EcoQoS Throttled Processes : 0 processes in Efficiency Mode (Thermal Headroom for APU)
 
 [SYSTEM GRAPHICS TWEAKS]
-  Multi-Plane Overlay (MPO)  : DISABLED (OverlayTestMode=5, Stutter-Free)
+  Multi-Plane Overlay (MPO)  : DISABLED (OverlayTestMode=5, undocumented)
   AMD ShaderCache Mode       : FORCED ON (0x3200, Stutter Elimination)
   AMD DX11/UMA Driver Boost  : ACTIVE (SurfaceFormat FP16 + FlipQueue=1)
-  MMCSS WDDM Gaming Profile  : OPTIMIZED (GPU Priority=8, SystemResponsiveness=10%)
-  GameDVR & FSE Bypass       : DEFAULT (Windows DVR Active)
+  MMCSS WDDM Gaming Profile  : OPTIMIZED (SystemResponsiveness=10%, High Priority)
+  GameDVR Capture            : DEFAULT (Windows DVR Active)
   APU Laptop Power & Bus     : ACTIVE (Boost Efficient-Aggressive + PCIe ASPM Off)
   CPU Quantum Separation     : 0x2
   Windows Memory Compression : DISABLED (Zero CPU Spikes / Low Latency)

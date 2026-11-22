@@ -18,9 +18,9 @@ To go beyond support for the Ryzen 5 4600H alone without introducing regressions
    - **Directives (100% backwards compatible with the test machine):** VRAM pool at 4096 MB; 6 dedicated compile threads in DXVK-GPLAsync; tessellation limit at 16x; `disable_dx12_async_compute = true`; no STAPM frequency cap (`cpu_stapm_cap_mhz = 0`).
 3. **`Tier3_AdvancedUMA` [Do-No-Harm Guard]:**
    - **Target hardware:** modern RDNA2/RDNA3/RDNA3.5 APUs (Radeon 680M, 780M, 890M, Strix Point) and Intel Xe/Arc UMA, or UMA systems with ≥ 22 GB of RAM.
-   - **Directives ("Do-No-Harm"):** keeps modern asynchronous compute intact (`D3D12.AsyncCompute=1` and `r.RDG.AsyncCompute=1`); **does not throttle the CPU** (`cpu_stapm_cap_mhz = 0`); assigns a generous, adaptive UMA pool of 6144 to 8192 MB; tessellation allowed up to 32x; 6 to 8 threads in DXVK.
+   - **Directives ("Do-No-Harm"):** keeps modern asynchronous compute intact (`D3D12.AsyncCompute=1` and `r.RDG.AsyncCompute=1`); **does not throttle the CPU** (`cpu_stapm_cap_mhz = 0`); assigns a generous, adaptive UMA pool of 30% of RAM, kept between 4096 and 8192 MB (`device_profile.rs:314-317`); tessellation allowed up to 32x; between 4 and 8 DXVK threads (physical cores minus 2).
 4. **`Tier4_DiscreteOrCustom` [Pass-Through Guard]:**
-   - **Target hardware:** dedicated GPUs (more than 2 GB of dedicated VRAM) or discrete architectures.
+   - **Target hardware:** any GPU that is not integrated (a dedicated card), any discrete architecture, and any NVIDIA GPU. There is no VRAM-size threshold (`apu_tier.rs:41-42`, `device_profile.rs:292`).
    - **Directives:** transparent pass-through mode, with no forced UMA overrides and no integrated-silicon limits.
 
 ### Runtime DXGI Pressure Guard (`MemoryManager::EvaluateUmaPressureGuard`):

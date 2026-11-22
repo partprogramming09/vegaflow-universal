@@ -45,11 +45,11 @@ For example, the game gets the fastest CPU cores, while browsers and other backg
 ### 2.5. CPU Orchestration & MMCSS Quantum Tuning
 
 - **Disjoint CPU Sets:** gives the game the fastest Zen 2 cores with the lowest L3 cache latency, while confining browsers and secondary tasks to the leftover cores (`SetProcessDefaultCpuSets`).
-- **Background EcoQoS Throttling:** tells the Windows 11 scheduler to run background processes in energy-saving mode through `PROCESS_POWER_THROTTLING_EXECUTION_SPEED`. This recovers 3W to 5W of the STAPM thermal budget, so the Radeon Vega 6 clock can hold 1500 MHz without interruption.
+- **Background EcoQoS Throttling:** tells the Windows 11 scheduler to run background processes in energy-saving mode through `PROCESS_POWER_THROTTLING_EXECUTION_SPEED`. The power saving and the GPU clock it would allow are not measured in this repository ([verification status](../../measurements/verification-status.md)).
 - **NT I/O and memory hierarchy:** keeps the game at `IoPriorityNormal` (2) and gives `IoPriorityVeryLow` (0) to secondary processes, through `NtSetInformationProcess(ProcessIoPriorityInformationClass = 33)`, to eliminate disk read stalls.
-- **MMCSS (Multimedia Class Scheduler Service):** sets the GPU priority for games to `8` and caps the system reserve at 10%.
+- **MMCSS (Multimedia Class Scheduler Service):** sets the Games task priority to `6`, its scheduling category to `High` and its SFIO priority to `High` (`mmcss.cpp:22-34`), and caps the system reserve (`SystemResponsiveness`) at 10% (`mmcss.cpp:12`).
 - **NT timer resolution:** the daemon does not change the Windows timer from 15.6 ms. The request for 0.5 ms (`NtSetTimerResolution`) exists only in the test script `scripts/hold_timer.ps1`, which measures its effect on its own.
-- **Thermally efficient APU power profile:** limits the CPU's aggressive boost mode and holds frequencies at 3.2 GHz. It hands about 20W of continuous thermal budget to the integrated GPU, so it keeps its 1500 MHz without interruption.
+- **Thermally efficient APU power profile** (`--apu-gpu-priority`): sets the CPU boost to *Efficient Aggressive* (value 4), the energy preference to 25 and turns PCIe ASPM off (`power_mode.cpp:24-28`). It puts no frequency cap on the CPU: the tier policy sets `cpu_stapm_cap_mhz` to 0, which means no cap (`hardware_profiler.cpp:268`). The code sets no CPU frequency or wattage target, and the figures for this profile are not measured ([verification status](../../measurements/verification-status.md)).
 
 ### 2.9. Modern Suite for 3D Games (EcoQoS, NT I/O Hierarchy and DirectFlip)
 
