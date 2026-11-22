@@ -223,7 +223,7 @@ int RunGuiMode(
         data.free_ram_mb = mem_sample.free_and_zero_bytes / (1024 * 1024);
         data.standby_ram_mb = mem_sample.standby_bytes / (1024 * 1024);
         data.modified_ram_mb = mem_sample.modified_bytes / (1024 * 1024);
-        data.vram_local_used_mb = mem_sample.vram.local_usage_bytes / (1024 * 1024);
+        data.vram_local_used_mb = GpuUsageBytes(mem_sample.vram) / (1024 * 1024);
         data.vram_local_budget_mb = mem_sample.vram.local_budget_bytes / (1024 * 1024);
 
         data.last_purge_before_free_mb = last_purge_before_free_mb;

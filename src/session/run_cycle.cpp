@@ -58,7 +58,7 @@ public:
     void QueryLiveMemory(uint64_t& out_local_vram_budget_bytes, uint64_t& out_local_vram_usage_bytes, bool& out_vram_valid) override {
         live_mem_ = mem_.SampleTelemetry();
         out_local_vram_budget_bytes = live_mem_.vram.local_budget_bytes;
-        out_local_vram_usage_bytes = live_mem_.vram.local_usage_bytes;
+        out_local_vram_usage_bytes = vegaflow::GpuUsageBytes(live_mem_.vram);
         out_vram_valid = live_mem_.vram.valid;
     }
 

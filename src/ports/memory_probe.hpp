@@ -19,6 +19,12 @@ struct VideoMemoryTelemetry {
     uint64_t gpu_dedicated_usage_bytes = 0;
 };
 
+// GPU memory in use for display and live tuning: the global PDH sum (what the E2.3 policy uses) when valid, else DXGI's
+// figure, which only covers VegaFlow's own process.
+inline uint64_t GpuUsageBytes(const VideoMemoryTelemetry& vram) {
+    return vram.valid ? vram.gpu_shared_usage_bytes + vram.gpu_dedicated_usage_bytes : vram.local_usage_bytes;
+}
+
 struct SystemMemoryTelemetry {
     uint64_t total_physical_bytes = 0;
     uint64_t free_and_zero_bytes = 0;  // (ZeroPageCount + FreePageCount) * 4096 when memory_lists_valid
