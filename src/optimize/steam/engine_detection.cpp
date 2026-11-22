@@ -52,12 +52,13 @@ SteamGameEntry SteamEngineOptimizer::InspectGameDirectory(
     uintmax_t largest_exe_size = 0;
     uint32_t exe_count = 0;
 
+    std::error_code walk_ec; // only the folder walk: other calls below reuse `ec` and must not read as a cut walk
     for (auto it = std::filesystem::recursive_directory_iterator(
-             install_dir, std::filesystem::directory_options::skip_permission_denied, ec);
+             install_dir, std::filesystem::directory_options::none, walk_ec);
          it != std::filesystem::recursive_directory_iterator();) {
-        if (ec) break;
+        if (walk_ec) break; // an unreadable folder could hold the anti-cheat: refuse, do not skip
         if (it.depth() > 6) {
-            it.pop(ec);
+            it.pop(walk_ec);
             continue;
         }
 
@@ -130,10 +131,11 @@ SteamGameEntry SteamEngineOptimizer::InspectGameDirectory(
             }
         }
 
-        it.increment(ec);
+        it.increment(walk_ec);
     }
 
-    entry.has_anticheat = has_anticheat;
+    // A walk cut by an error (a folder it may not read) cannot prove "no anti-cheat": refuse, never skip.
+    entry.has_anticheat = has_anticheat || static_cast<bool>(walk_ec);
 
     if (has_unreal_clues) {
         entry.engine = GameEngineType::UnrealEngine4_5;

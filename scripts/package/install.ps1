@@ -106,16 +106,16 @@ if (-not $DryRun) {
     icacls $InstallDir /inheritance:r | Out-Null
     if ($LASTEXITCODE -ne 0) { throw 'icacls no pudo quitar los permisos heredados de la carpeta de instalación.' }
     # Owner first: an owner implicitly keeps WRITE_DAC, so a folder another account created must not stay theirs while the ACEs are trimmed.
-    icacls $InstallDir /setowner '*S-1-5-32-544' | Out-Null
+    icacls $InstallDir /setowner '*S-1-5-32-544' /T /C | Out-Null
     if ($LASTEXITCODE -ne 0) { throw 'icacls no pudo fijar el propietario de la carpeta de instalación.' }
     # F3.5: /grant:r only replaces the three accounts; an ACE another account left before the install must go too.
-    $acl = Get-Acl $InstallDir
+    $acl = Get-Acl -LiteralPath $InstallDir
     foreach ($rule in @($acl.GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier]))) {
         if ($rule.IdentityReference.Value -notin @('S-1-5-18', 'S-1-5-32-544', 'S-1-5-32-545')) {
             [void]$acl.RemoveAccessRuleSpecific($rule)
         }
     }
-    Set-Acl -Path $InstallDir -AclObject $acl
+    Set-Acl -LiteralPath $InstallDir -AclObject $acl
     icacls "$InstallDir\*" /reset /T /C | Out-Null
     if ($LASTEXITCODE -ne 0) { throw 'icacls no pudo restablecer los permisos de los archivos de la carpeta de instalación.' }
     # The manifest goes first: from here on, a run that dies halfway leaves a folder that uninstall.ps1 accepts.

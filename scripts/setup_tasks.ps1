@@ -32,7 +32,7 @@ if ($LASTEXITCODE -ne 0) { throw 'icacls no pudo fijar los permisos de la carpet
 icacls $dir /inheritance:r | Out-Null
 if ($LASTEXITCODE -ne 0) { throw 'icacls no pudo quitar los permisos heredados de la carpeta protegida.' }
 # Owner first: an owner implicitly keeps WRITE_DAC, so a folder another account created must not stay theirs while the ACEs are trimmed.
-icacls $dir /setowner '*S-1-5-32-544' | Out-Null
+icacls $dir /setowner '*S-1-5-32-544' /T /C | Out-Null
 if ($LASTEXITCODE -ne 0) { throw 'icacls no pudo fijar el propietario de la carpeta protegida.' }
 # F3.5: /grant:r only replaces the three accounts; an ACE another account left before the install must go too.
 $acl = Get-Acl $dir
@@ -43,6 +43,7 @@ foreach ($rule in @($acl.GetAccessRules($true, $true, [System.Security.Principal
 }
 Set-Acl -Path $dir -AclObject $acl
 icacls "$dir\*" /reset /T /C | Out-Null
+if ($LASTEXITCODE -ne 0) { throw 'icacls no pudo restablecer los permisos de los archivos de la carpeta protegida.' }
 
 Copy-Item $source (Join-Path $dir 'tweaks_state.ps1') -Force
 Copy-Item (Join-Path $PSScriptRoot 'games_tweak.ps1') (Join-Path $dir 'games_tweak.ps1') -Force

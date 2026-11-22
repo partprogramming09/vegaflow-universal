@@ -13,6 +13,7 @@
 #include <fstream>
 #include <string>
 
+#include "optimize/steam/steam_engine_optimizer.hpp"
 #include "windows/sandbox_guard.hpp"
 #include "../test_support.hpp"
 
@@ -95,16 +96,18 @@ void Test91() {
     std::error_code probe_ec;
     fs::directory_iterator probe(locked, fs::directory_options::none, probe_ec);
     const std::string probe_msg = "denied=" + std::to_string(denied) + " probe_ec=" + std::to_string(probe_ec.value());
+    // Same for the engine scan of a game folder: a subfolder it may not read counts as anti-cheat present.
+    const bool engine_scan_refuses = denied && vegaflow::SteamEngineOptimizer::InspectGameDirectory((base / L"locked_game").wstring(), 424242, "Locked").has_anticheat;
     const bool unreadable_refuses = denied && vegaflow::SandboxGuard::DirectoryContainsAntiCheat(base / L"locked_game"); // icacls failing is a FAIL, not a skip
     if (backup_was_on) SetPrivilege(L"SeBackupPrivilege", true);
     _wsystem((L"icacls \"" + locked.wstring() + L"\" /remove:d *S-1-1-0 >nul 2>&1").c_str());
 
     fs::remove_all(base.parent_path().parent_path(), ec);
-    const bool ok = unreadable_refuses && clean_ok && subfolder_found && top_level_found && depth_is_bounded && missing_dir_safe && outside_library_not_walked && library_not_a_game && dotdot_resolves && cap_refuses;
+    const bool ok = engine_scan_refuses && unreadable_refuses && clean_ok && subfolder_found && top_level_found && depth_is_bounded && missing_dir_safe && outside_library_not_walked && library_not_a_game && dotdot_resolves && cap_refuses;
     RecordResult(ok, "Test 91: anti-cheat scan reaches subfolders of the game folder up to a bounded depth",
                  std::string("Clean=") + (clean_ok ? "OK" : "FAIL") + ", Subfolder=" + (subfolder_found ? "OK" : "FAIL") +
                      ", TopLevel=" + (top_level_found ? "OK" : "FAIL") + ", DepthBounded=" + (depth_is_bounded ? "OK" : "FAIL") +
-                     ", NoLibraryShallow=" + (outside_library_not_walked ? "OK" : "FAIL") + ", LibraryNotAGame=" + (library_not_a_game ? "OK" : "FAIL") + ", DotDot=" + (dotdot_resolves ? "OK" : "FAIL") + ", MissingDir=" + (missing_dir_safe ? "OK" : "FAIL") + ", Unreadable=" + std::string(unreadable_refuses ? "OK" : "FAIL") + "(" + probe_msg + ")" + ", CapRefuses=" + (cap_refuses ? "OK" : "FAIL") + ", WriteBlocked(info)=" + (write_blocked ? "yes" : "no"));
+                     ", NoLibraryShallow=" + (outside_library_not_walked ? "OK" : "FAIL") + ", LibraryNotAGame=" + (library_not_a_game ? "OK" : "FAIL") + ", DotDot=" + (dotdot_resolves ? "OK" : "FAIL") + ", MissingDir=" + (missing_dir_safe ? "OK" : "FAIL") + ", EngineScan=" + std::string(engine_scan_refuses ? "OK" : "FAIL") + ", Unreadable=" + std::string(unreadable_refuses ? "OK" : "FAIL") + "(" + probe_msg + ")" + ", CapRefuses=" + (cap_refuses ? "OK" : "FAIL") + ", WriteBlocked(info)=" + (write_blocked ? "yes" : "no"));
 }
 
 } // namespace vftest

@@ -375,6 +375,7 @@ bool SandboxGuard::DirectoryContainsAntiCheat(const std::filesystem::path& dir) 
     int levels_checked = 0;
     while (!current.empty() && levels_checked < 5) {
         if (!std::filesystem::exists(current, ec)) {
+            if (ec) return true; // not "not found" (invalid name, access error): unknown, so refuse
             if (!project_root.empty() && current == project_root) break;
             current = current.parent_path();
             levels_checked++;
