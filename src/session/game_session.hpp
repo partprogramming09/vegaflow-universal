@@ -49,7 +49,8 @@ SystemHardwareProfile BuildHardwareProfileFromSnapshot(
 bool RefreshHardwareProfileIfChanged(
     DeviceProbe& probe,
     SystemHardwareProfile& hw,
-    uint8_t user_gpu_pref = 0);
+    uint8_t user_gpu_pref = 0,
+    bool probe_signature = true);  // E2.4: false skips the signature read (the device event does it instead)
 
 // Injectable session environment so RunGameSessionCycle can be tested with fake processes, registry, and power plans.
 struct GameSessionEnvironment {
@@ -96,6 +97,7 @@ void RunGameSessionCycle(
     SystemHardwareProfile& hw,
     GameSessionState& state,
     uint32_t* out_noisy_bg_count = nullptr,
-    const std::function<void(const std::string&)>& audit_cb = {});
+    const std::function<void(const std::string&)>& audit_cb = {},
+    bool check_adapters = true);  // E2.4: false = no adapter-signature read this cycle
 
 } // namespace vegaflow::session

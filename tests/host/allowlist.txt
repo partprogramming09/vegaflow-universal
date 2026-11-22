@@ -34,7 +34,6 @@ src src/session/pad_nav.cpp
 src src/session/panic_hotkey.cpp
 src src/session/programs_screen.cpp
 src src/session/report.cpp
-src src/session/reports.cpp
 src src/session/requirements_screen.cpp
 src src/session/restore.cpp
 src src/session/run_cycle.cpp
@@ -42,6 +41,7 @@ src src/session/settings_actions.cpp
 src src/session/settings_catalog.cpp
 src src/session/settings_screen.cpp
 src src/session/system_info.cpp
+src src/session/wake_loop.cpp
 src src/session/welcome.cpp
 
 test tests/unit/contrast_unit_tests.cpp
@@ -56,17 +56,20 @@ test tests/unit/requirements_screen_unit_tests.cpp
 test tests/unit/settings_catalog_unit_tests.cpp
 test tests/unit/settings_screen_unit_tests.cpp
 test tests/unit/ui_identity_unit_tests.cpp
+test tests/unit/wake_loop_unit_tests.cpp
 
 exclude tests/unit/cli_forward_unit_tests.cpp compile
 exclude tests/unit/device_profile_unit_tests.cpp compile
 exclude tests/unit/process_class_unit_tests.cpp compile
 exclude tests/unit/config_actions_unit_tests.cpp link
+exclude tests/unit/adapter_refresh_unit_tests.cpp link
 exclude tests/unit/config_adversarial_unit_tests.cpp link
 exclude tests/unit/config_screen_unit_tests.cpp link
 exclude tests/unit/config_unit_tests.cpp link
 exclude tests/unit/cpu_topology_unit_tests.cpp link
 exclude tests/unit/doctor_unit_tests.cpp link
 exclude tests/unit/dxvk_unit_tests.cpp link
+exclude tests/unit/factory_settings_unit_tests.cpp link
 exclude tests/unit/game_actions_adversarial_unit_tests.cpp link
 exclude tests/unit/game_actions_unit_tests.cpp link
 exclude tests/unit/games_screen_adversarial_unit_tests.cpp link
@@ -81,6 +84,7 @@ exclude tests/unit/memory_purge_unit_tests.cpp link
 exclude tests/unit/programs_screen_adversarial_unit_tests.cpp link
 exclude tests/unit/programs_screen_unit_tests.cpp link
 exclude tests/unit/reports_kpi_unit_tests.cpp link
+exclude tests/unit/reports_log_unit_tests.cpp compile
 exclude tests/unit/system_counters_unit_tests.cpp link
 exclude tests/unit/graphics_families_unit_tests.cpp stub
 exclude tests/unit/restore_with_backup_unit_tests.cpp stub
