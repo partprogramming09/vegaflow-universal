@@ -34,19 +34,20 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build\build.ps1 -RunTests
 
 ```bash
 brew install mingw-w64                      # once
-rustup target add x86_64-pc-windows-gnu     # once
 scripts/build/build-cross.sh                      # builds build/vegaflow_daemon.exe and build/vegaflow_tests.exe
 ```
+
+The Rust version is pinned in `rust-toolchain.toml` (exact version and the `x86_64-pc-windows-gnu` target), so `rustup` installs both on the first `cargo` run and every machine and the CI use the same compiler. To upgrade, change that one line, run the CI and the laptop suite, and commit the bump alone.
 
 It uses the same flags and libraries as `build.ps1` and compiles in parallel. It finds the sources with `find` over `src/` and `tests/`, so a new `.cpp` file is included without editing any list. You run the `.exe` files on a Windows PC; you don't need to compile there.
 
 #### Running the Windows-free unit tests on a Mac or Linux
 
-`scripts/ci/host-unit-tests.sh` compiles with the host's `clang++` (no Wine, no mingw) and runs the unit tests that never touch Windows, so a change can be seen failing and passing before the laptop run. It builds the Rust core for the host, links the allowed test files in `tests/host/allowlist.txt` against a header-only fake `windows.h`, prints `HOST UNIT TESTS: N PASSED, M FAILED` and the excluded files with a one-word reason, and exits 0 only if all pass. It does not replace the full suite on the laptop.
+`scripts/ci/host-unit-tests.sh` compiles with the host's `clang++` (no Wine, no mingw) and runs the unit tests that never touch Windows, so a change can be seen failing and passing before the laptop run. It builds the Rust core for the host, links the allowed test files in `tests/host/allowlist.txt` against a header-only fake `windows.h`, prints `HOST UNIT TESTS: N PASSED, M FAILED` and the excluded files with a one-word reason, and exits 0 only if all pass. It also runs Test 34, which compares the size, alignment and every field offset of the `#[repr(C)]` structs in Rust with `src/bridge/rust_bridge.h`: the layout does not depend on Windows, so a field changed on one side only fails here. What stays only on the laptop is every test that calls Windows (registry, power plan, processes, GPU). It does not replace the full suite on the laptop.
 
 #### Continuous integration (GitHub Actions)
 
-The file `.github/workflows/ci.yml` runs three jobs on GitHub's machines: the layer check (`scripts/ci/check_layers.sh`), the Rust core tests, and the cross-compilation of the daemon and the suite. The C++ tests don't run there. They change the Windows registry (the settings database) and the power plan (the energy profile) of a real Windows machine, and they need a GPU. So they are run by hand on the test laptop. A public repository must not register that laptop as its own runner, because any *fork* (a copy of the repository) could run code on it.
+The file `.github/workflows/ci.yml` runs five jobs on GitHub's machines: the layer check (`scripts/ci/check_layers.sh`), the Rust core tests, the Windows-free C++ unit tests (`scripts/ci/host-unit-tests.sh`, which includes the FFI layout check), the cross-compilation of the daemon and the suite, and the docs build. The C++ integration tests don't run there. They change the Windows registry (the settings database) and the power plan (the energy profile) of a real Windows machine, and they need a GPU. So they are run by hand on the test laptop. A public repository must not register that laptop as its own runner, because any *fork* (a copy of the repository) could run code on it.
 
 #### Testing only the Rust core (any machine, including a Mac)
 
