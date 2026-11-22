@@ -9,13 +9,15 @@
 #   vfdev sync                        brings the current branch's commits to the repository on the laptop (bundle + fast-forward)
 #   vfdev build-test                  builds and runs the tests on the laptop; exits with an error if any fails
 #   vfdev cross-test                  builds on the Mac (scripts/build/build-cross.sh), sends only the .exe files and their data to the laptop and just runs the tests there
+#   vfdev package-test [ZIP]          stages the zip (built with scripts/build/package.sh if none is given) and this branch's tests/package/package_tests.ps1 on the laptop, runs them there and fetches the dated output
 #   vfdev stats FILE|- [PREFIX]       groups result rows by condition: n, mean, median and range
 #   vfdev fetch PREFIX [DEST]         fetches from the laptop the JSON and frame CSVs of captures whose label starts with PREFIX
 #   vfdev frames GLOB_A GLOB_B        compares two conditions using the frame CSVs: grouped frames and confidence interval
 #   vfdev regress BASE.json GLOB      regression gate: compares new captures with a scene's baseline (baselines/); --make creates it
 # Variables: VFJOB_HOST (user@ip), VFJOB_KEY (SSH key), VFJOB_RUNNER_SHA256 (deploy: sha256 of runner.ps1 from the WinBridge source repo), WINBRIDGE_BIN (winbridge client, `winbridge` by default),
 #   VFJOB_REPO (repository on the laptop), VFJOB_MINGW (g++ bin folder), VFJOB_BASE (bundle base branch, main),
-#   VFJOB_QUEUE=1 (build-test even if jobs are running)
+#   VFJOB_QUEUE=1 (build-test even if jobs are running), VFJOB_PKG_ZIP (package-test: zip to use, skips package.sh),
+#   VFJOB_PKG_OUT (package-test: folder for the output, build/package-test by default)
 set -u
 
 REPO="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -58,7 +60,7 @@ stats)
     exec python3 -I "$HERE/vfstats.py" "$@"
     ;;
 fetch)
-    [ -n "${2:-}" ] || { sed -n '2,17p' "$0"; exit 1; }
+    [ -n "${2:-}" ] || { sed -n '2,20p' "$0"; exit 1; }
     mkdir -p "${3:-.}"
     exec scp -q -i "$KEY" -o BatchMode=yes "$HOST:C:/ProgramData/WinBridgeJobs/bench/results/${2}*" "${3:-.}/"
     ;;
@@ -116,8 +118,29 @@ cross-test)
     printf '%s\n' "$out" | grep -E 'FAIL|TEST RESULTS'
     printf '%s' "$out" | grep -qE 'TEST RESULTS: [0-9]+ PASSED, 0 FAILED'
     ;;
+package-test)
+    # The zip and the script go to an administrators-only folder: the job runs elevated and checks both SHA-256 before running.
+    require_idle
+    zip="${2:-${VFJOB_PKG_ZIP:-}}"
+    if [ -z "$zip" ]; then
+        "$REPO/scripts/build/package.sh" >/dev/null || exit 1
+        zip="$(ls -t "$REPO"/dist/VegaFlow-*-win-x64.zip | head -n1)"
+    fi
+    [ -f "$zip" ] || { echo "no existe el zip: $zip"; exit 1; }
+    script="$REPO/tests/package/package_tests.ps1"
+    remote 'if not exist C:\ProgramData\VegaFlow\pkgtest mkdir C:\ProgramData\VegaFlow\pkgtest' || exit 1
+    copy_to "$zip" "$HOST:C:/ProgramData/VegaFlow/pkgtest/package.zip" && copy_to "$script" "$HOST:C:/ProgramData/VegaFlow/pkgtest/package_tests.ps1" || exit 1
+    out="$("$WB" jobs run package-test "ZipSha256=$(shasum -a 256 "$zip" | cut -c1-64)" "ScriptSha256=$(shasum -a 256 "$script" | cut -c1-64)" 2>&1 | LC_ALL=C tr -d '\r')"
+    printf '%s\n' "$out"
+    file="$(printf '%s\n' "$out" | sed -n 's/^salida=//p' | tail -n1 | tr '\\' '/')"
+    if [ -n "$file" ]; then
+        dest="${VFJOB_PKG_OUT:-$REPO/build/package-test}"; mkdir -p "$dest"
+        scp -q -i "$KEY" -o BatchMode=yes "$HOST:$file" "$dest/" && echo "guardado en $dest/$(basename "$file")"
+    fi
+    printf '%s\n' "$out" | grep -q '^exit=0' && printf '%s\n' "$out" | grep -qE 'PACKAGE TESTS: [0-9]+ PASSED, 0 FAILED'
+    ;;
 *)
-    sed -n "2,17p" "$0"
+    sed -n "2,20p" "$0"
     exit 1
     ;;
 esac
