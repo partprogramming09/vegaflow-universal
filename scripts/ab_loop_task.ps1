@@ -29,7 +29,10 @@ param(
 $ErrorActionPreference = 'Stop'
 $bench = Join-Path $PSScriptRoot 'bench.ps1'
 $runsLog = Join-Path $Dir 'ab_runs.log'
+# The daemon writes its log in <folder of its .exe>\logs (E2.6); setup_tasks.ps1 installs the .exe in $Dir, so it is here.
+# It rotates at 2 MB, so a session is detected by the last-write time, not by the size.
 $sessionLog = Join-Path $Dir 'logs\session_reports.log'
+function Get-LogStamp { if (Test-Path $sessionLog) { (Get-Item $sessionLog).LastWriteTimeUtc.Ticks } else { 0 } }
 $procName = [IO.Path]::GetFileNameWithoutExtension($Process)
 $sensRows = [System.Collections.Generic.List[string]]::new()
 
@@ -130,12 +133,12 @@ function Wait-TasksIdle($seconds) {
 
 # Launches the VegaFlow-Stop task, waits for the tasks to finish (shutdown launches a brief --apu-balanced process) and logs whether it recorded a game session.
 function Stop-Daemon {
-    $before = if (Test-Path $sessionLog) { (Get-Item $sessionLog).Length } else { 0 }
+    $before = Get-LogStamp
     Start-ScheduledTask -TaskName 'VegaFlow-Stop'
     Start-Sleep -Seconds 2
     if (-not (Wait-TasksIdle 90)) { throw 'Las tareas de arranque y parada siguen corriendo tras 90 s.' }
     if (Get-Process vegaflow_daemon -ErrorAction SilentlyContinue) { throw 'El daemon sigue corriendo tras VegaFlow-Stop.' }
-    $after = if (Test-Path $sessionLog) { (Get-Item $sessionLog).Length } else { 0 }
+    $after = Get-LogStamp
     Write-Run ("stop-daemon sesion_registrada=$($after -gt $before)")
     Start-Sleep -Seconds 5
 }

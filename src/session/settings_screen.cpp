@@ -14,7 +14,7 @@ bool SettingIsOn(const SettingSpec& spec, const SettingsScreenInputs& in) {
     if (id == "mmcss_gaming") return t.mmcss_gaming_optimized;
     if (id == "game_dvr") return t.gamedvr_disabled;
     if (id == "fse_compat") return t.fse_disabled;
-    if (id == "memory_compression") return t.memory_compression_enabled;
+    if (id == "memory_compression_off") return !t.memory_compression_enabled; // on = VegaFlow (or the user) turned it off
     if (id == "power_profile") return t.apu_power_optimized;
     return false; // a catalog row without a case here is shown as off, never as applied
 }
@@ -49,7 +49,14 @@ SettingsScreenModel BuildSettingsScreen(const SettingsScreenInputs& in) {
         fam.scope = view.scope;
         for (const SettingSpec* spec : view.rows) {
             const bool on = SettingIsOn(*spec, in);
-            fam.rows.push_back({spec, on, EvidenceLabel(*spec), ChangeDescription(*spec), SettingPreview(*spec, on, in.elevated)});
+            SettingRow row{spec, on, EvidenceLabel(*spec), ChangeDescription(*spec), SettingPreview(*spec, on, in.elevated)};
+            if (std::string(spec->id) == "memory_compression_off") {
+                row.discouraged = in.compression_advice == CompressionAdvice::Discouraged;
+                row.needs_confirm = in.compression_advice != CompressionAdvice::Allowed;
+                if (row.discouraged) row.preview += "\nDesaconsejado: con 16 GB de RAM o menos la compresión ayuda; te pedirá confirmar.";
+                if (row.needs_confirm && !row.discouraged) row.preview += "\nNo se pudo leer la RAM del equipo: te pedirá confirmar.";
+            }
+            fam.rows.push_back(std::move(row));
         }
         model.families.push_back(std::move(fam));
     }

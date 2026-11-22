@@ -192,6 +192,11 @@ size_t vf_rust_steam_library_paths(const char* vdf, size_t len, VfSteamLibraryFn
 #define VF_CONFIG_KEY_PROCESS_CATEGORY_ACTIONS (1u << 10)
 #define VF_CONFIG_KEY_PROCESS_EXCEPTIONS       (1u << 11)
 #define VF_CONFIG_KEY_EXCLUDED_GAME_EXES       (1u << 12)
+/* E2.2 */
+#define VF_CONFIG_KEY_AUTO_VRAM_REPORTING      (1u << 13)
+#define VF_CONFIG_KEY_AUTO_PRIORITY_SEPARATION (1u << 14)
+#define VF_CONFIG_KEY_AUTO_GAME_DVR_OFF        (1u << 15)
+#define VF_CONFIG_KEY_AUTO_POWER_PROFILE       (1u << 16)
 /* Results of vf_rust_config_save. */
 #define VF_CONFIG_SAVE_OK       0u
 #define VF_CONFIG_SAVE_BLOCKED  1u /* the current file has a VF_CONFIG_BLOCKS_SAVE status */
@@ -269,6 +274,10 @@ typedef struct VfConfigSettings {
     uint64_t min_free_ram_mb;
     uint64_t min_standby_mb;
     uint64_t max_game_disk_read_mb_s;
+    bool auto_vram_reporting;        /* E2.2: opt-in tweaks the daemon applies by itself when true; false in a factory file */
+    bool auto_priority_separation;
+    bool auto_game_dvr_off;
+    bool auto_power_profile;
 } VfConfigSettings;
 
 typedef struct VfConfigLoad {
@@ -469,6 +478,10 @@ size_t vf_rust_doctor_oem_info(uint32_t index, uint8_t* buf, size_t cap);
 
 /* True when the bytes are one well-formed JSON value. */
 bool vf_rust_doctor_json_is_valid(const uint8_t* bytes, size_t len);
+
+/* E2.2 memory compression advice (policy/memory_compression.rs): 0 allowed, 1 discouraged, 2 unknown (probe failed or 0 MB).
+   Discouraged at 16384 MB or less. Vectors: tests/vectors/memory_compression.tsv. */
+uint8_t vf_rust_memory_compression_off_advice(uint64_t total_ram_mb, bool probe_ok);
 
 #ifdef __cplusplus
 }

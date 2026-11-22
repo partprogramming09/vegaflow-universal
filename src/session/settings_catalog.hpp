@@ -27,7 +27,7 @@ struct SettingSpec {
     const char* target = "";  // exact registry key and value, or the power-plan setting, or what is watched
     const char* change = "";  // exact value written, or what the watcher does
     bool undoable = true;     // false for one-shot actions that leave no saved original (nothing to undo)
-    bool applied_by_default = false; // the daemon applies it without the user asking (see 14-fase-g.md, pending decision)
+    bool applied_by_default = false; // the daemon applies it without the user asking; E2.2: no row is, they are opt-in keys of config.json
     bool user_switch = true;  // the person can turn it on and off; false when VegaFlow decides by itself (memory guard)
 };
 

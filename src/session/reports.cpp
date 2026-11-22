@@ -1,5 +1,14 @@
 #include "session/reports.hpp"
 
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+
+#include <atomic>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -12,6 +21,7 @@
 #include <string>
 #include <vector>
 
+#include "windows/config_location.hpp"
 #include "windows/privileges.hpp"
 #include "detect/hardware_profiler.hpp"
 #include "detect/process_detector.hpp"
@@ -43,7 +53,44 @@ std::string FormatBytes(uint64_t bytes) {
     return ss.str();
 }
 
+// A name that goes into the log: one line, at most 200 bytes (never cut inside a UTF-8 character), "(unknown)" if empty.
+std::string LogField(const std::string& raw, const char* when_empty) {
+    constexpr size_t kMaxFieldBytes = 200;
+    std::string s = raw.substr(0, kMaxFieldBytes);
+    if (raw.size() > kMaxFieldBytes) {
+        while (!s.empty() && (static_cast<unsigned char>(s.back()) & 0xC0) == 0x80) s.pop_back();
+        if (!s.empty() && static_cast<unsigned char>(s.back()) >= 0xC0) s.pop_back();
+    }
+    for (char& c : s) {
+        if (c == '\n' || c == '\r') c = ' ';
+    }
+    return s.empty() ? when_empty : s;
+}
+
+// Closes a HANDLE on every path.
+struct HandleCloser {
+    HANDLE h;
+    ~HandleCloser() {
+        if (h && h != INVALID_HANDLE_VALUE) CloseHandle(h);
+    }
+};
+
+// Renames an oversized log to <name>.1 (replacing the old one). Caller holds the log mutex.
+void RotateIfTooBig(const std::filesystem::path& p) {
+    WIN32_FILE_ATTRIBUTE_DATA info{};
+    if (!GetFileAttributesExW(p.c_str(), GetFileExInfoStandard, &info)) return;
+    const uint64_t size = (static_cast<uint64_t>(info.nFileSizeHigh) << 32) | info.nFileSizeLow;
+    if (size > kSessionLogMaxBytes) {
+        MoveFileExW(p.c_str(), (p.wstring() + L".1").c_str(), MOVEFILE_REPLACE_EXISTING);
+    }
+}
+
 } // namespace
+
+std::filesystem::path ResolveSessionLogPath(const std::string& file_path, const std::wstring& exe_dir) {
+    if (file_path != kSessionLogDefaultPath || exe_dir.empty()) return std::filesystem::path(file_path);
+    return std::filesystem::path(exe_dir) / L"logs" / L"session_reports.log";
+}
 
 bool SaveSessionReportToFile(
     const std::string& game_name,
@@ -51,33 +98,54 @@ bool SaveSessionReportToFile(
     uint32_t pid,
     const std::string& file_path) {
     try {
-        std::filesystem::path p(file_path);
-        std::ofstream out(p, std::ios::app);
-        if (!out.is_open() && p.has_parent_path()) {
-            std::error_code ec;
-            std::filesystem::create_directories(p.parent_path(), ec);
-            out.clear();
-            out.open(p, std::ios::app);
+        const std::wstring exe_dir = ExecutableDirectory();
+        if (exe_dir.empty() && file_path == kSessionLogDefaultPath) {
+            static std::atomic_flag warned = ATOMIC_FLAG_INIT;
+            if (!warned.test_and_set()) {
+                std::cerr << "[WARN] Could not find the .exe folder; the session log goes to the working directory.\n";
+            }
         }
-        if (!out.is_open()) {
-            return false;
-        }
+        const std::filesystem::path p = ResolveSessionLogPath(file_path, exe_dir);
 
         const std::time_t now = std::time(nullptr);
         std::tm tm_local{};
         localtime_s(&tm_local, &now);
         char time_buf[64] = {0};
         std::strftime(time_buf, sizeof(time_buf), "[%Y-%m-%d %H:%M:%S] ", &tm_local);
+        const std::string game = LogField(game_name, "(unknown)");
+        const std::string api = LogField(api_name, "N/A");
 
-        out << time_buf << "Session Report: " << game_name << "\n"
-            << "========================================================\n"
-            << " VEGAFLOW SESSION REPORT: " << game_name << "\n"
-            << "========================================================\n"
-            << " Target PID            : " << pid << "\n"
-            << " Render API            : " << (api_name.empty() ? "N/A" : api_name) << "\n"
-            << "========================================================\n\n";
-        out.flush();
-        return !out.fail();
+        std::ostringstream block;
+        block << time_buf << "Session Report: " << game << "\n"
+              << "========================================================\n"
+              << " VEGAFLOW SESSION REPORT: " << game << "\n"
+              << "========================================================\n"
+              << " Target PID            : " << pid << "\n"
+              << " Render API            : " << api << "\n"
+              << "========================================================\n\n";
+        const std::string text = block.str();
+
+        // One lock covers the size check, the rotation and the write, so the GUI and the daemon never interleave.
+        HandleCloser lock{CreateMutexW(nullptr, FALSE, L"Local\\VegaFlowLog")};
+        if (!lock.h) return false;
+        const DWORD waited = WaitForSingleObject(lock.h, 5000);
+        if (waited != WAIT_OBJECT_0 && waited != WAIT_ABANDONED) return false;
+        struct Release {
+            HANDLE h;
+            ~Release() { ReleaseMutex(h); }
+        } release{lock.h};
+
+        RotateIfTooBig(p);
+        if (p.has_parent_path()) {
+            std::error_code ec;
+            std::filesystem::create_directories(p.parent_path(), ec);
+        }
+        // Open for append only and close at once, with full sharing, so a rotation by another process can rename it.
+        HandleCloser file{CreateFileW(p.c_str(), FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                                      nullptr, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr)};
+        if (file.h == INVALID_HANDLE_VALUE) return false;
+        DWORD written = 0;
+        return WriteFile(file.h, text.data(), static_cast<DWORD>(text.size()), &written, nullptr) && written == text.size();
     } catch (...) {
         return false;
     }

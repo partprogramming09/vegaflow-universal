@@ -189,6 +189,11 @@ const KNOWN_APPS: &[KnownRule] = &[
     // Recording & streaming (default: DoNotTouch)
     KnownRule::App { exe: "obs64.exe", class: VF_PROC_CLASS_RECORDING_STREAMING, need_std_root: false, path_markers: &["\\obs-studio", "\\obs studio"] },
     KnownRule::App { exe: "obs32.exe", class: VF_PROC_CLASS_RECORDING_STREAMING, need_std_root: false, path_markers: &["\\obs-studio", "\\obs studio"] },
+    KnownRule::App { exe: "obs.exe", class: VF_PROC_CLASS_RECORDING_STREAMING, need_std_root: false, path_markers: &["\\obs-studio", "\\obs studio"] },
+    KnownRule::App { exe: "xsplit.broadcaster.exe", class: VF_PROC_CLASS_RECORDING_STREAMING, need_std_root: true, path_markers: &["xsplit"] },
+    KnownRule::App { exe: "action.exe", class: VF_PROC_CLASS_RECORDING_STREAMING, need_std_root: true, path_markers: &["mirillis", "action"] },
+    KnownRule::App { exe: "nvidia share.exe", class: VF_PROC_CLASS_RECORDING_STREAMING, need_std_root: true, path_markers: &["nvidia"] },
+    KnownRule::App { exe: "radeonsoftware.exe", class: VF_PROC_CLASS_RECORDING_STREAMING, need_std_root: true, path_markers: &["amd", "radeon"] },
     KnownRule::App { exe: "streamlabs obs.exe", class: VF_PROC_CLASS_RECORDING_STREAMING, need_std_root: true, path_markers: &["streamlabs"] },
     KnownRule::App { exe: "streamlabs desktop.exe", class: VF_PROC_CLASS_RECORDING_STREAMING, need_std_root: true, path_markers: &["streamlabs"] },
     KnownRule::App { exe: "xsplit.core.exe", class: VF_PROC_CLASS_RECORDING_STREAMING, need_std_root: true, path_markers: &["xsplit"] },
@@ -206,6 +211,7 @@ const KNOWN_APPS: &[KnownRule] = &[
     KnownRule::App { exe: "zoom.exe", class: VF_PROC_CLASS_CALLS_VOICE, need_std_root: true, path_markers: &["\\zoom"] },
     KnownRule::App { exe: "skype.exe", class: VF_PROC_CLASS_CALLS_VOICE, need_std_root: true, path_markers: &["skype", "windowsapps"] },
     KnownRule::App { exe: "ts3client_win64.exe", class: VF_PROC_CLASS_CALLS_VOICE, need_std_root: false, path_markers: &["teamspeak"] },
+    KnownRule::App { exe: "ts3client_win32.exe", class: VF_PROC_CLASS_CALLS_VOICE, need_std_root: false, path_markers: &["teamspeak"] },
     KnownRule::App { exe: "ts5.exe", class: VF_PROC_CLASS_CALLS_VOICE, need_std_root: false, path_markers: &["teamspeak"] },
     KnownRule::App { exe: "mumble.exe", class: VF_PROC_CLASS_CALLS_VOICE, need_std_root: true, path_markers: &["mumble"] },
     KnownRule::App { exe: "webexmta.exe", class: VF_PROC_CLASS_CALLS_VOICE, need_std_root: true, path_markers: &["webex", "cisco"] },
@@ -279,6 +285,16 @@ const KNOWN_APPS: &[KnownRule] = &[
     KnownRule::App { exe: "cl.exe", class: VF_PROC_CLASS_HEAVY_WORK, need_std_root: false, path_markers: &["visual studio", "msvc"] },
     KnownRule::App { exe: "msbuild.exe", class: VF_PROC_CLASS_HEAVY_WORK, need_std_root: false, path_markers: &["visual studio", "msbuild"] },
 ];
+
+/// Every known app as (lowercase exe name, class), whatever its folder.
+pub fn known_apps() -> impl Iterator<Item = (&'static str, u8)> {
+    KNOWN_APPS.iter().map(|KnownRule::App { exe, class, .. }| (*exe, *class))
+}
+
+/// The class of a known app by name alone; None when the name is not in the list.
+pub fn known_app_class_by_name(exe_lower: &str) -> Option<u8> {
+    known_apps().find(|(exe, _)| *exe == exe_lower).map(|(_, class)| class)
+}
 
 fn category_default_or_configured(class: u8, cfg: &VfProcessCategoryActions) -> u8 {
     let raw = match class {

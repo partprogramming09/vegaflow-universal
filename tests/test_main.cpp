@@ -177,6 +177,8 @@ int main() {
         {108, vftest::Test108},  // E2.3
         {109, vftest::Test109},  // E2.5
         {110, vftest::Test110},  // E2.3 GPU line
+        {111, vftest::Test111},  // E2.2
+        {112, vftest::Test112},  // E2.6
     };
     for (const auto& [number, run] : tests) {
         try {

@@ -1,0 +1,48 @@
+# Memory-trim protection vectors, tested in Rust (is_factory_memory_protected_exe) and in C++ (Test 112).
+# Rows "old list" come from the list memory_purge.rs had before E2.6 (b7ab449): every one must stay protected.
+# Format (tab-separated, 3 columns): exe_name_or_path	expected_protected(1/0)	note
+# The tokens <empty> and <blank> stand for "" and "   ".
+obs64.exe	1	old list
+obs32.exe	1	old list
+obs.exe	1	old list
+streamlabs obs.exe	1	old list
+xsplit.core.exe	1	old list
+xsplit.broadcaster.exe	1	old list
+action.exe	1	old list
+nvidia share.exe	1	old list
+radeonsoftware.exe	1	old list
+discord.exe	1	old list
+discordcanary.exe	1	old list
+discordptb.exe	1	old list
+teams.exe	1	old list
+ms-teams.exe	1	old list
+slack.exe	1	old list
+skype.exe	1	old list
+zoom.exe	1	old list
+mumble.exe	1	old list
+ts3client_win64.exe	1	old list
+ts3client_win32.exe	1	old list
+vegaflow_daemon.exe	1	old list
+vegaflow_tests.exe	1	old list
+vegaflow.exe	1	old list
+system	1	old list
+csrss.exe	1	old list
+dwm.exe	1	old list
+lsass.exe	1	old list
+smss.exe	1	old list
+wininit.exe	1	old list
+services.exe	1	old list
+OBS64.EXE	1	old list, upper case
+C:\Users\alice\AppData\Local\Discord\app-1.0.9163\Discord.exe	1	test 2: discord in LOCALAPPDATA
+C:\Program Files\obs-studio\bin\64bit\obs64.exe	1	real obs
+D:\weird\place\obs64.exe	1	test 3: obs in an odd folder, kept by name
+C:\Temp\discord.exe	1	discord in Temp, kept by name
+game.exe	0	test 4: plain game
+D:\Games\game.exe	0	plain game with a path
+chrome.exe	0	browsers are trimmed
+steamwebhelper.exe	0	launchers are trimmed
+code.exe	0	IDEs are not protected from trimming
+<empty>	1	test 5: empty name
+<blank>	1	blank name
+C:\Windows\explorer.exe	1	windows process (WINDOWS_PROCESSES)
+svchost.exe	1	windows process by name (WINDOWS_PROCESSES)

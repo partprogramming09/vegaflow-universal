@@ -19,6 +19,11 @@ pub struct VfConfigSettings {
     pub min_free_ram_mb: u64,
     pub min_standby_mb: u64,
     pub max_game_disk_read_mb_s: u64,
+    // E2.2: opt-in system tweaks (all false in a factory file).
+    pub auto_vram_reporting: bool,
+    pub auto_priority_separation: bool,
+    pub auto_game_dvr_off: bool,
+    pub auto_power_profile: bool,
 }
 
 #[repr(C)]
@@ -45,6 +50,10 @@ fn to_ffi(s: &Settings) -> VfConfigSettings {
         min_free_ram_mb: s.min_free_ram_mb,
         min_standby_mb: s.min_standby_mb,
         max_game_disk_read_mb_s: s.max_game_disk_read_mb_s,
+        auto_vram_reporting: s.auto_vram_reporting,
+        auto_priority_separation: s.auto_priority_separation,
+        auto_game_dvr_off: s.auto_game_dvr_off,
+        auto_power_profile: s.auto_power_profile,
     }
 }
 
@@ -118,6 +127,10 @@ pub extern "C" fn vf_rust_config_save(
             cooldown_seconds: s.cooldown_seconds,
             max_game_disk_read_mb_s: s.max_game_disk_read_mb_s,
             custom_game_exes,
+            auto_vram_reporting: s.auto_vram_reporting,
+            auto_priority_separation: s.auto_priority_separation,
+            auto_game_dvr_off: s.auto_game_dvr_off,
+            auto_power_profile: s.auto_power_profile,
             ..Settings::default()
         };
         match config_file::save(original, &settings) {
@@ -263,6 +276,10 @@ pub extern "C" fn vf_rust_config_save_ex(
             process_category_actions: p.category_actions,
             process_exceptions,
             excluded_game_exes,
+            auto_vram_reporting: s.auto_vram_reporting,
+            auto_priority_separation: s.auto_priority_separation,
+            auto_game_dvr_off: s.auto_game_dvr_off,
+            auto_power_profile: s.auto_power_profile,
         };
         match config_file::save(original, &settings) {
             Ok(text) => {

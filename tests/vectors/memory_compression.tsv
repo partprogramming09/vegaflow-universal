@@ -1,0 +1,14 @@
+# Memory compression advice vectors, shared by Rust (policy/memory_compression.rs) and C++ Test 111. Tab-separated.
+# <name> <total_ram_mb> <probe_ok: 1|0> <allowed|discouraged|unknown>
+# 16384 MB (16 GB) or less discourages turning compression off; Windows sees a bit less than the installed RAM, hence <=.
+exact_16gb	16384	1	discouraged
+one_over_16gb	16385	1	allowed
+laptop_15gb_visible	15700	1	discouraged
+8gb	8192	1	discouraged
+32gb	32768	1	allowed
+one_mb	1	1	discouraged
+zero_ram	0	1	unknown
+probe_failed_small	8192	0	unknown
+probe_failed_big	65536	0	unknown
+probe_failed_zero	0	0	unknown
+u64_max	18446744073709551615	1	allowed
