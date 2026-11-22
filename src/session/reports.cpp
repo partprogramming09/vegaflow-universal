@@ -236,6 +236,10 @@ void PrintStatusReport() {
     const int uma_thresh_pct = static_cast<int>(policy.runtime_pressure_threshold * 100.0 + 0.5);
     std::cout << "  Live DXGI Budget Pressure  : " << static_cast<int>(uma_guard.dxgi_budget_utilization * 100.0) << "% (Threshold: " << uma_thresh_pct << "% -> " << (uma_guard.guard_triggered ? "PRESSURE GUARD ACTIVE" : "HEALTHY") << ")\n\n";
 
+    std::cout << "[WHY THIS PROFILE]\n";
+    for (const std::string& line : HardwareProfiler::DecisionReasonTexts(policy.decision_reasons)) std::cout << "  - " << line << "\n";
+    std::cout << "\n";
+
     std::cout << "[SYSTEM GRAPHICS TWEAKS]\n";
     std::cout << "  Multi-Plane Overlay (MPO)  : " << (tweaks.mpo_disabled ? "DISABLED (OverlayTestMode=5, undocumented)" : "ENABLED (Windows Default)") << "\n";
     if (gfx.AmdDriver()) {

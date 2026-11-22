@@ -160,7 +160,7 @@ void Test51() {
     std::string first_mismatch;
 
     ForEachTsvRow("tests/vectors/device_profiles.tsv", [&](const std::vector<std::string>& col, const std::string& line) {
-        if (col.size() != 22) {
+        if (col.size() != 23) {
             ++vector_mismatches;
             if (first_mismatch.empty()) first_mismatch = "bad col count: " + line;
             return;
@@ -227,9 +227,11 @@ void Test51() {
         const bool exp_purge = (col[19] == "1");
         const bool exp_power = (col[20] == "1");
         const bool exp_block_drv = (col[21] == "1");
+        const uint64_t exp_reasons = std::stoull(col[22], nullptr, 16); // F2.7: the rules that decided, one bit each
 
         ++total_vectors;
-        if (pol.gpu_connection != exp_conn ||
+        if (pol.decision_reasons != exp_reasons ||
+            pol.gpu_connection != exp_conn ||
             pol.arch_gen != exp_arch ||
             pol.tier != exp_tier ||
             pol.apply_visual_cuts != exp_visual ||
@@ -246,7 +248,7 @@ void Test51() {
             }
         }
     });
-    const bool vectors_ok = (total_vectors >= 30 && vector_mismatches == 0);
+    const bool vectors_ok = (total_vectors >= 34 && vector_mismatches == 0);
 
     // 2. Engine.ini block: Discrete/External have NO visual cuts; unverified CVars removed everywhere.
     vegaflow::ApuOptimizationPolicy integrated_pol{};

@@ -30,6 +30,7 @@ struct DoctorInputs {
     std::vector<DoctorDisk> disks; // the first one is the system drive
     bool caches_probed = true;
     std::vector<DoctorCacheDir> caches;
+    std::vector<std::string> profile_reasons; // F2.7: the plain sentences of the rules that decided the hardware profile
     std::vector<std::string> processes; // names or full paths of the running processes
     std::string computer_name;          // hidden in the output
     std::string domain_name;            // hidden in the output

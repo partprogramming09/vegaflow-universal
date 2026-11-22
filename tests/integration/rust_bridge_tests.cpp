@@ -251,7 +251,7 @@ void Test34() {
         VF_FIELD(VfDeviceProfileDecision, allow_ram_purge) VF_FIELD(VfDeviceProfileDecision, force_high_perf_power_plan)
         VF_FIELD(VfDeviceProfileDecision, block_driver_tweaks) VF_FIELD(VfDeviceProfileDecision, apply_egpu_streaming_tweaks)
         VF_FIELD(VfDeviceProfileDecision, safe_vram_pool_mb) VF_FIELD(VfDeviceProfileDecision, amd_tessellation_cap)
-        VF_FIELD(VfDeviceProfileDecision, dxvk_compiler_threads) VF_FIELD(VfDeviceProfileDecision, disable_dx12_async_compute)
+        VF_FIELD(VfDeviceProfileDecision, dxvk_compiler_threads) VF_FIELD(VfDeviceProfileDecision, disable_dx12_async_compute) VF_FIELD(VfDeviceProfileDecision, reasons)
         VF_LAYOUT_BEGIN(VfProcessCategoryActions)
         VF_FIELD(VfProcessCategoryActions, recording_streaming) VF_FIELD(VfProcessCategoryActions, calls_voice)
         VF_FIELD(VfProcessCategoryActions, messaging) VF_FIELD(VfProcessCategoryActions, browsers)

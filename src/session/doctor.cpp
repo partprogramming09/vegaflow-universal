@@ -15,6 +15,7 @@
 #include <iostream>
 
 #include "bridge/rust_bridge.h"
+#include "detect/hardware_profiler.hpp"
 #include "detect/process_detector.hpp"
 #include "session/report.hpp"
 #include "windows/privileges.hpp"
@@ -169,6 +170,13 @@ DoctorReport BuildDoctorReport(const DoctorInputs& in) {
                        ",\"bytes\":" + std::to_string(c.bytes) + ",\"files\":" + std::to_string(c.files) + "}";
     }
     if (in.caches_probed && caches_json.empty()) r.text += "  none found\n";
+    std::string reasons_json;
+    if (!in.profile_reasons.empty()) r.text += "Hardware profile, why:\n";
+    for (size_t i = 0; i < in.profile_reasons.size(); ++i) {
+        const std::string t = hide(in.profile_reasons[i]);
+        r.text += "  - " + t + "\n";
+        reasons_json += std::string(i ? "," : "") + JsonString(t);
+    }
     r.text += "Findings:\n";
     if (findings.empty()) r.text += "  [OK] nothing to report\n";
     std::string findings_json;
@@ -178,7 +186,8 @@ DoctorReport BuildDoctorReport(const DoctorInputs& in) {
         findings_json += std::string(i ? "," : "") + "{\"severity\":\"" + SeverityWord(findings[i].severity) + "\",\"text\":" + JsonString(t) + "}";
     }
     r.json = "{\"version\":" + JsonString(hide(in.version)) + ",\"elevated\":" + (in.elevated ? "true" : "false") +
-             ",\"exit_code\":" + std::to_string(r.exit_code) + ",\"disks\":[" + disks_json + "],\"shader_caches\":[" + caches_json + "],\"findings\":[" + findings_json + "]}";
+             ",\"exit_code\":" + std::to_string(r.exit_code) + ",\"disks\":[" + disks_json + "],\"shader_caches\":[" + caches_json + "],\"profile_reasons\":[" + reasons_json +
+             "],\"findings\":[" + findings_json + "]}";
     return r;
 }
 
@@ -232,6 +241,14 @@ DoctorReport ReadDoctorReport(const std::string& version) {
         for (const ShaderCacheReport& c : reg.InspectShaderCaches()) in.caches.push_back({Narrow(c.path), c.total_size_bytes, c.file_count, c.exists});
     } catch (...) {
         in.caches_probed = false;
+    }
+
+    // F2.7: why the profile is what it is (read-only: the same detection the daemon runs at start).
+    try {
+        const SystemHardwareProfile hw = HardwareProfiler::DetectHardware();
+        in.profile_reasons = HardwareProfiler::DecisionReasonTexts(HardwareProfiler::BuildOptimizationPolicy(hw).decision_reasons);
+    } catch (...) {
+        in.profile_reasons.clear(); // the section is left out; the rest of the report stands
     }
 
     HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);

@@ -36,21 +36,39 @@ const DEFAULT_CORES: u32 = 4;
 /// Returns 1 (entry), 2 (mid), 3 (advanced) or 4 (discrete or custom).
 /// The checks run in this order on purpose: discrete first, then entry, then advanced.
 pub fn classify(input: &VfTierInput) -> u8 {
+    classify_with_rule(input).0
+}
+
+/// The first rule of `classify` that matched (F2.7: `--doctor` says why a tier was chosen).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum TierRule {
+    Discrete,
+    EntryRam,
+    EntryCores,
+    EntryIntelUhd,
+    AdvancedGpu,
+    AdvancedRam,
+    Mid,
+}
+
+/// Same decision as `classify`, with the rule that made it.
+pub(crate) fn classify_with_rule(input: &VfTierInput) -> (u8, TierRule) {
     let cores = if input.physical_cores > 0 { input.physical_cores } else { DEFAULT_CORES };
 
     if input.dedicated_vram || input.arch_gen == ARCH_DISCRETE || input.is_nvidia {
-        TIER_DISCRETE
-    } else if input.total_ram_mb <= ENTRY_MAX_RAM_MB
-        || cores <= ENTRY_MAX_CORES
-        || input.arch_gen == ARCH_INTEL_UHD
-    {
-        TIER_ENTRY
-    } else if matches!(input.arch_gen, ARCH_RDNA2 | ARCH_RDNA3_PLUS | ARCH_INTEL_XE_ARC)
-        || input.total_ram_mb >= ADVANCED_MIN_RAM_MB
-    {
-        TIER_ADVANCED
+        (TIER_DISCRETE, TierRule::Discrete)
+    } else if input.total_ram_mb <= ENTRY_MAX_RAM_MB {
+        (TIER_ENTRY, TierRule::EntryRam)
+    } else if cores <= ENTRY_MAX_CORES {
+        (TIER_ENTRY, TierRule::EntryCores)
+    } else if input.arch_gen == ARCH_INTEL_UHD {
+        (TIER_ENTRY, TierRule::EntryIntelUhd)
+    } else if matches!(input.arch_gen, ARCH_RDNA2 | ARCH_RDNA3_PLUS | ARCH_INTEL_XE_ARC) {
+        (TIER_ADVANCED, TierRule::AdvancedGpu)
+    } else if input.total_ram_mb >= ADVANCED_MIN_RAM_MB {
+        (TIER_ADVANCED, TierRule::AdvancedRam)
     } else {
-        TIER_MID
+        (TIER_MID, TierRule::Mid)
     }
 }
 

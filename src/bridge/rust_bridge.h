@@ -438,7 +438,12 @@ typedef struct VfDeviceProfileDecision {
     uint32_t amd_tessellation_cap;
     uint32_t dxvk_compiler_threads;
     bool disable_dx12_async_compute;
+    uint64_t reasons;                /* F2.7: one VF_REASON_* bit per rule that decided the fields above (device_profile.rs) */
 } VfDeviceProfileDecision;
+
+/* Calls on_line once per bit set in `mask`, in bit order, with the plain sentence of that rule (UTF-8, not NUL-ended).
+   Bits with no rule are skipped. Returns how many lines were sent. */
+uint32_t vf_rust_decision_reason_texts(uint64_t mask, VfUtf8Fn on_line, void* ctx);
 
 bool vf_rust_evaluate_device_profile(
     const VfGpuAdapterInput* adapters,

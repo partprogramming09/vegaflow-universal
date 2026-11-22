@@ -139,7 +139,21 @@ std::string TierLabelFor(ApuTier tier, GpuConnection conn) {
     }
 }
 
+void CollectReasonLine(void* ctx, const char* utf8, size_t len) noexcept {
+    try {
+        static_cast<std::vector<std::string>*>(ctx)->emplace_back(utf8, len);
+    } catch (...) {
+        // out of memory: the line is lost, the others still arrive
+    }
+}
+
 } // namespace
+
+std::vector<std::string> HardwareProfiler::DecisionReasonTexts(uint64_t reasons) {
+    std::vector<std::string> lines;
+    vf_rust_decision_reason_texts(reasons, CollectReasonLine, &lines);
+    return lines;
+}
 
 ApuOptimizationPolicy HardwareProfiler::BuildOptimizationPolicy(
     const SystemHardwareProfile& profile,
@@ -265,6 +279,7 @@ ApuOptimizationPolicy HardwareProfiler::BuildOptimizationPolicy(
     policy.amd_tessellation_cap = dec.amd_tessellation_cap;
     policy.dxvk_compiler_threads = dec.dxvk_compiler_threads;
     policy.disable_dx12_async_compute = dec.disable_dx12_async_compute;
+    policy.decision_reasons = dec.reasons;
     policy.cpu_stapm_cap_mhz = 0;
     policy.runtime_pressure_threshold = vf_rust_vram_pressure_threshold();
 

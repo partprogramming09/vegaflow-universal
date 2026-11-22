@@ -1,7 +1,8 @@
 //! Hardware: APU tier, memory purge, CPU topology and the GPU / device profile.
 
-use std::os::raw::c_char;
+use std::os::raw::{c_char, c_void};
 
+use super::config::VfUtf8Fn;
 use super::{bytes_or_empty, ffi_guard};
 use crate::policy::apu_tier::{self, VfTierInput, TIER_ENTRY, TIER_MID};
 use crate::policy::cpu_governor::{self, VfCpuCoreEntry, VfTopologyPartitionOut};
@@ -97,6 +98,21 @@ pub extern "C" fn vf_rust_partition_cpu_topology_group(
 #[no_mangle]
 pub extern "C" fn vf_rust_eval_bg_confinement(logical_cores_used: f64, currently_confined: bool) -> bool {
     ffi_guard(false, || cpu_governor::eval_bg_confinement(logical_cores_used, currently_confined))
+}
+
+/// Calls `on_line` once per bit set in `mask` (`VfDeviceProfileDecision::reasons`), in bit order, with the plain
+/// sentence of that rule (UTF-8, no NUL). Bits with no rule are skipped. Returns how many lines were sent.
+#[no_mangle]
+pub extern "C" fn vf_rust_decision_reason_texts(mask: u64, on_line: VfUtf8Fn, ctx: *mut c_void) -> u32 {
+    ffi_guard(0, || {
+        let texts = device_profile::reason_texts(mask);
+        if let Some(callback) = on_line {
+            for t in &texts {
+                unsafe { callback(ctx, t.as_ptr(), t.len()) };
+            }
+        }
+        texts.len() as u32
+    })
 }
 
 /// Evaluates the universal GPU / hardware device profile decision.
