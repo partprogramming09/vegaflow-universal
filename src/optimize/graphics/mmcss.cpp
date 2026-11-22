@@ -4,13 +4,21 @@ namespace vegaflow {
 
 using namespace graphics_internal;
 
-bool MmcssTweaks::SetGamingProfileOptimized(bool optimize, bool dry_run) {
+bool MmcssTweaks::SetGamingProfileOptimized(bool optimize, bool dry_run, bool user_off) {
     if (dry_run) {
         return true;
     }
 
     // Giving it back is never a write: with VegaFlow's copy the user's values return, without one they were never touched.
     if (!optimize) {
+        if (user_off) {
+            constexpr auto LM = RegHive::LocalMachine;
+            bool ok = UserOffValue(reg_, LM, kMmcssProfilePath, L"SystemResponsiveness", RegValue::MakeDword(20u), "MMCSS SystemResponsiveness stock", "20");
+            ok &= UserOffValue(reg_, LM, kMmcssGamesPath, L"Priority", RegValue::MakeDword(2u), "MMCSS Tasks\\Games stock", "2");
+            ok &= UserOffValue(reg_, LM, kMmcssGamesPath, L"Scheduling Category", RegValue::MakeString(L"Medium"), "MMCSS Tasks\\Games stock", "Medium");
+            ok &= UserOffValue(reg_, LM, kMmcssGamesPath, L"SFIO Priority", RegValue::MakeString(L"Normal"), "MMCSS Tasks\\Games stock", "Normal");
+            return ok;
+        }
         reg_.RestoreBackedUpValue(RegHive::LocalMachine, kMmcssProfilePath, L"SystemResponsiveness");
         for (const wchar_t* n : kMmcssGamesCleanupValues) {
             reg_.RestoreBackedUpValue(RegHive::LocalMachine, kMmcssGamesPath, n);

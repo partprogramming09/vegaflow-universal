@@ -63,12 +63,17 @@ void DisplayTweaks::QueryMpoState(bool& out_disabled, uint32_t& out_overlay_test
     }
 }
 
-bool DisplayTweaks::SetGameDvrCaptureDisabled(bool disable, bool dry_run) {
+bool DisplayTweaks::SetGameDvrCaptureDisabled(bool disable, bool dry_run, bool user_off) {
     if (dry_run) {
         return true;
     }
 
     // Giving it back is never a write: with VegaFlow's copy the user's value returns, without one it was never touched.
+    if (!disable && user_off) {
+        const bool a = UserOffValue(reg_, RegHive::CurrentUser, kGameConfigStorePath, L"GameDVR_Enabled", RegValue::MakeDword(1u), "Reactivar GameDVR", "1");
+        const bool b = UserOffValue(reg_, RegHive::CurrentUser, kGameDvrPath, L"AppCaptureEnabled", RegValue::MakeDword(1u), "Reactivar GameDVR (AppCapture)", "1");
+        return a && b;
+    }
     if (!disable) return RestoreGameDvrCapture(false);
 
     struct Item { const wchar_t* path; const wchar_t* name; const char* reason; };

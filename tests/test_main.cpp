@@ -198,6 +198,7 @@ int main() {
         {129, vftest::Test129},  // F1.6 the seven power settings exist in the real plan; apply + give back leaves it identical
         {130, vftest::Test130},  // F1.6 a setting the plan lacks is skipped, the other six are saved and given back
         {131, vftest::Test131},  // F1.7 a failed copy of the original DLL leaves DXVK's DLL in place
+        {132, vftest::Test132},  // F1.2 the manual off of Ajustes writes the factory value with a copy
     };
     for (const auto& [number, run] : tests) {
         try {

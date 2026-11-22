@@ -71,9 +71,10 @@ public:
     bool SetMemoryCompressionEnabled(bool enable, bool dry_run = false);
     bool RevertMemoryCompressionChange(bool dry_run = false);
     bool IsMemoryCompressionEnabled();
-    bool SetDynamicPrioritySeparation(uint32_t value, bool dry_run = false);
+    // user_off: the user's own "off" in Ajustes writes the factory value after taking VegaFlow's copy; every give-back path leaves it false.
+    bool SetDynamicPrioritySeparation(uint32_t value, bool dry_run = false, bool user_off = false);
     uint32_t QueryDynamicPrioritySeparation();
-    bool SetKernelMemoryPagingShield(bool enable, bool dry_run = false);
+    bool SetKernelMemoryPagingShield(bool enable, bool dry_run = false, bool user_off = false);
     bool QueryKernelMemoryPagingShield();
 
 private:
@@ -85,7 +86,7 @@ class MmcssTweaks {
 public:
     explicit MmcssTweaks(RegistryPort& reg) : reg_(reg) {}
 
-    bool SetGamingProfileOptimized(bool optimize, bool dry_run = false);
+    bool SetGamingProfileOptimized(bool optimize, bool dry_run = false, bool user_off = false);
     bool ApplyTaskTweaks(bool dry_run = false);
     bool RestoreTaskTweaks(bool dry_run = false);
     bool QueryTaskTweaks(std::string& scheduling_category, std::string& sfio_priority, uint32_t& clock_rate);
@@ -102,7 +103,7 @@ public:
 
     bool SetMpoDisabled(bool disable, bool dry_run = false);
     void QueryMpoState(bool& out_disabled, uint32_t& out_overlay_test_mode);
-    bool SetGameDvrCaptureDisabled(bool disable, bool dry_run = false);
+    bool SetGameDvrCaptureDisabled(bool disable, bool dry_run = false, bool user_off = false);
     // Shutdown and "Devolver todo": puts back the user's GameDVR values only if VegaFlow saved a copy (it turned it off).
     bool RestoreGameDvrCapture(bool dry_run = false);
     bool QueryGameDvrDisabled();

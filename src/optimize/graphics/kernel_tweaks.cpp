@@ -25,12 +25,17 @@ bool KernelSchedulerTweaks::IsMemoryCompressionEnabled() {
     return reg_.IsMemoryCompressionEnabled();
 }
 
-bool KernelSchedulerTweaks::SetDynamicPrioritySeparation(uint32_t value, bool dry_run) {
+bool KernelSchedulerTweaks::SetDynamicPrioritySeparation(uint32_t value, bool dry_run, bool user_off) {
     if (dry_run) {
         return true;
     }
 
-    // The factory value is never written: with VegaFlow's copy the user's value returns, without one it was never touched.
+    // Giving back never writes the factory value: with VegaFlow's copy the user's value returns, without one it was never
+    // touched. Only the user's own "off" in Ajustes writes it, after its copy.
+    if (value == 0x02u && user_off) {
+        return UserOffValue(reg_, RegHive::LocalMachine, kPriorityControlPath, L"Win32PrioritySeparation", RegValue::MakeDword(0x02u),
+                            "Prioridad de quantum CPU stock", "0x2");
+    }
     if (value == 0x02u) {
         reg_.RestoreBackedUpValue(RegHive::LocalMachine, kPriorityControlPath, L"Win32PrioritySeparation");
         return true;
@@ -58,12 +63,18 @@ uint32_t KernelSchedulerTweaks::QueryDynamicPrioritySeparation() {
     return 2u;
 }
 
-bool KernelSchedulerTweaks::SetKernelMemoryPagingShield(bool enable, bool dry_run) {
+bool KernelSchedulerTweaks::SetKernelMemoryPagingShield(bool enable, bool dry_run, bool user_off) {
     if (dry_run) {
         return true;
     }
 
     // Giving it back is never a write: with VegaFlow's copy the user's values return, without one they were never touched.
+    if (!enable && user_off) {
+        constexpr auto LM = RegHive::LocalMachine;
+        const bool a = UserOffValue(reg_, LM, kMemoryManagementPath, L"DisablePagingExecutive", RegValue::MakeDword(0u), "Blindaje de memoria stock", "0");
+        const bool b = UserOffValue(reg_, LM, kMemoryManagementPath, L"LargeSystemCache", RegValue::MakeDword(0u), "Caché de sistema stock", "0");
+        return a && b;
+    }
     if (!enable) {
         reg_.RestoreBackedUpValue(RegHive::LocalMachine, kMemoryManagementPath, L"DisablePagingExecutive");
         reg_.RestoreBackedUpValue(RegHive::LocalMachine, kMemoryManagementPath, L"LargeSystemCache");
