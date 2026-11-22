@@ -39,4 +39,17 @@ The Win32/GDI graphical interface ([`gui_window.cpp`](https://github.com/partpro
 
 **Keyboard:** Tab and Shift+Tab move between the controls, the space bar presses the focused button (Enter does not), Ctrl+1 to Ctrl+8 jump to the menu entry with that number, and on the Home, Your PC and Requirements screens, Page Up, Page Down, Home and End scroll the screen.
 
+**Window extras (E2.7).** Their logic is in [`session/gui_flow.cpp`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/session/gui_flow.cpp) and is tested without a window (Test 115); the window only forwards its messages to it. The dialogs are the window's own ([`ui/choice_dialog.cpp`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/ui/choice_dialog.cpp)), never a `MessageBox`.
+
+| Extra | What it does |
+|---|---|
+| Exit notice | Closing the window (X, or «Cerrar VegaFlow Universal» in the tray menu) with changes still in force asks: «Devolver todo a como estaba» (runs the same restore as the Home button, then closes), «Dejarlos» (closes; the journal is untouched) or «Cancelar». With no change in force it closes without asking. A second close while the dialog is open is ignored. Windows shutting down never asks. |
+| Panic shortcut | `Ctrl+Alt+Shift+R`, registered with `RegisterHotKey` and `MOD_NOREPEAT`; it does what «Devolver todo a como estaba» does. One restore runs at a time, and a press queued behind it is dropped. If another program owns the shortcut, «Configuración» says so under its subtitle and nothing else changes. |
+| Welcome | A dialog the first time the window opens, until the file `welcome.seen` (next to `config.json`) exists. If the file cannot be written, it shows again next time. |
+| Game pad | `xinput1_4.dll` is loaded at run time (a PC without it runs the same window). A 50 ms timer, only while the window is in front and no dialog is open, reads pad 0: D-pad moves the focus, A presses the focused button, bumpers change the menu entry. |
+| Restart notice | A «Configuración» number that the daemon reads only at start shows «Se aplica al reiniciar VegaFlow» after its name: `poll_interval_ms` and the four `memory.*` numbers. The source is `applies_live` in `rust/vegaflow-core/src/policy/config_rules.rs`. |
+| (i) preview | The (i) of each row in «Ajustes del sistema» adds «what would happen on your PC»: the state now, the exact write and whether it can be undone. Nothing is changed to build it. |
+| Pause offer | On «Inicio», while a known game is open and VegaFlow acts by itself, «Pausar VegaFlow en este juego» excludes that game (same as «Me fue mal en este juego»). |
+| Diagnosis | «Diagnóstico» on «Inicio» opens what `--doctor` prints, read with the rights of the running account (without administrator it shows what could be read). «Copiar informe» copies it and leaves the dialog open. |
+
 The old «Dashboard Central» (Central dashboard) screen, with cards for EcoQoS, I/O priority and DirectFlip, no longer exists. Neither does the «Aplicar Preset APU» (Apply APU preset) button. It is now «Aplicar perfil», on the Games screen.

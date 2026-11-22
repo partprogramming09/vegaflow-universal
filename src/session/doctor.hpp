@@ -44,6 +44,9 @@ struct DoctorReport {
 // User, computer and domain names are replaced (RedactReport); nothing is cut or reflowed.
 DoctorReport BuildDoctorReport(const DoctorInputs& in);
 
+// E2.7: reads the machine (what the account can read; the window shows it) and builds the report. Writes nothing.
+DoctorReport ReadDoctorReport(const std::string& version);
+
 // Reads the machine, prints the report (text, or JSON when `json`) and returns its exit code. Writes nothing.
 int RunDoctor(bool json, const std::string& version);
 

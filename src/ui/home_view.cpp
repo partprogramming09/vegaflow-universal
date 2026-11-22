@@ -6,6 +6,7 @@
 #include "session/home_screen.hpp"
 #include "session/report.hpp"
 #include "ui/app_identity.hpp"
+#include "ui/choice_dialog.hpp"
 #include "ui/native_controls.hpp"
 #include "ui/texts.hpp"
 
@@ -25,6 +26,7 @@ session::HomeScreenModel Model(const GuiWindowState* st) {
     in.daemon_ws_kb = d.daemon_private_ws_kb;
     in.game_active = d.game_active;
     in.game_name = d.active_game_name;
+    in.game_app_id = d.running_steam_app_id; // E2.7: the pause offer needs the Steam app id
     in.game_engine = d.active_game_engine;
     in.game_api = d.active_game_api;
     in.game_foreground = d.game_is_foreground;
@@ -45,7 +47,7 @@ session::HomeScreenModel Model(const GuiWindowState* st) {
 struct Layout {
     int title_y = 0;
     RECT game{}, equipment{}, memory{}, background{}, trouble{};
-    RECT equipment_btn{}, purge_btn{}, programs_btn{}, undo_btn{}, report_btn{};
+    RECT equipment_btn{}, purge_btn{}, programs_btn{}, undo_btn{}, report_btn{}, doctor_btn{}, pause_btn{};
     int total = 0; // unscrolled height
     int eq_row_h = 0;
 };
@@ -64,7 +66,9 @@ Layout BuildLayout(GuiWindowState* st, const RECT& content, const session::HomeS
     int h = kHeadH + 12 + 26 + 8;
     if (m.game_active) h += 22 + static_cast<int>(m.game_facts.size()) * 22 + 6;
     else h += TextHeight(dc, st->hFontRegular, Utf8ToWide(m.waiting_text), inner) + 10;
+    if (m.can_pause) h += kBtnH + 12;
     l.game = {content.left, y, content.right, y + h};
+    l.pause_btn = {content.left + kPad, l.game.bottom - 12 - kBtnH, content.left + kPad + 260, l.game.bottom - 12};
     y += h + kGap;
 
     // Equipment card: one line per fact, then the button
@@ -92,6 +96,7 @@ Layout BuildLayout(GuiWindowState* st, const RECT& content, const session::HomeS
     l.trouble = {content.left, y, content.right, y + h};
     l.undo_btn = {content.left + kPad, l.trouble.bottom - 14 - kBtnH, content.left + kPad + 250, l.trouble.bottom - 14};
     l.report_btn = {l.undo_btn.right + 12, l.undo_btn.top, l.undo_btn.right + 12 + 190, l.undo_btn.bottom};
+    l.doctor_btn = {l.report_btn.right + 12, l.undo_btn.top, l.report_btn.right + 12 + 150, l.undo_btn.bottom};
     y += h + kGap;
     ReleaseDC(st->hwnd, dc);
     l.total = y - top;
@@ -119,6 +124,8 @@ const wchar_t* Label(int id) {
         case kHomePurgeId: return text::kHomePurgeButton;
         case kHomeUndoAllId: return text::kHomeUndoAllButton;
         case kHomeReportId: return text::kHomeReportButton;
+        case kHomeDoctorId: return text::kHomeDoctorButton;
+        case kHomePauseId: return text::kHomePauseButton;
         default: return text::kHomeProgramsButton;
     }
 }
@@ -139,25 +146,7 @@ bool CopyReport(HWND hwnd, GuiWindowState* st) {
     in.status = st->data.last_action_status;
     const std::wstring text = Utf8ToWide(session::BuildReport(in));
     if (text.empty()) return false;
-    const size_t bytes = (text.size() + 1) * sizeof(wchar_t);
-    // Fill the memory first: the person's own clipboard is emptied only when there is something to put in it.
-    HGLOBAL mem = GlobalAlloc(GMEM_MOVEABLE, bytes);
-    if (!mem) return false;
-    void* p = GlobalLock(mem);
-    if (!p) {
-        GlobalFree(mem);
-        return false;
-    }
-    memcpy(p, text.c_str(), bytes);
-    GlobalUnlock(mem);
-    bool ok = false;
-    if (OpenClipboard(hwnd)) {
-        EmptyClipboard();
-        ok = SetClipboardData(CF_UNICODETEXT, mem) != nullptr; // the system owns the memory after a success
-        CloseClipboard();
-    }
-    if (!ok) GlobalFree(mem);
-    return ok;
+    return CopyTextToClipboard(hwnd, text);
 }
 
 } // namespace
@@ -184,6 +173,9 @@ void HomeViewRelayout(GuiWindowState* st) {
     PlaceClipped(Find(st, kHomeProgramsId), l.programs_btn, content);
     PlaceClipped(Find(st, kHomeUndoAllId), l.undo_btn, content);
     PlaceClipped(Find(st, kHomeReportId), l.report_btn, content);
+    PlaceClipped(Find(st, kHomeDoctorId), l.doctor_btn, content);
+    if (m.can_pause) PlaceClipped(Find(st, kHomePauseId), l.pause_btn, content);
+    else if (HWND pause = Find(st, kHomePauseId)) ShowWindow(pause, SW_HIDE);
 }
 
 void HomeViewScroll(GuiWindowState* st, int delta_px) {
@@ -202,10 +194,30 @@ void HomeViewShow(GuiWindowState* st, bool show) {
     }
 }
 
+namespace {
+
+// E2.7: the diagnosis in the window's own dialog; "Copiar informe" copies the text and leaves the dialog open.
+void ShowDoctor(HWND hwnd, GuiWindowState* st) {
+    const std::wstring body = Utf8ToWide(session::DoctorPanelText(st->callbacks.on_RunDoctor ? st->callbacks.on_RunDoctor() : std::string()));
+    std::wstring crlf; // an EDIT control breaks lines on CR LF
+    for (wchar_t c : body) {
+        if (c == L'\n') crlf += L'\r';
+        crlf += c;
+    }
+    const auto copy = [&] {
+        const std::string note = CopyTextToClipboard(hwnd, body) ? Utf8Of(text::kHomeReportCopied) : Utf8Of(text::kHomeReportFailed);
+        st->data.last_action_status = note;
+        if (st->callbacks.on_NoteStatus) st->callbacks.on_NoteStatus(note);
+    };
+    ShowChoiceDialog(hwnd, text::kDoctorTitle, crlf, {{text::kDoctorCopy, 0, false, copy}, {text::kDoctorClose, 1, true, nullptr}}, 1, true);
+}
+
+} // namespace
+
 void HomeViewRefresh(HWND hwnd, GuiWindowState* st) {
     st->hwnd = hwnd;
     if (st->home_controls.empty()) {
-        for (int id : {kHomeEquipmentId, kHomePurgeId, kHomeProgramsId, kHomeUndoAllId, kHomeReportId}) st->home_controls.push_back(MakeOwnerButton(hwnd, id, Label(id)));
+        for (int id : {kHomeEquipmentId, kHomePurgeId, kHomeProgramsId, kHomeUndoAllId, kHomeReportId, kHomeDoctorId, kHomePauseId}) st->home_controls.push_back(MakeOwnerButton(hwnd, id, Label(id)));
     }
     // The numbers change on every poll: only the paint differs, never the controls.
     if (st->current_tab == 0) HomeViewRelayout(st);
@@ -303,7 +315,7 @@ void HomeViewDrawItem(const DRAWITEMSTRUCT* d, GuiWindowState* st) {
 }
 
 bool HomeViewCommand(HWND hwnd, GuiWindowState* st, int id, int notify_code, HWND from) {
-    if (id < kHomeEquipmentId || id > kHomeReportId) return false;
+    if (id < kHomeEquipmentId || id > kHomePauseId) return false;
     // Only our own controls, on our own tab, may act (a posted fake has no sender, a foreign window, or an id that is not the sender's).
     if (st->current_tab != 0 || !from || GetDlgCtrlID(from) != id || std::find(st->home_controls.begin(), st->home_controls.end(), from) == st->home_controls.end()) return true;
     if (notify_code == BN_SETFOCUS) {
@@ -316,6 +328,12 @@ bool HomeViewCommand(HWND hwnd, GuiWindowState* st, int id, int notify_code, HWN
     else if (id == kHomeProgramsId) SelectTab(hwnd, st, 6);
     else if (id == kHomeUndoAllId) {
         if (st->callbacks.on_RestoreAllDefaults) st->data.last_action_status = st->callbacks.on_RestoreAllDefaults();
+    } else if (id == kHomeDoctorId) {
+        ShowDoctor(hwnd, st);
+    } else if (id == kHomePauseId) {
+        // "Pausar VegaFlow en este juego": the same as excluding the game (restores what was applied, then leaves it alone).
+        const auto m = Model(st);
+        if (m.can_pause && st->callbacks.on_ExcludeGame) st->data.last_action_status = st->callbacks.on_ExcludeGame(m.pause_app_id);
     } else if (id == kHomeReportId) {
         const std::string note = CopyReport(hwnd, st) ? Utf8Of(text::kHomeReportCopied) : Utf8Of(text::kHomeReportFailed);
         st->data.last_action_status = note;

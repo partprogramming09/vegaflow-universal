@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+#include "bridge/rust_bridge.h"
+
 namespace vegaflow::session {
 
 namespace {
@@ -60,8 +62,9 @@ std::string MsToSeconds(uint32_t ms) {
     return out;
 }
 
-ConfigRow Number(const char* id, const char* name, const char* help, std::string value, const char* unit) {
+ConfigRow Number(const char* id, const char* name, const char* help, std::string value, const char* unit, uint32_t key_bit) {
     ConfigRow r;
+    r.applies_live = vf_rust_config_number_applies_live(key_bit); // E2.7: the one source is policy/config_rules.rs
     r.id = id;
     r.kind = ConfigRowKind::Number;
     r.name = name;
@@ -90,16 +93,16 @@ ConfigScreenModel BuildConfigScreen(const app::AppConfig& cfg) {
                                                    "Compilar, renderizar o editar vídeo también recibe la optimización mientras dura.",
                                                    cfg.process_policy.heavy_work_as_game)}});
     m.groups.push_back({"Detección de juegos", "", {Number("poll_interval", "Revisar qué ventana está delante cada",
-                                                           "Más corto detecta antes; más largo gasta menos.", MsToSeconds(cfg.poll_interval_ms), "segundos")}});
+                                                           "Más corto detecta antes; más largo gasta menos.", MsToSeconds(cfg.poll_interval_ms), "segundos", VF_CONFIG_KEY_POLL_INTERVAL_MS)}});
     m.groups.push_back({"Memoria compartida", "Solo con gráfica integrada",
                         {Number("min_free_ram", "Liberar memoria si quedan libres menos de", "Por debajo de esta cifra el juego empieza a sufrir.",
-                                std::to_string(cfg.memory.min_free_ram_mb), "MB"),
+                                std::to_string(cfg.memory.min_free_ram_mb), "MB", VF_CONFIG_KEY_MIN_FREE_RAM_MB),
                          Number("min_standby", "…y hay en caché al menos", "Si hay poca caché, liberar no sirve de nada.",
-                                std::to_string(cfg.memory.min_standby_mb), "MB"),
+                                std::to_string(cfg.memory.min_standby_mb), "MB", VF_CONFIG_KEY_MIN_STANDBY_MB),
                          Number("cooldown", "Esperar entre dos liberaciones", "Evita tirones por liberar demasiado seguido.",
-                                std::to_string(cfg.memory.cooldown_seconds), "segundos"),
+                                std::to_string(cfg.memory.cooldown_seconds), "segundos", VF_CONFIG_KEY_COOLDOWN_SECONDS),
                          Number("max_disk_read", "No liberar si el juego lee del disco más de", "Está cargando: liberar ahora le haría daño.",
-                                std::to_string(cfg.memory.max_game_disk_read_bytes_per_sec / kBytesPerMb), "MB/s")}});
+                                std::to_string(cfg.memory.max_game_disk_read_bytes_per_sec / kBytesPerMb), "MB/s", VF_CONFIG_KEY_MAX_GAME_DISK_READ_MB_S)}});
     m.groups.push_back({"Avanzado", "Cambiar solo si sabes lo que haces",
                         {Toggle("restrict_cpu_sets", "Limitar el juego a sus núcleos",
                                 "Usa CPU Sets para que el juego solo corra en los núcleos que VegaFlow elige. En el equipo de pruebas el juego rindió peor limitado a sus núcleos.",

@@ -23,6 +23,10 @@
 #include "bridge/rust_bridge.h"
 #include "session/system_info.hpp"
 #include "session/config_screen.hpp"
+#include "session/doctor.hpp"
+#include "session/welcome.hpp"
+#include "windows/config_location.hpp"
+#include "ui/app_identity.hpp"
 #include "session/history_screen.hpp"
 #include "session/programs_screen.hpp"
 #include "session/restore.hpp"
@@ -360,6 +364,12 @@ int RunGuiMode(
     };
 
     callbacks.on_PollConfig = [&]() -> session::ConfigScreenModel { return session::BuildConfigScreen(config); };
+
+    // E2.7: the welcome mark sits next to config.json; the diagnosis is what --doctor prints, read with this account's rights.
+    const std::wstring welcome_mark = std::filesystem::path(ConfigFilePath()).replace_filename(L"welcome.seen").wstring();
+    callbacks.on_ShouldShowWelcome = [&]() { return session::ShouldShowWelcome(file_system, welcome_mark); };
+    callbacks.on_MarkWelcomeSeen = [&]() { session::MarkWelcomeSeen(file_system, welcome_mark); };
+    callbacks.on_RunDoctor = [&]() { return session::ReadDoctorReport(ui::kVersion).text; };
 
     // Configuración and Programas edits live in session/config_actions: `config` follows only when config.json was written.
     session::ConfigActions config_actions(config, config_store, cached_steam_games, [&](const std::string& line) { AddAuditLog(line); });

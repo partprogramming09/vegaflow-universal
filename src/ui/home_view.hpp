@@ -11,7 +11,9 @@ constexpr int kHomePurgeId = 10001;
 constexpr int kHomeProgramsId = 10002;
 constexpr int kHomeUndoAllId = 10003;
 constexpr int kHomeReportId = 10004;
-static_assert(kHomeReportId < 65536 && kHomeEquipmentId > 9999, "Inicio ids sit above Juegos (ui/games_view.hpp) and fit the 16-bit LOWORD of wParam");
+constexpr int kHomeDoctorId = 10005; // E2.7
+constexpr int kHomePauseId = 10006;  // E2.7: only shown when the model offers the pause
+static_assert(kHomePauseId < 65536 && kHomeEquipmentId > 9999, "Inicio ids sit above Juegos (ui/games_view.hpp) and fit the 16-bit LOWORD of wParam");
 
 void HomeViewRefresh(HWND hwnd, GuiWindowState* state);
 void HomeViewShow(GuiWindowState* state, bool show);

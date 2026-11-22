@@ -9,6 +9,9 @@ namespace vegaflow::ui {
 
 namespace {
 
+// E2.7: the (i) panel says what the setting is and, below, what pressing the switch would do now (SettingRow::preview).
+std::wstring TipText(const SettingRow& row) { return Utf8ToWide(row.tip + "\n\n" + row.preview); }
+
 enum class Kind { Title, Intro, Recommended, GpuCard, Banner, FamCard, FamHeader, Row, Footer };
 
 struct Item {
@@ -77,7 +80,7 @@ std::vector<Item> BuildLayout(HDC hdc, const GuiWindowState* st, const RECT& con
         for (size_t r = 0; r < fam.rows.size(); ++r) {
             int tip_h = 0;
             if (st->settings_open_tip == fam.rows[r].spec->id) {
-                tip_h = TextHeight(hdc, st->hFontRegular, Utf8ToWide(fam.rows[r].tip), w - 72) + 62;
+                tip_h = TextHeight(hdc, st->hFontRegular, TipText(fam.rows[r]), w - 72) + 62;
             }
             Item& row = add(Kind::Row, kRowH + tip_h);
             row.fam = static_cast<int>(f);
@@ -303,7 +306,7 @@ void SettingsViewPaint(HDC hdc, GuiWindowState* st, const RECT& content) {
                 DrawRoundedCard(hdc, panel, CLR_BG_SIDEBAR, CLR_CONTROL_BORDER, 6);
                 DrawTextAt(hdc, panel.left + 14, panel.top + 10, text::kWhatChanges, CLR_TEXT_TITLE, st->hFontSmallBold);
                 RECT r = {panel.left + 14, panel.top + 32, panel.right - 14, panel.bottom - 6};
-                DrawTextRect(hdc, r, Utf8ToWide(row.tip), CLR_TEXT_BODY, st->hFontRegular, DT_LEFT | DT_WORDBREAK | DT_NOPREFIX);
+                DrawTextRect(hdc, r, TipText(row), CLR_TEXT_BODY, st->hFontRegular, DT_LEFT | DT_WORDBREAK | DT_NOPREFIX);
             }
             break;
         }
