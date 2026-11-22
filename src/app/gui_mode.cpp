@@ -421,7 +421,8 @@ int RunGuiMode(
         tweaks_query_countdown = 0;
         cpu_orchestrator.RestoreAll(false);
         last_isolated_count = 0;
-        safe_mode = false;
+        // Safe mode ends only when everything came back; a partial restore keeps it so the user can retry.
+        if (session::RestoreAllSucceeded(rep, reg_rev, reg_tot)) safe_mode = false;
 
         std::string msg = session::RestoreAllMessage(rep, reg_rev, reg_tot);
         SaveSettings(msg);

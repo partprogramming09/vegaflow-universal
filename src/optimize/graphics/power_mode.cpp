@@ -42,6 +42,7 @@ bool PowerModeTweaks::SetApuPowerMode(ApuPowerMode mode, const ApuOptimizationPo
     target.dc = target.ac;
 
     ApuPowerPlanValues to_apply = target;
+    std::string apply_scheme;  // empty: the active plan
     ChangeJournal* journal = GetActiveChangeJournal();
     uint64_t jid = 0;
 
@@ -50,12 +51,21 @@ bool PowerModeTweaks::SetApuPowerMode(ApuPowerMode mode, const ApuOptimizationPo
         if (mode == ApuPowerMode::GpuPrioritySustained) {
             std::string scheme_str;
             ApuPowerPlanValues current;
-            if (!saved_ && power_.ReadActiveApuPlan(scheme_str, current) &&
-                current.ac.size() == kApuPowerSettingCount &&
-                current.dc.size() == kApuPowerSettingCount) {
+            if (!saved_) {
+                // Without the original there is nothing to give back later, so the profile is not applied.
+                if (!power_.ReadActiveApuPlan(scheme_str, current) ||
+                    current.ac.size() != kApuPowerSettingCount ||
+                    current.dc.size() != kApuPowerSettingCount) {
+                    return false;
+                }
+                // A setting this plan lacks is neither written now nor restored later.
+                for (size_t i = 0; i < kApuPowerSettingCount; ++i) {
+                    if (current.ac[i] == kApuPowerSettingAbsent) target.ac[i] = target.dc[i] = to_apply.ac[i] = to_apply.dc[i] = kApuPowerSettingAbsent;
+                }
                 const bool already_applied = (current.ac == target.ac && current.dc == target.dc);
                 if (!already_applied) {
                     prev_values_ = current;
+                    saved_scheme_ = scheme_str;
                     saved_ = true;
 
                     if (journal && !scheme_str.empty()) {
@@ -78,6 +88,7 @@ bool PowerModeTweaks::SetApuPowerMode(ApuPowerMode mode, const ApuOptimizationPo
             }
         } else if (saved_) {
             to_apply = prev_values_;
+            apply_scheme = saved_scheme_;
             saved_ = false;
         } else if (journal) {
             for (const auto& entry : journal->Entries()) {
@@ -87,13 +98,14 @@ bool PowerModeTweaks::SetApuPowerMode(ApuPowerMode mode, const ApuOptimizationPo
                     entry.dc_values.size() == kApuPowerSettingCount) {
                     to_apply.ac = entry.ac_values;
                     to_apply.dc = entry.dc_values;
+                    apply_scheme = entry.scheme_guid;
                     break;
                 }
             }
         }
     }
 
-    const bool ok = power_.ApplyActiveApuPlan(to_apply);
+    const bool ok = apply_scheme.empty() ? power_.ApplyActiveApuPlan(to_apply) : power_.ApplyApuPlan(apply_scheme, to_apply);
     {
         std::lock_guard<std::mutex> state_lock(mutex_);
         if (ok) {

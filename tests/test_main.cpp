@@ -193,6 +193,10 @@ int main() {
         {124, vftest::Test124},  // F1.4 giving a process back leaves EcoQoS to Windows
         {125, vftest::Test125},  // F1.4 a refused process restore stays pending in the journal
         {126, vftest::Test126},  // F1.5 game files: copy before every write, foreign .bak ignored, real empty config kept
+        {127, vftest::Test127},  // F1.6 Volver todo names failed registry copies and keeps safe mode on a partial restore
+        {128, vftest::Test128},  // F1.6 power profile needs a read of the original and restores into its own plan
+        {129, vftest::Test129},  // F1.6 the seven power settings exist in the real plan; apply + give back leaves it identical
+        {130, vftest::Test130},  // F1.6 a setting the plan lacks is skipped, the other six are saved and given back
     };
     for (const auto& [number, run] : tests) {
         try {

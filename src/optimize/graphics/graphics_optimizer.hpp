@@ -151,6 +151,7 @@ private:
     bool applied_ = false;
     bool saved_ = false;
     ApuPowerPlanValues prev_values_{};
+    std::string saved_scheme_;  // GUID of the plan prev_values_ came from: the original goes back to that plan
 };
 
 // Coordinator that decides vendor-gated and policy-gated tweak families in a single place.

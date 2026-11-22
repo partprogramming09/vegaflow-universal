@@ -453,4 +453,27 @@ void Test32() {
     }
 }
 
+// F1.6: the seven settings exist in the real active plan (powercfg /aliases gives PROCFREQMAX and PROCFREQMAX1), and
+// applying the profile then giving it back leaves the plan exactly as it was.
+void Test129() {
+    vegaflow::WindowsPowerPort power;
+    std::string guid;
+    vegaflow::ApuPowerPlanValues before, after;
+    const bool read_before = power.ReadActiveApuPlan(guid, before) && before.ac.size() == 7 && before.dc.size() == 7;
+    size_t absent = 0;
+    for (size_t i = 0; read_before && i < 7; ++i) {
+        if (before.ac[i] == vegaflow::kApuPowerSettingAbsent) ++absent;
+    }
+    vegaflow::PowerModeTweaks tweaks(power);
+    const bool applied = tweaks.SetApuPowerMode(vegaflow::ApuPowerMode::GpuPrioritySustained, DetectedPolicy(), false);
+    const bool given_back = tweaks.RestoreIfApplied(DetectedPolicy(), false);
+    const bool read_after = power.ReadActiveApuPlan(guid, after);
+    const bool same = read_after && after.ac == before.ac && after.dc == before.dc;
+    RecordResult(read_before && absent == 0 && applied && given_back && same,
+                 "Test 129: the APU profile's seven power settings exist and the plan comes back exactly as it was (F1.6)",
+                 "read: " + std::string(read_before ? "ok" : "failed") + ", absent settings: " + std::to_string(absent) +
+                     ", applied: " + (applied ? "yes" : "no") + ", given back: " + (given_back ? "yes" : "no") +
+                     ", plan identical after: " + (same ? "yes" : "no"));
+}
+
 } // namespace vftest

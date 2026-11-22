@@ -235,8 +235,19 @@ public:
     int apply_count = 0;
     int query_count = 0;
 
+    bool read_ok = true;                                            // false: the active plan cannot be read
+    std::map<std::string, vegaflow::ApuPowerPlanValues> other_plans; // values written into a plan that is not the active one
+
+    bool ApplyApuPlan(const std::string& guid, const vegaflow::ApuPowerPlanValues& values) override {
+        if (guid == scheme_guid) return ApplyActiveApuPlan(values);
+        ++apply_count;
+        other_plans[guid] = values;
+        return true;
+    }
+
     bool ReadActiveApuPlan(std::string& out_scheme_guid, vegaflow::ApuPowerPlanValues& out_values) override {
         ++read_count;
+        if (!read_ok) return false;
         out_scheme_guid = scheme_guid;
         out_values = current;
         return true;

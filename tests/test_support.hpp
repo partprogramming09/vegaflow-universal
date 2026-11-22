@@ -160,5 +160,9 @@ void Test123();  // F1.3 no journal entry, no per-exe DXGI write
 void Test124();  // F1.4 giving a process back leaves EcoQoS to Windows
 void Test125();  // F1.4 a refused process restore stays pending in the journal
 void Test126();  // F1.5 game files: copy before every write, foreign .bak ignored, real empty config kept
+void Test127();  // F1.6 Volver todo names failed registry copies and keeps safe mode on a partial restore
+void Test128();  // F1.6 power profile needs a read of the original and restores into its own plan
+void Test129();  // F1.6 the seven power settings exist in the real plan; apply + give back leaves it identical
+void Test130();  // F1.6 a setting the plan lacks is skipped, the other six are saved and given back
 
 } // namespace vftest

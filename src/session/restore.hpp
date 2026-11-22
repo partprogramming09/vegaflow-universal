@@ -21,6 +21,10 @@ RestoreReport RestoreAllRecordedChanges(
 // registry originals were put back, else that nothing was changed.
 std::string RestoreAllMessage(const RestoreReport& journal_report, size_t registry_reverted, size_t registry_total);
 
+// True only when the journal had nothing left over and every saved registry original was put back: only then is it
+// safe to leave safe mode.
+bool RestoreAllSucceeded(const RestoreReport& journal_report, size_t registry_reverted, size_t registry_total);
+
 std::vector<std::string> FormatJournalHistory(const ChangeJournal& journal, size_t max_items = 200);
 
 bool ShouldOfferRestorePoint(const ChangeJournal& journal);

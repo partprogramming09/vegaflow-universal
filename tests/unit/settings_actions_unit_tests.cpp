@@ -191,4 +191,24 @@ void Test75() {
     RecordResult(j && r && none, "Test 75: the Volver todo sentence names the journal summary, else the registry count, else 0 of 0");
 }
 
+void Test127() {
+    // F1.6: the journal's "3 of 3" must not hide that 3 of 5 registry copies were not put back; safe mode stays then.
+    vegaflow::RestoreReport journal;
+    journal.total_count = 3;
+    journal.reverted_count = 3;
+    journal.summary_message = "Se devolvieron 3 de 3.";
+    const std::string partial = gs::RestoreAllMessage(journal, 2, 5);
+    const bool names_both = partial.find("3 de 3") != std::string::npos && partial.find("2 de 5") != std::string::npos;
+    const bool clean_ok = gs::RestoreAllMessage(journal, 4, 4) == "Se devolvieron 3 de 3.";
+    vegaflow::RestoreReport journal_failed = journal;
+    journal_failed.all_succeeded = false;
+    journal_failed.failed_count = 1;
+    const bool ends_safe_mode = gs::RestoreAllSucceeded(journal, 5, 5) && gs::RestoreAllSucceeded({}, 0, 0) &&
+                                !gs::RestoreAllSucceeded(journal, 2, 5) && !gs::RestoreAllSucceeded({}, 2, 5) &&
+                                !gs::RestoreAllSucceeded(journal_failed, 5, 5);
+    RecordResult(names_both && clean_ok && ends_safe_mode,
+                 "Test 127: Volver todo names the failed registry copies and does not leave safe mode on a partial restore (F1.6)",
+                 "message: " + partial);
+}
+
 } // namespace vftest
