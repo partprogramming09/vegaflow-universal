@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="246" viewBox="0 0 880 246" font-family="system-ui, sans-serif">
+<style>.t{font-size:14px;fill:#0b0b0b;font-weight:600}.m{font-size:12px;fill:#52514e}.g{stroke:#e4e3df;stroke-width:1}</style>
+<rect width="880" height="246" fill="#fcfcfb"/>
+<text x="16" y="28" class="t">Tiempo de CPU del daemon en 10 min de reposo, sin juego (ms)</text>
+<line x1="150.0" y1="44" x2="150.0" y2="186" class="g"/>
+<text x="150.0" y="202" class="m" text-anchor="middle">0</text>
+<line x1="231.0" y1="44" x2="231.0" y2="186" class="g"/>
+<text x="231.0" y="202" class="m" text-anchor="middle">2000</text>
+<line x1="312.1" y1="44" x2="312.1" y2="186" class="g"/>
+<text x="312.1" y="202" class="m" text-anchor="middle">4000</text>
+<line x1="393.1" y1="44" x2="393.1" y2="186" class="g"/>
+<text x="393.1" y="202" class="m" text-anchor="middle">6000</text>
+<line x1="474.2" y1="44" x2="474.2" y2="186" class="g"/>
+<text x="474.2" y="202" class="m" text-anchor="middle">8000</text>
+<line x1="555.2" y1="44" x2="555.2" y2="186" class="g"/>
+<text x="555.2" y="202" class="m" text-anchor="middle">10000</text>
+<line x1="636.3" y1="44" x2="636.3" y2="186" class="g"/>
+<text x="636.3" y="202" class="m" text-anchor="middle">12000</text>
+<text x="16" y="68" class="m">Bloque 1 · A</text>
+<rect x="150" y="52" width="485.0" height="22" rx="3" fill="#2a78d6"><title>Bloque 1 (A): 11969 ms en 600.0 s</title></rect>
+<text x="643.0" y="68" class="m">11969</text>
+<text x="16" y="102" class="m">Bloque 2 · B</text>
+<rect x="150" y="86" width="24.7" height="22" rx="3" fill="#eb6834"><title>Bloque 2 (B): 609 ms en 600.0 s</title></rect>
+<text x="182.7" y="102" class="m">609</text>
+<text x="16" y="136" class="m">Bloque 3 · B</text>
+<rect x="150" y="120" width="24.1" height="22" rx="3" fill="#eb6834"><title>Bloque 3 (B): 594 ms en 600.0 s</title></rect>
+<text x="182.1" y="136" class="m">594</text>
+<text x="16" y="170" class="m">Bloque 4 · A</text>
+<rect x="150" y="154" width="509.1" height="22" rx="3" fill="#2a78d6"><title>Bloque 4 (A): 12563 ms en 600.0 s</title></rect>
+<text x="667.1" y="170" class="m">12563</text>
+<rect x="150" y="216" width="12" height="12" rx="2" fill="#2a78d6"/><text x="168" y="226" class="m">A: main 676449c (temporizador de 1,5 s)</text>
+<rect x="490" y="216" width="12" height="12" rx="2" fill="#eb6834"/><text x="508" y="226" class="m">B: E2.4 (despierta por eventos)</text>
+</svg>
