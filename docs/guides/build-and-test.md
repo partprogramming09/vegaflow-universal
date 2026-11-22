@@ -26,7 +26,7 @@ The project includes the script [`scripts/build/build.ps1`](https://github.com/p
 powershell -ExecutionPolicy Bypass -File .\scripts\build\build.ps1
 
 # Build and run the C++ suite right away (the last recorded run, 2026-11-19, printed
-# `TEST RESULTS: 328 PASSED, 0 FAILED`; the number grows with each new test, so don't copy it from here):
+# `TEST RESULTS: 357 PASSED, 0 FAILED`; the number grows with each new test, so don't copy it from here):
 powershell -ExecutionPolicy Bypass -File .\scripts\build\build.ps1 -RunTests
 ```
 
@@ -39,6 +39,10 @@ scripts/build/build-cross.sh                      # builds build/vegaflow_daemon
 ```
 
 It uses the same flags and libraries as `build.ps1` and compiles in parallel. It finds the sources with `find` over `src/` and `tests/`, so a new `.cpp` file is included without editing any list. You run the `.exe` files on a Windows PC; you don't need to compile there.
+
+#### Running the Windows-free unit tests on a Mac or Linux
+
+`scripts/ci/host-unit-tests.sh` compiles with the host's `clang++` (no Wine, no mingw) and runs the unit tests that never touch Windows, so a change can be seen failing and passing before the laptop run. It builds the Rust core for the host, links the allowed test files in `tests/host/allowlist.txt` against a header-only fake `windows.h`, prints `HOST UNIT TESTS: N PASSED, M FAILED` and the excluded files with a one-word reason, and exits 0 only if all pass. It does not replace the full suite on the laptop.
 
 #### Continuous integration (GitHub Actions)
 
@@ -96,7 +100,7 @@ Every change to the repository must be checked by running `build/vegaflow_tests.
 The suite prints one `[PASS]` or `[FAIL]` line per test and ends with a summary. The last line should read as follows (last recorded run, 2026-11-19):
 
 ```
-TEST RESULTS: 328 PASSED, 0 FAILED
+TEST RESULTS: 357 PASSED, 0 FAILED
 ```
 
 Where each test lives:

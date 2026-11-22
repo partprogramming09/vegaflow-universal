@@ -263,9 +263,10 @@ void RunGameSessionCycle(
             }
 
             const bool is_dx12 = (game.api == RenderApi::DirectX12 || game.api == RenderApi::Vulkan);
-            env.SetDynamicPrioritySeparation(is_dx12 ? 0x26 : 0x28);
-            env.SetGameDvrCaptureDisabled(true);
-            if (static_policy.force_high_perf_power_plan) {
+            // E2.2: each of these is opt-in in config.json; none was measured as a gain.
+            if (config.auto_priority_separation) env.SetDynamicPrioritySeparation(is_dx12 ? 0x26 : 0x28);
+            if (config.auto_game_dvr_off) env.SetGameDvrCaptureDisabled(true);
+            if (config.auto_power_profile && static_policy.force_high_perf_power_plan) {
                 env.SetApuLaptopPowerProfile(true, static_policy);
             }
 

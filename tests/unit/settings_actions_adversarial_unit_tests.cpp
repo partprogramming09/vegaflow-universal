@@ -134,7 +134,7 @@ void Test79() {
     });
 
     Attack("Test 79.4: the same click twice (on-on, off-off) writes nothing the second time and answers 'Ya estaba' for the toggles", [&]() -> std::string {
-        for (const std::string& id : {std::string("vram_reporting"), std::string("amd_driver_profile"), std::string("mpo_disabled"), std::string("memory_compression"), std::string("power_profile")}) {
+        for (const std::string& id : {std::string("vram_reporting"), std::string("amd_driver_profile"), std::string("mpo_disabled"), std::string("memory_compression_off"), std::string("power_profile")}) {
             for (const bool on : {true, false}) {
                 Rig r;
                 r.act->Set(id, on);
@@ -244,9 +244,9 @@ void Test79() {
     });
 
     Attack("Test 79.14: one click on a switch leaves one audit line, not two", [&]() -> std::string {
-        for (const std::string& id : {std::string("mpo_disabled"), std::string("memory_compression"), std::string("vram_reporting"), std::string("amd_driver_profile"), std::string("power_profile")}) {
+        for (const std::string& id : {std::string("mpo_disabled"), std::string("memory_compression_off"), std::string("vram_reporting"), std::string("amd_driver_profile"), std::string("power_profile")}) {
             Rig r;
-            r.act->Set(id, id == "memory_compression" ? false : true);
+            r.act->Set(id, true); // E2.2: "memory_compression_off" on = compression turned off
             if (r.audit.size() != 1) {
                 std::string lines;
                 for (const auto& l : r.audit) lines += "[" + l + "] ";

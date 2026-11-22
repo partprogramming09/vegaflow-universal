@@ -17,6 +17,7 @@ Los tres suben dos niveles hasta la raíz del repo (`cd "$(dirname "$0")/../.."`
 | Script | Qué hace |
 | --- | --- |
 | `ci/check_layers.sh` | Comprueba que cada carpeta de `src/` solo incluye las capas permitidas (tabla en el plan maestro, sección 3b); corre en el CI |
+| `ci/host-unit-tests.sh` | Compila con `clang++` y corre en el propio Mac (sin Wine ni mingw) las pruebas unitarias de C++ que no necesitan Windows, contra un `windows.h` falso de solo tipos (`tests/host/`). Qué entra lo fija a mano `tests/host/allowlist.txt` (cada `tests/unit/*_tests.cpp` debe estar como `test` o `exclude` con un motivo de una palabra: `compile`, `link` o `stub`). Imprime `HOST UNIT TESTS: N PASSED, M FAILED`, la lista de excluidos y sale con 0 solo si todas pasan. No reemplaza la suite del laptop (`build.ps1 -RunTests`) |
 
 ## Medir (PresentMon y A/B)
 
@@ -26,6 +27,7 @@ Los tres suben dos niveles hasta la raíz del repo (`cd "$(dirname "$0")/../.."`
 | `bench_pack.ps1` | Mide una escena con el protocolo y empaqueta resultados con la huella del equipo |
 | `ab_loop.ps1` | A/B intercalado (ABBA) de un juego ya abierto, daemon apagado contra encendido |
 | `ab_loop_task.ps1` | El mismo A/B con el daemon en la sesión del escritorio (tareas `VegaFlow-Start` y `-Stop`) |
+| (log de sesión) | Desde E2.6 el daemon escribe `logs\session_reports.log` junto a su `.exe` (no en la carpeta de trabajo) y lo rota a `.log.1` al pasar de 2 MB; `ab_loop.ps1` y `ab_loop_task.ps1` lo buscan en la carpeta del `.exe` (`-WorkDir` / `-Dir`) y detectan la sesión por la hora de escritura, no por el tamaño |
 | `ab_capture.ps1` | Una sola captura de una condición A/B (ningún archivo la cita; candidata a borrar) |
 | `ab_profile.ps1` | Arranca o detiene el daemon como condición "aplicado" |
 

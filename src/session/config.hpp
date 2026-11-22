@@ -23,6 +23,11 @@ namespace vegaflow::app {
 struct AppConfig {
     uint32_t poll_interval_ms = 1500;
     bool restrict_game_cpu_sets = false; // false: the game uses all threads and only the background is confined
+    // E2.2: system tweaks the daemon applies by itself; off unless config.json says true (none was measured as a gain).
+    bool auto_vram_reporting = false;
+    bool auto_priority_separation = false;
+    bool auto_game_dvr_off = false;
+    bool auto_power_profile = false;
     vegaflow::MemoryPurgeConfig memory{};
     vegaflow::ProcessPolicyConfig process_policy{};
     std::vector<std::wstring> custom_game_exes;

@@ -26,6 +26,7 @@ void Test63() {
     SettingsScreenInputs in;
     in.device = {GpuVendor::AMD, GpuConnection::Integrated, true};
     in.show_experimental = true;
+    in.tweaks.memory_compression_enabled = true; // Windows ships with compression on, so the inverted row is off
 
     // 1. A factory machine shows every setting off and the banner on (experimental features are visible).
     const auto factory = BuildSettingsScreen(in);
@@ -54,7 +55,7 @@ void Test63() {
         {"mmcss_gaming", [](SettingsScreenInputs& i) { i.tweaks.mmcss_gaming_optimized = true; }},
         {"game_dvr", [](SettingsScreenInputs& i) { i.tweaks.gamedvr_disabled = true; }},
         {"fse_compat", [](SettingsScreenInputs& i) { i.tweaks.fse_disabled = true; }},
-        {"memory_compression", [](SettingsScreenInputs& i) { i.tweaks.memory_compression_enabled = true; }},
+        {"memory_compression_off", [](SettingsScreenInputs& i) { i.tweaks.memory_compression_enabled = false; }},
         {"power_profile", [](SettingsScreenInputs& i) { i.tweaks.apu_power_optimized = true; }},
         {"memory_guard", [](SettingsScreenInputs& i) { i.memory_guard_active = true; }},
     };

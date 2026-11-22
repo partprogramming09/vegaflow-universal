@@ -218,6 +218,8 @@ void Test34() {
         VF_FIELD(VfConfigSettings, poll_interval_ms) VF_FIELD(VfConfigSettings, cooldown_seconds)
         VF_FIELD(VfConfigSettings, restrict_game_cpu_sets) VF_FIELD(VfConfigSettings, min_free_ram_mb)
         VF_FIELD(VfConfigSettings, min_standby_mb) VF_FIELD(VfConfigSettings, max_game_disk_read_mb_s)
+        VF_FIELD(VfConfigSettings, auto_vram_reporting) VF_FIELD(VfConfigSettings, auto_priority_separation)
+        VF_FIELD(VfConfigSettings, auto_game_dvr_off) VF_FIELD(VfConfigSettings, auto_power_profile)
         VF_LAYOUT_BEGIN(VfConfigLoad)
         VF_FIELD(VfConfigLoad, settings) VF_FIELD(VfConfigLoad, status) VF_FIELD(VfConfigLoad, rejected_keys)
         VF_LAYOUT_BEGIN(VfAceEntry)

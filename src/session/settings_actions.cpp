@@ -107,8 +107,8 @@ std::string SettingsActions::Set(const std::string& id, bool turn_on) {
         msg = toggle_if(cur.amd_shader_cache_forced, &SettingsActions::ToggleShaderCache);
     } else if (id == "mpo_disabled") {
         msg = toggle_if(cur.mpo_disabled, &SettingsActions::ToggleMpo);
-    } else if (id == "memory_compression") {
-        msg = toggle_if(cur.memory_compression_enabled, &SettingsActions::ToggleMemCompression);
+    } else if (id == "memory_compression_off") {
+        msg = toggle_if(!cur.memory_compression_enabled, &SettingsActions::ToggleMemCompression); // E2.2: on = compression off
     } else if (id == "power_profile") {
         msg = toggle_if(cur.apu_power_optimized, &SettingsActions::ToggleApuPowerMode);
     } else if (id == "mmcss_gaming") {
