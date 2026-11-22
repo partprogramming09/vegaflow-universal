@@ -42,6 +42,8 @@ VegaFlow can run as a background service, as a console tool, or as a native desk
 | `--version` | Prints the version and exits |
 | `--help, -h` | Prints the manual of options |
 
+**Questions at startup.** With no options, as Administrator, VegaFlow runs the background loop; the installer's autostart task starts it this way at logon. Before its first change it may ask two things on the console: whether to create a Windows restore point (`[s/N]`, only on the first start, not with `--once` or `--observe`), and, after an unclean end, whether to revert the changes left over (`[S/n]`). It asks only in a console window you can see, and waits at most 30 seconds. If nobody answers, or the console is hidden, or the input comes from a pipe or a file, it goes on with the safe choice: no restore point and nothing reverted. The restore-point offer then comes back on the next start with someone in front, and `--create-restore-point` or `--recover` do the same by hand.
+
 #### Practical examples:
 
 ##### 1. Checking the state of the system:
