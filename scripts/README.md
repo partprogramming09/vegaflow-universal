@@ -17,6 +17,7 @@ Los tres suben dos niveles hasta la raíz del repo (`cd "$(dirname "$0")/../.."`
 | Script | Qué hace |
 | --- | --- |
 | `ci/check_layers.sh` | Comprueba que cada carpeta de `src/` solo incluye las capas permitidas (tabla en el plan maestro, sección 3b); corre en el CI |
+| `ci/host-unit-tests.sh` | Compila con `clang++` y corre en el propio Mac (sin Wine ni mingw) las pruebas unitarias de C++ que no necesitan Windows, contra un `windows.h` falso de solo tipos (`tests/host/`). Qué entra lo fija a mano `tests/host/allowlist.txt` (cada `tests/unit/*_tests.cpp` debe estar como `test` o `exclude` con un motivo de una palabra: `compile`, `link` o `stub`). Imprime `HOST UNIT TESTS: N PASSED, M FAILED`, la lista de excluidos y sale con 0 solo si todas pasan. No reemplaza la suite del laptop (`build.ps1 -RunTests`) |
 
 ## Medir (PresentMon y A/B)
 
