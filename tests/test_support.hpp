@@ -152,5 +152,6 @@ void Test115();  // E2.7
 void Test116();  // E2.4 adapter signature read only on demand
 void Test117();  // shutdown gives GameDVR back only if VegaFlow turned it off
 void Test118();  // shutdown restores the power plan only if VegaFlow applied its profile
+void Test119();  // memory compression entries close only when the original state is reached
 
 } // namespace vftest

@@ -52,6 +52,7 @@ test tests/unit/ffi_callback_guard_unit_tests.cpp
 test tests/unit/fse_compat_unit_tests.cpp
 test tests/unit/gamedvr_restore_unit_tests.cpp
 test tests/unit/gui_wiring_unit_tests.cpp
+test tests/unit/memcompression_journal_unit_tests.cpp
 test tests/unit/phase_g_extras_unit_tests.cpp
 test tests/unit/power_restore_unit_tests.cpp
 test tests/unit/reg_restore_scope_unit_tests.cpp

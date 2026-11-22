@@ -611,9 +611,12 @@ bool WindowsRegistryPort::SetMemoryCompressionEnabled(bool enable, bool dry_run)
     ChangeJournal* journal = GetActiveChangeJournal();
     uint64_t jid = 0;
     bool had_open_entry = false;
+    bool oldest_orig_enabled = true;
     if (journal) {
         const bool was_enabled = IsMemoryCompressionEnabled();
-        had_open_entry = !OpenMemoryCompressionEntries(*journal).empty();
+        const auto open = OpenMemoryCompressionEntries(*journal);
+        had_open_entry = !open.empty();
+        if (had_open_entry) oldest_orig_enabled = open.front()->orig_mem_compression_enabled;
         // Turning it on is journaled too (unless it only undoes an open "off" entry), so it can be undone.
         if (!enable || (!was_enabled && !had_open_entry)) {
             JournalEntry e;
@@ -631,8 +634,11 @@ bool WindowsRegistryPort::SetMemoryCompressionEnabled(bool enable, bool dry_run)
 
     const bool ok = RunMmAgent(enable);
     if (journal) {
-        if (enable && ok && had_open_entry) {
-            journal->MarkMatchingReverted(JournalTargetKind::MemoryCompression, kMemCompressionTarget);
+        if (had_open_entry && jid == 0) {
+            // Enabling with entries open: close them only if this reaches the original state; else they keep it for the revert.
+            if (ok && EnablingClosesMemoryCompressionEntries(enable, oldest_orig_enabled)) {
+                journal->MarkMatchingReverted(JournalTargetKind::MemoryCompression, kMemCompressionTarget);
+            }
         } else if (jid != 0) {
             if (ok) journal->MarkCommitted(jid);
             else journal->MarkFailed(jid, "MMAgent devolvió error");
