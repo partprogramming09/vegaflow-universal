@@ -34,7 +34,7 @@ scripts/remote/vfdev cancel ID              # cancela un trabajo y su arbol de p
 scripts/remote/vfdev deploy                 # instala el paquete y el daemon compilado (administrador por SSH, sin UAC)
 scripts/remote/vfdev sync                   # lleva los commits de la rama actual al repositorio del laptop (bundle + fast-forward)
 scripts/remote/vfdev build-test             # compila y ejecuta las pruebas en el laptop; sale con error si alguna falla
-MODE=task scripts/remote/vfdev first-start  # primer arranque sin diario (MODE=hidden|task, ARG=once|dry-run, STDIN=file|pipe, JOURNAL=unclean|corrupt)
+MODE=task scripts/remote/vfdev first-start  # primer arranque sin diario (MODE=hidden|task|wt, ARG=once|dry-run, STDIN=file|pipe, JOURNAL=unclean|corrupt, ANSWER=n)
 scripts/remote/vfdev package-test [ZIP]     # prueba el paquete (tests/package/package_tests.ps1 de esta rama) en el laptop y trae la salida entera a build/package-test/
 scripts/remote/vfdev cross-test             # compila en la Mac, envía solo los .exe y sus datos al laptop y allí solo ejecuta las pruebas (el laptop no compila)
 scripts/remote/vfdev stats ARCHIVO [PREFIJO]

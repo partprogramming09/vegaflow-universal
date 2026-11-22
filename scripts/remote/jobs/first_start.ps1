@@ -7,6 +7,7 @@
       -Mode hidden : Start-Process -WindowStyle Hidden, like the VegaFlow-Start task (ab_profile.ps1 -Start).
       -Mode task   : a temporary scheduled task built like the installer's autostart task (scripts/package/install.ps1:
                      the .exe with no arguments, group Users, RunLevel Highest), started by hand and deleted at the end.
+      -Mode wt     : opened in a new Windows Terminal window, as a person running the .exe there.
     It reports whether the daemon's console window is visible, how long the stop event took and the journal's SESSION
     line, then stops the daemon with the event (a clean RestoreAll) or, if the event never appeared, kills it (it is
     still at a prompt, before BeginSession). The real journal in C:\ProgramData\VegaFlow\config is never touched.
@@ -14,7 +15,7 @@
 #>
 param(
     [Parameter(Mandatory)][ValidatePattern('^[0-9a-fA-F]{64}$')][string]$ExeSha256,
-    [ValidateSet('hidden', 'task')][string]$Mode = 'hidden',
+    [ValidateSet('hidden', 'task', 'wt')][string]$Mode = 'hidden',
     [ValidateSet('none', 'once', 'dry-run')][string]$Arg = 'none',
     [ValidateSet('console', 'file', 'pipe')][string]$Stdin = 'console',
     [ValidateSet('none', 'unclean', 'corrupt')][string]$Journal = 'none',
@@ -115,13 +116,20 @@ try {
         $p = Start-Process @sp
         $null = $p.Handle  # keeps a handle so ExitCode is readable after it exits
     } else {
-        if ($Arg -ne 'none' -or $Stdin -ne 'console') { 'Mode=task es la tarea del instalador: sin argumentos ni stdin redirigido'; exit 2 }
-        $action = New-ScheduledTaskAction -Execute $exe -WorkingDirectory $work
-        $trigger = New-ScheduledTaskTrigger -AtLogOn
-        $principal = New-ScheduledTaskPrincipal -GroupId 'S-1-5-32-545' -RunLevel Highest
-        $settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
-        Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force | Out-Null
-        Start-ScheduledTask -TaskName $taskName
+        if ($Arg -ne 'none' -or $Stdin -ne 'console') { "Mode=$Mode`: sin argumentos ni stdin redirigido"; exit 2 }
+        if ($Mode -eq 'wt') {
+            # A person opening the .exe in Windows Terminal: its ConPTY console may report its window as hidden.
+            $wt = Join-Path $env:LOCALAPPDATA 'Microsoft\WindowsApps\wt.exe'  # the App Execution Alias; not on the job's PATH
+            if (-not (Test-Path -LiteralPath $wt)) { "no hay Windows Terminal en $wt"; exit 2 }
+            Start-Process -FilePath $wt -ArgumentList @('-w', 'new', '-d', $work, $exe)
+        } else {
+            $action = New-ScheduledTaskAction -Execute $exe -WorkingDirectory $work
+            $trigger = New-ScheduledTaskTrigger -AtLogOn
+            $principal = New-ScheduledTaskPrincipal -GroupId 'S-1-5-32-545' -RunLevel Highest
+            $settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+            Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force | Out-Null
+            Start-ScheduledTask -TaskName $taskName
+        }
         $deadline = (Get-Date).AddSeconds(15)
         while (-not $p -and (Get-Date) -lt $deadline) {
             Start-Sleep -Milliseconds 200

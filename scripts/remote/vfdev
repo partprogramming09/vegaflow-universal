@@ -10,7 +10,7 @@
 #   vfdev build-test                  builds and runs the tests on the laptop; exits with an error if any fails
 #   vfdev cross-test                  builds on the Mac (scripts/build/build-cross.sh), sends only the .exe files and their data to the laptop and just runs the tests there
 #   vfdev package-test [ZIP]          stages the zip (built with scripts/build/package.sh if none is given) and this branch's tests/package/package_tests.ps1 on the laptop, runs them there and fetches the dated output
-#   vfdev first-start [EXE]           first unattended start with no journal (MODE=hidden|task = the installer's autostart task, ARG=none|once|dry-run, STDIN=console|file|pipe, JOURNAL=none|unclean|corrupt, ANSWER=n types "n"+Enter in the task's visible console): must reach Global\VegaFlowStop (or exit by itself for --once/--dry-run) in bounded time
+#   vfdev first-start [EXE]           first unattended start with no journal (MODE=hidden|task = the installer's autostart task|wt = Windows Terminal, ARG=none|once|dry-run, STDIN=console|file|pipe, JOURNAL=none|unclean|corrupt, ANSWER=n types "n"+Enter in the task's visible console): must reach Global\VegaFlowStop (or exit by itself for --once/--dry-run) in bounded time
 #   vfdev stats FILE|- [PREFIX]      groups result rows by condition: n, mean, median and range
 #   vfdev fetch PREFIX [DEST]         fetches from the laptop the JSON and frame CSVs of captures whose label starts with PREFIX
 #   vfdev frames GLOB_A GLOB_B        compares two conditions using the frame CSVs: grouped frames and confidence interval

@@ -154,7 +154,7 @@
       "description": "First unattended start of a daemon staged by vfdev first-start, with no journal: does it reach Global\\VegaFlowStop in bounded time",
       "params": {
         "ExeSha256": "^[0-9a-fA-F]{64}$",
-        "Mode": "^(hidden|task)$",
+        "Mode": "^(hidden|task|wt)$",
         "Arg": "^(none|once|dry-run)$",
         "Stdin": "^(console|file|pipe)$",
         "Journal": "^(none|unclean|corrupt)$",
