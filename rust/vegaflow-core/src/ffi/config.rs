@@ -24,6 +24,7 @@ pub struct VfConfigSettings {
     pub auto_priority_separation: bool,
     pub auto_game_dvr_off: bool,
     pub auto_power_profile: bool,
+    pub auto_engine_presets: bool,
 }
 
 #[repr(C)]
@@ -54,6 +55,7 @@ fn to_ffi(s: &Settings) -> VfConfigSettings {
         auto_priority_separation: s.auto_priority_separation,
         auto_game_dvr_off: s.auto_game_dvr_off,
         auto_power_profile: s.auto_power_profile,
+        auto_engine_presets: s.auto_engine_presets,
     }
 }
 
@@ -131,6 +133,7 @@ pub extern "C" fn vf_rust_config_save(
             auto_priority_separation: s.auto_priority_separation,
             auto_game_dvr_off: s.auto_game_dvr_off,
             auto_power_profile: s.auto_power_profile,
+            auto_engine_presets: s.auto_engine_presets,
             ..Settings::default()
         };
         match config_file::save(original, &settings) {
@@ -280,6 +283,7 @@ pub extern "C" fn vf_rust_config_save_ex(
             auto_priority_separation: s.auto_priority_separation,
             auto_game_dvr_off: s.auto_game_dvr_off,
             auto_power_profile: s.auto_power_profile,
+            auto_engine_presets: s.auto_engine_presets,
         };
         match config_file::save(original, &settings) {
             Ok(text) => {

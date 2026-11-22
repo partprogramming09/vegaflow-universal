@@ -349,6 +349,7 @@ void Test51() {
 
     vegaflow::app::AppConfig cfg{};
     cfg.auto_power_profile = true; // E2.2: the power profile is opt-in; this test checks which policy it receives
+    cfg.auto_engine_presets = true; // F2.3: so is the Unreal preset
     vegaflow::session::GameSessionState state{};
     uint32_t noisy_cnt = 0;
     vegaflow::session::RunGameSessionCycle(cfg, probe, env, hw, state, &noisy_cnt);

@@ -305,11 +305,14 @@ void RunGameSessionCycle(
                     preset_msg = "[ENGINE] Unreal Engine detectado. Preset UMA (" + static_policy.guard_mode_name +
                         ") aplicado (Pool " + std::to_string(pool_mb) + " MB, LimitVRAM=0, AsyncCompute=" + async_comp_str + ").";
                 }
-                if (!inspected.engine_preset_applied) {
+                // F2.3: the preset edits the game's Engine.ini and was never measured, so it is opt-in (auto_engine_presets).
+                if (config.auto_engine_presets && !inspected.engine_preset_applied) {
                     env.ApplyEngineUmaPreset(inspected, static_policy, pool_mb);
                 }
                 if (audit_cb) {
-                    audit_cb(preset_msg);
+                    audit_cb(config.auto_engine_presets
+                                 ? preset_msg
+                                 : "[ENGINE] Unreal Engine detectado. Preset de Engine.ini apagado (auto_engine_presets=false): no se tocó ningún archivo del juego.");
                 }
             } else {
                 env.ApplyDxgiFlipModelUpgrade(game.full_path);

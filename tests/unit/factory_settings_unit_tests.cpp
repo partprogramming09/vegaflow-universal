@@ -32,6 +32,8 @@ public:
     std::vector<uint32_t> priority_values;
     int dvr_calls = 0;
     int power_calls = 0;
+    int preset_calls = 0;
+    bool unreal = false; // the game folder holds an Unreal Engine game
 
     std::optional<vegaflow::DetectedGameProcess> DetectActiveGame(const vegaflow::ProcessPolicyConfig&) override { return active_game; }
     bool IsWindowValid(HWND) override { return true; }
@@ -42,8 +44,12 @@ public:
     void SetGameDvrCaptureDisabled(bool) override { ++dvr_calls; }
     void SetApuLaptopPowerProfile(bool optimize, const vegaflow::ApuOptimizationPolicy&) override { power_calls += optimize ? 1 : 0; }
     void ApplyDxgiFlipModelUpgrade(const std::wstring&) override {}
-    vegaflow::SteamGameEntry InspectGameDirectory(const std::wstring&, uint32_t, const std::string&) override { return {}; }
-    void ApplyEngineUmaPreset(const vegaflow::SteamGameEntry&, const vegaflow::ApuOptimizationPolicy&, uint32_t) override {}
+    vegaflow::SteamGameEntry InspectGameDirectory(const std::wstring&, uint32_t, const std::string&) override {
+        vegaflow::SteamGameEntry e{};
+        if (unreal) e.engine = vegaflow::GameEngineType::UnrealEngine4_5;
+        return e;
+    }
+    void ApplyEngineUmaPreset(const vegaflow::SteamGameEntry&, const vegaflow::ApuOptimizationPolicy&, uint32_t) override { ++preset_calls; }
     void ApplyCpuOptimizations(uint32_t, uint64_t, uint32_t, bool, const std::vector<ULONG>&, const std::vector<ULONG>&,
                                const std::vector<vegaflow::BackgroundProcessTarget>&, uint32_t& out_throttled) override { out_throttled = 0; }
     void RestoreCpuAll() override {}
@@ -53,7 +59,7 @@ public:
 };
 
 // One new game on a Vega-class APU laptop: what the session asked of the system with this config.
-RecordingEnv RunOneGame(const vegaflow::app::AppConfig& cfg, vegaflow::RenderApi api) {
+RecordingEnv RunOneGame(const vegaflow::app::AppConfig& cfg, vegaflow::RenderApi api, bool unreal = false) {
     FakeDeviceProbe probe;
     probe.snapshot.dxcore_available = true;
     probe.snapshot.ram_probe_ok = true;
@@ -73,6 +79,7 @@ RecordingEnv RunOneGame(const vegaflow::app::AppConfig& cfg, vegaflow::RenderApi
     probe.snapshot.gpus.push_back(igpu);
     auto hw = vegaflow::session::BuildHardwareProfileFromSnapshot(probe.ProbeSystem(false), false, 0);
     RecordingEnv env;
+    env.unreal = unreal;
     vegaflow::DetectedGameProcess dg{};
     dg.pid = 4242;
     dg.exe_name = L"Game.exe";
@@ -206,6 +213,57 @@ void Test111() {
     RecordResult(probe_failed_unknown && unknown.needs_confirm && !unknown.discouraged && discouraged.needs_confirm &&
                      discouraged.discouraged && !allowed.needs_confirm && !allowed.discouraged,
                  "Test 111.9: a failed RAM probe is unknown and the row asks for confirmation; discouraged asks and is flagged; allowed does not");
+
+    // F2.3. auto_engine_presets: a file without the key is off and an Unreal game gets no preset; true applies it once;
+    // a value of another type is rejected, stays off and blocks saving.
+    FakeFileSystem fs_none;
+    fs_none.files[kPath] = "{\n  \"version\": 1\n}\n";
+    ConfigStore store_none(fs_none, kPath, true);
+    const AppConfig none_cfg = store_none.Load();
+    FakeFileSystem fs_on;
+    fs_on.files[kPath] = "{\n  \"version\": 1,\n  \"auto_engine_presets\": true\n}\n";
+    ConfigStore store_on(fs_on, kPath, true);
+    const AppConfig on_cfg = store_on.Load();
+    FakeFileSystem fs_str;
+    fs_str.files[kPath] = "{\n  \"version\": 1,\n  \"auto_engine_presets\": \"true\"\n}\n";
+    ConfigStore store_str(fs_str, kPath, true);
+    const AppConfig str_cfg = store_str.Load();
+    const RecordingEnv ue_off = RunOneGame(none_cfg, vegaflow::RenderApi::DirectX12, true);
+    const RecordingEnv ue_on = RunOneGame(on_cfg, vegaflow::RenderApi::DirectX12, true);
+    const RecordingEnv ue_str = RunOneGame(str_cfg, vegaflow::RenderApi::DirectX12, true);
+    RecordResult(!none_cfg.auto_engine_presets && on_cfg.auto_engine_presets && ue_off.preset_calls == 0 && ue_on.preset_calls == 1 &&
+                     ue_str.preset_calls == 0 && !str_cfg.auto_engine_presets &&
+                     (store_str.Report().rejected_keys & VF_CONFIG_KEY_AUTO_ENGINE_PRESETS) != 0 && !store_str.Report().CanSave() &&
+                     store_str.Report().Warning().find("auto_engine_presets") != std::string::npos,
+                 "Test 111.10: auto_engine_presets absent = no Unreal preset, true = one preset, \"true\" = rejected with a warning and off");
+
+    // F2.3. The Ajustes row for the key: experimental, shown on/off from the config, and it does not promise a restore it cannot do.
+    const vegaflow::SettingSpec* preset_spec = vegaflow::FindSetting("engine_presets");
+    vegaflow::SettingsScreenInputs pin;
+    pin.device = {vegaflow::GpuVendor::AMD, vegaflow::GpuConnection::Integrated, true};
+    pin.show_experimental = true;
+    auto preset_row = [&](bool experimental, bool cfg_on, const vegaflow::SettingRow** out) {
+        pin.show_experimental = experimental;
+        pin.auto_engine_presets = cfg_on;
+        static vegaflow::SettingsScreenModel model;
+        model = vegaflow::BuildSettingsScreen(pin);
+        *out = nullptr;
+        for (const auto& f : model.families)
+            for (const auto& r : f.rows)
+                if (std::string(r.spec->id) == "engine_presets") *out = &r;
+    };
+    const vegaflow::SettingRow* p_off = nullptr;
+    preset_row(true, false, &p_off);
+    const bool off_ok = p_off && !p_off->on && p_off->preview.find("Engine.ini") != std::string::npos &&
+                        p_off->preview.find("devuelve el valor que tenía") == std::string::npos;
+    const vegaflow::SettingRow* p_on = nullptr;
+    preset_row(true, true, &p_on);
+    const bool on_ok = p_on && p_on->on;
+    const vegaflow::SettingRow* p_hidden = nullptr;
+    preset_row(false, true, &p_hidden);
+    RecordResult(preset_spec && preset_spec->experimental && preset_spec->user_switch && preset_spec->config_key &&
+                     !preset_spec->applied_by_default && off_ok && on_ok && p_hidden == nullptr,
+                 "Test 111.11: the engine_presets row is experimental, mirrors the config key and its text does not promise a registry restore");
 
     // 10 (plan #10). In safe mode nothing is applied: the startup and session code stays behind `!safe_mode`, unchanged.
     // Checked on the laptop (daemon started with --safe-mode); there is no seam to run RunDaemon here.

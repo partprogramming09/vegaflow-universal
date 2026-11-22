@@ -29,6 +29,7 @@ struct SettingSpec {
     bool undoable = true;     // false for one-shot actions that leave no saved original (nothing to undo)
     bool applied_by_default = false; // the daemon applies it without the user asking; E2.2: no row is, they are opt-in keys of config.json
     bool user_switch = true;  // the person can turn it on and off; false when VegaFlow decides by itself (memory guard)
+    bool config_key = false;  // F2.3: the switch only writes a key of config.json (what the daemon does next time), nothing in the system
 };
 
 // What the screen needs to know about the machine; filled from the device profile (phase 3).

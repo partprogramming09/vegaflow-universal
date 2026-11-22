@@ -17,6 +17,7 @@ struct SettingsScreenInputs {
     CompressionAdvice compression_advice = CompressionAdvice::Unknown; // for the memory_compression_off row
     DeviceFacts device;
     bool show_experimental = false;
+    bool auto_engine_presets = false; // F2.3: the config.json key behind the engine_presets row
     SystemGraphicsTweaksState tweaks; // what QuerySystemGraphicsTweaks() read
     bool memory_guard_active = false; // policy.apply_uma_memory_guard and the daemon is not in safe mode
     bool elevated = true;             // VegaFlow runs as administrator (the preview says what happens when it does not)

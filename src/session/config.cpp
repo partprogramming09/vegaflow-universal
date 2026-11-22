@@ -58,6 +58,7 @@ VfConfigSettings ToBridge(const AppConfig& cfg) {
     s.auto_priority_separation = cfg.auto_priority_separation;
     s.auto_game_dvr_off = cfg.auto_game_dvr_off;
     s.auto_power_profile = cfg.auto_power_profile;
+    s.auto_engine_presets = cfg.auto_engine_presets;
     return s;
 }
 
@@ -86,6 +87,7 @@ AppConfig FromBridge(const VfConfigSettings& s, const VfProcessPolicyConfig& p, 
     cfg.auto_priority_separation = s.auto_priority_separation;
     cfg.auto_game_dvr_off = s.auto_game_dvr_off;
     cfg.auto_power_profile = s.auto_power_profile;
+    cfg.auto_engine_presets = s.auto_engine_presets;
 
     cfg.process_policy.heavy_work_as_game = p.heavy_work_as_game;
     cfg.process_policy.category_actions.recording_streaming = static_cast<vegaflow::ProcessAction>(p.category_actions.recording_streaming);
@@ -127,7 +129,8 @@ std::string KnownSettings(const std::string& text) {
                       std::to_string(s.restrict_game_cpu_sets) + "," + std::to_string(s.min_free_ram_mb) + "," +
                       std::to_string(s.min_standby_mb) + "," + std::to_string(s.max_game_disk_read_mb_s) + "," +
                       std::to_string(s.auto_vram_reporting) + std::to_string(s.auto_priority_separation) +
-                      std::to_string(s.auto_game_dvr_off) + std::to_string(s.auto_power_profile) + "," +
+                      std::to_string(s.auto_game_dvr_off) + std::to_string(s.auto_power_profile) +
+                      std::to_string(s.auto_engine_presets) + "," +
                       std::to_string(policy.heavy_work_as_game ? 1 : 0) + "," +
                       std::to_string(policy.category_actions.recording_streaming) + "," +
                       std::to_string(policy.category_actions.calls_voice) + "," +
@@ -172,6 +175,7 @@ std::string RejectedKeyNames(uint32_t bits) {
         {VF_CONFIG_KEY_AUTO_PRIORITY_SEPARATION, "auto_priority_separation"},
         {VF_CONFIG_KEY_AUTO_GAME_DVR_OFF, "auto_game_dvr_off"},
         {VF_CONFIG_KEY_AUTO_POWER_PROFILE, "auto_power_profile"},
+        {VF_CONFIG_KEY_AUTO_ENGINE_PRESETS, "auto_engine_presets"},
     };
     std::string names;
     for (const auto& [bit, name] : kNames) {

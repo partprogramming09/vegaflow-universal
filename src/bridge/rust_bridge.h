@@ -197,6 +197,7 @@ size_t vf_rust_steam_library_paths(const char* vdf, size_t len, VfSteamLibraryFn
 #define VF_CONFIG_KEY_AUTO_PRIORITY_SEPARATION (1u << 14)
 #define VF_CONFIG_KEY_AUTO_GAME_DVR_OFF        (1u << 15)
 #define VF_CONFIG_KEY_AUTO_POWER_PROFILE       (1u << 16)
+#define VF_CONFIG_KEY_AUTO_ENGINE_PRESETS      (1u << 17) /* F2.3 */
 /* Results of vf_rust_config_save. */
 #define VF_CONFIG_SAVE_OK       0u
 #define VF_CONFIG_SAVE_BLOCKED  1u /* the current file has a VF_CONFIG_BLOCKS_SAVE status */
@@ -278,6 +279,7 @@ typedef struct VfConfigSettings {
     bool auto_priority_separation;
     bool auto_game_dvr_off;
     bool auto_power_profile;
+    bool auto_engine_presets;        /* F2.3: the Unreal Engine preset written to Engine.ini */
 } VfConfigSettings;
 
 typedef struct VfConfigLoad {

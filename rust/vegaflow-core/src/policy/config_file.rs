@@ -37,6 +37,8 @@ pub const VF_CONFIG_KEY_AUTO_VRAM_REPORTING: u32 = 1 << 13;
 pub const VF_CONFIG_KEY_AUTO_PRIORITY_SEPARATION: u32 = 1 << 14;
 pub const VF_CONFIG_KEY_AUTO_GAME_DVR_OFF: u32 = 1 << 15;
 pub const VF_CONFIG_KEY_AUTO_POWER_PROFILE: u32 = 1 << 16;
+// F2.3: the 28 Unreal Engine values written to a game's Engine.ini; opt-in too.
+pub const VF_CONFIG_KEY_AUTO_ENGINE_PRESETS: u32 = 1 << 17;
 
 pub const CURRENT_VERSION: u64 = 1;
 pub const MAX_PROCESS_EXCEPTIONS: usize = 256;
@@ -60,6 +62,7 @@ pub struct Settings {
     pub auto_priority_separation: bool,
     pub auto_game_dvr_off: bool,
     pub auto_power_profile: bool,
+    pub auto_engine_presets: bool,
 }
 
 impl Default for Settings {
@@ -80,6 +83,7 @@ impl Default for Settings {
             auto_priority_separation: false,
             auto_game_dvr_off: false,
             auto_power_profile: false,
+            auto_engine_presets: false,
         }
     }
 }
@@ -154,7 +158,7 @@ struct BoolKey {
     set: fn(&mut Settings, bool),
 }
 
-const BOOL_KEYS: [BoolKey; 5] = [
+const BOOL_KEYS: [BoolKey; 6] = [
     BoolKey {
         key: "restrict_game_cpu_sets",
         bit: VF_CONFIG_KEY_RESTRICT_GAME_CPU_SETS,
@@ -171,6 +175,8 @@ const BOOL_KEYS: [BoolKey; 5] = [
     },
     BoolKey { key: "auto_game_dvr_off", bit: VF_CONFIG_KEY_AUTO_GAME_DVR_OFF, get: |s| s.auto_game_dvr_off, set: |s, b| s.auto_game_dvr_off = b },
     BoolKey { key: "auto_power_profile", bit: VF_CONFIG_KEY_AUTO_POWER_PROFILE, get: |s| s.auto_power_profile, set: |s, b| s.auto_power_profile = b },
+    // F2.3
+    BoolKey { key: "auto_engine_presets", bit: VF_CONFIG_KEY_AUTO_ENGINE_PRESETS, get: |s| s.auto_engine_presets, set: |s, b| s.auto_engine_presets = b },
 ];
 const GAME_EXES_KEY: &str = "custom_game_exes";
 const MEMORY_KEY: &str = "memory";
@@ -697,15 +703,17 @@ mod tests {
     }
 
     #[test]
-    fn the_four_auto_settings_are_off_unless_the_file_says_true() {
-        let keys = ["auto_vram_reporting", "auto_priority_separation", "auto_game_dvr_off", "auto_power_profile"];
-        let flags = |s: &Settings| [s.auto_vram_reporting, s.auto_priority_separation, s.auto_game_dvr_off, s.auto_power_profile];
+    fn the_five_auto_settings_are_off_unless_the_file_says_true() {
+        let keys = ["auto_vram_reporting", "auto_priority_separation", "auto_game_dvr_off", "auto_power_profile", "auto_engine_presets"];
+        let flags = |s: &Settings| {
+            [s.auto_vram_reporting, s.auto_priority_separation, s.auto_game_dvr_off, s.auto_power_profile, s.auto_engine_presets]
+        };
         for text in ["", "{}", "{\"version\": 1}", "{\"poll_interval_ms\": 2000}"] {
-            assert_eq!(flags(&load(text.as_bytes()).settings), [false; 4], "{text:?}");
+            assert_eq!(flags(&load(text.as_bytes()).settings), [false; 5], "{text:?}");
         }
         for (i, key) in keys.iter().enumerate() {
             let l = load(format!("{{\"version\": 1, \"{key}\": true}}").as_bytes());
-            let mut want = [false; 4];
+            let mut want = [false; 5];
             want[i] = true;
             assert_eq!((flags(&l.settings), l.status), (want, 0), "{key}");
         }
@@ -718,6 +726,7 @@ mod tests {
             ("auto_priority_separation", VF_CONFIG_KEY_AUTO_PRIORITY_SEPARATION),
             ("auto_game_dvr_off", VF_CONFIG_KEY_AUTO_GAME_DVR_OFF),
             ("auto_power_profile", VF_CONFIG_KEY_AUTO_POWER_PROFILE),
+            ("auto_engine_presets", VF_CONFIG_KEY_AUTO_ENGINE_PRESETS),
         ] {
             for bad in ["\"yes\"", "1", "null"] {
                 let l = load(format!("{{\"version\": 1, \"{key}\": {bad}}}").as_bytes());
@@ -739,7 +748,8 @@ mod tests {
         assert!(first.contains("\"note\""));
         assert_eq!(load(first.as_bytes()).settings, s);
         // A factory save writes the four keys as false: an explicit choice for the next reader.
-        assert!(save(b"", &defaults()).unwrap().contains("\"auto_game_dvr_off\": false"));
+        let factory = save(b"", &defaults()).unwrap();
+        assert!(factory.contains("\"auto_game_dvr_off\": false") && factory.contains("\"auto_engine_presets\": false"));
     }
 
     /// Reads `tests/vectors/config_rules.tsv`: one file per row, holding only that key.

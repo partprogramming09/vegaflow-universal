@@ -57,7 +57,7 @@ void Test73() {
     // 1. Each switchable row changes something (registry or power plan), and every value name written is in the row's target text.
     std::string unwired, undescribed;
     for (const auto& spec : vegaflow::SettingsCatalog()) {
-        if (!spec.user_switch) continue;
+        if (!spec.user_switch || spec.config_key) continue; // a config_key row writes config.json: Test 73.5
         const size_t w0 = reg.writes.size();
         const int p0 = power.apply_count;
         const bool mc0 = reg.memory_compression_enabled; // MMAgent is not a registry value
@@ -89,6 +89,21 @@ void Test73() {
     const std::string again = act.Set("mpo_disabled", false);
     RecordResult(idle && none.find("no tiene interruptor") != std::string::npos && reg.writes.size() == w_off && again.find("Ya estaba") != std::string::npos,
                  "Test 73.3: a row without a switch and a repeated click change nothing, and say so");
+
+    // F2.3. engine_presets is a key of config.json, not a registry value: its switch calls the callback and writes nothing
+    // to the system; with no callback it says so and changes nothing.
+    std::vector<bool> asked;
+    gs::SettingsActionsDeps with_cb{gfx, policy, [&]() { return policy; }, nullptr};
+    with_cb.set_engine_presets = [&](bool on) { asked.push_back(on); return std::string("guardado"); };
+    gs::SettingsActions act_cfg(with_cb);
+    const size_t w_cfg = reg.writes.size();
+    const int p_cfg = power.apply_count;
+    const std::string said_on = act_cfg.Set("engine_presets", true);
+    const std::string said_off = act_cfg.Set("engine_presets", false);
+    const std::string no_cb = act.Set("engine_presets", true);
+    RecordResult(asked == std::vector<bool>{true, false} && said_on == "guardado" && said_off == "guardado" &&
+                     reg.writes.size() == w_cfg && power.apply_count == p_cfg && no_cb.find("no está disponible") != std::string::npos,
+                 "Test 73.5: the engine_presets switch asks the config callback and touches no registry or power plan; without it, it says so");
 
     // 4. "Volver todo al valor de Windows" puts back what the switches changed: the registry holds again what it held before.
     FakeRegistryPort reg2;

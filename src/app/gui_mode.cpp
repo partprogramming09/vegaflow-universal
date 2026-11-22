@@ -128,7 +128,14 @@ int RunGuiMode(
     session::SettingsActions settings_actions(session::SettingsActionsDeps{
         gfx, policy,
         [&]() { return HardwareProfiler::BuildOptimizationPolicy(hw, mem_mgr.SampleTelemetry().vram.local_budget_bytes); },
-        [&](const std::string& line) { AddAuditLog(line); }});
+        [&](const std::string& line) { AddAuditLog(line); },
+        [&](bool turn_on) {
+            config.auto_engine_presets = turn_on;
+            std::string msg = turn_on ? "Preset de Unreal Engine encendido: se aplicará a los juegos que abras después"
+                                      : "Preset de Unreal Engine apagado: los juegos que abras después no se tocan";
+            SaveSettings(msg);
+            return msg;
+        }});
     bool flags_seen_game_active = false;
 
     GuiCallbacks callbacks;
@@ -314,6 +321,7 @@ int RunGuiMode(
         }
         in.tweaks = cached_tweaks;
         in.memory_guard_active = policy.apply_uma_memory_guard && !safe_mode;
+        in.auto_engine_presets = config.auto_engine_presets;
         // E2.2: the rule lives in Rust (policy/memory_compression.rs); 0 allowed, 1 discouraged, anything else unknown.
         const uint8_t advice = vf_rust_memory_compression_off_advice(hw.total_physical_ram_bytes / (1024ULL * 1024ULL), hw.ram_probe_ok);
         in.compression_advice = advice == 0   ? CompressionAdvice::Allowed
