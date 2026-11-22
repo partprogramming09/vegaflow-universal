@@ -22,6 +22,7 @@
 #include "ui/app_identity.hpp"
 #include <utility>
 
+#include "session/gui_flow.hpp"
 #include "ui/gui_window.hpp"
 
 #ifndef GET_X_LPARAM
@@ -38,6 +39,9 @@ namespace vegaflow {
 // =========================================================================
 constexpr UINT_PTR TIMER_TELEMETRY_ID       = 1;
 constexpr UINT     TIMER_TELEMETRY_INTERVAL = 1500;
+constexpr UINT_PTR TIMER_PAD_ID             = 2;  // E2.7: 1500 ms would lose a short button press, so the pad has its own tick
+constexpr UINT     TIMER_PAD_INTERVAL       = 50;
+constexpr int      ID_HOTKEY_PANIC          = 1;
 constexpr UINT     WM_APP_TRAYICON          = WM_USER + 101;
 constexpr UINT     ID_TRAY_ICON             = 1001;
 
@@ -118,6 +122,16 @@ struct GuiWindowState {
     int current_tab = 0; // 0: Dashboard, 1: Ajustes, 2: Mem/CPU, 3: Juegos, 4: Historial, 5: Configuración, 6: Programas, 7: Tu equipo
     int hovered_id = 0;
     std::vector<HitBox> hit_boxes;
+
+    // E2.7: the phase G extras (flows in session/gui_flow.hpp)
+    session::CloseFlow close_flow;
+    session::PanicGuard panic_guard;
+    session::PanicHotkey panic_hotkey = session::DefaultPanicHotkey();
+    bool panic_registered = false;
+    std::string hotkey_notice;       // Configuración shows it when the shortcut could not be registered
+    session::PadNavigator pad_nav;
+    HMODULE xinput = nullptr;        // xinput1_4.dll, loaded at run time; null when missing (the window works without a pad)
+    void* xinput_get_state = nullptr; // XInputGetState, cast where it is called (gui_window.cpp)
 
     HFONT hFontTitle = nullptr;
     HFONT hFontHeader = nullptr;

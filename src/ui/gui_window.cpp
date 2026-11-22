@@ -1,6 +1,7 @@
 #include "ui/gui_window.hpp"
 #include "ui/app_identity.hpp"
 #include "ui/gui_components.hpp"
+#include "ui/choice_dialog.hpp"
 #include "ui/config_view.hpp"
 #include "ui/programs_view.hpp"
 #include "ui/equipment_view.hpp"
@@ -9,6 +10,7 @@
 #include "ui/history_view.hpp"
 #include "ui/home_view.hpp"
 #include "ui/settings_view.hpp"
+#include "ui/texts.hpp"
 
 #include <psapi.h>
 #include <shellapi.h>
@@ -362,6 +364,25 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
             // 1500 ms telemetry timer
             SetTimer(hwnd, TIMER_TELEMETRY_ID, TIMER_TELEMETRY_INTERVAL, nullptr);
 
+            // E2.7 panic shortcut: Windows sends one WM_HOTKEY per press (MOD_NOREPEAT). A taken shortcut is only a notice.
+            const session::PanicHotkeyPlan plan = session::PlanPanicHotkey(state->panic_hotkey);
+            state->panic_registered = plan.vk != 0 && RegisterHotKey(hwnd, ID_HOTKEY_PANIC, plan.modifiers, plan.vk) != 0;
+            state->hotkey_notice = session::PanicHotkeyNotice(state->panic_hotkey, state->panic_registered);
+
+            // E2.7 game pad: xinput1_4.dll is loaded at run time, so a PC without it (or without a pad) runs the same window.
+            state->xinput = LoadLibraryW(L"xinput1_4.dll");
+            if (state->xinput) {
+#if defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+                state->xinput_get_state = reinterpret_cast<void*>(GetProcAddress(state->xinput, "XInputGetState"));
+#if defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
+                if (state->xinput_get_state) SetTimer(hwnd, TIMER_PAD_ID, TIMER_PAD_INTERVAL, nullptr);
+            }
+
             ChangeWindowMessageFilterEx(hwnd, RegisterWindowMessageW(ui::kRestoreWindowMessage), MSGFLT_ALLOW, nullptr);
 
             // Initial query
@@ -522,6 +543,40 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
         }
 
         case WM_TIMER: {
+            if (wParam == TIMER_PAD_ID && state) {
+                // Only with the window in front and no dialog open: a pad must not press buttons behind a game or a dialog.
+                if (GetForegroundWindow() != hwnd || ui::ChoiceDialogOpen() || !IsWindowVisible(hwnd) || IsIconic(hwnd)) {
+                    state->pad_nav.Reset();
+                    return 0;
+                }
+                struct PadState { DWORD packet; WORD buttons; BYTE lt, rt; SHORT lx, ly, rx, ry; }; // XINPUT_STATE
+                const auto action = session::PollPad(state->pad_nav, [&](uint16_t* out) {
+                    PadState ps = {};
+                    if (!state->xinput_get_state) return false;
+                    using GetStateFn = DWORD(WINAPI*)(DWORD, void*);
+                    if (reinterpret_cast<GetStateFn>(state->xinput_get_state)(0, &ps) != ERROR_SUCCESS) return false;
+                    *out = ps.buttons;
+                    return true;
+                });
+                constexpr int kTabs = 8; // the sidebar tabs; Requisitos is reached from Configuración
+                switch (action) {
+                    case session::PadAction::FocusNext: SendMessageW(hwnd, WM_NEXTDLGCTL, 0, FALSE); break;
+                    case session::PadAction::FocusPrev: SendMessageW(hwnd, WM_NEXTDLGCTL, 1, FALSE); break;
+                    case session::PadAction::Press: {
+                        HWND f = GetFocus();
+                        if (f && f != hwnd && IsChild(hwnd, f)) SendMessageW(f, BM_CLICK, 0, 0);
+                        break;
+                    }
+                    case session::PadAction::TabNext:
+                        if (state->current_tab < kTabs - 1) SelectTab(hwnd, state, state->current_tab + 1);
+                        break;
+                    case session::PadAction::TabPrev:
+                        if (state->current_tab > 0 && state->current_tab < kTabs) SelectTab(hwnd, state, state->current_tab - 1);
+                        break;
+                    case session::PadAction::None: break;
+                }
+                return 0;
+            }
             if (wParam == TIMER_TELEMETRY_ID && state) {
                 if (IsWindowVisible(hwnd) && !IsIconic(hwnd)) RefreshActiveScreen(hwnd, state);
                 if (state->callbacks.on_PollTelemetry) {
@@ -601,11 +656,52 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                     break;
                 }
                 case ID_TRAY_EXIT: {
-                    DestroyWindow(hwnd);
+                    PostMessageW(hwnd, WM_CLOSE, 0, 0); // E2.7: through the same exit notice as the window's X
                     break;
                 }
                 default:
                     break;
+            }
+            return 0;
+        }
+
+        case WM_HOTKEY: {
+            // E2.7 "Algo va mal" from the keyboard: one restore at a time; a press queued behind a running one is dropped.
+            if (wParam != ID_HOTKEY_PANIC || !state || !state->callbacks.on_RestoreAllDefaults) return 0;
+            if (!state->panic_guard.TryBegin(std::chrono::steady_clock::now())) return 0;
+            const std::string res = state->callbacks.on_RestoreAllDefaults();
+            state->panic_guard.End(std::chrono::steady_clock::now());
+            state->data.last_action_status = res;
+            if (state->callbacks.on_NoteStatus) state->callbacks.on_NoteStatus(res);
+            InvalidateRect(hwnd, nullptr, FALSE);
+            return 0;
+        }
+
+        case WM_CLOSE: {
+            // E2.7: closing does not undo anything, so with changes in force the window asks first (session/gui_flow.hpp).
+            if (!state) break;
+            std::string question;
+            const session::HistoryScreenModel history = state->callbacks.on_PollHistory ? state->callbacks.on_PollHistory() : session::HistoryScreenModel{};
+            const session::CloseStep step = state->close_flow.OnClose(history, &question);
+            if (step == session::CloseStep::Ignore) return 0;
+            if (step == session::CloseStep::Close) {
+                DestroyWindow(hwnd);
+                return 0;
+            }
+            std::wstring body; // an EDIT control breaks lines on CR LF
+            for (wchar_t c : Utf8ToWide(question)) {
+                if (c == L'\n') body += L'\r';
+                body += c;
+            }
+            const int answer = ui::ShowChoiceDialog(hwnd, ui::text::kExitTitle, body,
+                                                    {{ui::text::kExitRestore, 1, true, nullptr}, {ui::text::kExitKeep, 2, true, nullptr}, {ui::text::kExitCancel, 0, true, nullptr}}, 0);
+            const session::CloseChoice choice = answer == 1 ? session::CloseChoice::RestoreAndClose
+                                                : answer == 2 ? session::CloseChoice::KeepAndClose
+                                                              : session::CloseChoice::Cancel;
+            if (state->close_flow.OnChoice(choice, [&] {
+                    if (state->callbacks.on_RestoreAllDefaults) state->callbacks.on_RestoreAllDefaults();
+                })) {
+                DestroyWindow(hwnd);
             }
             return 0;
         }
@@ -631,6 +727,12 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
         case WM_DESTROY: {
             if (state) {
                 KillTimer(hwnd, TIMER_TELEMETRY_ID);
+                KillTimer(hwnd, TIMER_PAD_ID);
+                if (state->panic_registered) UnregisterHotKey(hwnd, ID_HOTKEY_PANIC);
+                state->panic_registered = false;
+                if (state->xinput) FreeLibrary(state->xinput);
+                state->xinput = nullptr;
+                state->xinput_get_state = nullptr;
                 ui::ConfigViewDestroy(state);
                 ui::ProgramsViewDestroy(state);
                 ui::HomeViewDestroy(state);
@@ -756,6 +858,12 @@ int GuiWindow::RunGuiLoop(const GuiCallbacks& callbacks) {
     ui::RequirementsViewShow(&state, false);
     ShowWindow(hwnd, SW_SHOW);
     UpdateWindow(hwnd);
+
+    // E2.7 welcome: until the mark file exists; the mark is written once the person has seen it.
+    if (callbacks.on_ShouldShowWelcome && callbacks.on_ShouldShowWelcome()) {
+        ui::ShowChoiceDialog(hwnd, ui::text::kWelcomeTitle, ui::text::kWelcomeBody, {{ui::text::kWelcomeButton, 1, true, nullptr}}, 1);
+        if (callbacks.on_MarkWelcomeSeen) callbacks.on_MarkWelcomeSeen();
+    }
 
     // Standard message loop
     MSG msg = {};

@@ -25,6 +25,10 @@ pub use doctor::*;
 mod memory_compression;
 pub use memory_compression::*;
 
+// E2.7
+mod config_live;
+pub use config_live::*;
+
 /// Runs `f` for an `extern "C"` function and returns `fallback` if it panics. A panic must never cross into C++ (that is
 /// undefined behaviour) and must not take the daemon down; every fallback is the cautious answer for its function
 /// (deny, assume anti-cheat present, do not confine, do not purge).

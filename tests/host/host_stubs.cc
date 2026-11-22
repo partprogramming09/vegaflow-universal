@@ -28,7 +28,8 @@ MemoryProbe& DefaultWindowsMemoryProbe() { Unavailable("DefaultWindowsMemoryProb
 MemoryControl& DefaultWindowsMemoryControl() { Unavailable("DefaultWindowsMemoryControl"); }
 uint64_t QueryCurrentProcessPrivateWorkingSetBytes() { Unavailable("QueryCurrentProcessPrivateWorkingSetBytes"); }
 
-ChangeJournal* GetActiveChangeJournal() { Unavailable("GetActiveChangeJournal"); }
+// No journal is active on the host: callers already handle nullptr (they just skip journaling).
+ChangeJournal* GetActiveChangeJournal() { return nullptr; }
 
 uint32_t CountEcoQoSProcesses() { Unavailable("CountEcoQoSProcesses"); }
 uint32_t CountDirectFlipConfiguredGames() { Unavailable("CountDirectFlipConfiguredGames"); }

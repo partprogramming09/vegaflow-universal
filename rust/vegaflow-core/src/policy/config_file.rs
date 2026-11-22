@@ -102,7 +102,7 @@ pub enum SaveRefused {
     InvalidSetting(u32),
 }
 
-const VERSION: NumberRule = NumberRule { key: "version", in_memory: false, min: 0, max: u64::MAX, default: CURRENT_VERSION };
+const VERSION: NumberRule = NumberRule { key: "version", in_memory: false, min: 0, max: u64::MAX, default: CURRENT_VERSION, applies_live: true };
 
 /// One numeric setting: its rule, its `VF_CONFIG_KEY_*` bit and its field in `Settings`.
 struct NumberKey {
@@ -401,6 +401,12 @@ fn set_member(members: &mut Vec<(String, Value)>, key: &str, value: Value) {
 }
 
 /// The new text of the file: `original` with the settings replaced, the rest kept, and `version` set to the current one.
+/// E2.7: whether the number with this `VF_CONFIG_KEY_*` bit takes effect while VegaFlow runs. An unknown bit answers
+/// false: the cautious answer is to tell the person to restart.
+pub fn number_applies_live(key_bit: u32) -> bool {
+    NUMBER_KEYS.iter().find(|k| k.bit == key_bit).is_some_and(|k| k.rule.applies_live)
+}
+
 pub fn save(original: &[u8], settings: &Settings) -> Result<String, SaveRefused> {
     let loaded = load(original);
     if loaded.status & VF_CONFIG_BLOCKS_SAVE != 0 {

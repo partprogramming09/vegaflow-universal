@@ -11,7 +11,7 @@ ExitNotice BuildExitNotice(const HistoryScreenModel& history) {
     n.ask = true;
     n.text = std::string("VegaFlow tiene ") + std::to_string(n.active) + (n.active == 1 ? " cambio puesto" : " cambios puestos") +
              " en tu equipo. Cerrar VegaFlow no los deshace: siguen puestos y podrás deshacerlos desde Historial al volver a abrirlo.\n\n"
-             "Sí: devolver todo a como estaba y cerrar.\nNo: cerrar y dejarlos puestos.\nCancelar: seguir con VegaFlow abierto.";
+             "¿Quieres devolver todo a como estaba antes de cerrar?";
     return n;
 }
 

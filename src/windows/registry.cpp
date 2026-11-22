@@ -177,13 +177,13 @@ bool RegBackupValue(int hive, const std::wstring& subkey, HKEY hKey, const wchar
         return false;
     }
 
-    RegWriteString(hb, L"subkey", subkey);
-    RegWriteString(hb, L"name", name);
-    RegWriteDword(hb, L"hive", static_cast<DWORD>(hive));
-    RegWriteDword(hb, L"present", present ? 1 : 0);
-    RegWriteDword(hb, L"type", type);
+    // A record missing any field cannot restore the original, so every write must succeed.
+    const bool fields_saved = RegWriteString(hb, L"subkey", subkey) && RegWriteString(hb, L"name", name) &&
+                              RegWriteDword(hb, L"hive", static_cast<DWORD>(hive)) &&
+                              RegWriteDword(hb, L"present", present ? 1 : 0) && RegWriteDword(hb, L"type", type);
     const BYTE empty = 0;
-    const LSTATUS saved = RegSetValueExW(hb, L"data", 0, REG_BINARY, data.empty() ? &empty : data.data(), static_cast<DWORD>(data.size()));
+    const LSTATUS saved = fields_saved ? RegSetValueExW(hb, L"data", 0, REG_BINARY, data.empty() ? &empty : data.data(), static_cast<DWORD>(data.size()))
+                                       : ERROR_WRITE_FAULT;
     RegCloseKey(hb);
     if (saved != ERROR_SUCCESS) {
         RegDeleteKeyW(HkeyFromId(hive), path.c_str());
@@ -611,9 +611,12 @@ bool WindowsRegistryPort::SetMemoryCompressionEnabled(bool enable, bool dry_run)
     ChangeJournal* journal = GetActiveChangeJournal();
     uint64_t jid = 0;
     bool had_open_entry = false;
+    bool oldest_orig_enabled = true;
     if (journal) {
         const bool was_enabled = IsMemoryCompressionEnabled();
-        had_open_entry = !OpenMemoryCompressionEntries(*journal).empty();
+        const auto open = OpenMemoryCompressionEntries(*journal);
+        had_open_entry = !open.empty();
+        if (had_open_entry) oldest_orig_enabled = open.front()->orig_mem_compression_enabled;
         // Turning it on is journaled too (unless it only undoes an open "off" entry), so it can be undone.
         if (!enable || (!was_enabled && !had_open_entry)) {
             JournalEntry e;
@@ -631,8 +634,11 @@ bool WindowsRegistryPort::SetMemoryCompressionEnabled(bool enable, bool dry_run)
 
     const bool ok = RunMmAgent(enable);
     if (journal) {
-        if (enable && ok && had_open_entry) {
-            journal->MarkMatchingReverted(JournalTargetKind::MemoryCompression, kMemCompressionTarget);
+        if (had_open_entry && jid == 0) {
+            // Enabling with entries open: close them only if this reaches the original state; else they keep it for the revert.
+            if (ok && EnablingClosesMemoryCompressionEntries(enable, oldest_orig_enabled)) {
+                journal->MarkMatchingReverted(JournalTargetKind::MemoryCompression, kMemCompressionTarget);
+            }
         } else if (jid != 0) {
             if (ok) journal->MarkCommitted(jid);
             else journal->MarkFailed(jid, "MMAgent devolvió error");

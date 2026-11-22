@@ -151,8 +151,10 @@ SystemHardwareProfile BuildHardwareProfileFromSnapshot(
 bool RefreshHardwareProfileIfChanged(
     DeviceProbe& probe,
     SystemHardwareProfile& hw,
-    uint8_t user_gpu_pref) {
+    uint8_t user_gpu_pref,
+    bool probe_signature) {
 
+    if (!probe_signature && user_gpu_pref == hw.user_gpu_pref) return false;
     const uint64_t live_sig = probe.QueryAdapterSignature();
     if (live_sig == hw.adapter_signature && user_gpu_pref == hw.user_gpu_pref) {
         return false;
@@ -177,15 +179,18 @@ void RunGameSessionCycle(
     SystemHardwareProfile& hw,
     GameSessionState& state,
     uint32_t* out_noisy_bg_count,
-    const std::function<void(const std::string&)>& audit_cb) {
+    const std::function<void(const std::string&)>& audit_cb,
+    bool check_adapters) {
 
+    // E2.4: between device events the signature is not read; a per-game GPU preference change still is.
+    auto refresh = [&](uint8_t pref) { return RefreshHardwareProfileIfChanged(device_probe, hw, pref, check_adapters); };
     const ProcessPolicyConfig policy = EffectivePolicy(config);
 
     // If the currently cached game was just excluded by the user ("Me fue mal en este juego"), restore immediately.
     if (state.game_active && !state.active_game_exe.empty() &&
         IsExeInList(policy.excluded_game_exes, state.active_game_exe)) {
         RestoreEndOfSession(env, state);
-        RefreshHardwareProfileIfChanged(device_probe, hw, 0);
+        refresh(0);
         if (out_noisy_bg_count) *out_noisy_bg_count = 0;
         return;
     }
@@ -234,7 +239,7 @@ void RunGameSessionCycle(
         }
 
         const uint8_t app_gpu_pref = device_probe.QueryAppGpuPreference(game.full_path);
-        const bool hw_changed = RefreshHardwareProfileIfChanged(device_probe, hw, app_gpu_pref);
+        const bool hw_changed = refresh(app_gpu_pref);
 
         if (is_new_game) {
             hw.last_game_disk = device_probe.ProbeDiskType(game.full_path);
@@ -356,13 +361,13 @@ void RunGameSessionCycle(
         }
     } else if (state.game_active) {
         if (state.active_game_pid != 0 && env.IsProcessAlive(state.active_game_pid)) {
-            RefreshHardwareProfileIfChanged(device_probe, hw, hw.user_gpu_pref);
+            refresh(hw.user_gpu_pref);
             return;
         }
         RestoreEndOfSession(env, state);
-        RefreshHardwareProfileIfChanged(device_probe, hw, 0);
+        refresh(0);
     } else {
-        RefreshHardwareProfileIfChanged(device_probe, hw, 0);
+        refresh(0);
     }
 }
 

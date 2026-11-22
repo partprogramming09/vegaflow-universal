@@ -26,6 +26,7 @@ void RunSingleIteration(
     HWND& active_game_hwnd,
     std::wstring* active_game_path = nullptr,
     uint32_t* out_noisy_bg_count = nullptr,
-    std::function<void(const std::string&)>* audit_cb = nullptr);
+    std::function<void(const std::string&)>* audit_cb = nullptr,
+    bool check_adapters = true);  // E2.4 (the default keeps the old per-tick read)
 
 } // namespace vegaflow::app

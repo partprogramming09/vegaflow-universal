@@ -178,10 +178,16 @@ bool QueryGpuAdapterMemory(uint64_t luid, uint64_t& shared, uint64_t& dedicated)
         cached = fresh;
     }
 
-    if (PdhCollectQueryData(cached.query) != ERROR_SUCCESS) return false;
+    // A failed read drops the cached query so the next cycle reopens it (stale instances after a driver reset, adapter change).
+    auto drop_cache = [] {
+        PdhCloseQuery(cached.query);
+        cached = GpuMemoryQuery{};
+        return false;
+    };
+    if (PdhCollectQueryData(cached.query) != ERROR_SUCCESS) return drop_cache();
     uint64_t shared_sum = 0;
     uint64_t dedicated_sum = 0;
-    if (!SumCounterInstances(cached.shared, shared_sum) || !SumCounterInstances(cached.dedicated, dedicated_sum)) return false;
+    if (!SumCounterInstances(cached.shared, shared_sum) || !SumCounterInstances(cached.dedicated, dedicated_sum)) return drop_cache();
     shared = shared_sum;
     dedicated = dedicated_sum;
     return true;

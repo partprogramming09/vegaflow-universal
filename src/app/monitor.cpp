@@ -58,7 +58,7 @@ void RunMonitorDashboard(
 
         uint64_t free_mb = mem.free_and_zero_bytes / (1024 * 1024);
         uint64_t standby_mb = mem.standby_bytes / (1024 * 1024);
-        uint64_t vram_used_mb = mem.vram.local_usage_bytes / (1024 * 1024);
+        uint64_t vram_used_mb = GpuUsageBytes(mem.vram) / (1024 * 1024);
         uint64_t vram_budget_mb = mem.vram.local_budget_bytes / (1024 * 1024);
 
         std::string game_info = game_active ? (WideToUtf8(active_game_exe) + " (" + active_game_api + ")") : "Ninguno";

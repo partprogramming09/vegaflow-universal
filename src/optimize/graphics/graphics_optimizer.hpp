@@ -103,6 +103,8 @@ public:
     bool SetMpoDisabled(bool disable, bool dry_run = false);
     void QueryMpoState(bool& out_disabled, uint32_t& out_overlay_test_mode);
     bool SetGameDvrCaptureDisabled(bool disable, bool dry_run = false);
+    // Shutdown and "Devolver todo": puts back the user's GameDVR values only if VegaFlow saved a copy (it turned it off).
+    bool RestoreGameDvrCapture(bool dry_run = false);
     bool QueryGameDvrDisabled();
     // Compatibility option for old DX9/DX10 games; never applied by the daemon on its own (E1.4).
     bool SetFullscreenOptimizationsDisabled(bool disable, bool dry_run = false);
@@ -139,6 +141,8 @@ public:
     bool SetApuPowerMode(ApuPowerMode mode, const ApuOptimizationPolicy& policy, bool dry_run = false);
     bool IsApuPowerModeApplied() const;
     bool SetApuLaptopPowerProfile(bool optimize, const ApuOptimizationPolicy& policy, bool dry_run = false);
+    // Shutdown: back to Balanced only if this object applied the profile; false when there was nothing to undo.
+    bool RestoreIfApplied(const ApuOptimizationPolicy& policy, bool dry_run = false);
     bool QueryApuPowerOptimized();
 
 private:

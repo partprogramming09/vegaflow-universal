@@ -26,7 +26,7 @@ The project includes the script [`scripts/build/build.ps1`](https://github.com/p
 powershell -ExecutionPolicy Bypass -File .\scripts\build\build.ps1
 
 # Build and run the C++ suite right away (the last recorded run, 2026-11-19, printed
-# `TEST RESULTS: 358 PASSED, 0 FAILED`; the number grows with each new test, so don't copy it from here):
+# `TEST RESULTS: 391 PASSED, 0 FAILED`; the number grows with each new test, so don't copy it from here):
 powershell -ExecutionPolicy Bypass -File .\scripts\build\build.ps1 -RunTests
 ```
 
@@ -74,7 +74,7 @@ Everything in `src/` except `src/app/` (the daemon's entry points). With Git Bas
 COMMON="src/windows/*.cpp src/detect/*.cpp src/session/*.cpp src/optimize/*.cpp src/optimize/graphics/*.cpp src/optimize/steam/*.cpp src/ui/*.cpp"
 FLAGS="-std=c++20 -O2 -Wall -Wextra -static -static-libgcc -static-libstdc++ -Isrc"
 RUST=rust/vegaflow-core/target/x86_64-pc-windows-gnu/release/libvegaflow_core.a
-LIBS="-lntdll -ldxgi -lpdh -ladvapi32 -lpsapi -luser32 -lole32 -lgdi32 -lshell32 -ldwmapi -lws2_32 -luserenv -lbcrypt -lsynchronization"
+LIBS="-lntdll -ldxgi -lpdh -ladvapi32 -lpsapi -luser32 -lole32 -lgdi32 -lshell32 -ldwmapi -lws2_32 -luserenv -lbcrypt -lcfgmgr32 -lsynchronization"
 ```
 
 #### Build the daemon (`vegaflow_daemon.exe`):
@@ -100,7 +100,7 @@ Every change to the repository must be checked by running `build/vegaflow_tests.
 The suite prints one `[PASS]` or `[FAIL]` line per test and ends with a summary. The last line should read as follows (last recorded run, 2026-11-19):
 
 ```
-TEST RESULTS: 358 PASSED, 0 FAILED
+TEST RESULTS: 391 PASSED, 0 FAILED
 ```
 
 Where each test lives:

@@ -58,7 +58,7 @@ public:
     void QueryLiveMemory(uint64_t& out_local_vram_budget_bytes, uint64_t& out_local_vram_usage_bytes, bool& out_vram_valid) override {
         live_mem_ = mem_.SampleTelemetry();
         out_local_vram_budget_bytes = live_mem_.vram.local_budget_bytes;
-        out_local_vram_usage_bytes = live_mem_.vram.local_usage_bytes;
+        out_local_vram_usage_bytes = vegaflow::GpuUsageBytes(live_mem_.vram);
         out_vram_valid = live_mem_.vram.valid;
     }
 
@@ -157,7 +157,8 @@ void RunSingleIteration(
     HWND& active_game_hwnd,
     std::wstring* active_game_path,
     uint32_t* out_noisy_bg_count,
-    std::function<void(const std::string&)>* audit_cb) {
+    std::function<void(const std::string&)>* audit_cb,
+    bool check_adapters) {
 
     mem_mgr.SetTargetLuid(hw.primary_gpu.luid);
     vegaflow::WindowsDeviceProbe device_probe;
@@ -180,7 +181,7 @@ void RunSingleIteration(
         }
     };
 
-    vegaflow::session::RunGameSessionCycle(config, device_probe, env, hw, state, out_noisy_bg_count, emit_audit);
+    vegaflow::session::RunGameSessionCycle(config, device_probe, env, hw, state, out_noisy_bg_count, emit_audit, check_adapters);
     // The cycle may have refreshed the hardware profile (eGPU plugged in or out): follow its GPU from the next sample on.
     mem_mgr.SetTargetLuid(hw.primary_gpu.luid);
 

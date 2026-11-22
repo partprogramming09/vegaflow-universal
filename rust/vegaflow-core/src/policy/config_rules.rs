@@ -8,14 +8,21 @@ pub struct NumberRule {
     pub min: u64,
     pub max: u64,
     pub default: u64,
+    /// E2.7: the daemon reads a new value while it runs. False: it is read once at start (Configuración says "restart").
+    pub applies_live: bool,
 }
 
-pub const POLL_INTERVAL_MS: NumberRule = NumberRule { key: "poll_interval_ms", in_memory: false, min: 250, max: 60_000, default: 1500 };
-pub const MIN_FREE_RAM_MB: NumberRule = NumberRule { key: "min_free_ram_mb", in_memory: true, min: 128, max: 1_048_576, default: 1200 };
-pub const MIN_STANDBY_MB: NumberRule = NumberRule { key: "min_standby_mb", in_memory: true, min: 128, max: 1_048_576, default: 1500 };
-pub const COOLDOWN_SECONDS: NumberRule = NumberRule { key: "cooldown_seconds", in_memory: true, min: 10, max: 3600, default: 90 };
+// poll_interval_ms: the timer is set once (daemon_loop.cpp); memory.*: main.cpp copies it to the memory manager at start.
+pub const POLL_INTERVAL_MS: NumberRule =
+    NumberRule { key: "poll_interval_ms", in_memory: false, min: 250, max: 60_000, default: 1500, applies_live: false };
+pub const MIN_FREE_RAM_MB: NumberRule =
+    NumberRule { key: "min_free_ram_mb", in_memory: true, min: 128, max: 1_048_576, default: 1200, applies_live: false };
+pub const MIN_STANDBY_MB: NumberRule =
+    NumberRule { key: "min_standby_mb", in_memory: true, min: 128, max: 1_048_576, default: 1500, applies_live: false };
+pub const COOLDOWN_SECONDS: NumberRule =
+    NumberRule { key: "cooldown_seconds", in_memory: true, min: 10, max: 3600, default: 90, applies_live: false };
 pub const MAX_GAME_DISK_READ_MB_S: NumberRule =
-    NumberRule { key: "max_game_disk_read_mb_s", in_memory: true, min: 1, max: 100_000, default: 15 };
+    NumberRule { key: "max_game_disk_read_mb_s", in_memory: true, min: 1, max: 100_000, default: 15, applies_live: false };
 
 /// Most program names accepted in `custom_game_exes`.
 pub const MAX_GAME_EXES: usize = 1024;
@@ -95,6 +102,13 @@ mod tests {
             &MAX_GAME_DISK_READ_MB_S]
         {
             assert!(r.min > 0 && r.min <= r.default && r.default <= r.max, "{}", r.key);
+        }
+    }
+
+    #[test]
+    fn every_number_read_once_at_start_says_so() {
+        for r in [&POLL_INTERVAL_MS, &MIN_FREE_RAM_MB, &MIN_STANDBY_MB, &COOLDOWN_SECONDS, &MAX_GAME_DISK_READ_MB_S] {
+            assert!(!r.applies_live, "{}", r.key);
         }
     }
 

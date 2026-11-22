@@ -23,6 +23,10 @@
 #include "bridge/rust_bridge.h"
 #include "session/system_info.hpp"
 #include "session/config_screen.hpp"
+#include "session/doctor.hpp"
+#include "session/welcome.hpp"
+#include "windows/config_location.hpp"
+#include "ui/app_identity.hpp"
 #include "session/history_screen.hpp"
 #include "session/programs_screen.hpp"
 #include "session/restore.hpp"
@@ -219,7 +223,7 @@ int RunGuiMode(
         data.free_ram_mb = mem_sample.free_and_zero_bytes / (1024 * 1024);
         data.standby_ram_mb = mem_sample.standby_bytes / (1024 * 1024);
         data.modified_ram_mb = mem_sample.modified_bytes / (1024 * 1024);
-        data.vram_local_used_mb = mem_sample.vram.local_usage_bytes / (1024 * 1024);
+        data.vram_local_used_mb = GpuUsageBytes(mem_sample.vram) / (1024 * 1024);
         data.vram_local_budget_mb = mem_sample.vram.local_budget_bytes / (1024 * 1024);
 
         data.last_purge_before_free_mb = last_purge_before_free_mb;
@@ -361,6 +365,12 @@ int RunGuiMode(
 
     callbacks.on_PollConfig = [&]() -> session::ConfigScreenModel { return session::BuildConfigScreen(config); };
 
+    // E2.7: the welcome mark sits next to config.json; the diagnosis is what --doctor prints, read with this account's rights.
+    const std::wstring welcome_mark = std::filesystem::path(ConfigFilePath()).replace_filename(L"welcome.seen").wstring();
+    callbacks.on_ShouldShowWelcome = [&]() { return session::ShouldShowWelcome(file_system, welcome_mark); };
+    callbacks.on_MarkWelcomeSeen = [&]() { session::MarkWelcomeSeen(file_system, welcome_mark); };
+    callbacks.on_RunDoctor = [&]() { return session::ReadDoctorReport(ui::kVersion).text; };
+
     // Configuración and Programas edits live in session/config_actions: `config` follows only when config.json was written.
     session::ConfigActions config_actions(config, config_store, cached_steam_games, [&](const std::string& line) { AddAuditLog(line); });
     callbacks.on_SetConfigNumber = [&](const std::string& id, const std::string& text) { return say(config_actions.SetNumber(id, text)); };
@@ -435,10 +445,8 @@ int RunGuiMode(
         }
         cpu_orchestrator.RestoreAll(false);
         gfx.KernelScheduler().SetDynamicPrioritySeparation(0x02, false);
-        if (gfx.PowerMode() && gfx.PowerMode()->IsApuPowerModeApplied()) {
-            gfx.PowerMode()->SetApuLaptopPowerProfile(false, policy, false);
-        }
-        gfx.Display().SetGameDvrCaptureDisabled(false, false);
+        if (gfx.PowerMode()) gfx.PowerMode()->RestoreIfApplied(policy, false);
+        gfx.Display().RestoreGameDvrCapture(false);
         gfx.RestoreAllRegistryBackups();
     }
     if (g_single_instance_mutex) {

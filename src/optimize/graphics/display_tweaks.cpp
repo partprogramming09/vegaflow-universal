@@ -87,6 +87,14 @@ bool DisplayTweaks::SetGameDvrCaptureDisabled(bool disable, bool dry_run) {
     return success;
 }
 
+bool DisplayTweaks::RestoreGameDvrCapture(bool dry_run) {
+    if (dry_run) return true;
+    // No copy means VegaFlow never turned it off: the user's value stays as it is.
+    reg_.RestoreBackedUpValue(RegHive::CurrentUser, kGameConfigStorePath, L"GameDVR_Enabled");
+    reg_.RestoreBackedUpValue(RegHive::CurrentUser, kGameDvrPath, L"AppCaptureEnabled");
+    return true;
+}
+
 bool DisplayTweaks::QueryGameDvrDisabled() {
     RegValue val;
     if (reg_.ReadValue(RegHive::CurrentUser, kGameConfigStorePath, L"GameDVR_Enabled", val) &&

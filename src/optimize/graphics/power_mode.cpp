@@ -123,6 +123,11 @@ bool PowerModeTweaks::SetApuLaptopPowerProfile(bool optimize, const ApuOptimizat
     return SetApuPowerMode(optimize ? ApuPowerMode::GpuPrioritySustained : ApuPowerMode::Balanced, policy, dry_run);
 }
 
+bool PowerModeTweaks::RestoreIfApplied(const ApuOptimizationPolicy& policy, bool dry_run) {
+    if (!IsApuPowerModeApplied()) return false;
+    return SetApuLaptopPowerProfile(false, policy, dry_run);
+}
+
 bool PowerModeTweaks::QueryApuPowerOptimized() {
     return power_.QueryApuPowerOptimized();
 }

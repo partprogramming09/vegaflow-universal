@@ -106,6 +106,12 @@ struct RestoreReport {
     std::vector<RestoreItemFailure> failures;
 };
 
+// Enabling memory compression while MemoryCompression entries are open: true when it lands on the state the oldest open
+// entry saw, so the entries are closed. Otherwise they stay open and keep that original for the revert.
+inline bool EnablingClosesMemoryCompressionEntries(bool enabling, bool oldest_orig_enabled) {
+    return enabling && oldest_orig_enabled;
+}
+
 class ChangeJournal {
 public:
     virtual ~ChangeJournal() = default;

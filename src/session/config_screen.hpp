@@ -21,6 +21,7 @@ struct ConfigRow {
     std::string unit;  // Number: "segundos", "MB", "MB/s"
     bool on = false;   // Toggle
     std::string chip;  // "No recomendado" or empty
+    bool applies_live = true; // E2.7: false when the daemon reads it only at start (policy/config_rules.rs applies_live)
 };
 
 struct ConfigGroup {
