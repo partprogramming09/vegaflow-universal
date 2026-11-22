@@ -8,8 +8,8 @@
 
 namespace vegaflow::session {
 
-bool CanAskPerson(StdinKind kind) {
-    return kind == StdinKind::VisibleConsole;
+bool CanAskPerson(StdinKind kind, bool once_run) {
+    return kind == StdinKind::VisibleConsole && !once_run;
 }
 
 bool IsAffirmative(std::string s, bool empty_means_yes) {

@@ -26,8 +26,9 @@ std::optional<std::string> ReadLineWithDeadline(KeyInput& input, const Clock& cl
                                                 const std::string& prompt, unsigned timeout_ms);
 
 // True only for a visible console: a hidden one (scheduled task, Start-Process -WindowStyle Hidden), a pipe, a file or
-// no stdin never has anyone typing, so asking there would only wait.
-bool CanAskPerson(StdinKind kind);
+// no stdin never has anyone typing, so asking there would only wait. --once (once_run) is one non-interactive pass
+// and never asks, even on a visible console.
+bool CanAskPerson(StdinKind kind, bool once_run = false);
 
 // Yes/no reading of a typed line ("s", "si", "sí", "y", "yes", any case); an empty line is empty_means_yes.
 bool IsAffirmative(std::string answer, bool empty_means_yes);

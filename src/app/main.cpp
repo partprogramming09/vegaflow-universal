@@ -44,8 +44,8 @@ LONG WINAPI VegaFlowCrashHandler(EXCEPTION_POINTERS* /*ep*/) {
 }
 
 // A startup question: nullopt when nobody can answer (hidden console, pipe, file) or nobody did in time, so an unattended start never waits.
-std::optional<std::string> AskPerson(const std::string& prompt) {
-    if (!vegaflow::session::CanAskPerson(vegaflow::ClassifyStdin())) return std::nullopt;
+std::optional<std::string> AskPerson(const std::string& prompt, bool once_run) {
+    if (!vegaflow::session::CanAskPerson(vegaflow::ClassifyStdin(), once_run)) return std::nullopt;
     vegaflow::ConsoleKeyInput keys;
     auto answer = vegaflow::session::ReadLineWithDeadline(keys, vegaflow::SteadyClock::Instance(), std::cout, prompt, vegaflow::session::kStartupPromptTimeoutMs);
     if (!answer) std::cout << "[INFO] Sin respuesta a tiempo: no se cambia nada.\n";
@@ -154,7 +154,7 @@ int main(int argc, char* argv[]) {
             }
         } else {
             if (vegaflow::session::ShouldRevertPending(
-                    AskPerson("¿Devolver los cambios pendientes a como estaban? [S/n] (30 s): "))) {
+                    AskPerson("¿Devolver los cambios pendientes a como estaban? [S/n] (30 s): ", opts.once_flag))) {
                 auto rep = vegaflow::session::RestoreAllRecordedChanges(journal, system_undo, opts.dry_run_flag);
                 WindowsRegistryPort().RestoreAllBackups();
                 std::cout << "[Restore] " << rep.summary_message << "\n";
@@ -187,7 +187,7 @@ int main(int argc, char* argv[]) {
             } else if (!opts.once_flag) {
                 // No answer leaves the journal unmarked: the next attended start offers it again.
                 if (const auto accepted = vegaflow::session::RestorePointAnswer(AskPerson(
-                        "¿Crear un punto de restauración de Windows antes del primer cambio del registro? [s/N] (30 s): "))) {
+                        "¿Crear un punto de restauración de Windows antes del primer cambio del registro? [s/N] (30 s): ", opts.once_flag))) {
                     std::string rp_msg;
                     vegaflow::session::ExecuteRestorePointOffer(
                         journal, system_undo, *accepted,

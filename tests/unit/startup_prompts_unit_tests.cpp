@@ -84,6 +84,8 @@ void Test136() {
     // a pipe, a file or no stdin at all never answers.
     const bool who = s::CanAskPerson(K::VisibleConsole) && !s::CanAskPerson(K::HiddenConsole) &&
                      !s::CanAskPerson(K::Pipe) && !s::CanAskPerson(K::File) && !s::CanAskPerson(K::None);
+    // --once is a single non-interactive pass: it never asks, not even on a visible console.
+    const bool once_never_asks = !s::CanAskPerson(K::VisibleConsole, true) && s::CanAskPerson(K::VisibleConsole, false);
 
     // Revert pending changes [S/n]: no answer never reverts; an answered empty line keeps today's "yes".
     const bool revert = !s::ShouldRevertPending(std::nullopt) && s::ShouldRevertPending(std::string("")) &&
@@ -97,7 +99,7 @@ void Test136() {
                     s::RestorePointAnswer(std::string("yes")) == std::optional<bool>(true) &&
                     s::RestorePointAnswer(std::string("Si")) == std::optional<bool>(true);
 
-    RecordResult(who && revert && rp, "Test 136: startup questions ask only a visible console; no answer is the safe default",
+    RecordResult(who && once_never_asks && revert && rp, "Test 136: startup questions ask only a visible console; no answer is the safe default",
                  std::string("Who=") + (who ? "1" : "0") + ", Revert=" + (revert ? "1" : "0") + ", RestorePoint=" + (rp ? "1" : "0"));
 }
 
