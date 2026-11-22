@@ -107,7 +107,7 @@ std::optional<int> ParseCommandLine(int argc, char* argv[], CliOptions& opts) {
             std::cout << "  --mem-compression-on     Enable Windows kernel Memory Compression.\n";
             std::cout << "  --apu-gpu-priority       Activate APU thermal & power profile with sustained GPU priority (CPU ceiling from the tier policy).\n";
             std::cout << "  --apu-balanced           Restore standard Windows balanced APU power profile.\n";
-            std::cout << "  --vram-override          Override AMD VRAM reporting to 4096 MB in DXGI and AMD driver.\n";
+            std::cout << "  --vram-override          Override AMD VRAM reporting to the pool of this machine's tier (\"Safe UMA VRAM\" in --status, 1536-8192 MB) in DXGI and the AMD driver.\n";
             std::cout << "  --vram-restore           Put back the AMD VRAM reporting VegaFlow saved (nothing to put back: no change).\n";
             std::cout << "  --restore-registry       Restore all pending journal entries and VegaFlow registry backups.\n";
             std::cout << "  --recover                Alias for --restore-registry (recovers pending changes after crash).\n";
@@ -115,7 +115,7 @@ std::optional<int> ParseCommandLine(int argc, char* argv[], CliOptions& opts) {
             std::cout << "  --dxvk-install <path>    Deploy DXVK (DirectX 11 to Vulkan with async GPL) to target game folder.\n";
             std::cout << "  --dxvk-remove <path>     Remove DXVK and restore original DirectX 11 runtime.\n";
             std::cout << "  --monitor, -m            Real-time console dashboard displaying live RAM and VRAM telemetry.\n";
-            std::cout << "  --observe                With --gui: no automatic changes and no restore-point offer (safe mode on demand).\n";
+            std::cout << "  --observe                In the daemon, --monitor and --gui: no automatic changes and no restore-point offer (safe mode on demand).\n";
             std::cout << "  --gui, -g                Launch native zero-overhead Win32/GDI dashboard with system tray support.\n";
             std::cout << "  --system-info            Output complete hardware, APU UMA, RAM topology, and OS specs in JSON format.\n";
             std::cout << "  --version                Print the version and exit.\n";
