@@ -16,7 +16,7 @@ A game on an APU shares its chip, and its RAM, with Windows and with every backg
 
 - **CPU:** move background programs onto a few threads (a thread is one of the chip's logical processors).
 - **Memory:** empty the standby list (memory that Windows keeps as a file cache) when free RAM is short.
-- **Files and settings:** install DXVK, set a few Windows, driver and engine options, and undo them later.
+- **Files and settings:** remove a DXVK that an earlier version installed, set a few Windows, driver and engine options, and undo them later.
 
 Every lever must be reversible. The project rules in [CLAUDE.md](https://github.com/partprogramming09/vegaflow-universal/blob/main/CLAUDE.md) require a `dry_run` parameter on every function that changes the system, a `.vegaflow.bak` or `.original.bak` copy before a config or DLL is written, and a registry backup under `SOFTWARE\VegaFlow\RegBackup`.
 

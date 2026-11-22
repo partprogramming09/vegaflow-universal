@@ -116,10 +116,10 @@ GamesScreenModel BuildGamesScreen(const std::vector<SteamGameEntry>& games, cons
         }
         if (!r.excluded && !g.primary_exe_path.empty()) r.changes.push_back(RegistryChange(g.primary_exe_path));
         r.dxvk_installed = g.dxvk_installed;
-        // Installed DXVK can always be removed, also for an excluded game: that is the game that may have gone wrong.
-        r.can_dxvk = !g.has_anticheat && !g.primary_exe_path.empty() && (g.dxvk_installed || !r.excluded);
+        // F2.6: only removal is offered, for a DXVK an earlier version installed; also for an excluded game (the one that may have gone wrong).
+        r.can_dxvk = !g.has_anticheat && !g.primary_exe_path.empty() && g.dxvk_installed;
         if (r.can_dxvk) {
-            r.dxvk_hint = "DXVK traduce DirectX a Vulkan. Instalarlo copia d3d11.dll y dxgi.dll junto al programa del juego y escribe dxvk.conf; de lo que ya hubiera guarda una copia (.original.bak en las DLL, .vegaflow.bak en dxvk.conf). Quitarlo retira DXVK y devuelve esos archivos.";
+            r.dxvk_hint = "Una versión anterior de VegaFlow instaló DXVK en este juego (d3d11.dll, dxgi.dll y dxvk.conf junto al programa). Quitarlo retira DXVK y devuelve los archivos que había antes. VegaFlow ya no lo instala.";
         }
         m.rows.push_back(std::move(r));
     }

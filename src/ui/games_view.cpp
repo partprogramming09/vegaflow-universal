@@ -104,8 +104,7 @@ const session::GameRow* OpenRow(const GuiWindowState* st) {
 }
 
 const wchar_t* ActionText(int id);
-const wchar_t* ActionLabel(int id, const session::GameRow* g) {
-    if (id == kGamesDxvkId && g && g->dxvk_installed) return text::kGamesDxvkRemove;
+const wchar_t* ActionLabel(int id, const session::GameRow* /*g*/) {
     return ActionText(id);
 }
 
@@ -115,7 +114,7 @@ const wchar_t* ActionText(int id) {
         case kGamesRestoreId: return text::kGamesRestore;
         case kGamesBadId: return text::kGamesBad;
         case kGamesIncludeId: return text::kGamesInclude;
-        case kGamesDxvkId: return text::kGamesDxvkInstall;
+        case kGamesDxvkId: return text::kGamesDxvkRemove;
         default: return text::kGamesRescan;
     }
 }

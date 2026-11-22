@@ -131,15 +131,15 @@ void Test69() {
     RecordResult(all.find("mejora") == std::string::npos && all.find("FPS") == std::string::npos && all.find("más rápido") == std::string::npos,
                  "Test 69.7: the Juegos texts promise no gain (no FPS, no 'mejora', no 'más rápido')");
 
-    // 8. DXVK: offered for any game that may be changed (not anti-cheat, not excluded) and shows whether it is installed.
+    // 8. DXVK (F2.6): VegaFlow no longer installs it, so only a game that already has it (and no anti-cheat) offers the removal.
     std::vector<SteamGameEntry> dx = games;
     dx[3].dxvk_installed = true; // index 3 is Octopath (app id 1)
     dx[0].dxvk_installed = true; // index 0 is Stardew (app id 4), excluded below: it can still be removed
     const auto md = gs::BuildGamesScreen(dx, policy, 4096, {L"Stardew.exe"});
     // The text names dxvk.conf, which the writer replaces (with a copy of the user's).
     RecordResult(Find(md, 1)->dxvk_hint.find("dxvk.conf") != std::string::npos && Find(md, 1)->can_dxvk && Find(md, 1)->dxvk_installed && !Find(md, 1)->dxvk_hint.empty() && !Find(md, 3)->can_dxvk && Find(md, 4)->can_dxvk && Find(md, 4)->excluded &&
-                     Find(md, 2)->can_dxvk && !Find(md, 2)->dxvk_installed,
-                 "Test 69.8: DXVK is offered unless the game is anti-cheat (or excluded and without it), and shows whether it is installed");
+                     !Find(md, 2)->can_dxvk && !Find(md, 2)->dxvk_installed,
+                 "Test 69.8: DXVK removal is offered only for a game that has it installed and no anti-cheat; nothing offers an install");
 }
 
 } // namespace vftest

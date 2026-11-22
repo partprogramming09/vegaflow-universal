@@ -29,7 +29,6 @@ struct CliOptions {
     bool monitor_flag = false;
     bool gui_flag = false;
     bool system_info_flag = false;
-    std::string dxvk_install_path;
     std::string dxvk_remove_path;
 };
 

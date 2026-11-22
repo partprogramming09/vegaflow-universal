@@ -29,7 +29,7 @@
 namespace vegaflow::app {
 
 std::optional<int> ParseCommandLine(int argc, char* argv[], CliOptions& opts) {
-    // A path value must be there and must not be the next option (--dxvk-install --dry-run lost the simulation).
+    // A path value must be there and must not be the next option (--dxvk-remove --dry-run lost the simulation).
     auto has_value = [&](int i) { return i + 1 < argc && argv[i + 1][0] != '\0' && argv[i + 1][0] != '-'; };
     bool doctor = false, doctor_json = false; // E2.5
     for (int i = 1; i < argc; ++i) {
@@ -76,8 +76,6 @@ std::optional<int> ParseCommandLine(int argc, char* argv[], CliOptions& opts) {
             opts.recover_flag = true;
         } else if (arg == "--create-restore-point") {
             opts.create_restore_point_flag = true;
-        } else if (arg == "--dxvk-install" && has_value(i)) {
-            opts.dxvk_install_path = argv[++i];
         } else if (arg == "--dxvk-remove" && has_value(i)) {
             opts.dxvk_remove_path = argv[++i];
         } else if (arg == "--monitor" || arg == "-m") {
@@ -112,8 +110,7 @@ std::optional<int> ParseCommandLine(int argc, char* argv[], CliOptions& opts) {
             std::cout << "  --restore-registry       Restore all pending journal entries and VegaFlow registry backups.\n";
             std::cout << "  --recover                Alias for --restore-registry (recovers pending changes after crash).\n";
             std::cout << "  --create-restore-point   Attempt to create a Windows System Restore Point now.\n";
-            std::cout << "  --dxvk-install <path>    Deploy DXVK (DirectX 11 to Vulkan with async GPL) to target game folder.\n";
-            std::cout << "  --dxvk-remove <path>     Remove DXVK and restore original DirectX 11 runtime.\n";
+            std::cout << "  --dxvk-remove <path>     Remove DXVK (installed by an earlier version) and restore the original DirectX 11 runtime.\n";
             std::cout << "  --monitor, -m            Real-time console dashboard displaying live RAM and VRAM telemetry.\n";
             std::cout << "  --observe                In the daemon, --monitor and --gui: no automatic changes and no restore-point offer (safe mode on demand).\n";
             std::cout << "  --gui, -g                Launch native zero-overhead Win32/GDI dashboard with system tray support.\n";
@@ -182,7 +179,7 @@ std::optional<int> RunOneShotCommand(const CliOptions& opts, int argc, char* arg
                 && !opts.shader_cache_force_flag && !opts.shader_cache_default_flag && !opts.mem_compression_off_flag && !opts.mem_compression_on_flag
                 && !opts.apu_gpu_priority_flag && !opts.apu_balanced_flag && !opts.vram_override_flag && !opts.vram_restore_flag && !opts.restore_registry_flag
                 && !opts.recover_flag && !opts.create_restore_point_flag && !opts.once_flag && !opts.dry_run_flag && !opts.observe_flag
-                && opts.dxvk_install_path.empty() && opts.dxvk_remove_path.empty()) {
+                && opts.dxvk_remove_path.empty()) {
                 return 0;
             }
         }
@@ -310,14 +307,6 @@ std::optional<int> RunOneShotCommand(const CliOptions& opts, int argc, char* arg
             std::cout << "[Restore] Se devolvieron " << reg_rev << " de " << reg_tot << ".\n";
         }
         return (rep.all_succeeded && reg_ok && !journal_corrupt) ? 0 : 1;
-    }
-
-    if (!opts.dxvk_install_path.empty()) {
-        std::wstring wpath = Utf8ToWide(opts.dxvk_install_path);
-        std::string msg;
-        bool ok = vegaflow::DxvkManager(file_system).DeployDxvk(wpath, detected_policy(), false, true, opts.dry_run_flag, &msg);
-        std::cout << "[DXVK] " << msg << "\n";
-        return ok ? 0 : 1;
     }
 
     if (!opts.dxvk_remove_path.empty()) {

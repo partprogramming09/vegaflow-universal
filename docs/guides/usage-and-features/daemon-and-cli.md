@@ -24,8 +24,7 @@ VegaFlow can run as a background service, as a console tool, or as a native desk
 | `--mpo-restore` | Restores Multi-Plane Overlay (MPO) to its factory value |
 | `--shader-cache-force` | Forces the AMD driver's on-disk shader cache |
 | `--mem-compression-off` | Disables Windows memory compression |
-| `--dxvk-install <path>` | Deploys DXVK-GPLAsync into the game's folder |
-| `--dxvk-remove <path>` | Removes DXVK and restores the DirectX 11 backend |
+| `--dxvk-remove <path>` | Removes a DXVK installed by an earlier version and restores the DirectX 11 backend (VegaFlow no longer installs DXVK: no gain was measured) |
 | `--apu-gpu-priority` | Activates the thermal and power profile with GPU priority (no STAPM frequency cap) |
 | `--apu-balanced` | Restores the standard balanced power profile |
 | `--dry-run, -d` | Simulates evaluation cycles without changing the system |
@@ -152,12 +151,7 @@ Findings:
 .\build\vegaflow_daemon.exe --monitor
 ```
 
-##### 5. Installing DXVK by hand in a game without anti-cheat:
-```powershell
-.\build\vegaflow_daemon.exe --dxvk-install "D:\SteamLibrary\steamapps\common\MyGame\Binaries\Win64\Game.exe"
-```
-
-##### 6. Reverting and removing DXVK:
+##### 5. Removing a DXVK that an earlier version installed:
 ```powershell
 .\build\vegaflow_daemon.exe --dxvk-remove "D:\SteamLibrary\steamapps\common\MyGame\Binaries\Win64\Game.exe"
 ```

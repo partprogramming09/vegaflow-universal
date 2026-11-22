@@ -93,14 +93,17 @@ Check 'una opción desconocida se rechaza (código 2) y no sigue' ($r.Code -eq 2
 # --dry-run with --monitor must simulate, never run the real monitor cycle.
 $r = Invoke-Exe @('--dry-run', '--monitor', '--once')
 Check '--dry-run --monitor solo simula' ($r.Code -eq 0 -and $r.Output -match 'DRY-RUN SIMULATION' -and $r.Output -notmatch 'LIVE TELEMETRY DASHBOARD') $r.Output
-# An option that needs a path must not take the next option as that path (--dxvk-install --dry-run lost the simulation).
-foreach ($opt in '--dxvk-install', '--dxvk-remove') {
+# An option that needs a path must not take the next option as that path (--dxvk-remove --dry-run lost the simulation).
+foreach ($opt in '--dxvk-remove') {
     $r = Invoke-Exe @('--dry-run', $opt, '--version')
     Check "$opt sin ruta se rechaza (código 2)" ($r.Code -eq 2 -and $r.Output -notmatch '\[DXVK\]') "código $($r.Code): $($r.Output)"
 }
 # An empty path is a missing one. '""' is how Windows PowerShell 5.1 hands an empty argument to a program.
-$r = Invoke-Exe @('--dry-run', '--dxvk-install', '""')
-Check '--dxvk-install con ruta vacía se rechaza (código 2)' ($r.Code -eq 2 -and $r.Output -notmatch '\[DXVK\]') "código $($r.Code): $($r.Output)"
+$r = Invoke-Exe @('--dry-run', '--dxvk-remove', '""')
+Check '--dxvk-remove con ruta vacía se rechaza (código 2)' ($r.Code -eq 2 -and $r.Output -notmatch '\[DXVK\]') "código $($r.Code): $($r.Output)"
+# F2.6: the install option is gone; an old script that still passes it gets the unknown-option error, not a deploy.
+$r = Invoke-Exe @('--dry-run', '--dxvk-install', 'C:\x')
+Check '--dxvk-install ya no existe (código 2, no instala)' ($r.Code -eq 2 -and $r.Output -notmatch '\[DXVK\]') "código $($r.Code): $($r.Output)"
 # A dry run isolates nothing: it must say what it would do.
 $r = Invoke-Exe @('--dry-run', '--once')
 # With a game in the foreground the dry run takes its other branch ("Background Isolated Sets"), so accept either wording.

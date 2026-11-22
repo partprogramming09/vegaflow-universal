@@ -104,20 +104,14 @@ std::string GameActions::Include(uint32_t app_id) {
     return Said("Juego incluido de nuevo.");
 }
 
+// F2.6: VegaFlow no longer installs DXVK (no measured gain); this only takes out what an earlier version put there.
 std::string GameActions::ToggleDxvk(uint32_t app_id) {
     SteamGameEntry* g = Find(app_id);
     if (!g) return NotFound(app_id);
     if (g->has_anticheat) return Said("Este juego usa anti-cheat: VegaFlow no cambia ni quita archivos en su carpeta.");
-    // Removing is the way back, so an excluded game may still do it (anti-cheat was refused above); installing is not.
-    if (!g->dxvk_installed && IsExcludedGame(d_.config.process_policy.excluded_game_exes, *g)) {
-        return Said("Este juego está en tu lista de excluidos: VegaFlow no instala nada en él.");
-    }
+    if (!g->dxvk_installed) return Said("VegaFlow ya no instala DXVK: no hay nada que quitar en este juego.");
     std::string msg;
-    if (g->dxvk_installed) {
-        if (d_.dxvk.RemoveDxvk(g->primary_exe_path, false, &msg)) g->dxvk_installed = false;
-    } else if (d_.dxvk.DeployDxvk(g->primary_exe_path, d_.policy, g->has_anticheat, true, false, &msg)) {
-        g->dxvk_installed = true;
-    }
+    if (d_.dxvk.RemoveDxvk(g->primary_exe_path, false, &msg)) g->dxvk_installed = false;
     return Said(msg);
 }
 

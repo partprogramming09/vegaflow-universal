@@ -128,7 +128,6 @@ inline constexpr const wchar_t* kGamesApply = L"Aplicar perfil";
 inline constexpr const wchar_t* kGamesRestore = L"Volver al archivo original";
 inline constexpr const wchar_t* kGamesBad = L"Me fue mal en este juego";
 inline constexpr const wchar_t* kGamesInclude = L"Volver a incluir";
-inline constexpr const wchar_t* kGamesDxvkInstall = L"Instalar DXVK";
 inline constexpr const wchar_t* kGamesDxvkRemove = L"Quitar DXVK";
 inline constexpr const wchar_t* kGamesFile = L"Archivo que cambia: ";
 inline constexpr const wchar_t* kGamesChanges = L"Lo que se escribe, línea por línea";
