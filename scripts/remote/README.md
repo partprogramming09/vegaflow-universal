@@ -11,10 +11,10 @@ Los trabajos corren en el **ejecutor de trabajos de WinBridge** (`docs/JOBS.md` 
 | Archivo | Dónde corre | Qué hace |
 | --- | --- | --- |
 | `winbridge-package/manifest.json` | laptop (paquete `vegaflow`) | Los trabajos permitidos: scripts, parámetros con su expresión regular, límite de tiempo, sesión 1 |
-| `jobs/*.ps1` | laptop | Los trabajos: `state`, `doctor`, `restore`, `daemon-start`, `daemon-stop`, `game`, `kill-game`, `bg-factors`, `gui`, `kill-gui`, `gui-keys`, `clip` (muestra el portapapeles solo si es el informe de VegaFlow), `gui-second` (segundo arranque con la GUI abierta), `package-test` (prueba del paquete con el zip y el script que deja `vfdev package-test` en `C:\ProgramData\VegaFlow\pkgtest`; comprueba su SHA-256 y guarda la salida entera en `pkgtest\out\package-test-<fecha>.txt`), `dpi` (`Percent=100/125/150/175/200` cambia la escala de pantalla y `Percent=original` devuelve la guardada) |
+| `jobs/*.ps1` | laptop | Los trabajos: `state`, `doctor`, `restore`, `daemon-start`, `daemon-stop`, `game`, `kill-game`, `bg-factors`, `gui`, `kill-gui`, `gui-keys`, `clip` (muestra el portapapeles solo si es el informe de VegaFlow), `gui-second` (segundo arranque con la GUI abierta), `package-test` (prueba del paquete con el zip y el script que deja `vfdev package-test` en `C:\ProgramData\VegaFlow\pkgtest`; comprueba su SHA-256 y guarda la salida entera en `pkgtest\out\package-test-<fecha>.txt`), `dpi` (`Percent=100/125/150/175/200` cambia la escala de pantalla y `Percent=original` devuelve la guardada), `octo` y `octo-close` (Octopath sin nadie delante: ver «Octopath sin intervención») |
 | `deploy_package.ps1` | laptop, administrador | Instala el paquete en el ejecutor de WinBridge y los archivos que usan las tareas `VegaFlow-*` |
 | `setup_capture.ps1` + `capture_dda.py` | laptop, administrador | Instala la herramienta del trabajo `screenshot`: copia el Python a `C:\ProgramData\VegaFlow\tools\capture\python`, crea el venv con `dxcam` (Desktop Duplication, versiones fijas) y deja `capture_dda.py` al lado. Todo en una carpeta solo de administradores, porque el trabajo corre elevado y un Python de usuario (uv, `%LOCALAPPDATA%`) lo puede escribir cualquiera. Se lleva a mano: `scp` de los dos archivos a `C:\dev\vf-pkg` y `powershell -File C:\dev\vf-pkg\setup_capture.ps1` por SSH de administrador |
-| `vfdev` | Mac | `run`, `submit`, `wait`, `status`, `cancel`, `busy`, `list` (a `winbridge jobs`), más `deploy`, `sync`, `build-test`, `package-test`, `cross-test`, `stats` |
+| `vfdev` | Mac | `run`, `submit`, `wait`, `status`, `cancel`, `busy`, `list` (a `winbridge jobs`), más `deploy`, `sync`, `build-test`, `package-test`, `cross-test`, `octo`, `stats` |
 | `vfstats.py` | Mac | Agrupa filas de resultados: n, media, mediana y rango |
 | `vfframes.py` | Mac | Compara dos condiciones con los CSV de cuadros de `bench.ps1`: cuadros agrupados, intervalo de confianza del 1% Low y veredicto con los umbrales del plan de pruebas |
 
@@ -52,6 +52,26 @@ scripts/remote/vfdev run pack Process=juego.exe Label=escena-condicion Captures=
 - Al menos 3 pasadas por condición, intercaladas, y reporta la mediana (`vfdev stats` la da).
 - Un trabajo a la vez y no usar el laptop mientras corre.
 
+## Octopath sin intervención (`octo`)
+
+```sh
+scripts/remote/vfdev octo Conditions=full,full,full Prefix=base Captures=2          # 3 lanzamientos con el preset: línea base
+scripts/remote/vfdev regress --make scripts/remote/baselines/x.json "escena" 'D/base-full-b01*.csv' 'D/base-full-b02*.csv' 'D/base-full-b03*.csv'
+scripts/remote/vfdev octo Conditions=factory,streaming,visual,async,full,full,async,visual,streaming,factory Prefix=fac   # ABBA por factor
+scripts/remote/vfdev octo Conditions=full Prefix=reg Captures=0 Warmup=0 Leave=1    # solo abrir y cargar; el juego queda abierto
+scripts/remote/vfdev run ab Api=d3d11 Process=Octopath_Traveler2-Win64-Shipping.exe Reps=3 Seconds=120 Warmup=1 Load=none LabelPrefix=reg
+scripts/remote/vfdev run octo-close                                                  # cierra el juego y devuelve Engine.ini
+```
+
+Cada condición es un lanzamiento (~7 min con `Warmup=1 Captures=1`): cierra el juego, escribe su `Engine.ini`, lo abre con `steam://rungameid/1971650` (por `explorer`, así corre como el usuario y no elevado; comprueba que el padre es `steam`), espera 45 s al título, pulsa Enter con esperas de 4, 4, 4 y 50 s, y comprueba la escena: captura `dda` no negra, juego en primer plano y 15-55 FPS en 15 s de PresentMon (título y menús van a 60). Antes de cada tecla mira que la pantalla no esté bloqueada (`LogonUI`) y que el juego esté en primer plano. Si algo no cuadra (ventana que no sale en 120 s, padre que no es Steam, pantalla bloqueada, captura negra, FPS fuera de rango) guarda `<Prefix>-bNN-fail.png`, cierra el juego, devuelve `Engine.ini` y sale con 1; no reintenta.
+
+- Condiciones (grupos del preset de `src/optimize/steam/engine_presets.cpp`, con los valores de este laptop): `factory` sin bloque `[SystemSettings]`; `streaming` = `r.ShaderPipelineCache.Enabled`, los 7 `r.Streaming.*` y `r.OneFrameThreadLag` (líneas 144 y 164-171); `visual` = los 18 recortes de calidad (172-189); `async` = `r.RDG.AsyncCompute` y `D3D12.AsyncCompute` (190-191); `full` = las 29; `keep` no toca el archivo.
+- El `Engine.ini` que encuentra se guarda en `C:\ProgramData\VegaFlow\octo\Engine.orig.ini`; `octo_close.ps1` lo devuelve, compara el SHA-256 y borra la copia. Se niega si esa copia ya trae `[SystemSettings]` (no sabría cuál es el de fábrica). Aun así, copia tú el `Engine.ini` fuera de la carpeta del juego antes de empezar.
+- Mide con el daemon apagado (se niega si está corriendo). Etiquetas: `<Prefix>-<cond>-bNN[cK]` cuentan; `wu-…` (calentamiento) y `chk-…` (comprobación) no, y no comparten prefijo con las que cuentan, así que `vfdev fetch <Prefix>` trae solo las buenas.
+- Capturas de verificación: `C:\ProgramData\VegaFlow\screens\<Prefix>-bNN-title.png`, `-loaded.png`; `vfdev octo` las trae a `build/octo/` (o `VFJOB_OCTO_OUT`).
+- **Si se cancela `octo` o se pasa de su límite**, el ejecutor mata su árbol de procesos y el `finally` no corre: `Engine.ini` queda con la última variante, la copia sigue en `C:\ProgramData\VegaFlow\octo` y el juego (hijo de Steam, no del trabajo) sigue abierto. Arréglalo con `vfdev run octo-close`.
+- SCSKiller: la línea de inicio dice si corre y si su `d3d11.dll` está en la carpeta del juego; cerrarlo es a mano (procedimiento autorizado en la memoria del proyecto).
+
 ## Seguridad
 
 - El ejecutor corre elevado en la sesión del escritorio. Solo ejecuta scripts del paquete instalado en la carpeta del ejecutor (solo administradores pueden escribirla) y comprueba su SHA-256; los parámetros se validan con una expresión regular y no pueden empezar por `-` ni llevar comillas.
@@ -72,6 +92,7 @@ scripts/remote/vfdev deploy
 ## Límites
 
 - Un trabajo a la vez (cola máxima de 20) y solo sesión 1: no hay trabajos de sesión 0.
+- Un daemon de `main` copiado a `C:\ProgramData\VegaFlow` sin `config\change_journal.vfj` se cuelga en su primer arranque por `VegaFlow-Start`: hace por consola la pregunta del punto de restauración (`src/app/main.cpp:214-216`) y la consola oculta de la tarea cuenta como interactiva. Detalle y cómo se siguió: `docs/measurements/2026-11-22-octopath-f2-4.md`.
 - Tras un reinicio hace falta iniciar sesión en el laptop; el inicio automático no funciona con la cuenta de Microsoft actual.
 - Solo `gui-keys` pulsa teclas (Tab, Enter, Esc, Espacio, flechas, Ctrl+1..8) y solo si la ventana en primer plano es la GUI de prueba; `{SPACE}` activa los botones owner-draw, Enter no. `gui` abre `--gui --observe` (sin cambios automáticos). Para ver la pantalla: `vfdev run screenshot Name=x` y `scp` del PNG. Usa Desktop Duplication (`method=dda`), que ve juegos a pantalla completa; el GDI de antes salía negro en esos casos y queda como respaldo (`method=gdi`). Sin `setup_capture.ps1` instalado, cae al respaldo.
 - El MCP `vfjob` ya no existe y se quitó de la configuración de Claude Code el 2026-11-05.
