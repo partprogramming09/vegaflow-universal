@@ -20,7 +20,7 @@ void Test120() {
     const bool dxgi_fallback = vegaflow::GpuUsageBytes(t) == 50 * kMb;
 
     vegaflow::VideoMemoryTelemetry empty;
-    const bool empty_zero = vegaflow::GpuUsageBytes(empty) == 0;
+    const bool empty_zero = vegaflow::GpuUsageBytes(empty) == 1;  // RED-RUN DEMO: deliberately wrong
 
     RecordResult(pdh_sum && dxgi_fallback && empty_zero, "Test 120: GPU usage is the PDH sum when valid, DXGI otherwise",
                  std::string("PdhSum=") + (pdh_sum ? "1" : "0") + ", DxgiFallback=" + (dxgi_fallback ? "1" : "0") +
