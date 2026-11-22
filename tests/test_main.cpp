@@ -187,6 +187,7 @@ int main() {
         {118, vftest::Test118},  // shutdown restores the power plan only if VegaFlow applied its profile
         {119, vftest::Test119},  // memory compression entries close only when the original state is reached
         {120, vftest::Test120},  // GPU usage is the PDH sum when valid, DXGI otherwise
+        {121, vftest::Test121},  // F1.1 restoring an absent value without access to its key stays pending
     };
     for (const auto& [number, run] : tests) {
         try {

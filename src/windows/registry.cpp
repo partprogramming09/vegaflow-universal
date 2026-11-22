@@ -284,8 +284,8 @@ bool RegRestoreRecord(int hive_of_backup, const std::wstring& record) {
             restored = (del == ERROR_SUCCESS || del == ERROR_FILE_NOT_FOUND);
         }
         RegCloseKey(target);
-    } else if (!present) {
-        restored = true;
+    } else if (!present && open == ERROR_FILE_NOT_FOUND) {
+        restored = true;  // the key is gone, so is the value; any other error (access denied) leaves it pending
     }
     if (restored) {
         RegDeleteKeyW(HkeyFromId(hive_of_backup), path.c_str());
