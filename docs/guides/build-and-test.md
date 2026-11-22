@@ -74,7 +74,7 @@ Everything in `src/` except `src/app/` (the daemon's entry points). With Git Bas
 COMMON="src/windows/*.cpp src/detect/*.cpp src/session/*.cpp src/optimize/*.cpp src/optimize/graphics/*.cpp src/optimize/steam/*.cpp src/ui/*.cpp"
 FLAGS="-std=c++20 -O2 -Wall -Wextra -static -static-libgcc -static-libstdc++ -Isrc"
 RUST=rust/vegaflow-core/target/x86_64-pc-windows-gnu/release/libvegaflow_core.a
-LIBS="-lntdll -ldxgi -lpdh -ladvapi32 -lpsapi -luser32 -lole32 -lgdi32 -lshell32 -ldwmapi -lws2_32 -luserenv -lbcrypt -lsynchronization"
+LIBS="-lntdll -ldxgi -lpdh -ladvapi32 -lpsapi -luser32 -lole32 -lgdi32 -lshell32 -ldwmapi -lws2_32 -luserenv -lbcrypt -lcfgmgr32 -lsynchronization"
 ```
 
 #### Build the daemon (`vegaflow_daemon.exe`):
