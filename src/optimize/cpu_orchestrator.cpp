@@ -264,6 +264,12 @@ CpuOptimizationResult CpuOrchestrator::ApplyOptimizations(
             modified_background_.end());
     }
 
+    // Forget refusals of processes that exited or whose pid was recycled.
+    refused_background_.erase(
+        std::remove_if(refused_background_.begin(), refused_background_.end(),
+            [&](const TrackedBackgroundProcess& e) { return !pc_->VerifyProcessIdentity(e.pid, e.creation_time); }),
+        refused_background_.end());
+
     // 3. Background classification enforcement (DoNotTouch is skipped, EcoOnly gets EcoQoS, Throttle gets full confinement)
     if (!background_targets.empty()) {
         static const std::vector<uint32_t> no_sets;
@@ -314,6 +320,14 @@ CpuOptimizationResult CpuOrchestrator::ApplyOptimizations(
                 modified_background_.erase(existing);
             }
 
+            const auto refused = std::find_if(refused_background_.begin(), refused_background_.end(),
+                [&](const TrackedBackgroundProcess& e) {
+                    return e.pid == target.pid && e.creation_time == eff_ct && e.action == target.action;
+                });
+            if (!dry_run && refused != refused_background_.end()) {
+                continue;
+            }
+
             uint64_t j_bg = 0;
             if (!dry_run) {
                 if (ChangeJournal* journal = GetActiveChangeJournal()) {
@@ -348,6 +362,8 @@ CpuOptimizationResult CpuOrchestrator::ApplyOptimizations(
             if (!dry_run) {
                 if (out.modified) {
                     modified_background_.push_back({target.pid, eff_ct, target.action});
+                } else if (eff_ct != 0) {
+                    refused_background_.push_back({target.pid, eff_ct, target.action});
                 }
                 if (j_bg != 0) {
                     if (ChangeJournal* journal = GetActiveChangeJournal()) {

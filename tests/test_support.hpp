@@ -146,5 +146,6 @@ void Test109();  // E2.5
 void Test110();  // E2.3 GPU line
 void Test111();  // E2.2
 void Test112();  // E2.6
+void Test113();  // refused background process journaled once
 
 } // namespace vftest

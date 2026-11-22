@@ -53,7 +53,7 @@ The program runs on Windows only. It is built with MinGW-w64 g++ 13+ and cargo w
 
 | Command | Where | Last real result |
 | --- | --- | --- |
-| `powershell -ExecutionPolicy Bypass -File .\scripts\build\build.ps1 -RunTests` | Windows | builds the daemon and runs the C++ suite: `TEST RESULTS: 357 PASSED, 0 FAILED` (2026-11-21) |
+| `powershell -ExecutionPolicy Bypass -File .\scripts\build\build.ps1 -RunTests` | Windows | builds the daemon and runs the C++ suite: `TEST RESULTS: 358 PASSED, 0 FAILED` (2026-11-21) |
 | `cargo test --manifest-path rust/vegaflow-core/Cargo.toml` | any OS | 270 passed, 0 failed (2026-11-21, macOS) |
 | `bash scripts/ci/check_layers.sh` | any OS | `[OK] layers respected (389 includes checked)` |
 | `pnpm install && pnpm docs:build` | any OS | builds this documentation as a site |
