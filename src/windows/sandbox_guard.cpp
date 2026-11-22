@@ -342,7 +342,8 @@ std::filesystem::path SteamGameRoot(const std::filesystem::path& dir_in) {
 // true = an anti-cheat file was found, or the walk broke off (long path, dead junction): refusing is the safe answer.
 bool DeepScanFindsAntiCheat(const std::filesystem::path& root) {
     std::error_code ec;
-    std::filesystem::recursive_directory_iterator it(root, std::filesystem::directory_options::skip_permission_denied, ec);
+    // No skip_permission_denied: a folder this process may not read cannot be proven free of anti-cheat.
+    std::filesystem::recursive_directory_iterator it(root, std::filesystem::directory_options::none, ec);
     if (ec) {
         // A folder that does not exist has nothing in it; any other failure to open it is unknown, so refuse.
         return ec != std::errc::no_such_file_or_directory && ec != std::errc::not_a_directory;
@@ -355,7 +356,7 @@ bool DeepScanFindsAntiCheat(const std::filesystem::path& root) {
         if (++visited > kMaxScanEntries) return true; // the unread part could hold the anti-cheat
         if (SandboxGuard::PathContainsAntiCheatSignature(it->path().filename().wstring())) return true;
     }
-    return false;
+    return static_cast<bool>(ec); // a failed increment leaves `it` at the end: that is a cut walk, not an empty one
 }
 } // namespace
 
@@ -389,8 +390,7 @@ bool SandboxGuard::DirectoryContainsAntiCheat(const std::filesystem::path& dir) 
         // increment(ec) instead of ++ (which throws). A listing cut by an error cannot prove "no anti-cheat here",
         // so it answers true (blocked), never false.
         std::error_code list_ec;
-        std::filesystem::directory_iterator it(
-            current, std::filesystem::directory_options::skip_permission_denied, list_ec);
+        std::filesystem::directory_iterator it(current, std::filesystem::directory_options::none, list_ec);
         for (const std::filesystem::directory_iterator end; !list_ec && it != end; it.increment(list_ec)) {
             std::wstring filename = it->path().filename().wstring();
             if (PathContainsAntiCheatSignature(filename)) {

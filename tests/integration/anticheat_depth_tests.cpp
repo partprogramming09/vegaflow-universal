@@ -8,6 +8,7 @@
 #endif
 #include <windows.h>
 
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -16,6 +17,28 @@
 #include "../test_support.hpp"
 
 namespace vftest {
+
+namespace {
+// Turns one privilege on or off for this process; returns whether it was on before (false if it is absent).
+// SeBackupPrivilege makes FindFirstFile ignore an access-denied ACE, which would hide the case under test.
+bool SetPrivilege(const wchar_t* name, bool enable) {
+    HANDLE token = nullptr;
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &token)) return false;
+    TOKEN_PRIVILEGES tp{};
+    tp.PrivilegeCount = 1;
+    tp.Privileges[0].Attributes = enable ? SE_PRIVILEGE_ENABLED : 0;
+    bool was_on = false;
+    if (LookupPrivilegeValueW(nullptr, name, &tp.Privileges[0].Luid)) {
+        TOKEN_PRIVILEGES prev{};
+        DWORD len = sizeof prev;
+        if (AdjustTokenPrivileges(token, FALSE, &tp, sizeof prev, &prev, &len) && prev.PrivilegeCount == 1) {
+            was_on = (prev.Privileges[0].Attributes & SE_PRIVILEGE_ENABLED) != 0;
+        }
+    }
+    CloseHandle(token);
+    return was_on;
+}
+} // namespace
 
 void Test91() {
     namespace fs = std::filesystem;
@@ -63,12 +86,25 @@ void Test91() {
     for (int i = 0; i <= 20000; ++i) { std::ofstream(huge / (std::to_wstring(i) + L".pak")); }
     const bool cap_refuses = vegaflow::SandboxGuard::DirectoryContainsAntiCheat(base / L"huge_game");
 
+    // F3.3 review: a subfolder the scan may not read could hold the anti-cheat, so it is refused, not skipped as "clean".
+    const fs::path locked = base / L"locked_game" / L"Secret";
+    fs::create_directories(locked, ec);
+    const bool backup_was_on = SetPrivilege(L"SeBackupPrivilege", false);
+    const std::wstring deny = L"icacls \"" + locked.wstring() + L"\" /deny *S-1-1-0:(RD,RA,REA) >nul 2>&1";
+    const bool denied = _wsystem(deny.c_str()) == 0;
+    std::error_code probe_ec;
+    fs::directory_iterator probe(locked, fs::directory_options::none, probe_ec);
+    const std::string probe_msg = "denied=" + std::to_string(denied) + " probe_ec=" + std::to_string(probe_ec.value());
+    const bool unreadable_refuses = !denied || vegaflow::SandboxGuard::DirectoryContainsAntiCheat(base / L"locked_game");
+    if (backup_was_on) SetPrivilege(L"SeBackupPrivilege", true);
+    _wsystem((L"icacls \"" + locked.wstring() + L"\" /remove:d *S-1-1-0 >nul 2>&1").c_str());
+
     fs::remove_all(base.parent_path().parent_path(), ec);
-    const bool ok = clean_ok && subfolder_found && top_level_found && depth_is_bounded && missing_dir_safe && outside_library_not_walked && library_not_a_game && dotdot_resolves && cap_refuses;
+    const bool ok = unreadable_refuses && clean_ok && subfolder_found && top_level_found && depth_is_bounded && missing_dir_safe && outside_library_not_walked && library_not_a_game && dotdot_resolves && cap_refuses;
     RecordResult(ok, "Test 91: anti-cheat scan reaches subfolders of the game folder up to a bounded depth",
                  std::string("Clean=") + (clean_ok ? "OK" : "FAIL") + ", Subfolder=" + (subfolder_found ? "OK" : "FAIL") +
                      ", TopLevel=" + (top_level_found ? "OK" : "FAIL") + ", DepthBounded=" + (depth_is_bounded ? "OK" : "FAIL") +
-                     ", NoLibraryShallow=" + (outside_library_not_walked ? "OK" : "FAIL") + ", LibraryNotAGame=" + (library_not_a_game ? "OK" : "FAIL") + ", DotDot=" + (dotdot_resolves ? "OK" : "FAIL") + ", MissingDir=" + (missing_dir_safe ? "OK" : "FAIL") + ", CapRefuses=" + (cap_refuses ? "OK" : "FAIL") + ", WriteBlocked(info)=" + (write_blocked ? "yes" : "no"));
+                     ", NoLibraryShallow=" + (outside_library_not_walked ? "OK" : "FAIL") + ", LibraryNotAGame=" + (library_not_a_game ? "OK" : "FAIL") + ", DotDot=" + (dotdot_resolves ? "OK" : "FAIL") + ", MissingDir=" + (missing_dir_safe ? "OK" : "FAIL") + ", Unreadable=" + std::string(unreadable_refuses ? "OK" : "FAIL") + "(" + probe_msg + ")" + ", CapRefuses=" + (cap_refuses ? "OK" : "FAIL") + ", WriteBlocked(info)=" + (write_blocked ? "yes" : "no"));
 }
 
 } // namespace vftest
