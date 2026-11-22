@@ -155,7 +155,7 @@ What it checks, in groups numbered 1 to 10 (with 8b and 8c) in the script:
 
 The script exits with code 0 only if every check passed.
 
-The script prints `PACKAGE TESTS: N PASSED, M FAILED`. Last run on the test laptop, 2026-11-20, temporary folder, without `-Shell`: `PACKAGE TESTS: 62 PASSED, 0 FAILED`. The run with `C:\Program Files\VegaFlow` and `-Shell` was last recorded on 2026-11-14 (`41 PASSED, 0 FAILED`, commit `1ef00a8`), before the script gained its newer checks.
+The script prints `PACKAGE TESTS: N PASSED, M FAILED`. Last run on the test laptop, 2026-11-22, temporary folder, without `-Shell`: `PACKAGE TESTS: 63 PASSED, 0 FAILED`. The run with `C:\Program Files\VegaFlow` and `-Shell` was last recorded on 2026-11-14 (`41 PASSED, 0 FAILED`, commit `1ef00a8`), before the script gained its newer checks.
 
 ## Build the package
 

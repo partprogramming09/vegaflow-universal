@@ -30,6 +30,15 @@ New-Item -ItemType Directory -Force -Path $dir | Out-Null
 icacls $dir /grant:r '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-32-545:(OI)(CI)RX' | Out-Null
 if ($LASTEXITCODE -ne 0) { throw 'icacls no pudo fijar los permisos de la carpeta protegida.' }
 icacls $dir /inheritance:r | Out-Null
+if ($LASTEXITCODE -ne 0) { throw 'icacls no pudo quitar los permisos heredados de la carpeta protegida.' }
+# F3.5: /grant:r only replaces the three accounts; an ACE another account left before the install must go too.
+$acl = Get-Acl $dir
+foreach ($rule in @($acl.Access)) {
+    if ($rule.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value -notin @('S-1-5-18', 'S-1-5-32-544', 'S-1-5-32-545')) {
+        [void]$acl.RemoveAccessRuleSpecific($rule)
+    }
+}
+Set-Acl -Path $dir -AclObject $acl
 icacls "$dir\*" /reset /T /C | Out-Null
 
 Copy-Item $source (Join-Path $dir 'tweaks_state.ps1') -Force

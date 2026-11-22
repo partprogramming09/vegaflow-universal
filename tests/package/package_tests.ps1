@@ -69,6 +69,12 @@ Check 'exe modificado: no se crea la carpeta' (-not (Test-Path $InstallDir))
 Remove-Item $tampered -Recurse -Force
 
 Write-Host '3. Instalar'
+# F3.5: a folder another account prepared before the install (Everyone: Modify) must not keep that access.
+New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
+$planted = Get-Acl $InstallDir
+$planted.AddAccessRule((New-Object System.Security.AccessControl.FileSystemAccessRule(
+            ([System.Security.Principal.SecurityIdentifier]'S-1-1-0'), 'Modify', 'ContainerInherit,ObjectInherit', 'None', 'Allow')))
+Set-Acl $InstallDir $planted
 $r = Invoke-Pkg $install (@('-InstallDir', $InstallDir) + $shellArg)
 Check 'instalación termina bien' ($r.Code -eq 0) $r.Output
 foreach ($f in 'vegaflow_daemon.exe', 'uninstall.ps1', 'VERSION', 'install.json', 'config\config.json') {
@@ -97,7 +103,9 @@ $r = Invoke-Exe @('--dry-run', '--dxvk-install', '""')
 Check '--dxvk-install con ruta vacía se rechaza (código 2)' ($r.Code -eq 2 -and $r.Output -notmatch '\[DXVK\]') "código $($r.Code): $($r.Output)"
 # A dry run isolates nothing: it must say what it would do.
 $r = Invoke-Exe @('--dry-run', '--once')
-Check 'dry-run no dice que aisló' ($r.Output -notmatch 'Isolated in dry-run' -and $r.Output -match 'would be isolated') $r.Output
+# With a game in the foreground the dry run takes its other branch ("Background Isolated Sets"), so accept either wording.
+$sayWould = if ($r.Output -match 'Active 3D Game Detected') { 'Background Isolated Sets' } else { 'would be isolated' }
+Check 'dry-run no dice que aisló' ($r.Output -notmatch 'Isolated in dry-run' -and $r.Output -match $sayWould) $r.Output
 # --observe is safe mode by choice: the notice must not blame crashes.
 $r = Invoke-Exe @('--observe', '--once')
 Check '--observe explica su modo seguro' ($r.Code -eq 0 -and $r.Output -match '--observe' -and $r.Output -notmatch 'cierres anormales') $r.Output
@@ -151,6 +159,10 @@ $usersWrite = @($acl.Access | Where-Object {
         (([int]$_.FileSystemRights) -band $writeMask) -ne 0
     })
 Check 'Users no puede escribir en la carpeta' ($usersWrite.Count -eq 0)
+$foreignAce = @($acl.Access | Where-Object {
+        $_.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value -notin @('S-1-5-18', 'S-1-5-32-544', 'S-1-5-32-545')
+    })
+Check 'ninguna cuenta ajena conserva permisos en la carpeta' ($foreignAce.Count -eq 0) (($foreignAce | ForEach-Object { "$($_.IdentityReference)" }) -join ', ')
 if ($Shell) {
     Check 'Agregar o quitar programas: versión' ((Get-ItemProperty $uninstallKey).DisplayVersion -eq $version)
     Check 'Agregar o quitar programas: ubicación' ((Get-ItemProperty $uninstallKey).InstallLocation -ieq $InstallDir)
