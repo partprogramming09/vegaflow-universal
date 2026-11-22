@@ -50,3 +50,5 @@ streamlabs_dotdot_users	C:\Users\..\AppData\Local\Streamlabs\streamlabs desktop.
 streamlabs_nested_appdata	C:\Games\AppData\Local\Streamlabs\streamlabs desktop.exe	default	none	none	none	0	0	0	unknown	do_not_touch	0	0
 streamlabs_appdata_suffix	C:\Users\x\AppData\LocalX\Streamlabs\streamlabs desktop.exe	default	none	none	none	0	0	0	unknown	do_not_touch	0	0
 win_forward_slash_prefix	\\?\C:/Windows/System32/dwm.exe	default	none	none	none	0	1	0	windows_system	do_not_touch	0	1
+xsplit_fake_suffix_folder	C:\Program Files\NotXSplitAtAll\XSplit.Broadcaster.exe	default	none	none	none	0	0	0	unknown	do_not_touch	0	0
+xsplit_real_folder	C:\Program Files\SplitMediaLabs\XSplit\Broadcaster\XSplit.Broadcaster.exe	default	none	none	none	0	0	0	recording_streaming	do_not_touch	0	1

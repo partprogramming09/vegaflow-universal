@@ -125,6 +125,12 @@ fn has_any_marker(haystack: &str, markers: &[&str]) -> bool {
     markers.iter().any(|m| haystack.contains(m))
 }
 
+/// True when `marker` starts a word in `path` (`xsplit` matches `\\xsplit` or `x xsplit`, not `\\notxsplit`).
+fn marker_starts_component(path: &str, marker: &str) -> bool {
+    marker.starts_with('\\') && path.contains(marker)
+        || path.match_indices(marker).any(|(i, _)| i == 0 || !path.as_bytes()[i - 1].is_ascii_alphanumeric())
+}
+
 /// `..` or `.` as a path component: `c:\\windows\\..\\games` is not under `c:\\windows`.
 fn has_dot_segment(path: &str) -> bool {
     path.split('\\').any(|s| s == "." || s == "..")
@@ -367,7 +373,7 @@ pub fn classify_process(input: &ProcessPolicyInput<'_>) -> VfProcessDecision {
                 && !parent_dir.ends_with("\\temp")
                 && (!need_std_root || in_standard_install_root(&parent_dir))
                 // `\windows\` must be the drive's Windows folder, not one nested under `c:\x\`.
-                && path_markers.iter().any(|m| if *m == "\\windows\\" { in_windows_root(&parent_dir) } else { parent_dir.contains(m) })
+                && path_markers.iter().any(|m| if *m == "\\windows\\" { in_windows_root(&parent_dir) } else { marker_starts_component(&parent_dir, m) })
             {
                 verified_class = Some(class);
                 break;
