@@ -93,6 +93,7 @@ int RunGuiMode(
     if (const std::string warning = config_store.Report().Warning(); !warning.empty()) {
         last_gui_status = warning;
         AddAuditLog(warning);
+        LogNoticeToSessionLog(warning);
     }
     // Saves the setting the person just changed; when config.json must not be overwritten, says so instead.
     auto SaveSettings = [&](std::string& msg) {

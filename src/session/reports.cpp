@@ -105,6 +105,34 @@ std::filesystem::path ResolveSessionLogPath(const std::string& file_path, const 
     return std::filesystem::path(exe_dir) / L"logs" / L"session_reports.log";
 }
 
+// One lock covers the size check, the rotation and the write, so the GUI and the daemon never interleave.
+static bool AppendToSessionLog(const std::string& text, const std::filesystem::path& p) {
+    try {
+        HandleCloser lock{CreateSessionLogLock()};
+        if (!lock.h) return false;
+        const DWORD waited = WaitForSingleObject(lock.h, 5000);
+        if (waited != WAIT_OBJECT_0 && waited != WAIT_ABANDONED) return false;
+        struct Release {
+            HANDLE h;
+            ~Release() { ReleaseMutex(h); }
+        } release{lock.h};
+
+        RotateIfTooBig(p);
+        if (p.has_parent_path()) {
+            std::error_code ec;
+            std::filesystem::create_directories(p.parent_path(), ec);
+        }
+        // Open for append only and close at once, with full sharing, so a rotation by another process can rename it.
+        HandleCloser file{CreateFileW(p.c_str(), FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                                      nullptr, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr)};
+        if (file.h == INVALID_HANDLE_VALUE) return false;
+        DWORD written = 0;
+        return WriteFile(file.h, text.data(), static_cast<DWORD>(text.size()), &written, nullptr) && written == text.size();
+    } catch (...) {
+        return false;
+    }
+}
+
 bool SaveSessionReportToFile(
     const std::string& game_name,
     const std::string& api_name,
@@ -138,27 +166,21 @@ bool SaveSessionReportToFile(
               << "========================================================\n\n";
         const std::string text = block.str();
 
-        // One lock covers the size check, the rotation and the write, so the GUI and the daemon never interleave.
-        HandleCloser lock{CreateSessionLogLock()};
-        if (!lock.h) return false;
-        const DWORD waited = WaitForSingleObject(lock.h, 5000);
-        if (waited != WAIT_OBJECT_0 && waited != WAIT_ABANDONED) return false;
-        struct Release {
-            HANDLE h;
-            ~Release() { ReleaseMutex(h); }
-        } release{lock.h};
+        return AppendToSessionLog(text, p);
+    } catch (...) {
+        return false;
+    }
+}
 
-        RotateIfTooBig(p);
-        if (p.has_parent_path()) {
-            std::error_code ec;
-            std::filesystem::create_directories(p.parent_path(), ec);
-        }
-        // Open for append only and close at once, with full sharing, so a rotation by another process can rename it.
-        HandleCloser file{CreateFileW(p.c_str(), FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                                      nullptr, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr)};
-        if (file.h == INVALID_HANDLE_VALUE) return false;
-        DWORD written = 0;
-        return WriteFile(file.h, text.data(), static_cast<DWORD>(text.size()), &written, nullptr) && written == text.size();
+bool LogNoticeToSessionLog(const std::string& notice, const std::string& file_path) {
+    try {
+        const std::filesystem::path p = ResolveSessionLogPath(file_path, ExecutableDirectory());
+        const std::time_t now = std::time(nullptr);
+        std::tm tm_local{};
+        localtime_s(&tm_local, &now);
+        char time_buf[64] = {0};
+        std::strftime(time_buf, sizeof(time_buf), "[%Y-%m-%d %H:%M:%S] ", &tm_local);
+        return AppendToSessionLog(time_buf + std::string("[WARN] ") + LogField(notice, "(empty)") + "\n", p);
     } catch (...) {
         return false;
     }

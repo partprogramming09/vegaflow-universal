@@ -27,6 +27,9 @@ bool SaveSessionReportToFile(
     uint32_t pid = 0,
     const std::string& file_path = kSessionLogDefaultPath);
 
+// F3.3: appends one "[WARN] ..." line to the session log under the same lock; false, without throwing, if it cannot.
+bool LogNoticeToSessionLog(const std::string& notice, const std::string& file_path = kSessionLogDefaultPath);
+
 // F3.4: true when the log lock's DACL lets the interactive user wait on it and release it (checked on the real object).
 bool SessionLogLockAllowsInteractiveUsers();
 

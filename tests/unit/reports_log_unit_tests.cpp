@@ -1,6 +1,7 @@
 // E2.6: one do-not-trim rule shared with the classifier (vectors), and a session log that rotates at 2 MB, lives next
 // to the .exe and survives two writers. Works on temp files only; the named mutex is real (Windows).
 
+#include <algorithm>
 #include <atomic>
 #include <cstdint>
 #include <filesystem>
@@ -143,6 +144,14 @@ void Test112() {
         blocks_ok = lines[b][0] == '[' && lines[b + 2] == " VEGAFLOW SESSION REPORT: " + name && lines[b + 7].empty();
     }
     check(blocks_ok, "two writers keep whole blocks");
+
+    // F3.3: a notice lands in the log as one "[WARN]" line, with newlines inside it flattened.
+    const fs::path notice_log = dir / "notice.log";
+    const bool notice_written = vegaflow::app::LogNoticeToSessionLog("config.json rechazado:\nsegunda línea", notice_log.string());
+    const std::string notice_text = ReadAll(notice_log);
+    check(notice_written && notice_text.find("] [WARN] config.json rechazado:") != std::string::npos &&
+              std::count(notice_text.begin(), notice_text.end(), '\n') == 1,
+          "a notice is one WARN line in the log");
 
     // F3.4: the lock an elevated daemon creates must stay openable by the (non-elevated) GUI: the interactive user gets
     // SYNCHRONIZE | MUTEX_MODIFY_STATE in its DACL. Before the fix the default DACL left that account out.

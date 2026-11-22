@@ -89,6 +89,7 @@ int main(int argc, char* argv[]) {
     AppConfig config = config_store.Load();
     if (const std::string warning = config_store.Report().Warning(); !warning.empty()) {
         std::cerr << "[WARN] " << warning << "\n";
+        LogNoticeToSessionLog(warning); // F3.3: a hidden daemon has no console
     }
 
     // --dry-run wins over every mode: the monitor would otherwise run the real cycle.
