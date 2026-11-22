@@ -192,6 +192,7 @@ int main() {
         {123, vftest::Test123},  // F1.3 no journal entry, no per-exe DXGI write
         {124, vftest::Test124},  // F1.4 giving a process back leaves EcoQoS to Windows
         {125, vftest::Test125},  // F1.4 a refused process restore stays pending in the journal
+        {126, vftest::Test126},  // F1.5 game files: copy before every write, foreign .bak ignored, real empty config kept
     };
     for (const auto& [number, run] : tests) {
         try {

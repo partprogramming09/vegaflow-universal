@@ -446,11 +446,22 @@ EngineOptimizationReport SteamEngineOptimizer::RestoreEngineOriginalConfig(
                     return report;
                 }
                 if (changed) {
+                    // No copy of the user's file exists: make one before writing. It is dropped afterwards (a stale
+                    // copy would later "restore" the block); if the write fails the file is put back from it first.
+                    bool temp_copy = false;
+                    if (!EnsureBackupBeforeModify(fs_, pIni, pBak, game.has_anticheat, temp_copy)) {
+                        report.success = false;
+                        report.status_message = "No se pudo crear la copia de seguridad antes de retirar el bloque; Engine.ini intacto";
+                        return report;
+                    }
                     if (!WriteStringToFile(fs_, pIni, out_bytes, game.has_anticheat)) {
+                        // A half-written file is replaced by the copy; if even that fails the copy stays for the user.
+                        if (temp_copy && fs_.Copy(pBak, pIni, true, game.has_anticheat)) fs_.Remove(pBak, game.has_anticheat);
                         report.success = false;
                         report.status_message = "No se pudo escribir Engine.ini al restaurar";
                         return report;
                     }
+                    if (temp_copy) fs_.Remove(pBak, game.has_anticheat);
                     JournalMarkGameConfigRestored(pIni);
                     any_restored = true;
                 }

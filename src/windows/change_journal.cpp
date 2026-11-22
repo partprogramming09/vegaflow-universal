@@ -570,7 +570,8 @@ bool RevertGameConfigEntry(FileSystem& fs, const JournalEntry& e, std::string* o
         if (out_err) *out_err = "No se pudo leer la copia de seguridad del juego";
         return false;
     }
-    if (bak_bytes.empty() || bak_bytes.find("; VegaFlow Empty Backup") != std::string::npos) {
+    // Only VegaFlow's mark means "the file did not exist"; an empty copy is a config the user really had.
+    if (bak_bytes == "; VegaFlow Empty Backup\n") {
         if (fs.Exists(e.file_path) && !fs.Remove(e.file_path)) {
             if (out_err) *out_err = "No se pudo borrar el archivo creado por VegaFlow";
             return false;

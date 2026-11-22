@@ -87,6 +87,7 @@ exclude tests/unit/history_screen_unit_tests.cpp link
 exclude tests/unit/home_screen_adversarial_unit_tests.cpp link
 exclude tests/unit/home_screen_unit_tests.cpp link
 exclude tests/unit/ini_unit_tests.cpp link
+exclude tests/unit/game_file_safety_unit_tests.cpp compile
 exclude tests/unit/journal_unit_tests.cpp link
 exclude tests/unit/memory_purge_unit_tests.cpp link
 exclude tests/unit/programs_screen_adversarial_unit_tests.cpp link
