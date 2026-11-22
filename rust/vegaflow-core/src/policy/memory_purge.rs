@@ -4,6 +4,11 @@
 //! Holds the single source of truth for `DEFAULT_VRAM_PRESSURE_THRESHOLD` (0.85).
 //! Does zero Windows I/O (all ntdll/DXGI calls live in C++ `windows/memory.cpp`).
 
+use super::process_class::{
+    classify_process, known_app_class_by_name, ProcessPolicyInput, VfProcessCategoryActions, VF_PROC_CLASS_CALLS_VOICE,
+    VF_PROC_CLASS_MESSAGING, VF_PROC_CLASS_RECORDING_STREAMING, VF_PROC_CLASS_WINDOWS_SYSTEM,
+};
+
 pub const DEFAULT_VRAM_PRESSURE_THRESHOLD: f64 = 0.85;
 pub const FREE_RAM_CRITICAL_MB: u64 = 1536;
 
@@ -142,61 +147,41 @@ pub fn evaluate_memory_purge(input: &VfMemoryPurgeInput) -> VfMemoryPurgeDecisio
     d
 }
 
-/// Factory "Do Not Trim" list for memory optimization (Phase 4):
-/// Recording, streaming, and voice/call software must never have their working set trimmed,
-/// even before Phase 5's user-configurable exclusions arrive.
+/// "Do Not Trim" rule for memory optimization. There is no list here: it follows the process classification
+/// (`process_class`), so a program added there is protected here too.
+/// Protected: Windows/VegaFlow processes, recording/streaming and call/voice apps (verified by folder), and, by name
+/// alone, those apps plus messaging apps (Slack huddles are calls) in a folder the classifier does not accept: trimming
+/// a recorder costs more than skipping it. An empty name is protected.
 pub fn is_factory_memory_protected_exe(exe_name_or_path: &str) -> bool {
     let trimmed = exe_name_or_path.trim();
     if trimmed.is_empty() {
         return true;
     }
-    let basename = trimmed
-        .rsplit(['\\', '/'])
-        .next()
-        .unwrap_or(trimmed)
-        .to_ascii_lowercase();
-
+    let basename = trimmed.rsplit(['\\', '/']).next().unwrap_or(trimmed).to_ascii_lowercase();
+    let decision = classify_process(&ProcessPolicyInput {
+        full_path: trimmed,
+        exe_name: &basename,
+        category_actions: VfProcessCategoryActions::default(),
+        exceptions: &[],
+        custom_game_exes: &[],
+        excluded_game_exes: &[],
+        heavy_work_as_game: false,
+        is_foreground_3d: false,
+        has_anticheat_signal: false,
+    });
     matches!(
-        basename.as_str(),
-        // Recording / streaming
-        "obs64.exe"
-            | "obs32.exe"
-            | "obs.exe"
-            | "streamlabs obs.exe"
-            | "xsplit.core.exe"
-            | "xsplit.broadcaster.exe"
-            | "action.exe"
-            | "nvidia share.exe"
-            | "radeonsoftware.exe"
-            // Calls & voice comms
-            | "discord.exe"
-            | "discordcanary.exe"
-            | "discordptb.exe"
-            | "teams.exe"
-            | "ms-teams.exe"
-            | "slack.exe"
-            | "skype.exe"
-            | "zoom.exe"
-            | "mumble.exe"
-            | "ts3client_win64.exe"
-            | "ts3client_win32.exe"
-            // Critical VegaFlow/OS identities
-            | "vegaflow_daemon.exe"
-            | "vegaflow_tests.exe"
-            | "vegaflow.exe"
-            | "system"
-            | "csrss.exe"
-            | "dwm.exe"
-            | "lsass.exe"
-            | "smss.exe"
-            | "wininit.exe"
-            | "services.exe"
+        decision.process_class,
+        VF_PROC_CLASS_WINDOWS_SYSTEM | VF_PROC_CLASS_RECORDING_STREAMING | VF_PROC_CLASS_CALLS_VOICE
+    ) || matches!(
+        known_app_class_by_name(&basename),
+        Some(VF_PROC_CLASS_RECORDING_STREAMING | VF_PROC_CLASS_CALLS_VOICE | VF_PROC_CLASS_MESSAGING)
     )
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use super::super::process_class::{VF_PROC_CLASS_CALLS_VOICE, VF_PROC_CLASS_MESSAGING, VF_PROC_CLASS_RECORDING_STREAMING};
     use proptest::prelude::*;
 
     const VECTORS: &str = include_str!("../../../../tests/vectors/memory_purge.tsv");
@@ -356,6 +341,41 @@ mod tests {
         for exe in ["chrome.exe", "msedge.exe", "steamwebhelper.exe", "onedrive.exe"] {
             assert!(!is_factory_memory_protected_exe(exe), "should not protect {exe}");
         }
+    }
+
+    const PROTECTED_VECTORS: &str = include_str!("../../../../tests/vectors/memory_protected.tsv");
+
+    #[test]
+    fn e26_protection_vectors_match() {
+        let mut count = 0usize;
+        for line in PROTECTED_VECTORS.lines().filter(|l| !l.is_empty() && !l.starts_with('#')) {
+            let c: Vec<&str> = line.split('\t').collect();
+            assert_eq!(c.len(), 3, "bad vector row: {line}");
+            let input = match c[0] {
+                "<empty>" => "",
+                "<blank>" => "   ",
+                other => other,
+            };
+            assert_eq!(is_factory_memory_protected_exe(input), c[1] == "1", "{line}");
+            count += 1;
+        }
+        assert!(count >= 40, "vector file lost rows: {count}");
+    }
+
+    #[test]
+    fn e26_one_list_feeds_memory_protection() {
+        // Every Windows process and every known recording/voice/messaging app is protected, by name alone.
+        for name in super::super::config_rules::windows_process_names() {
+            assert!(is_factory_memory_protected_exe(name), "windows process {name} must be protected");
+        }
+        let mut seen = 0;
+        for (exe, class) in super::super::process_class::known_apps() {
+            if matches!(class, VF_PROC_CLASS_RECORDING_STREAMING | VF_PROC_CLASS_CALLS_VOICE | VF_PROC_CLASS_MESSAGING) {
+                assert!(is_factory_memory_protected_exe(exe), "{exe} must be protected");
+                seen += 1;
+            }
+        }
+        assert!(seen >= 20, "known_apps lost its recording/voice rows: {seen}");
     }
 
     proptest! {
