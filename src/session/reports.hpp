@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <string>
+#include <vector>
 
 #include "ports/memory_probe.hpp"
 #include "session/config.hpp"
@@ -29,6 +30,9 @@ bool SaveSessionReportToFile(
 void PrintStatusReport();
 void ExecutePurgeNow(bool dry_run);
 void ExecuteDryRun(const AppConfig& config);
+
+// The [WHY THIS PROFILE] block of --status: header plus one "  - " line per reason, and an empty string when there are none.
+std::string WhyThisProfileSection(const std::vector<std::string>& reasons);
 
 // The [KPI] line: the daemon's private working set against the 15 MB budget, "passed" only when it is under it.
 std::string MemoryKpiLine(uint64_t private_ws_bytes);

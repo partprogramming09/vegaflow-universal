@@ -19,4 +19,16 @@ void Test104() {
     RecordResult(ok, "Test 104: the memory KPI line fails above the 15 MB budget", small + " | " + edge + " | " + big);
 }
 
+// F2.7 review: --status prints the [WHY THIS PROFILE] header only when there is at least one reason line.
+void Test135() {
+    using vegaflow::app::WhyThisProfileSection;
+    const std::string none = WhyThisProfileSection({});
+    const std::string some = WhyThisProfileSection({"Tier 2 limits.", "Power: AC."});
+    const bool ok = none.empty() && some.rfind("[WHY THIS PROFILE]\n", 0) == 0 &&
+                    some.find("  - Tier 2 limits.\n") != std::string::npos &&
+                    some.find("  - Power: AC.\n") != std::string::npos && some.back() == '\n';
+    RecordResult(ok, "Test 135: --status omits the [WHY THIS PROFILE] header when there are no reasons",
+                 "none='" + none + "' | some=" + some);
+}
+
 } // namespace vftest
