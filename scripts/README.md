@@ -48,3 +48,5 @@ Los `.ps1` de medir y de estado de Windows no se mueven a una subcarpeta a prop�
 ## `remote/`: operar el laptop desde la Mac
 
 Herramienta de desarrollo con `vfdev`, los trabajos en `jobs/`, las referencias en `baselines/` y el paquete de WinBridge. Su guía completa está en [`remote/README.md`](remote/README.md).
+
+`vfdev package-test [ZIP]` prueba el paquete en el laptop con el `tests/package/package_tests.ps1` de la rama actual: arma el zip con `build/package.sh` (o usa el que le pases o `VFJOB_PKG_ZIP`), lo copia con el script a `C:\ProgramData\VegaFlow\pkgtest`, corre el trabajo `package-test` (`jobs/package_test.ps1`, comprueba el SHA-256 de ambos) y trae la salida entera, con fecha, a `build/package-test/`. Sale con 0 solo si hubo `0 FAILED`. El trabajo se instala una vez con `vfdev deploy`.

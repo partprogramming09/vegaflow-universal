@@ -104,11 +104,25 @@ Check '--observe explica su modo seguro' ($r.Code -eq 0 -and $r.Output -match '-
 # The monitor must honour safe mode too.
 $r = Invoke-Exe @('--observe', '--monitor', '--once')
 Check '--monitor respeta el modo seguro' ($r.Code -eq 0 -and $r.Output -match 'MODO SEGURO') $r.Output
+# A fixed sleep before judging a background instance made these checks depend on how busy the machine was: the daemon
+# is up once it owns its single-instance mutex, so wait for that (up to 30 s) instead of a guessed time.
+function Wait-DaemonUp($proc, [int]$seconds = 30) {
+    $deadline = (Get-Date).AddSeconds($seconds)
+    while ((Get-Date) -lt $deadline -and -not $proc.HasExited) {
+        $m = $null
+        if ([System.Threading.Mutex]::TryOpenExisting('Local\VegaFlowUniversal_SingleInstance', [ref]$m)) { $m.Dispose(); return $true }
+        Start-Sleep -Milliseconds 200
+    }
+    $false
+}
+# Kills a background instance and waits until it is gone, so its mutex and its file lock cannot reach the next step.
+function Stop-Daemon($proc) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue; $null = $proc.WaitForExit(10000) }
 # --elevate on an already elevated process must go on with --observe, not exit doing nothing.
 $p = Start-Process -FilePath $exe -ArgumentList '--elevate', '--observe' -PassThru -WindowStyle Hidden
-Start-Sleep -Seconds 3
-$alive = -not $p.HasExited
-Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+$up = Wait-DaemonUp $p
+Start-Sleep -Seconds 1
+$alive = $up -and -not $p.HasExited
+Stop-Daemon $p
 Check '--elevate --observe ya elevado sí observa (sigue corriendo)' $alive "salió con código $($p.ExitCode)"
 # The arguments must reach the program as UTF-8: Windows hands main() the ANSI code page, which broke "ñ".
 $oldEnc = [Console]::OutputEncoding
@@ -117,10 +131,14 @@ try { $r = Invoke-Exe @('--Año') } finally { [Console]::OutputEncoding = $oldEn
 Check 'un argumento con ñ llega entero' ($r.Code -eq 2 -and $r.Output -match '--Año') $r.Output
 # A second start while a windowless instance runs must not claim to focus a window.
 $first = Start-Process -FilePath $exe -ArgumentList '--observe' -PassThru -WindowStyle Hidden
-Start-Sleep -Seconds 3
-$r = Invoke-Exe @('--observe')
-Stop-Process -Id $first.Id -Force -ErrorAction SilentlyContinue
-Check 'segundo arranque sin ventana lo dice' ($r.Code -eq 0 -and $r.Output -match 'already running' -and $r.Output -notmatch 'Focusing') $r.Output
+# Without the first instance up, the second would become the real one and never return, so it is not started.
+if (Wait-DaemonUp $first) {
+    $r = Invoke-Exe @('--observe')
+    Check 'segundo arranque sin ventana lo dice' ($r.Code -eq 0 -and $r.Output -match 'already running' -and $r.Output -notmatch 'Focusing') $r.Output
+} else {
+    Check 'segundo arranque sin ventana lo dice' $false 'la primera instancia no tomó su mutex en 30 s'
+}
+Stop-Daemon $first
 # Already elevated (this runs as Administrator), --elevate must not swallow --dry-run.
 $r = Invoke-Exe @('--elevate', '--dry-run')
 Check '--elevate --dry-run simula' ($r.Code -eq 0 -and $r.Output -match 'DRY-RUN SIMULATION') "código $($r.Code)"

@@ -137,6 +137,16 @@
       "description": "Open the GUI of the test build (--gui; needs an elevated session)",
       "params": {}
     },
+    "package-test": {
+      "script": "package_test.ps1",
+      "timeout_s": 600,
+      "session": 1,
+      "description": "Run tests/package/package_tests.ps1 on a package zip staged by vfdev package-test; keeps the whole output in a dated file",
+      "params": {
+        "ZipSha256": "^[0-9a-fA-F]{64}$",
+        "ScriptSha256": "^[0-9a-fA-F]{64}$"
+      }
+    },
     "kill-gui": {
       "script": "kill_gui.ps1",
       "timeout_s": 30,
