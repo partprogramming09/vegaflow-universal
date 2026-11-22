@@ -448,7 +448,7 @@ int RunGuiMode(
         if (gfx.PowerMode() && gfx.PowerMode()->IsApuPowerModeApplied()) {
             gfx.PowerMode()->SetApuLaptopPowerProfile(false, policy, false);
         }
-        gfx.Display().SetGameDvrCaptureDisabled(false, false);
+        gfx.Display().RestoreGameDvrCapture(false);
         gfx.RestoreAllRegistryBackups();
     }
     if (g_single_instance_mutex) {

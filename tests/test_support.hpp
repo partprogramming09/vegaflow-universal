@@ -150,5 +150,6 @@ void Test113();  // refused background process journaled once
 void Test114();  // E2.4
 void Test115();  // E2.7
 void Test116();  // E2.4 adapter signature read only on demand
+void Test117();  // shutdown gives GameDVR back only if VegaFlow turned it off
 
 } // namespace vftest

@@ -73,7 +73,7 @@ int RunDaemon(
             if (gfx.PowerMode() && gfx.PowerMode()->IsApuPowerModeApplied()) {
                 gfx.PowerMode()->SetApuLaptopPowerProfile(false, policy, false);
             }
-            gfx.Display().SetGameDvrCaptureDisabled(false, false);
+            gfx.Display().RestoreGameDvrCapture(false);
             gfx.RestoreAllRegistryBackups();
         }
         return 0;
@@ -143,7 +143,7 @@ int RunDaemon(
         if (gfx.PowerMode()) {
             gfx.PowerMode()->SetApuLaptopPowerProfile(false, policy, false);
         }
-        gfx.Display().SetGameDvrCaptureDisabled(false, false);
+        gfx.Display().RestoreGameDvrCapture(false);
         // Restores the registry (GameDVR, AMD driver, MPO, MMCSS, priority, paging) to its state before VegaFlow.
         const bool registry_restored = gfx.RestoreAllRegistryBackups();
         std::cout << "[INFO] Registry values restored to their original state: " << (registry_restored ? "yes" : "partially or not (see --restore-registry)") << "\n";

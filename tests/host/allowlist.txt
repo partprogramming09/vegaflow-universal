@@ -50,6 +50,7 @@ test tests/unit/dxgi_flip_unit_tests.cpp
 test tests/unit/equipment_screen_unit_tests.cpp
 test tests/unit/ffi_callback_guard_unit_tests.cpp
 test tests/unit/fse_compat_unit_tests.cpp
+test tests/unit/gamedvr_restore_unit_tests.cpp
 test tests/unit/gui_wiring_unit_tests.cpp
 test tests/unit/phase_g_extras_unit_tests.cpp
 test tests/unit/reg_restore_scope_unit_tests.cpp

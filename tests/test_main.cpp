@@ -183,6 +183,7 @@ int main() {
         {114, vftest::Test114},  // E2.4
         {115, vftest::Test115},  // E2.7
         {116, vftest::Test116},  // E2.4 adapter signature read only on demand
+        {117, vftest::Test117},  // shutdown gives GameDVR back only if VegaFlow turned it off
     };
     for (const auto& [number, run] : tests) {
         try {
