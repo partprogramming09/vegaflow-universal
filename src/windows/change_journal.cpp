@@ -408,13 +408,23 @@ bool RevertPowerPlanEntry(const JournalEntry& e, std::string* out_err) {
         return false;
     }
 
+    // A failed write means the plan is not given back, even if PowerSetActiveScheme then succeeds.
+    DWORD write_err = ERROR_SUCCESS;
     for (size_t i = 0; i < kApuPowerSettingCount; ++i) {
         if (e.ac_values[i] == kApuPowerSettingAbsent) continue;  // the plan had no such setting
-        pWriteAc(nullptr, &scheme, &kApuPowerSettings[i].subgroup, &kApuPowerSettings[i].setting, e.ac_values[i]);
-        if (pWriteDc) pWriteDc(nullptr, &scheme, &kApuPowerSettings[i].subgroup, &kApuPowerSettings[i].setting, e.dc_values[i]);
+        DWORD r = pWriteAc(nullptr, &scheme, &kApuPowerSettings[i].subgroup, &kApuPowerSettings[i].setting, e.ac_values[i]);
+        if (r != ERROR_SUCCESS && write_err == ERROR_SUCCESS) write_err = r;
+        if (pWriteDc) {
+            r = pWriteDc(nullptr, &scheme, &kApuPowerSettings[i].subgroup, &kApuPowerSettings[i].setting, e.dc_values[i]);
+            if (r != ERROR_SUCCESS && write_err == ERROR_SUCCESS) write_err = r;
+        }
     }
     const DWORD res = pSet(nullptr, &scheme);
     FreeLibrary(hPowr);
+    if (write_err != ERROR_SUCCESS) {
+        if (out_err) *out_err = "No se pudo escribir un valor del plan de energía (código Windows " + std::to_string(write_err) + ")";
+        return false;
+    }
     if (res != ERROR_SUCCESS) {
         if (out_err) *out_err = "PowerSetActiveScheme devolvió error " + std::to_string(res);
         return false;
