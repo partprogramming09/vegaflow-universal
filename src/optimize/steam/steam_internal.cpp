@@ -213,8 +213,11 @@ std::vector<std::wstring> ResolveAllUnrealEngineIniPaths(
     for (const auto& root : myGamesRoots) {
         if (!std::filesystem::exists(root, ec)) continue;
 
-        for (const auto& entry : std::filesystem::directory_iterator(root, std::filesystem::directory_options::skip_permission_denied, ec)) {
-            if (ec) break;
+        // increment(ec) instead of ++ (which throws): a listing cut by an error keeps the folders found so far.
+        std::error_code root_ec;
+        std::filesystem::directory_iterator root_it(root, std::filesystem::directory_options::skip_permission_denied, root_ec);
+        for (const std::filesystem::directory_iterator root_end; !root_ec && root_it != root_end; root_it.increment(root_ec)) {
+            const auto& entry = *root_it;
             if (!entry.is_directory(ec)) continue;
 
             std::wstring dirName = entry.path().filename().wstring();
@@ -283,7 +286,11 @@ std::wstring ResolveUnityBootConfigPath(
 
     std::error_code ec;
     // Check direct children first
-    for (const auto& entry : std::filesystem::directory_iterator(game.install_dir, ec)) {
+    std::error_code child_ec;
+    std::filesystem::directory_iterator child_it(game.install_dir, child_ec);
+    // increment(ec) instead of ++ (which throws): a cut listing falls through to the recursive search below.
+    for (const std::filesystem::directory_iterator child_end; !child_ec && child_it != child_end; child_it.increment(child_ec)) {
+        const auto& entry = *child_it;
         if (entry.is_directory(ec)) {
             std::wstring dirname = entry.path().filename().wstring();
             if (EndsWithInsensitiveW(dirname, L"_Data")) {
