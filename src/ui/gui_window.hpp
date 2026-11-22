@@ -126,6 +126,10 @@ struct GuiCallbacks {
     std::function<session::GamesScreenModel()> on_PollGames;
     std::function<std::string(uint32_t)> on_ExcludeGame;
     std::function<std::string(uint32_t)> on_IncludeGame;
+    // E2.7: the welcome mark (a file next to config.json), the diagnosis text and the panic restore.
+    std::function<bool()> on_ShouldShowWelcome;
+    std::function<void()> on_MarkWelcomeSeen;
+    std::function<std::string()> on_RunDoctor;
     std::function<std::string()> on_ToggleMmcssGaming;
     std::function<std::string()> on_ToggleApuPowerMode;
     std::function<std::string()> on_ToggleVramOverride;

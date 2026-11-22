@@ -101,6 +101,22 @@ inline constexpr const wchar_t* kHomeUndoAllButton = L"Devolver todo a como esta
 inline constexpr const wchar_t* kHomeReportButton = L"Copiar informe";
 inline constexpr const wchar_t* kHomeReportCopied = L"Informe copiado: pégalo donde pidas ayuda. Revísalo antes de enviarlo.";
 inline constexpr const wchar_t* kHomeReportFailed = L"No se pudo copiar el informe al portapapeles.";
+// E2.7: pause offer, diagnosis, exit notice and welcome (the dialogs are the window's own, see ui/choice_dialog.hpp)
+inline constexpr const wchar_t* kHomePauseButton = L"Pausar VegaFlow en este juego";
+inline constexpr const wchar_t* kHomeDoctorButton = L"Diagnóstico";
+inline constexpr const wchar_t* kDoctorTitle = L"Diagnóstico de VegaFlow";
+inline constexpr const wchar_t* kDoctorCopy = L"Copiar informe";
+inline constexpr const wchar_t* kDoctorClose = L"Cerrar";
+inline constexpr const wchar_t* kExitTitle = L"Cerrar VegaFlow";
+inline constexpr const wchar_t* kExitRestore = L"Devolver todo a como estaba";
+inline constexpr const wchar_t* kExitKeep = L"Dejarlos";
+inline constexpr const wchar_t* kExitCancel = L"Cancelar";
+inline constexpr const wchar_t* kWelcomeTitle = L"Bienvenido a VegaFlow";
+inline constexpr const wchar_t* kWelcomeBody =
+    L"VegaFlow detecta tus juegos y le da prioridad al juego mientras está abierto. Cada cambio que hace queda en Historial y puedes deshacerlo.\r\n\r\n"
+    L"Si algo va mal, usa «Devolver todo a como estaba» en Inicio o el atajo Ctrl+Alt+Mayús+R.";
+inline constexpr const wchar_t* kWelcomeButton = L"Entendido";
+inline constexpr const wchar_t* kHotkeyTitle = L"Atajo de pánico";
 
 // Juegos
 inline constexpr const wchar_t* kGamesTitle = L"Juegos";

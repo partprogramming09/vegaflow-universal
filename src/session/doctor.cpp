@@ -212,7 +212,7 @@ std::string ComputerName(COMPUTER_NAME_FORMAT format) {
 
 } // namespace
 
-int RunDoctor(bool json, const std::string& version) {
+DoctorReport ReadDoctorReport(const std::string& version) {
     DoctorInputs in;
     in.version = version;
     in.elevated = PrivilegeManager::IsProcessElevated();
@@ -248,7 +248,11 @@ int RunDoctor(bool json, const std::string& version) {
     DWORD nb = 64;
     if (in.computer_name.empty() && GetComputerNameW(netbios, &nb)) in.computer_name = Narrow(std::wstring(netbios, nb));
 
-    const DoctorReport r = BuildDoctorReport(in);
+    return BuildDoctorReport(in);
+}
+
+int RunDoctor(bool json, const std::string& version) {
+    const DoctorReport r = ReadDoctorReport(version);
     std::cout << (json ? r.json : r.text) << (json ? "\n" : "");
     return r.exit_code;
 }

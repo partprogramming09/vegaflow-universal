@@ -24,6 +24,13 @@ std::vector<const ConfigRow*> FlatRows(const GuiWindowState* st) {
     return rows;
 }
 
+// E2.7: the subtitle, plus the notice when the panic shortcut could not be registered.
+std::wstring SubtitleText(const GuiWindowState* st) {
+    std::wstring t = text::kConfigSubtitle;
+    if (!st->hotkey_notice.empty()) t += L"\n\n" + Utf8ToWide(st->hotkey_notice);
+    return t;
+}
+
 std::wstring ToggleName(const ConfigRow& r) { return Utf8ToWide(r.name) + (r.on ? L": activado" : L": apagado"); }
 
 struct Slot {
@@ -47,7 +54,7 @@ Layout BuildLayout(HDC hdc, const GuiWindowState* st, const RECT& content) {
     const int top = content.top - st->config_scroll;
     l.title_y = top;
     l.reset = {content.right - 250, top, content.right, top + kCtlH};
-    const int sub_h = TextHeight(hdc, st->hFontRegular, text::kConfigSubtitle, content.right - content.left - 270);
+    const int sub_h = TextHeight(hdc, st->hFontRegular, SubtitleText(st),content.right - content.left - 270);
     int y = top + 36 + std::max(sub_h, 0) + 18;
     int flat = 0;
     for (size_t g = 0; g < st->config_model.groups.size(); ++g) {
@@ -204,7 +211,7 @@ void ConfigViewPaint(HDC hdc, GuiWindowState* st, const RECT& content) {
     const auto rows = FlatRows(st);
     DrawTextAt(hdc, content.left, l.title_y, text::kConfigTitle, CLR_TEXT_TITLE, st->hFontHeader);
     RECT sub = {content.left, l.title_y + 30, content.right - 270, l.title_y + 30 + 200};
-    DrawTextRect(hdc, sub, text::kConfigSubtitle, CLR_TEXT_BODY, st->hFontRegular, DT_LEFT | DT_WORDBREAK | DT_NOPREFIX);
+    DrawTextRect(hdc, sub, SubtitleText(st), CLR_TEXT_BODY, st->hFontRegular, DT_LEFT | DT_WORDBREAK | DT_NOPREFIX);
 
     for (const Slot& s : l.slots) {
         if (s.kind == Slot::Group && s.group == -2) {
@@ -230,8 +237,12 @@ void ConfigViewPaint(HDC hdc, GuiWindowState* st, const RECT& content) {
         SelectObject(hdc, old);
         DeleteObject(pen);
     };
-    auto label = [&](const RECT& rc, const std::wstring& name, const std::wstring& help, const std::wstring& chip, int right_limit) {
+    auto label = [&](const RECT& rc, const std::wstring& name, const std::wstring& help, const std::wstring& chip, int right_limit,
+                     const std::wstring& notice = L"") {
         DrawTextAt(hdc, rc.left + 20, rc.top + 12, name, CLR_TEXT_TITLE, st->hFontBold);
+        if (!notice.empty()) { // E2.7: read only at start; amber text after the name (words, not colour alone)
+            DrawTextAt(hdc, rc.left + 20 + TextWidth(hdc, st->hFontBold, name) + 12, rc.top + 14, notice, CLR_ACCENT_AMBER, st->hFontSmall);
+        }
         if (!chip.empty()) {
             const int x = rc.left + 20 + TextWidth(hdc, st->hFontBold, name) + 12;
             const RECT chip_rc = {x, rc.top + 12, x + TextWidth(hdc, st->hFontSmall, chip) + 20, rc.top + 32};
@@ -252,7 +263,7 @@ void ConfigViewPaint(HDC hdc, GuiWindowState* st, const RECT& content) {
                 label(s.rc, Utf8ToWide(r.name), Utf8ToWide(r.help), Utf8ToWide(r.chip), ToggleRect(s.rc).left - 16);
             } else {
                 const RECT frame = EditFrame(s.rc);
-                label(s.rc, Utf8ToWide(r.name), Utf8ToWide(r.help), L"", frame.left - 16);
+                label(s.rc, Utf8ToWide(r.name), Utf8ToWide(r.help), L"", frame.left - 16, Utf8ToWide(session::RestartNotice(r)));
                 const int id = kConfigRowBaseId + s.flat;
                 DrawRoundedCard(hdc, frame, CLR_BTN_BG, CLR_CONTROL_BORDER, 6);
                 if (st->config_focus_id == id) DrawFocusRing(hdc, frame);
