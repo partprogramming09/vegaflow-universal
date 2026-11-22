@@ -1,0 +1,146 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="444" viewBox="0 0 980 444" font-family="system-ui, sans-serif">
+<style>.t{font-size:14px;fill:#0b0b0b;font-weight:600}.s{font-size:13px;fill:#0b0b0b;font-weight:600}.m{font-size:12px;fill:#52514e}.g{stroke:#e4e3df;stroke-width:1}</style>
+<rect width="980" height="444" fill="#fcfcfb"/>
+<text x="16" y="70" class="s">Líneas base (preset, daemon apagado)</text>
+<text x="28" y="96" class="m">vieja 2026-11-09 (1 sesión) · n=3</text>
+<text x="28" y="120" class="m">nueva 2026-11-22 (3 lanzamientos) · n=6</text>
+<text x="16" y="166" class="s">Preset por factor (ABBA)</text>
+<text x="28" y="192" class="m">factory (sin preset) · n=3</text>
+<text x="28" y="216" class="m">streaming (9 líneas) · n=3</text>
+<text x="28" y="240" class="m">recortes visuales (18) · n=3</text>
+<text x="28" y="264" class="m">AsyncCompute (2) · n=3</text>
+<text x="28" y="288" class="m">preset completo (29) · n=3</text>
+<text x="16" y="334" class="s">Regresión (daemon de main)</text>
+<text x="28" y="360" class="m">daemon apagado · n=3</text>
+<text x="28" y="384" class="m">daemon encendido · n=3</text>
+<text x="300" y="30" class="t">FPS medio por captura (raya = mediana)</text>
+<line x1="300.0" y1="44" x2="300.0" y2="394" class="g"/>
+<text x="300.0" y="410" class="m" text-anchor="middle">30</text>
+<line x1="335.7" y1="44" x2="335.7" y2="394" class="g"/>
+<text x="335.7" y="410" class="m" text-anchor="middle">32</text>
+<line x1="371.4" y1="44" x2="371.4" y2="394" class="g"/>
+<text x="371.4" y="410" class="m" text-anchor="middle">34</text>
+<line x1="407.1" y1="44" x2="407.1" y2="394" class="g"/>
+<text x="407.1" y="410" class="m" text-anchor="middle">36</text>
+<line x1="442.9" y1="44" x2="442.9" y2="394" class="g"/>
+<text x="442.9" y="410" class="m" text-anchor="middle">38</text>
+<line x1="478.6" y1="44" x2="478.6" y2="394" class="g"/>
+<text x="478.6" y="410" class="m" text-anchor="middle">40</text>
+<line x1="514.3" y1="44" x2="514.3" y2="394" class="g"/>
+<text x="514.3" y="410" class="m" text-anchor="middle">42</text>
+<line x1="550.0" y1="44" x2="550.0" y2="394" class="g"/>
+<text x="550.0" y="410" class="m" text-anchor="middle">44</text>
+<line x1="528.8" y1="83" x2="528.8" y2="101" stroke="#0b0b0b" stroke-width="2"/>
+<circle cx="528.8" cy="92" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>n09fix-none-off-d3d11-1: 42.81 FPS (Hardware: Legacy Flip)</title></circle>
+<circle cx="528.8" cy="92" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>n09fix-none-off-d3d11-2: 42.81 FPS (Hardware: Legacy Flip)</title></circle>
+<circle cx="527.9" cy="92" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>n09fix-none-off-d3d11-3: 42.76 FPS (Hardware: Legacy Flip)</title></circle>
+<text x="558" y="96" class="m">42.8</text>
+<line x1="531.0" y1="107" x2="531.0" y2="125" stroke="#0b0b0b" stroke-width="2"/>
+<circle cx="524.3" cy="116" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2base-full-b01c1: 42.56 FPS (Hardware: Legacy Flip)</title></circle>
+<circle cx="525.7" cy="116" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2base-full-b01c2: 42.64 FPS (Hardware: Legacy Flip)</title></circle>
+<circle cx="531.4" cy="116" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2base-full-b02c1: 42.96 FPS (Hardware: Legacy Flip)</title></circle>
+<circle cx="530.5" cy="116" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2base-full-b02c2: 42.91 FPS (Hardware: Legacy Flip)</title></circle>
+<circle cx="532.7" cy="116" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2base-full-b03c1: 43.03 FPS (Hardware: Legacy Flip)</title></circle>
+<circle cx="532.7" cy="116" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2base-full-b03c2: 43.03 FPS (Hardware: Legacy Flip)</title></circle>
+<text x="558" y="120" class="m">42.9</text>
+<line x1="305.2" y1="179" x2="305.2" y2="197" stroke="#0b0b0b" stroke-width="2"/>
+<circle cx="303.9" cy="188" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2fac-factory-b01: 30.22 FPS (Hardware: Legacy Flip)</title></circle>
+<circle cx="306.2" cy="188" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2fac-factory-b10: 30.35 FPS (Hardware: Legacy Flip)</title></circle>
+<circle cx="305.2" cy="188" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2fac-factory-b11: 30.29 FPS (Hardware: Legacy Flip)</title></circle>
+<text x="558" y="192" class="m">30.3</text>
+<line x1="303.8" y1="203" x2="303.8" y2="221" stroke="#0b0b0b" stroke-width="2"/>
+<circle cx="302.0" cy="212" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2fac-streaming-b02: 30.11 FPS (Hardware: Legacy Flip)</title></circle>
+<circle cx="306.8" cy="212" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2fac-streaming-b09: 30.38 FPS (Hardware: Legacy Flip)</title></circle>
+<circle cx="303.8" cy="212" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2fac-streaming-b12: 30.21 FPS (Hardware: Legacy Flip)</title></circle>
+<text x="558" y="216" class="m">30.2</text>
+<line x1="533.8" y1="227" x2="533.8" y2="245" stroke="#0b0b0b" stroke-width="2"/>
+<circle cx="533.8" cy="236" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2fac-visual-b03: 43.09 FPS (Hardware: Legacy Flip)</title></circle>
+<circle cx="535.4" cy="236" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2fac-visual-b08: 43.18 FPS (Hardware: Legacy Flip)</title></circle>
+<circle cx="533.0" cy="236" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2fac-visual-b13: 43.05 FPS (Hardware: Legacy Flip)</title></circle>
+<text x="558" y="240" class="m">43.1</text>
+<line x1="304.5" y1="251" x2="304.5" y2="269" stroke="#0b0b0b" stroke-width="2"/>
+<circle cx="304.5" cy="260" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2fac-async-b04: 30.25 FPS (Hardware: Legacy Flip)</title></circle>
+<circle cx="307.0" cy="260" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2fac-async-b07: 30.39 FPS (Hardware: Legacy Flip)</title></circle>
+<circle cx="303.2" cy="260" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2fac-async-b14: 30.18 FPS (Hardware: Legacy Flip)</title></circle>
+<text x="558" y="264" class="m">30.2</text>
+<line x1="530.2" y1="275" x2="530.2" y2="293" stroke="#0b0b0b" stroke-width="2"/>
+<circle cx="530.0" cy="284" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2fac-full-b05: 42.88 FPS (Hardware: Legacy Flip)</title></circle>
+<circle cx="530.2" cy="284" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2fac-full-b06: 42.89 FPS (Hardware: Legacy Flip)</title></circle>
+<circle cx="534.1" cy="284" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2fac-full-b15: 43.11 FPS (Hardware: Legacy Flip)</title></circle>
+<text x="558" y="288" class="m">42.9</text>
+<line x1="524.1" y1="347" x2="524.1" y2="365" stroke="#0b0b0b" stroke-width="2"/>
+<circle cx="524.1" cy="356" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2reg-off-d3d11-1: 42.55 FPS (Hardware: Legacy Flip)</title></circle>
+<circle cx="524.8" cy="356" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2reg-off-d3d11-2: 42.59 FPS (Hardware: Legacy Flip)</title></circle>
+<circle cx="523.9" cy="356" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2reg-off-d3d11-3: 42.54 FPS (Hardware: Legacy Flip)</title></circle>
+<text x="558" y="360" class="m">42.5</text>
+<line x1="533.2" y1="371" x2="533.2" y2="389" stroke="#0b0b0b" stroke-width="2"/>
+<circle cx="533.0" cy="380" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2reg-on-d3d11-1: 43.05 FPS (Hardware: Independent Flip)</title></circle>
+<circle cx="533.2" cy="380" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2reg-on-d3d11-2: 43.06 FPS (Hardware: Independent Flip)</title></circle>
+<circle cx="533.2" cy="380" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2reg-on-d3d11-3: 43.06 FPS (Hardware: Independent Flip)</title></circle>
+<text x="558" y="384" class="m">43.1</text>
+<text x="660" y="30" class="t">1% Low por captura (raya = mediana)</text>
+<line x1="660.0" y1="44" x2="660.0" y2="394" class="g"/>
+<text x="660.0" y="410" class="m" text-anchor="middle">26</text>
+<line x1="695.7" y1="44" x2="695.7" y2="394" class="g"/>
+<text x="695.7" y="410" class="m" text-anchor="middle">28</text>
+<line x1="731.4" y1="44" x2="731.4" y2="394" class="g"/>
+<text x="731.4" y="410" class="m" text-anchor="middle">30</text>
+<line x1="767.1" y1="44" x2="767.1" y2="394" class="g"/>
+<text x="767.1" y="410" class="m" text-anchor="middle">32</text>
+<line x1="802.9" y1="44" x2="802.9" y2="394" class="g"/>
+<text x="802.9" y="410" class="m" text-anchor="middle">34</text>
+<line x1="838.6" y1="44" x2="838.6" y2="394" class="g"/>
+<text x="838.6" y="410" class="m" text-anchor="middle">36</text>
+<line x1="874.3" y1="44" x2="874.3" y2="394" class="g"/>
+<text x="874.3" y="410" class="m" text-anchor="middle">38</text>
+<line x1="910.0" y1="44" x2="910.0" y2="394" class="g"/>
+<text x="910.0" y="410" class="m" text-anchor="middle">40</text>
+<line x1="810.0" y1="83" x2="810.0" y2="101" stroke="#0b0b0b" stroke-width="2"/>
+<circle cx="803.8" cy="92" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>n09fix-none-off-d3d11-1: 34.05 FPS (Hardware: Legacy Flip)</title></circle>
+<circle cx="813.2" cy="92" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>n09fix-none-off-d3d11-2: 34.58 FPS (Hardware: Legacy Flip)</title></circle>
+<circle cx="810.0" cy="92" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>n09fix-none-off-d3d11-3: 34.40 FPS (Hardware: Legacy Flip)</title></circle>
+<text x="918" y="96" class="m">34.4</text>
+<line x1="885.6" y1="107" x2="885.6" y2="125" stroke="#0b0b0b" stroke-width="2"/>
+<circle cx="876.1" cy="116" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2base-full-b01c1: 38.10 FPS (Hardware: Legacy Flip)</title></circle>
+<circle cx="888.6" cy="116" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2base-full-b01c2: 38.80 FPS (Hardware: Legacy Flip)</title></circle>
+<circle cx="888.6" cy="116" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2base-full-b02c1: 38.80 FPS (Hardware: Legacy Flip)</title></circle>
+<circle cx="860.0" cy="116" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2base-full-b02c2: 37.20 FPS (Hardware: Legacy Flip)</title></circle>
+<circle cx="882.7" cy="116" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2base-full-b03c1: 38.47 FPS (Hardware: Legacy Flip)</title></circle>
+<circle cx="889.5" cy="116" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2base-full-b03c2: 38.85 FPS (Hardware: Legacy Flip)</title></circle>
+<text x="918" y="120" class="m">38.6</text>
+<line x1="693.4" y1="179" x2="693.4" y2="197" stroke="#0b0b0b" stroke-width="2"/>
+<circle cx="690.2" cy="188" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2fac-factory-b01: 27.69 FPS (Hardware: Legacy Flip)</title></circle>
+<circle cx="696.8" cy="188" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2fac-factory-b10: 28.06 FPS (Hardware: Legacy Flip)</title></circle>
+<circle cx="693.4" cy="188" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2fac-factory-b11: 27.87 FPS (Hardware: Legacy Flip)</title></circle>
+<text x="918" y="192" class="m">27.9</text>
+<line x1="691.8" y1="203" x2="691.8" y2="221" stroke="#0b0b0b" stroke-width="2"/>
+<circle cx="689.3" cy="212" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2fac-streaming-b02: 27.64 FPS (Hardware: Legacy Flip)</title></circle>
+<circle cx="691.8" cy="212" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2fac-streaming-b09: 27.78 FPS (Hardware: Legacy Flip)</title></circle>
+<circle cx="692.5" cy="212" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2fac-streaming-b12: 27.82 FPS (Hardware: Legacy Flip)</title></circle>
+<text x="918" y="216" class="m">27.8</text>
+<line x1="885.2" y1="227" x2="885.2" y2="245" stroke="#0b0b0b" stroke-width="2"/>
+<circle cx="887.3" cy="236" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2fac-visual-b03: 38.73 FPS (Hardware: Legacy Flip)</title></circle>
+<circle cx="882.9" cy="236" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2fac-visual-b08: 38.48 FPS (Hardware: Legacy Flip)</title></circle>
+<circle cx="885.2" cy="236" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2fac-visual-b13: 38.61 FPS (Hardware: Legacy Flip)</title></circle>
+<text x="918" y="240" class="m">38.6</text>
+<line x1="691.2" y1="251" x2="691.2" y2="269" stroke="#0b0b0b" stroke-width="2"/>
+<circle cx="691.2" cy="260" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2fac-async-b04: 27.75 FPS (Hardware: Legacy Flip)</title></circle>
+<circle cx="690.0" cy="260" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2fac-async-b07: 27.68 FPS (Hardware: Legacy Flip)</title></circle>
+<circle cx="691.8" cy="260" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2fac-async-b14: 27.78 FPS (Hardware: Legacy Flip)</title></circle>
+<text x="918" y="264" class="m">27.8</text>
+<line x1="884.6" y1="275" x2="884.6" y2="293" stroke="#0b0b0b" stroke-width="2"/>
+<circle cx="884.6" cy="284" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2fac-full-b05: 38.58 FPS (Hardware: Legacy Flip)</title></circle>
+<circle cx="883.6" cy="284" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2fac-full-b06: 38.52 FPS (Hardware: Legacy Flip)</title></circle>
+<circle cx="892.9" cy="284" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2fac-full-b15: 39.04 FPS (Hardware: Legacy Flip)</title></circle>
+<text x="918" y="288" class="m">38.6</text>
+<line x1="881.4" y1="347" x2="881.4" y2="365" stroke="#0b0b0b" stroke-width="2"/>
+<circle cx="878.6" cy="356" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2reg-off-d3d11-1: 38.24 FPS (Hardware: Legacy Flip)</title></circle>
+<circle cx="884.5" cy="356" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2reg-off-d3d11-2: 38.57 FPS (Hardware: Legacy Flip)</title></circle>
+<circle cx="881.4" cy="356" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2reg-off-d3d11-3: 38.40 FPS (Hardware: Legacy Flip)</title></circle>
+<text x="918" y="360" class="m">38.4</text>
+<line x1="894.1" y1="371" x2="894.1" y2="389" stroke="#0b0b0b" stroke-width="2"/>
+<circle cx="894.1" cy="380" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2reg-on-d3d11-1: 39.11 FPS (Hardware: Independent Flip)</title></circle>
+<circle cx="900.7" cy="380" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2reg-on-d3d11-2: 39.48 FPS (Hardware: Independent Flip)</title></circle>
+<circle cx="887.0" cy="380" r="5" fill="#2a78d6" fill-opacity="0.75" stroke="#fcfcfb" stroke-width="2"><title>f2reg-on-d3d11-3: 38.71 FPS (Hardware: Independent Flip)</title></circle>
+<text x="918" y="384" class="m">39.1</text>
+</svg>

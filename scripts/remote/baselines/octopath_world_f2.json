@@ -1,0 +1,9 @@
+{
+ "scene": "Octopath Traveler II, mundo (autoguardado de noche, Pueblo fantasma), D3D11, preset UMA completo en Engine.ini, daemon apagado, sin carga, sin SCSKiller, Legacy Flip (2026-11-22; 3 lanzamientos con vfdev octo, 2 capturas de 120 s cada uno)",
+ "launches": 3,
+ "present_mode": "Hardware: Legacy Flip",
+ "avg_fps": 42.93790237844927,
+ "low1": 38.41249869611943,
+ "noise_avg_pct": 1.0010144995961971,
+ "noise_low_pct": 1.8373027997766809
+}
