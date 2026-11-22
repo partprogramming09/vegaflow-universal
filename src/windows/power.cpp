@@ -128,17 +128,19 @@ bool WindowsPowerPort::ApplyActiveApuPlan(const ApuPowerPlanValues& values) {
         return false;
     }
 
+    // A write that fails makes the answer "no", even if the plan is then activated (same rule as ApplyApuPlan).
+    bool writes_ok = true;
     for (size_t i = 0; i < kApuPowerSettingCount; ++i) {
         if (values.ac[i] == kApuPowerSettingAbsent) continue;  // the plan has no such setting
-        fns.write_ac(nullptr, activePolicy, &kApuPowerSettings[i].subgroup, &kApuPowerSettings[i].setting, values.ac[i]);
+        writes_ok = fns.write_ac(nullptr, activePolicy, &kApuPowerSettings[i].subgroup, &kApuPowerSettings[i].setting, values.ac[i]) == ERROR_SUCCESS && writes_ok;
         if (fns.write_dc) {
-            fns.write_dc(nullptr, activePolicy, &kApuPowerSettings[i].subgroup, &kApuPowerSettings[i].setting, values.dc[i]);
+            writes_ok = fns.write_dc(nullptr, activePolicy, &kApuPowerSettings[i].subgroup, &kApuPowerSettings[i].setting, values.dc[i]) == ERROR_SUCCESS && writes_ok;
         }
     }
 
     const DWORD set_res = fns.set_active(nullptr, activePolicy);
     LocalFree(activePolicy);
-    return (set_res == ERROR_SUCCESS);
+    return writes_ok && set_res == ERROR_SUCCESS;
 }
 
 bool WindowsPowerPort::ApplyApuPlan(const std::string& scheme_guid, const ApuPowerPlanValues& values) {
