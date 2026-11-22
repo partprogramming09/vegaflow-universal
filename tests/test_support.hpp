@@ -157,5 +157,7 @@ void Test120();  // GPU usage is the PDH sum when valid, DXGI otherwise
 void Test121();  // F1.1 restoring an absent value without access to its key stays pending
 void Test122();  // F1.2 giving back never writes a factory value without VegaFlow's copy
 void Test123();  // F1.3 no journal entry, no per-exe DXGI write
+void Test124();  // F1.4 giving a process back leaves EcoQoS to Windows
+void Test125();  // F1.4 a refused process restore stays pending in the journal
 
 } // namespace vftest

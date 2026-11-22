@@ -242,6 +242,11 @@ bool WindowsProcessControl::RestoreGameProcess(
     SetProcessDefaultCpuSets(hGame, nullptr, 0);
     SetPriorityClass(hGame, orig_priority_class != 0 ? orig_priority_class : NORMAL_PRIORITY_CLASS);
 
+    // BoostGameProcess turned off throttling and honored the timer resolution: Windows decides both again.
+    PROCESS_POWER_THROTTLING_STATE powerThrottling{};
+    powerThrottling.Version = PROCESS_POWER_THROTTLING_CURRENT_VERSION;
+    SetProcessInformation(hGame, ProcessPowerThrottling, &powerThrottling, sizeof(powerThrottling));
+
     MEMORY_PRIORITY_INFORMATION memPriority{};
     memPriority.MemoryPriority = MEMORY_PRIORITY_NORMAL;
     SetProcessInformation(hGame, ProcessMemoryPriority, &memPriority, sizeof(memPriority));
@@ -379,7 +384,8 @@ bool WindowsProcessControl::RestoreBackgroundProcess(
 
     PROCESS_POWER_THROTTLING_STATE powerThrottling{};
     powerThrottling.Version = PROCESS_POWER_THROTTLING_CURRENT_VERSION;
-    powerThrottling.ControlMask = PROCESS_POWER_THROTTLING_EXECUTION_SPEED;
+    // ControlMask 0 hands EcoQoS back to Windows (a mask bit with state 0 would force "no EcoQoS").
+    powerThrottling.ControlMask = 0;
     powerThrottling.StateMask = 0;
     SetProcessInformation(hBg, ProcessPowerThrottling, &powerThrottling, sizeof(powerThrottling));
 

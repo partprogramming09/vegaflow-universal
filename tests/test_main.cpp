@@ -190,6 +190,8 @@ int main() {
         {121, vftest::Test121},  // F1.1 restoring an absent value without access to its key stays pending
         {122, vftest::Test122},  // F1.2 giving back never writes a factory value without VegaFlow's copy
         {123, vftest::Test123},  // F1.3 no journal entry, no per-exe DXGI write
+        {124, vftest::Test124},  // F1.4 giving a process back leaves EcoQoS to Windows
+        {125, vftest::Test125},  // F1.4 a refused process restore stays pending in the journal
     };
     for (const auto& [number, run] : tests) {
         try {
