@@ -17,7 +17,10 @@
 #include "bridge/rust_bridge.h"
 #include "detect/hardware_profiler.hpp"
 #include "detect/process_detector.hpp"
+#include "session/config.hpp"
 #include "session/report.hpp"
+#include "windows/config_location.hpp"
+#include "windows/safe_file_system.hpp"
 #include "windows/privileges.hpp"
 #include "windows/registry.hpp"
 #include "windows/text_convert.hpp"
@@ -119,6 +122,8 @@ DoctorReport BuildDoctorReport(const DoctorInputs& in) {
                       ",\"free_bytes\":" + std::to_string(d.probed ? d.free_bytes : 0) + ",\"total_bytes\":" + std::to_string(d.probed ? d.total_bytes : 0) +
                       ",\"advice\":\"" + word + "\"}";
     }
+
+    if (!in.config_warning.empty()) findings.push_back({kWarn, in.config_warning});
 
     if (!in.elevated) findings.push_back({kInfo, "running as a standard user (not elevated): some data may be missing"});
 
@@ -249,6 +254,14 @@ DoctorReport ReadDoctorReport(const std::string& version) {
         in.profile_reasons = HardwareProfiler::DecisionReasonTexts(HardwareProfiler::BuildOptimizationPolicy(hw).decision_reasons);
     } catch (...) {
         in.profile_reasons.clear(); // the section is left out; the rest of the report stands
+    }
+
+    {
+        vegaflow::SafeFileSystem fs;
+        const std::wstring path = vegaflow::ConfigFilePath();
+        app::ConfigStore store(fs, path, vegaflow::ConfigLocationTrusted(path));
+        store.Load();
+        in.config_warning = store.Report().Warning();
     }
 
     HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);

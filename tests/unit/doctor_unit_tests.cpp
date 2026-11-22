@@ -163,6 +163,13 @@ void Test109() {
                      !Has(r18_none.text, "Hardware profile") && Has(r18_none.json, "\"profile_reasons\":[]") && JsonOk(r18_none.json),
                  "Test 109.18: the profile reasons are listed in the text and the JSON; with none there is no section and the JSON list is empty",
                  r18.text + r18.json);
+    // F3.3. A rejected config.json shows up as a warning finding; with none there is no such line.
+    auto bad_cfg = Healthy();
+    bad_cfg.config_warning = "config.json tiene valores no permitidos (poll_interval_ms): esas claves usan su valor de fábrica.";
+    const auto r18b = gs::BuildDoctorReport(bad_cfg);
+    RecordResult(Has(r18b.text, "[WARN] config.json tiene valores no permitidos") && r18b.exit_code == 1 && JsonOk(r18b.json) &&
+                     !Has(gs::BuildDoctorReport(Healthy()).text, "config.json"),
+                 "Test 109.18b: a config.json warning is a finding; without it the report does not mention config.json", r18b.text);
     // The words come from the Rust table: one line per bit, bit order, bits with no rule skipped.
     const auto lines = vegaflow::HardwareProfiler::DecisionReasonTexts((1ull << 37) | 1ull | (1ull << 60));
     RecordResult(lines.size() == 2 && lines[0].find("No graphics adapter") != std::string::npos &&
