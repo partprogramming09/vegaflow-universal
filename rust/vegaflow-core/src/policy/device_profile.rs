@@ -77,7 +77,6 @@ pub const VF_REASON_POOL_TIER2: u64 = 1 << 34;
 pub const VF_REASON_POOL_TIER3: u64 = 1 << 35;
 pub const VF_REASON_POOL_TIER4: u64 = 1 << 36;
 pub const VF_REASON_ASYNC_OFF: u64 = 1 << 37;
-
 pub const REASON_TEXTS: [&str; 38] = [
     "No graphics adapter could be read: the profile is the prudent one for a discrete card, and driver tweaks are blocked.",
     "Windows is set to power saving for this app, so the integrated GPU was chosen.",
@@ -649,6 +648,38 @@ mod tests {
         // Bits past the last rule are not reasons: they are skipped, never a made-up line.
         assert_eq!(reason_texts(1 << 63), Vec::<&str>::new());
         assert_eq!(reason_texts(u64::MAX).len(), 38);
+    }
+
+    const ALL_REASON_BITS: [u64; 38] = [
+        VF_REASON_NO_ADAPTER, VF_REASON_PREF_POWER_SAVING, VF_REASON_PREF_HIGH_PERF, VF_REASON_PICKED_EXTERNAL,
+        VF_REASON_PICKED_DISCRETE, VF_REASON_PICKED_INTEGRATED, VF_REASON_PICKED_FIRST, VF_REASON_SEVERAL_ADAPTERS,
+        VF_REASON_CONNECTION_UNKNOWN, VF_REASON_ARM64, VF_REASON_ARCH_BY_DEVICE_ID, VF_REASON_ARCH_BY_NAME,
+        VF_REASON_ARCH_BY_CPUID, VF_REASON_ARCH_UNRESOLVED, VF_REASON_ARCH_OVERRIDE, VF_REASON_TIER_DISCRETE,
+        VF_REASON_TIER_ENTRY_RAM, VF_REASON_TIER_ENTRY_CORES, VF_REASON_TIER_ENTRY_INTEL_UHD,
+        VF_REASON_TIER_ADVANCED_GPU, VF_REASON_TIER_ADVANCED_RAM, VF_REASON_TIER_MID, VF_REASON_CORES_UNKNOWN,
+        VF_REASON_RAM_PROBE_FAILED, VF_REASON_POWER_AC, VF_REASON_POWER_BATTERY, VF_REASON_POWER_SAVER,
+        VF_REASON_POWER_UNKNOWN, VF_REASON_UMA_GUARD, VF_REASON_VISUAL_CUTS, VF_REASON_VRAM_OVERRIDE,
+        VF_REASON_EGPU_STREAMING_ON, VF_REASON_EGPU_STREAMING_OFF, VF_REASON_POOL_TIER1, VF_REASON_POOL_TIER2,
+        VF_REASON_POOL_TIER3, VF_REASON_POOL_TIER4, VF_REASON_ASYNC_OFF,
+    ];
+
+    #[test]
+    fn every_reason_constant_is_one_distinct_bit_with_its_own_text() {
+        let mut seen = 0u64;
+        for (i, bit) in ALL_REASON_BITS.iter().enumerate() {
+            assert_eq!(bit.count_ones(), 1, "constant #{i} is not a single bit");
+            assert_eq!(seen & bit, 0, "constant #{i} repeats an earlier bit");
+            seen |= bit;
+            // Bit order is text order: the constant #i must select REASON_TEXTS[i].
+            assert_eq!(bit.trailing_zeros() as usize, i, "constant #{i} is out of order");
+        }
+        assert_eq!(seen.count_ones() as usize, REASON_TEXTS.len());
+    }
+
+    #[test]
+    fn the_reason_table_fits_in_the_u64_mask() {
+        assert!(REASON_TEXTS.len() <= 64);
+        assert!(ALL_REASON_BITS.iter().all(|b| b.trailing_zeros() < 64 && b.trailing_zeros() < REASON_TEXTS.len() as u32));
     }
 
     proptest! {
