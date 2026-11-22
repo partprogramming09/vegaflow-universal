@@ -3,6 +3,7 @@
 #include "optimize/graphics/graphics_optimizer.hpp"
 #include "optimize/dxvk_manager.hpp"
 #include "windows/registry.hpp"
+#include "windows/sandbox_guard.hpp"
 
 #include <optional>
 
@@ -66,15 +67,8 @@ SteamGameEntry SteamEngineOptimizer::InspectGameDirectory(
 
         // 1. Anti-Cheat Check
         if (!has_anticheat) {
-            if (ContainsInsensitiveW(itemPathStr, L"easyanticheat") ||
-                ContainsInsensitiveW(itemPathStr, L"battleye") ||
-                ContainsInsensitiveW(itemPathStr, L"vanguard") ||
-                ContainsInsensitiveW(itemPathStr, L"vgk.sys") ||
-                ContainsInsensitiveW(itemPathStr, L"randgrid.sys") ||
-                ContainsInsensitiveW(itemPathStr, L"anticheatexpert") ||
-                ContainsInsensitiveW(itemPathStr, L"hoyokprotect") ||
-                ContainsInsensitiveW(itemPathStr, L"mhyprot") ||
-                ContainsInsensitiveW(itemPathStr, L"mhypbase")) {
+            // F3.1: the one list lives in Rust (vf_rust_has_anticheat_signature), shared with SandboxGuard.
+            if (SandboxGuard::PathContainsAntiCheatSignature(itemPathStr)) {
                 has_anticheat = true;
             }
         }

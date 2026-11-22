@@ -138,10 +138,18 @@ void Test13() {
         auto rep_hoyo = RealSteam().ApplyEngineUmaPreset(game_hoyo, DetectedPolicy(), 3000, false, custom_cfg_dir.wstring());
         bool hoyo_block_ok = (rep_hoyo.blocked_by_anticheat && rep_hoyo.success);
 
+        // 4c. F3.1: one anti-cheat list. GameGuard is in the Rust list only (it was missing from the old C++ copy).
+        std::filesystem::remove(dummy_hoyo, ec);
+        {
+            std::ofstream out(temp_base / "GameGuard.des", std::ios::binary);
+            out << "dummy gameguard";
+        }
+        const bool gameguard_detect_ok = vegaflow::SteamEngineOptimizer::InspectGameDirectory(temp_base.wstring(), 999999, "Old MMO").has_anticheat;
+
         // Cleanup
         std::filesystem::remove_all(temp_base, ec);
 
-        bool t13_success = engine_ok && ac_clean_ok && exe_ok && apply_ok && bak_created &&
+        bool t13_success = gameguard_detect_ok && engine_ok && ac_clean_ok && exe_ok && apply_ok && bak_created &&
                            bak_exists && has_preset && restore_ok && bak_removed &&
                            preset_removed && orig_intact && ac_detect_ok && ac_block_ok &&
                            hoyo_detect_ok && hoyo_block_ok;
