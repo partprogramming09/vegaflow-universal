@@ -148,6 +148,6 @@ void Test111();  // E2.2
 void Test112();  // E2.6
 void Test113();  // refused background process journaled once
 void Test114();  // E2.4
-void Test115();  // E2.4 adapter signature read only on demand
+void Test116();  // E2.4 adapter signature read only on demand
 
 } // namespace vftest

@@ -26,7 +26,7 @@ public:
 } // namespace
 
 // E2.4
-void Test115() {
+void Test116() {
     using namespace vegaflow;
     SystemHardwareProfile hw{};
     hw.adapter_signature = 7;
@@ -35,11 +35,11 @@ void Test115() {
 
     const bool skipped = !session::RefreshHardwareProfileIfChanged(probe, hw, 0, false) &&
                          probe.signature_reads == 0 && hw.adapter_signature == 7;
-    RecordResult(skipped, "Test 115.1: probe_signature=false -> no signature read, profile untouched");
+    RecordResult(skipped, "Test 116.1: probe_signature=false -> no signature read, profile untouched");
 
     const bool read = session::RefreshHardwareProfileIfChanged(probe, hw, 0, true) &&
                       probe.signature_reads == 1 && hw.adapter_signature == 9;
-    RecordResult(read, "Test 115.2: probe_signature=true (device event) -> signature read and profile re-read");
+    RecordResult(read, "Test 116.2: probe_signature=true (device event) -> signature read and profile re-read");
 }
 
 } // namespace vftest

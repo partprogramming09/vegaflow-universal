@@ -181,7 +181,7 @@ int main() {
         {112, vftest::Test112},  // E2.6
         {113, vftest::Test113},  // refused background process journaled once
         {114, vftest::Test114},  // E2.4
-        {115, vftest::Test115},  // E2.4 adapter signature read only on demand
+        {116, vftest::Test116},  // E2.4 adapter signature read only on demand
     };
     for (const auto& [number, run] : tests) {
         try {
