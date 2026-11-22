@@ -189,6 +189,7 @@ int main() {
         {120, vftest::Test120},  // GPU usage is the PDH sum when valid, DXGI otherwise
         {121, vftest::Test121},  // F1.1 restoring an absent value without access to its key stays pending
         {122, vftest::Test122},  // F1.2 giving back never writes a factory value without VegaFlow's copy
+        {123, vftest::Test123},  // F1.3 no journal entry, no per-exe DXGI write
     };
     for (const auto& [number, run] : tests) {
         try {

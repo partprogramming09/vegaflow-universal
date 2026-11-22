@@ -130,4 +130,34 @@ void Test97() {
                      ", Empty=" + (empty_ok ? "OK" : "FAIL"));
 }
 
+// F1.3: the per-exe preference is the user's; without a journal entry (it keeps the original) nothing is written.
+void Test123() {
+    using vegaflow::RegHive;
+    using vegaflow::RegValue;
+    const std::wstring legacy = L"SwapEffectUpgradeEnable=1;GpuPreference=2;AutoHDREnable=0;";
+    const std::wstring spaced = L"C:\\My Games\\Space Game.exe";
+    FakeRegistryPort reg;
+    reg.dxgi_journal_off = true;
+    reg.SeedValue(RegHive::CurrentUser, kUgp, spaced, RegValue::MakeString(L"GpuPreference=1;"));
+    reg.SeedValue(RegHive::CurrentUser, kUgp, L"C:\\a.exe", RegValue::MakeString(legacy));
+    reg.SeedValue(RegHive::CurrentUser, kUgp, L"C:\\empty.exe", RegValue::MakeString(L""));
+    vegaflow::DxgiFlipTweaks flip(reg);
+    const bool apply_refused = !flip.ApplyFlipModelUpgrade(spaced, false) && !flip.ApplyFlipModelUpgrade(L"C:\\new.exe", false);
+    const size_t migrated = flip.MigrateLegacyPreferences(false);
+    RegValue v;
+    const bool untouched = reg.writes.empty() && reg.ReadValue(RegHive::CurrentUser, kUgp, spaced, v) && v.str == L"GpuPreference=1;" &&
+                           reg.ReadValue(RegHive::CurrentUser, kUgp, L"C:\\a.exe", v) && v.str == legacy;
+
+    // A journal that works but a refused write: the migration does not count it.
+    FakeRegistryPort refused;
+    refused.fail_write_subkeys.insert(FakeRegistryPort::Lower(kUgp));
+    refused.SeedValue(RegHive::CurrentUser, kUgp, L"C:\\a.exe", RegValue::MakeString(legacy));
+    const size_t refused_count = vegaflow::DxgiFlipTweaks(refused).MigrateLegacyPreferences(false);
+
+    RecordResult(apply_refused && migrated == 0 && untouched && refused_count == 0,
+                 "Test 123: without a journal entry the per-exe DXGI preference is not written (F1.3)",
+                 std::string("ApplyRefused=") + (apply_refused ? "1" : "0") + ", Migrated=" + std::to_string(migrated) +
+                     ", Untouched=" + (untouched ? "1" : "0") + ", RefusedCount=" + std::to_string(refused_count));
+}
+
 } // namespace vftest

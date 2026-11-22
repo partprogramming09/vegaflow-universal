@@ -47,6 +47,7 @@ public:
     std::set<std::wstring> fail_backup_subkeys;  // lowercase subkeys whose RegBackup copy cannot be written: WriteValue(backup=true) refuses
     std::set<std::wstring> fail_restore_subkeys; // lowercase subkeys whose RestoreBackedUpValue fails and keeps the value
     std::vector<bool> dxgi_journal_results;    // the succeeded flag of each EndDxgiPreferenceChange
+    bool dxgi_journal_off = false;             // BeginDxgiPreferenceChange returns 0, as with an absent or corrupt journal
     std::vector<vegaflow::ShaderCacheReport> shader_caches;
 
     void SeedValue(vegaflow::RegHive hive, const std::wstring& subkey, const std::wstring& name, const vegaflow::RegValue& val) {
@@ -220,6 +221,7 @@ public:
     std::vector<vegaflow::ShaderCacheReport> InspectShaderCaches() override { return shader_caches; }
 
     uint64_t BeginDxgiPreferenceChange(const std::wstring&, const std::wstring&, const std::string&) override {
+        if (dxgi_journal_off) return 0;  // no active journal, or a corrupt one: no copy of the original was kept
         return dxgi_journal_results.size() + 1;
     }
     void EndDxgiPreferenceChange(uint64_t, bool succeeded) override { dxgi_journal_results.push_back(succeeded); }
