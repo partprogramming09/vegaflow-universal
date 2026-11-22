@@ -764,12 +764,15 @@ std::vector<ShaderCacheReport> WindowsRegistryPort::InspectShaderCaches() {
         std::error_code ec;
         if (std::filesystem::exists(dir, ec) && std::filesystem::is_directory(dir, ec)) {
             rep.exists = true;
-            auto it = std::filesystem::recursive_directory_iterator(
+            std::filesystem::recursive_directory_iterator it(
                 dir,
                 std::filesystem::directory_options::skip_permission_denied,
                 ec
             );
-            for (const auto& entry : it) {
+            const std::filesystem::recursive_directory_iterator end;
+            // increment(ec) instead of ++: a folder that disappears mid-scan must not throw out of the report.
+            for (; !ec && it != end; it.increment(ec)) {
+                const auto& entry = *it;
                 std::error_code entry_ec;
                 if (entry.is_regular_file(entry_ec)) {
                     rep.file_count++;
