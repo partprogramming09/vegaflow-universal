@@ -348,6 +348,7 @@ void Test51() {
     env.live_vram_budget = 2048ULL * 1024 * 1024; // 80% = 1638 MB -> clamped to 4096 floor on Tier 3 32GB
 
     vegaflow::app::AppConfig cfg{};
+    cfg.auto_power_profile = true; // E2.2: the power profile is opt-in; this test checks which policy it receives
     vegaflow::session::GameSessionState state{};
     uint32_t noisy_cnt = 0;
     vegaflow::session::RunGameSessionCycle(cfg, probe, env, hw, state, &noisy_cnt);

@@ -32,6 +32,11 @@ pub const VF_CONFIG_KEY_HEAVY_WORK_AS_GAME: u32 = 1 << 9;
 pub const VF_CONFIG_KEY_PROCESS_CATEGORY_ACTIONS: u32 = 1 << 10;
 pub const VF_CONFIG_KEY_PROCESS_EXCEPTIONS: u32 = 1 << 11;
 pub const VF_CONFIG_KEY_EXCLUDED_GAME_EXES: u32 = 1 << 12;
+// E2.2: system tweaks the daemon used to apply by itself; now opt-in.
+pub const VF_CONFIG_KEY_AUTO_VRAM_REPORTING: u32 = 1 << 13;
+pub const VF_CONFIG_KEY_AUTO_PRIORITY_SEPARATION: u32 = 1 << 14;
+pub const VF_CONFIG_KEY_AUTO_GAME_DVR_OFF: u32 = 1 << 15;
+pub const VF_CONFIG_KEY_AUTO_POWER_PROFILE: u32 = 1 << 16;
 
 pub const CURRENT_VERSION: u64 = 1;
 pub const MAX_PROCESS_EXCEPTIONS: usize = 256;
@@ -50,6 +55,11 @@ pub struct Settings {
     pub process_category_actions: VfProcessCategoryActions,
     pub process_exceptions: Vec<(String, u8)>,
     pub excluded_game_exes: Vec<String>,
+    // E2.2: false in a factory file, so none of these is applied unless the person asks.
+    pub auto_vram_reporting: bool,
+    pub auto_priority_separation: bool,
+    pub auto_game_dvr_off: bool,
+    pub auto_power_profile: bool,
 }
 
 impl Default for Settings {
@@ -66,6 +76,10 @@ impl Default for Settings {
             process_category_actions: VfProcessCategoryActions::default(),
             process_exceptions: Vec::new(),
             excluded_game_exes: Vec::new(),
+            auto_vram_reporting: false,
+            auto_priority_separation: false,
+            auto_game_dvr_off: false,
+            auto_power_profile: false,
         }
     }
 }
@@ -140,13 +154,23 @@ struct BoolKey {
     set: fn(&mut Settings, bool),
 }
 
-const BOOL_KEYS: [BoolKey; 1] = [
+const BOOL_KEYS: [BoolKey; 5] = [
     BoolKey {
         key: "restrict_game_cpu_sets",
         bit: VF_CONFIG_KEY_RESTRICT_GAME_CPU_SETS,
         get: |s| s.restrict_game_cpu_sets,
         set: |s, b| s.restrict_game_cpu_sets = b,
     },
+    // E2.2
+    BoolKey { key: "auto_vram_reporting", bit: VF_CONFIG_KEY_AUTO_VRAM_REPORTING, get: |s| s.auto_vram_reporting, set: |s, b| s.auto_vram_reporting = b },
+    BoolKey {
+        key: "auto_priority_separation",
+        bit: VF_CONFIG_KEY_AUTO_PRIORITY_SEPARATION,
+        get: |s| s.auto_priority_separation,
+        set: |s, b| s.auto_priority_separation = b,
+    },
+    BoolKey { key: "auto_game_dvr_off", bit: VF_CONFIG_KEY_AUTO_GAME_DVR_OFF, get: |s| s.auto_game_dvr_off, set: |s, b| s.auto_game_dvr_off = b },
+    BoolKey { key: "auto_power_profile", bit: VF_CONFIG_KEY_AUTO_POWER_PROFILE, get: |s| s.auto_power_profile, set: |s, b| s.auto_power_profile = b },
 ];
 const GAME_EXES_KEY: &str = "custom_game_exes";
 const MEMORY_KEY: &str = "memory";
@@ -664,6 +688,52 @@ mod tests {
         let mut s = defaults();
         s.custom_game_exes = vec!["explorer.exe".into()];
         assert_eq!(save(b"", &s), Err(SaveRefused::InvalidSetting(VF_CONFIG_KEY_CUSTOM_GAME_EXES)));
+    }
+
+    #[test]
+    fn the_four_auto_settings_are_off_unless_the_file_says_true() {
+        let keys = ["auto_vram_reporting", "auto_priority_separation", "auto_game_dvr_off", "auto_power_profile"];
+        let flags = |s: &Settings| [s.auto_vram_reporting, s.auto_priority_separation, s.auto_game_dvr_off, s.auto_power_profile];
+        for text in ["", "{}", "{\"version\": 1}", "{\"poll_interval_ms\": 2000}"] {
+            assert_eq!(flags(&load(text.as_bytes()).settings), [false; 4], "{text:?}");
+        }
+        for (i, key) in keys.iter().enumerate() {
+            let l = load(format!("{{\"version\": 1, \"{key}\": true}}").as_bytes());
+            let mut want = [false; 4];
+            want[i] = true;
+            assert_eq!((flags(&l.settings), l.status), (want, 0), "{key}");
+        }
+    }
+
+    #[test]
+    fn an_auto_key_of_the_wrong_type_is_rejected_and_stays_off() {
+        for (key, bit) in [
+            ("auto_vram_reporting", VF_CONFIG_KEY_AUTO_VRAM_REPORTING),
+            ("auto_priority_separation", VF_CONFIG_KEY_AUTO_PRIORITY_SEPARATION),
+            ("auto_game_dvr_off", VF_CONFIG_KEY_AUTO_GAME_DVR_OFF),
+            ("auto_power_profile", VF_CONFIG_KEY_AUTO_POWER_PROFILE),
+        ] {
+            for bad in ["\"yes\"", "1", "null"] {
+                let l = load(format!("{{\"version\": 1, \"{key}\": {bad}}}").as_bytes());
+                assert_eq!(l.rejected_keys, bit, "{key}={bad}");
+                assert_ne!(l.status & VF_CONFIG_KEY_REJECTED, 0);
+                assert_eq!(l.settings, Settings::default());
+            }
+        }
+    }
+
+    #[test]
+    fn saving_twice_the_same_opt_in_gives_the_same_file_and_keeps_unknown_keys() {
+        let mut s = defaults();
+        s.auto_priority_separation = true;
+        let first = save(b"{\"note\": \"keep\"}", &s).unwrap();
+        let second = save(first.as_bytes(), &s).unwrap();
+        assert_eq!(first, second);
+        assert_eq!(first.matches("auto_priority_separation").count(), 1);
+        assert!(first.contains("\"note\""));
+        assert_eq!(load(first.as_bytes()).settings, s);
+        // A factory save writes the four keys as false: an explicit choice for the next reader.
+        assert!(save(b"", &defaults()).unwrap().contains("\"auto_game_dvr_off\": false"));
     }
 
     /// Reads `tests/vectors/config_rules.tsv`: one file per row, holding only that key.

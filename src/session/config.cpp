@@ -54,6 +54,10 @@ VfConfigSettings ToBridge(const AppConfig& cfg) {
     s.min_free_ram_mb = cfg.memory.min_free_ram_mb;
     s.min_standby_mb = cfg.memory.min_standby_mb;
     s.max_game_disk_read_mb_s = cfg.memory.max_game_disk_read_bytes_per_sec / kBytesPerMb;
+    s.auto_vram_reporting = cfg.auto_vram_reporting;
+    s.auto_priority_separation = cfg.auto_priority_separation;
+    s.auto_game_dvr_off = cfg.auto_game_dvr_off;
+    s.auto_power_profile = cfg.auto_power_profile;
     return s;
 }
 
@@ -78,6 +82,10 @@ AppConfig FromBridge(const VfConfigSettings& s, const VfProcessPolicyConfig& p, 
     cfg.memory.min_standby_mb = s.min_standby_mb;
     cfg.memory.cooldown_seconds = s.cooldown_seconds;
     cfg.memory.max_game_disk_read_bytes_per_sec = s.max_game_disk_read_mb_s * kBytesPerMb;
+    cfg.auto_vram_reporting = s.auto_vram_reporting;
+    cfg.auto_priority_separation = s.auto_priority_separation;
+    cfg.auto_game_dvr_off = s.auto_game_dvr_off;
+    cfg.auto_power_profile = s.auto_power_profile;
 
     cfg.process_policy.heavy_work_as_game = p.heavy_work_as_game;
     cfg.process_policy.category_actions.recording_streaming = static_cast<vegaflow::ProcessAction>(p.category_actions.recording_streaming);
@@ -118,6 +126,8 @@ std::string KnownSettings(const std::string& text) {
     std::string key = std::to_string(s.poll_interval_ms) + "," + std::to_string(s.cooldown_seconds) + "," +
                       std::to_string(s.restrict_game_cpu_sets) + "," + std::to_string(s.min_free_ram_mb) + "," +
                       std::to_string(s.min_standby_mb) + "," + std::to_string(s.max_game_disk_read_mb_s) + "," +
+                      std::to_string(s.auto_vram_reporting) + std::to_string(s.auto_priority_separation) +
+                      std::to_string(s.auto_game_dvr_off) + std::to_string(s.auto_power_profile) + "," +
                       std::to_string(policy.heavy_work_as_game ? 1 : 0) + "," +
                       std::to_string(policy.category_actions.recording_streaming) + "," +
                       std::to_string(policy.category_actions.calls_voice) + "," +
@@ -158,6 +168,10 @@ std::string RejectedKeyNames(uint32_t bits) {
         {VF_CONFIG_KEY_PROCESS_CATEGORY_ACTIONS, "process_category_actions"},
         {VF_CONFIG_KEY_PROCESS_EXCEPTIONS, "process_exceptions"},
         {VF_CONFIG_KEY_EXCLUDED_GAME_EXES, "excluded_game_exes"},
+        {VF_CONFIG_KEY_AUTO_VRAM_REPORTING, "auto_vram_reporting"},
+        {VF_CONFIG_KEY_AUTO_PRIORITY_SEPARATION, "auto_priority_separation"},
+        {VF_CONFIG_KEY_AUTO_GAME_DVR_OFF, "auto_game_dvr_off"},
+        {VF_CONFIG_KEY_AUTO_POWER_PROFILE, "auto_power_profile"},
     };
     std::string names;
     for (const auto& [bit, name] : kNames) {

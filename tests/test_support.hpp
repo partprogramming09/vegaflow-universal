@@ -144,5 +144,6 @@ void Test107();
 void Test108();  // E2.3
 void Test109();  // E2.5
 void Test110();  // E2.3 GPU line
+void Test111();  // E2.2
 
 } // namespace vftest

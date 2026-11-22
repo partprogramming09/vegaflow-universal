@@ -147,15 +147,14 @@ void Test61() {
     RecordResult(amd_dgpu_rows && !dgpu_has_vram_row && none_empty,
                  "Test 61.9: a dedicated AMD GPU gets the driver profile but not the shared-memory VRAM row; no empty families");
 
-    // 10. The settings the daemon applies without being asked are pinned here, because "unmeasured stays off by default"
-    //     is the project rule and these break it today (pending decision of the GUI phase). Changing
-    //     this list must be a deliberate edit of this test.
+    // 10. E2.2 inverted this on purpose: "unmeasured stays off by default" is the project rule, so no setting is applied
+    //     without the person asking (the four old ones are opt-in keys of config.json). Adding a row that is applied by
+    //     default must be a deliberate edit of this test.
     std::set<std::string> by_default;
     for (const auto& s : vegaflow::SettingsCatalog()) {
         if (s.applied_by_default) by_default.insert(s.id);
     }
-    const std::set<std::string> expected = {"vram_reporting", "priority_separation", "game_dvr", "power_profile"};
-    RecordResult(by_default == expected, "Test 61.10: the settings applied by default are exactly the known four");
+    RecordResult(by_default.empty(), "Test 61.10: no setting is applied by default");
 
     // 11. Only the memory guard has no switch: VegaFlow decides it by itself, so the screen shows it as automatic.
     std::set<std::string> no_switch;
