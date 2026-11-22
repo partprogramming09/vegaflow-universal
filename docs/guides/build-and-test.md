@@ -25,7 +25,7 @@ The project includes the script [`scripts/build/build.ps1`](https://github.com/p
 # Build vegaflow_daemon.exe and vegaflow_tests.exe:
 powershell -ExecutionPolicy Bypass -File .\scripts\build\build.ps1
 
-# Build and run the C++ suite right away (the last recorded run, 2026-11-19, printed
+# Build and run the C++ suite right away (the last recorded run, 2026-11-22, printed
 # `TEST RESULTS: 415 PASSED, 0 FAILED`; the number grows with each new test, so don't copy it from here):
 powershell -ExecutionPolicy Bypass -File .\scripts\build\build.ps1 -RunTests
 ```
@@ -98,7 +98,7 @@ If you add a new folder inside `src/`, add it to `COMMON`. `build.ps1` and `buil
 
 Every change to the repository must be checked by running `build/vegaflow_tests.exe`. All the tests must pass, with no exceptions.
 
-The suite prints one `[PASS]` or `[FAIL]` line per test and ends with a summary. The last line should read as follows (last recorded run, 2026-11-19):
+The suite prints one `[PASS]` or `[FAIL]` line per test and ends with a summary. The last line should read as follows (last recorded run, 2026-11-22):
 
 ```
 TEST RESULTS: 415 PASSED, 0 FAILED
