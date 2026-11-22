@@ -1,0 +1,88 @@
+# What scripts/ci/host-unit-tests.sh builds on the host. Decided by hand (measured 2026-11-21), never guessed per run.
+#   src      <file>          production file that compiles with tests/host/windows.h (put in an archive: the linker
+#                            takes only the members a test uses)
+#   test     <file>          unit-test file that compiles, links and passes on the host
+#   exclude  <file> <reason> one word: compile = calls the Windows API or needs a Windows header beyond tests/host/,
+#                            link = needs src/ code that only builds on Windows (text_convert, change_journal, steam,
+#                            registry...), stub = reaches a stub in tests/host/host_stubs.cc (aborts when called)
+# Every tests/unit/*_tests.cpp must be a test or exclude line. To re-check an exclusion after a change, move it to
+# "test", run the script and read the error.
+
+src src/optimize/cpu_orchestrator.cpp
+src src/optimize/graphics/amd_driver_tweaks.cpp
+src src/optimize/graphics/display_tweaks.cpp
+src src/optimize/graphics/dxgi_flip.cpp
+src src/optimize/graphics/kernel_tweaks.cpp
+src src/optimize/graphics/mmcss.cpp
+src src/optimize/graphics/power_mode.cpp
+src src/optimize/graphics/shader_cache.cpp
+src src/optimize/graphics/tweaks_query.cpp
+src src/optimize/graphics/vram_reporting.cpp
+src src/optimize/memory_manager.cpp
+src src/optimize/steam/engine_detection.cpp
+src src/session/config.cpp
+src src/session/config_actions.cpp
+src src/session/config_screen.cpp
+src src/session/equipment_screen.cpp
+src src/session/exit_notice.cpp
+src src/session/game_actions.cpp
+src src/session/game_session.cpp
+src src/session/games_screen.cpp
+src src/session/history_screen.cpp
+src src/session/home_screen.cpp
+src src/session/pad_nav.cpp
+src src/session/panic_hotkey.cpp
+src src/session/programs_screen.cpp
+src src/session/report.cpp
+src src/session/reports.cpp
+src src/session/requirements_screen.cpp
+src src/session/restore.cpp
+src src/session/run_cycle.cpp
+src src/session/settings_actions.cpp
+src src/session/settings_catalog.cpp
+src src/session/settings_screen.cpp
+src src/session/system_info.cpp
+src src/session/welcome.cpp
+
+test tests/unit/contrast_unit_tests.cpp
+test tests/unit/dxgi_flip_unit_tests.cpp
+test tests/unit/equipment_screen_unit_tests.cpp
+test tests/unit/ffi_callback_guard_unit_tests.cpp
+test tests/unit/fse_compat_unit_tests.cpp
+test tests/unit/phase_g_extras_unit_tests.cpp
+test tests/unit/reg_restore_scope_unit_tests.cpp
+test tests/unit/report_unit_tests.cpp
+test tests/unit/requirements_screen_unit_tests.cpp
+test tests/unit/settings_catalog_unit_tests.cpp
+test tests/unit/settings_screen_unit_tests.cpp
+test tests/unit/ui_identity_unit_tests.cpp
+
+exclude tests/unit/cli_forward_unit_tests.cpp compile
+exclude tests/unit/device_profile_unit_tests.cpp compile
+exclude tests/unit/process_class_unit_tests.cpp compile
+exclude tests/unit/config_actions_unit_tests.cpp link
+exclude tests/unit/config_adversarial_unit_tests.cpp link
+exclude tests/unit/config_screen_unit_tests.cpp link
+exclude tests/unit/config_unit_tests.cpp link
+exclude tests/unit/cpu_topology_unit_tests.cpp link
+exclude tests/unit/doctor_unit_tests.cpp link
+exclude tests/unit/dxvk_unit_tests.cpp link
+exclude tests/unit/game_actions_adversarial_unit_tests.cpp link
+exclude tests/unit/game_actions_unit_tests.cpp link
+exclude tests/unit/games_screen_adversarial_unit_tests.cpp link
+exclude tests/unit/games_screen_unit_tests.cpp link
+exclude tests/unit/history_screen_adversarial_unit_tests.cpp link
+exclude tests/unit/history_screen_unit_tests.cpp link
+exclude tests/unit/home_screen_adversarial_unit_tests.cpp link
+exclude tests/unit/home_screen_unit_tests.cpp link
+exclude tests/unit/ini_unit_tests.cpp link
+exclude tests/unit/journal_unit_tests.cpp link
+exclude tests/unit/memory_purge_unit_tests.cpp link
+exclude tests/unit/programs_screen_adversarial_unit_tests.cpp link
+exclude tests/unit/programs_screen_unit_tests.cpp link
+exclude tests/unit/reports_kpi_unit_tests.cpp link
+exclude tests/unit/system_counters_unit_tests.cpp link
+exclude tests/unit/graphics_families_unit_tests.cpp stub
+exclude tests/unit/restore_with_backup_unit_tests.cpp stub
+exclude tests/unit/settings_actions_adversarial_unit_tests.cpp stub
+exclude tests/unit/settings_actions_unit_tests.cpp stub
