@@ -9,8 +9,8 @@ pub struct VfTierInput {
     pub physical_cores: u32,
     /// GpuArchitectureGen as a number (0 unknown, 1 GCN5/Vega, 2 RDNA2, 3 RDNA3+, 4 Intel UHD, 5 Intel Xe/Arc, 6 discrete).
     pub arch_gen: u8,
+    pub is_nvidia: bool, // RED-RUN DEMO: swapped with dedicated_vram on purpose
     pub dedicated_vram: bool,
-    pub is_nvidia: bool,
 }
 
 pub(crate) const TIER_ENTRY: u8 = 1;
