@@ -9,6 +9,9 @@ New native GUI (Win32, owner-draw controls reachable with Tab). Not tagged yet: 
 `Cargo.toml` still reads 0.1.0 until the release step.
 
 ### Changed
+- The Unreal Engine `Engine.ini` preset is off unless `config.json` sets `auto_engine_presets` to `true`; it also has an experimental row in Ajustes.
+- `--doctor` and `--status` say why the profile is what it is (`VfDecisionReason` mask, one line per rule that fired).
+- `--vram-override` and `--observe` help text now describe what the code does.
 - No tier caps the CPU frequency any more (`cpu_stapm_cap_mhz = 0`, Smart Uncapped Boost); the old 3000/3400 MHz caps in the docs were removed. Not A/B measured: see `docs/mediciones/estado-de-verificacion.md`.
 
 ### Added
