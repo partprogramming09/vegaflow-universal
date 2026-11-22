@@ -30,7 +30,7 @@ const WINDOWS_PROCESSES: &[&str] = &[
     "securityhealthservice.exe", "securityhealthsystray.exe", "smartscreen.exe", "msmpeng.exe", "audiodg.exe",
     "conhost.exe", "taskmgr.exe", "wlanext.exe", "dashost.exe", "dllhost.exe", "wudfhost.exe", "wmpnetwk.exe",
     "logonui.exe", "userinit.exe", "consent.exe", "wmiprvse.exe", "trustedinstaller.exe", "tiworker.exe", "wermgr.exe",
-    "vegaflow_daemon.exe", "vegaflow_daemon.old.exe", "vegaflow.exe", "vegaflow_tests.exe",
+    "vegaflow_daemon.exe", "vegaflow_daemon.old.exe", "vegaflow.exe",
 ];
 
 pub fn is_windows_process(lower_exe_name: &str) -> bool {
