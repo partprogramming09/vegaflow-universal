@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cwctype>
+#include <functional>
 #include <map>
 #include <optional>
 #include <set>
@@ -253,7 +254,10 @@ public:
         return true;
     }
 
+    std::function<void()> on_apply;                                 // runs just before each write to the active plan
+
     bool ApplyActiveApuPlan(const vegaflow::ApuPowerPlanValues& values) override {
+        if (on_apply) on_apply();
         ++apply_count;
         current = values;
         return true;

@@ -200,6 +200,7 @@ int main() {
         {131, vftest::Test131},  // F1.7 a failed copy of the original DLL leaves DXVK's DLL in place
         {132, vftest::Test132},  // F1.2 the manual off of Ajustes writes the factory value with a copy
         {133, vftest::Test133},  // F1.7 review: the manual MMCSS off gives back the legacy value copies too
+        {134, vftest::Test134},  // F1.2 review: the manual Balanced journals the plan it finds before writing
     };
     for (const auto& [number, run] : tests) {
         try {

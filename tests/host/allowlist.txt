@@ -68,6 +68,7 @@ test tests/unit/wake_loop_unit_tests.cpp
 exclude tests/unit/cli_forward_unit_tests.cpp compile
 exclude tests/unit/device_profile_unit_tests.cpp compile
 exclude tests/unit/process_class_unit_tests.cpp compile
+exclude tests/unit/power_balanced_unit_tests.cpp compile
 exclude tests/unit/reports_log_unit_tests.cpp compile
 exclude tests/unit/config_actions_unit_tests.cpp link
 exclude tests/unit/adapter_refresh_unit_tests.cpp link
