@@ -105,6 +105,9 @@ if (-not $DryRun) {
     if ($LASTEXITCODE -ne 0) { throw 'icacls no pudo fijar los permisos de la carpeta de instalación.' }
     icacls $InstallDir /inheritance:r | Out-Null
     if ($LASTEXITCODE -ne 0) { throw 'icacls no pudo quitar los permisos heredados de la carpeta de instalación.' }
+    # Owner first: an owner implicitly keeps WRITE_DAC, so a folder another account created must not stay theirs while the ACEs are trimmed.
+    icacls $InstallDir /setowner '*S-1-5-32-544' | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw 'icacls no pudo fijar el propietario de la carpeta de instalación.' }
     # F3.5: /grant:r only replaces the three accounts; an ACE another account left before the install must go too.
     $acl = Get-Acl $InstallDir
     foreach ($rule in @($acl.GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier]))) {

@@ -31,6 +31,9 @@ icacls $dir /grant:r '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-32-
 if ($LASTEXITCODE -ne 0) { throw 'icacls no pudo fijar los permisos de la carpeta protegida.' }
 icacls $dir /inheritance:r | Out-Null
 if ($LASTEXITCODE -ne 0) { throw 'icacls no pudo quitar los permisos heredados de la carpeta protegida.' }
+# Owner first: an owner implicitly keeps WRITE_DAC, so a folder another account created must not stay theirs while the ACEs are trimmed.
+icacls $dir /setowner '*S-1-5-32-544' | Out-Null
+if ($LASTEXITCODE -ne 0) { throw 'icacls no pudo fijar el propietario de la carpeta protegida.' }
 # F3.5: /grant:r only replaces the three accounts; an ACE another account left before the install must go too.
 $acl = Get-Acl $dir
 foreach ($rule in @($acl.GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier]))) {
