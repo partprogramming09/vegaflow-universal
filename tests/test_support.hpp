@@ -164,5 +164,6 @@ void Test127();  // F1.6 Volver todo names failed registry copies and keeps safe
 void Test128();  // F1.6 power profile needs a read of the original and restores into its own plan
 void Test129();  // F1.6 the seven power settings exist in the real plan; apply + give back leaves it identical
 void Test130();  // F1.6 a setting the plan lacks is skipped, the other six are saved and given back
+void Test131();  // F1.7 a failed copy of the original DLL leaves DXVK's DLL in place
 
 } // namespace vftest
