@@ -121,7 +121,7 @@ Output from the test run of 2026-11-20 on the test laptop (Ryzen 5 4600H, Vega 6
 | Programs (81.x) | Tests 81.1, 81.4, 81.7, 81.8 | `[PASS] Test 81.1: the seven categories are well formed: unique ids, filled texts, ids the editor knows, no promise of gain`; `[PASS] Test 81.4: BoostAsGame is refused for an exception just as it is for a category (the screen offers only three choices)`; `[PASS] Test 81.7: AddException refuses with a sentence the names the Rust rules refuse, never stores them, and works with a null error pointer`; `[PASS] Test 81.8: Remove and SetExceptionAction find a program in any letter case, ignore folders and blanks, and report a miss as false` |
 | Restore sentence | Test 75 | `[PASS] Test 75: the Volver todo sentence names the journal summary, else the registry count, else 0 of 0` |
 | Restore with failures and dry run | Tests 82.12 and 82.13 | `[PASS] Test 82.12: 'Volver todo' with failures: reverts the rest, names each failure with its fix, and a second call retries only the failures` and `[PASS] Test 82.13: 'Volver todo' as a dry run reverts and marks nothing; on an empty journal it says 0 of 0` |
-| Whole suite | `build.ps1 -RunTests` | `TEST RESULTS: 328 PASSED, 0 FAILED` |
+| Whole suite | `build.ps1 -RunTests` | `TEST RESULTS: 357 PASSED, 0 FAILED` |
 
 ## Check it yourself
 
@@ -131,7 +131,7 @@ On Windows, in the repository folder:
 powershell -ExecutionPolicy Bypass -File .\scripts\build\build.ps1 -RunTests
 ```
 
-The last line should read `TEST RESULTS: 328 PASSED, 0 FAILED`. The number grows as tests are added. The full procedure is in [build and test](./build-and-test.md).
+The last line should read `TEST RESULTS: 357 PASSED, 0 FAILED`. The number grows as tests are added. The full procedure is in [build and test](./build-and-test.md).
 
 ## Related
 
