@@ -161,6 +161,27 @@
         "Answer": "^(none|n)$"
       }
     },
+    "octo": {
+      "script": "octo.ps1",
+      "timeout_s": 14400,
+      "session": 1,
+      "description": "Open Octopath Traveler II through Steam, load the autosave, check the scene by screenshot and FPS, and measure one block per launch with an Engine.ini variant (daemon off)",
+      "params": {
+        "Conditions": "^(factory|streaming|visual|async|full|keep)(,(factory|streaming|visual|async|full|keep)){0,19}$",
+        "Prefix": "^[a-z0-9]{1,20}$",
+        "Captures": "^[0-5]$",
+        "Seconds": "^[0-9]{2,3}$",
+        "Warmup": "^(0|1)$",
+        "Leave": "^(0|1)$"
+      }
+    },
+    "octo-close": {
+      "script": "octo_close.ps1",
+      "timeout_s": 60,
+      "session": 1,
+      "description": "Close Octopath Traveler II with Stop-Process and put back the Engine.ini the octo job saved",
+      "params": {}
+    },
     "kill-gui": {
       "script": "kill_gui.ps1",
       "timeout_s": 30,
