@@ -184,6 +184,7 @@ int main() {
         {115, vftest::Test115},  // E2.7
         {116, vftest::Test116},  // E2.4 adapter signature read only on demand
         {117, vftest::Test117},  // shutdown gives GameDVR back only if VegaFlow turned it off
+        {118, vftest::Test118},  // shutdown restores the power plan only if VegaFlow applied its profile
     };
     for (const auto& [number, run] : tests) {
         try {

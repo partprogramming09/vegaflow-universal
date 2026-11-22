@@ -445,9 +445,7 @@ int RunGuiMode(
         }
         cpu_orchestrator.RestoreAll(false);
         gfx.KernelScheduler().SetDynamicPrioritySeparation(0x02, false);
-        if (gfx.PowerMode() && gfx.PowerMode()->IsApuPowerModeApplied()) {
-            gfx.PowerMode()->SetApuLaptopPowerProfile(false, policy, false);
-        }
+        if (gfx.PowerMode()) gfx.PowerMode()->RestoreIfApplied(policy, false);
         gfx.Display().RestoreGameDvrCapture(false);
         gfx.RestoreAllRegistryBackups();
     }
