@@ -166,5 +166,6 @@ void Test129();  // F1.6 the seven power settings exist in the real plan; apply 
 void Test130();  // F1.6 a setting the plan lacks is skipped, the other six are saved and given back
 void Test131();  // F1.7 a failed copy of the original DLL leaves DXVK's DLL in place
 void Test132();  // F1.2 the manual off of Ajustes writes the factory value with a copy
+void Test133();  // F1.7 review: the manual MMCSS off gives back the legacy value copies too
 
 } // namespace vftest

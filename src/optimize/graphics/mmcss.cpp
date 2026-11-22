@@ -17,6 +17,10 @@ bool MmcssTweaks::SetGamingProfileOptimized(bool optimize, bool dry_run, bool us
             ok &= UserOffValue(reg_, LM, kMmcssGamesPath, L"Priority", RegValue::MakeDword(2u), "MMCSS Tasks\\Games stock", "2");
             ok &= UserOffValue(reg_, LM, kMmcssGamesPath, L"Scheduling Category", RegValue::MakeString(L"Medium"), "MMCSS Tasks\\Games stock", "Medium");
             ok &= UserOffValue(reg_, LM, kMmcssGamesPath, L"SFIO Priority", RegValue::MakeString(L"Normal"), "MMCSS Tasks\\Games stock", "Normal");
+            // The legacy values VegaFlow no longer writes: only their copies go back, never a factory value.
+            for (const wchar_t* n : {L"GPU Priority", L"Background Only", L"Clock Rate"}) {
+                reg_.RestoreBackedUpValue(LM, kMmcssGamesPath, n);
+            }
             return ok;
         }
         reg_.RestoreBackedUpValue(RegHive::LocalMachine, kMmcssProfilePath, L"SystemResponsiveness");

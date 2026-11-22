@@ -279,4 +279,29 @@ void Test132() {
                      ", ToggleOff=" + (toggle_off ? "1" : "0"));
 }
 
+// F1.7 review: the manual off also gives back the copies of the legacy MMCSS values VegaFlow no longer writes
+// (GPU Priority, Background Only, Clock Rate) without writing a factory value for them.
+void Test133() {
+    namespace v = vegaflow;
+    using v::RegValue;
+    constexpr auto LM = v::RegHive::LocalMachine;
+    const std::wstring games = v::graphics_internal::kMmcssGamesPath;
+    FakeRegistryPort reg;
+    FakePowerPort power;
+    reg.SeedValue(LM, games, L"Clock Rate", RegValue::MakeDword(2710));
+    reg.SeedLegacyBackup(LM, games, L"Clock Rate", RegValue::MakeDword(10000));
+    reg.SeedValue(LM, games, L"GPU Priority", RegValue::MakeDword(8));
+    reg.SeedLegacyBackup(LM, games, L"GPU Priority", std::nullopt);
+    v::SystemHardwareProfile hw{};
+    v::ApuOptimizationPolicy policy{};
+    v::GraphicsOptimizer gfx(hw, policy, reg, &power);
+    gs::SettingsActions act(gs::SettingsActionsDeps{gfx, policy, [&]() { return policy; }, nullptr});
+    act.Set("mmcss_gaming", false);
+    RegValue clock;
+    const bool clock_back = reg.ReadValue(LM, games, L"Clock Rate", clock) && clock.dword == 10000 && !reg.HasBackup(LM, games, L"Clock Rate");
+    const bool gpu_gone = !reg.HasValue(LM, games, L"GPU Priority") && !reg.HasBackup(LM, games, L"GPU Priority");
+    RecordResult(clock_back && gpu_gone, "Test 133: the manual MMCSS off gives back the copies of Clock Rate and GPU Priority too (F1.7 review)",
+                 std::string("ClockRateBack=") + (clock_back ? "1" : "0") + ", GpuPriorityGone=" + (gpu_gone ? "1" : "0"));
+}
+
 } // namespace vftest
