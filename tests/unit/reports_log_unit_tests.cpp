@@ -153,10 +153,6 @@ void Test112() {
               std::count(notice_text.begin(), notice_text.end(), '\n') == 1,
           "a notice is one WARN line in the log");
 
-    // F3.4: the lock an elevated daemon creates must stay openable by the (non-elevated) GUI: the interactive user gets
-    // SYNCHRONIZE | MUTEX_MODIFY_STATE in its DACL. Before the fix the default DACL left that account out.
-    check(vegaflow::app::SessionLogLockAllowsInteractiveUsers(), "log lock DACL lets the interactive user wait and release");
-
     fs::remove_all(dir, ec);
     RecordResult(failed.empty(), "Test 112: one do-not-trim rule and a session log that rotates at 2 MB next to the exe",
                  failed.empty() ? "all rows ok" : "FAILED: " + failed);

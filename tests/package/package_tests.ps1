@@ -159,8 +159,8 @@ $usersWrite = @($acl.Access | Where-Object {
         (([int]$_.FileSystemRights) -band $writeMask) -ne 0
     })
 Check 'Users no puede escribir en la carpeta' ($usersWrite.Count -eq 0)
-$foreignAce = @($acl.Access | Where-Object {
-        $_.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value -notin @('S-1-5-18', 'S-1-5-32-544', 'S-1-5-32-545')
+$foreignAce = @($acl.GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier]) | Where-Object {
+        $_.IdentityReference.Value -notin @('S-1-5-18', 'S-1-5-32-544', 'S-1-5-32-545')
     })
 Check 'ninguna cuenta ajena conserva permisos en la carpeta' ($foreignAce.Count -eq 0) (($foreignAce | ForEach-Object { "$($_.IdentityReference)" }) -join ', ')
 if ($Shell) {

@@ -95,7 +95,7 @@ void Test91() {
     std::error_code probe_ec;
     fs::directory_iterator probe(locked, fs::directory_options::none, probe_ec);
     const std::string probe_msg = "denied=" + std::to_string(denied) + " probe_ec=" + std::to_string(probe_ec.value());
-    const bool unreadable_refuses = !denied || vegaflow::SandboxGuard::DirectoryContainsAntiCheat(base / L"locked_game");
+    const bool unreadable_refuses = denied && vegaflow::SandboxGuard::DirectoryContainsAntiCheat(base / L"locked_game"); // icacls failing is a FAIL, not a skip
     if (backup_was_on) SetPrivilege(L"SeBackupPrivilege", true);
     _wsystem((L"icacls \"" + locked.wstring() + L"\" /remove:d *S-1-1-0 >nul 2>&1").c_str());
 

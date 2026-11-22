@@ -30,8 +30,9 @@ bool SaveSessionReportToFile(
 // F3.3: appends one "[WARN] ..." line to the session log under the same lock; false, without throwing, if it cannot.
 bool LogNoticeToSessionLog(const std::string& notice, const std::string& file_path = kSessionLogDefaultPath);
 
-// F3.4: true when the log lock's DACL lets the interactive user wait on it and release it (checked on the real object).
-bool SessionLogLockAllowsInteractiveUsers();
+// F3.4: creates or opens the log lock (a HANDLE as void*; the caller closes it with CloseHandle). Null when it cannot.
+// Opens with only SYNCHRONIZE | MUTEX_MODIFY_STATE, so a standard-user GUI can join a lock an elevated daemon made.
+void* OpenSessionLogLock();
 
 void PrintStatusReport();
 void ExecutePurgeNow(bool dry_run);

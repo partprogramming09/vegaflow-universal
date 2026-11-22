@@ -33,8 +33,8 @@ icacls $dir /inheritance:r | Out-Null
 if ($LASTEXITCODE -ne 0) { throw 'icacls no pudo quitar los permisos heredados de la carpeta protegida.' }
 # F3.5: /grant:r only replaces the three accounts; an ACE another account left before the install must go too.
 $acl = Get-Acl $dir
-foreach ($rule in @($acl.Access)) {
-    if ($rule.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value -notin @('S-1-5-18', 'S-1-5-32-544', 'S-1-5-32-545')) {
+foreach ($rule in @($acl.GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier]))) {
+    if ($rule.IdentityReference.Value -notin @('S-1-5-18', 'S-1-5-32-544', 'S-1-5-32-545')) {
         [void]$acl.RemoveAccessRuleSpecific($rule)
     }
 }

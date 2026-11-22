@@ -307,12 +307,12 @@ uint32_t Decide(const std::wstring& canonical, bool write, bool anticheat, const
 bool SandboxGuard::PathContainsAntiCheatSignature(const std::wstring& path) {
     if (path.empty()) return false;
 
-    char utf8_path[2048] = {0};
-    int utf8_len = WideCharToMultiByte(CP_UTF8, 0, path.data(), static_cast<int>(path.size()), utf8_path, sizeof(utf8_path) - 1, nullptr, nullptr);
-    if (utf8_len > 0) {
-        return vf_rust_has_anticheat_signature(utf8_path, static_cast<size_t>(utf8_len));
-    }
-    return false;
+    // Sized to the path: a fixed buffer would answer "no signature" for a very long path.
+    const int need = WideCharToMultiByte(CP_UTF8, 0, path.data(), static_cast<int>(path.size()), nullptr, 0, nullptr, nullptr);
+    if (need <= 0) return false;
+    std::string utf8_path(static_cast<size_t>(need), '\0');
+    if (WideCharToMultiByte(CP_UTF8, 0, path.data(), static_cast<int>(path.size()), utf8_path.data(), need, nullptr, nullptr) != need) return false;
+    return vf_rust_has_anticheat_signature(utf8_path.data(), utf8_path.size());
 }
 
 namespace {

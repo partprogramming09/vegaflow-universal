@@ -207,6 +207,7 @@ int main() {
         {138, vftest::Test138},  // the startup question limit is absolute and a key after it does not count
         {139, vftest::Test139},  // end of input or a failed read is no answer and discards pending keys
         {140, vftest::Test140},  // a filtered token cannot hard-link a protected file it cannot write
+        {141, vftest::Test141},  // a standard-user token can join the session log lock
     };
     for (const auto& [number, run] : tests) {
         try {
