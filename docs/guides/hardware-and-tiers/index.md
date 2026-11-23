@@ -5,7 +5,7 @@
 **Reader:** people
 
 **Reviewed:** 2026-11-18 (branch `feat/expansion-e1`). No tier keeps a STAPM frequency cap: `cpu_stapm_cap_mhz = 0` (no ceiling) in Tier 1, 2, 3 and 4.
-Sources: `src/detect/hardware_profiler.cpp:268` (sets 0 before the `switch` per tier, with no exceptions); `tests/integration/hardware_tests.cpp:141, 168, 185` (expect 0 in Tier 1, 2 and 3); `tests/vectors/apu_tier.tsv` fixes the classification per tier, not the frequency caps.
+Sources: `BuildOptimizationPolicy` in `src/detect/hardware_profiler.cpp` (sets 0 before the `switch` per tier, with no exceptions); `Test25` in `tests/integration/hardware_tests.cpp` (expects 0 in Tier 1, 2 and 3); `tests/vectors/apu_tier.tsv` fixes the classification per tier, not the frequency caps.
 
 ## What each page covers
 

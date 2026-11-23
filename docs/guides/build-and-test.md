@@ -55,9 +55,9 @@ The file `.github/workflows/ci.yml` runs five jobs on GitHub's machines: the lay
 cargo test --manifest-path rust/vegaflow-core/Cargo.toml
 ```
 
-The Rust core makes no calls to `ntdll` (a Windows system library). The only mention of it in the Rust code is a comment (`rust/vegaflow-core/src/policy/memory_purge.rs:5`). The calls are in the C++ code, for example `src/windows/memory.cpp:88` and `:101`. So the rest of the logic (the Tiers, the path blacklist and the other rules in `rust/vegaflow-core/src/policy/`) runs without any Windows call. On a Mac, `cargo test` gave 258 passed, 0 failed (2026-11-20).
+The Rust core makes no calls to `ntdll` (a Windows system library). The only mention of it in the Rust code is a comment (in the module header of `rust/vegaflow-core/src/policy/memory_purge.rs`). The calls are in the C++ code, for example `ResolveNtQuerySystemInformation` and `ResolveNtSetSystemInformation` in `src/windows/memory.cpp`. So the rest of the logic (the Tiers, the path blacklist and the other rules in `rust/vegaflow-core/src/policy/`) runs without any Windows call. On a Mac, `cargo test` gave 258 passed, 0 failed (2026-11-20).
 
-The cases for the Tier classification and for the path blacklist come from `tests/vectors/apu_tier.tsv` and `tests/vectors/sandbox_blacklist.tsv`. The Rust tests and C++ tests 32 and 33 both read them (`rust/vegaflow-core/src/policy/apu_tier.rs:4` and `path_policy.rs:6`). If the two implementations disagree, one of the two tests fails.
+The cases for the Tier classification and for the path blacklist come from `tests/vectors/apu_tier.tsv` and `tests/vectors/sandbox_blacklist.tsv`. The Rust tests and C++ tests 32 and 33 both read them (in the module headers of `rust/vegaflow-core/src/policy/apu_tier.rs` and `path_policy.rs`). If the two implementations disagree, one of the two tests fails.
 
 ### 5.3. Manual build with MinGW G++
 

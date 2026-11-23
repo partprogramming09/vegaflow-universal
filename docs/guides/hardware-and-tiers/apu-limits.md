@@ -28,7 +28,7 @@ For compatibility with legacy 32-bit software, AMD BIOSes and drivers often repo
   r.Streaming.MaxNumTexturesToStreamPerFrame=120
   r.Streaming.Boost=1.5
   ```
-  The pool is not one fixed number. It is the tier's safe pool (`device_profile.rs:306-326`), and `src/optimize/steam/engine_presets.cpp` writes it only on integrated GPUs (`:146-168`):
+  The pool is not one fixed number. It is the tier's safe pool (`evaluate_profile` in `device_profile.rs`), and `GenerateUnrealUmaBlock` in `src/optimize/steam/engine_presets.cpp` writes it only on integrated GPUs:
   - Tier 1: 22% of RAM, kept between 1536 and 2048 MB.
   - Tier 2: 4096 MB.
   - Tier 3: 30% of RAM, kept between 4096 and 8192 MB.

@@ -41,8 +41,8 @@ How to read it:
 
 - **CPU sets 258 to 265 and 266 to 267.** Windows numbers the logical processors as CPU sets. The device probe reads every set; the split into "game" and "background" is made later by the Rust core ([hardware_profiler.cpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/detect/hardware_profiler.cpp), `PartitionCpuSetsFromTopology`).
 - **`vendor_id` 4098 and `device_id` 5686** are the decimal forms of `0x1002` (AMD) and `0x1636` (the Vega graphics chip). The probe reads them through DXCore, the Windows graphics-adapter API that the probe tries first.
-- **`dxgi_budget`** holds the budget and the current usage that DXGI reports for this adapter (read with `QueryVideoMemoryInfo`, `memory.cpp:289` and `:298`). `8089171456` bytes is the `7714 MB` in the `--status` line. `valid: true` means the query worked.
-- **`standby_cache_bytes`** and **`Standby List RAM`** are the standby list, the memory the code's comment calls the standby cache (`memory.cpp:207`). The two values come from two separate runs, so they differ slightly.
+- **`dxgi_budget`** holds the budget and the current usage that DXGI reports for this adapter (read with `QueryVideoMemoryInfo` inside `SampleSystemMemory` in `memory.cpp`). `8089171456` bytes is the `7714 MB` in the `--status` line. `valid: true` means the query worked.
+- **`standby_cache_bytes`** and **`Standby List RAM`** are the standby list, the memory the code's comment calls the standby cache (the comment in `SampleSystemMemory`, `memory.cpp`). The two values come from two separate runs, so they differ slightly.
 
 ## How it works, step by step
 
@@ -50,15 +50,15 @@ How to read it:
 
 The main path is a file write. The other pieces below follow the same idea: check first, then change, then check the result.
 
-| Step | File:line | What to look at | Why |
+| Step | File and function | What to look at | Why |
 |---|---|---|---|
-| 1. A caller asks for a write | [sandbox_guard.cpp:593](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/sandbox_guard.cpp) (`SafeWriteFile`) | The call enters through the file port (`safe_file_system.cpp`), which calls this function | The checks run before any file is opened |
-| 2. The real path is worked out | [sandbox_guard.cpp:123](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/sandbox_guard.cpp) (`CanonicalizePath`), called at `:444` | `.` and `..` are removed; the part that exists is replaced by its real path | A junction cannot hide where the write really lands |
-| 3. Allowed and forbidden folders are decided | [sandbox_guard.cpp:295](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/sandbox_guard.cpp) (`Decide`), into [ffi/paths.rs:43](https://github.com/partprogramming09/vegaflow-universal/blob/main/rust/vegaflow-core/src/ffi/paths.rs#L43) | The rule itself is in Rust (`policy/file_access.rs`); C++ only passes the path | One set of rules, tested in Rust and against a shared vector file |
-| 4. Anti-cheat check, writes only | [sandbox_guard.cpp:458-463](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/sandbox_guard.cpp) | If the file name or the folder has an anti-cheat signature, the decision runs again in lockdown mode | Reads skip this scan but still pass the folder rules |
-| 5. The file is opened | [sandbox_guard.cpp:561](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/sandbox_guard.cpp) (`WriteVerified`) | The file is opened, but its content is not changed yet | Nothing is truncated before the check |
-| 6. The real path of the open file is checked | [sandbox_guard.cpp:552](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/sandbox_guard.cpp) (`OpenedFileAllowed`) | If the path changed since step 2, it is checked again; if it is refused, a file this call created is deleted | Catches a folder swapped for a junction between steps 2 and 6 |
-| 7. Content is written, or the write is refused | `sandbox_guard.cpp:579-583` (write); `:564-578` (refusals) | A refusal returns `false` and adds an entry to the violation log (`GetViolations()`) | The caller gets a yes or no, and the reason is kept for the report |
+| 1. A caller asks for a write | [`SafeWriteFile`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/sandbox_guard.cpp) | The call enters through the file port (`safe_file_system.cpp`), which calls this function | The checks run before any file is opened |
+| 2. The real path is worked out | [`CanonicalizePath`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/sandbox_guard.cpp), called from `ValidatePath` | `.` and `..` are removed; the part that exists is replaced by its real path | A junction cannot hide where the write really lands |
+| 3. Allowed and forbidden folders are decided | [`Decide`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/sandbox_guard.cpp), into [`vf_rust_decide_file_access`](https://github.com/partprogramming09/vegaflow-universal/blob/main/rust/vegaflow-core/src/ffi/paths.rs) | The rule itself is in Rust (`policy/file_access.rs`); C++ only passes the path | One set of rules, tested in Rust and against a shared vector file |
+| 4. Anti-cheat check, writes only | [`ValidatePath`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/sandbox_guard.cpp) | If the file name or the folder has an anti-cheat signature, the decision runs again in lockdown mode | Reads skip this scan but still pass the folder rules |
+| 5. The file is opened | [`WriteVerified`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/sandbox_guard.cpp) | The file is opened, but its content is not changed yet | Nothing is truncated before the check |
+| 6. The real path of the open file is checked | [`OpenedFileAllowed`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/sandbox_guard.cpp) | If the path changed since step 2, it is checked again; if it is refused, a file this call created is deleted | Catches a folder swapped for a junction between steps 2 and 6 |
+| 7. Content is written, or the write is refused | `WriteVerified` in `sandbox_guard.cpp` (write and refusals) | A refusal returns `false` and adds an entry to the violation log (`GetViolations()`) | The caller gets a yes or no, and the reason is kept for the report |
 
 Read rules and the anti-cheat list in [security.md](./security.md). This page only shows where each check sits in the code.
 
@@ -74,75 +74,75 @@ Read rules and the anti-cheat list in [security.md](./security.md). This page on
 
 Keys and values are changed only inside the roots listed in [reg_restore_scope.hpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/reg_restore_scope.hpp) (for example `Software\Microsoft\DirectX` and the game-bar settings).
 
-1. **Save first.** Before the first change to a value, `RegBackupValue` ([registry.cpp:147](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/registry.cpp)) creates a record under `SOFTWARE\VegaFlow\RegBackup` (the root is at `registry.cpp:16`). The record holds the key, the value name, the hive (HKLM or HKCU), whether the value existed, its type and its data.
-2. **Keep only the first.** If the record already exists, the function returns (`registry.cpp:156-159`). The original value is therefore never overwritten by a second change.
-3. **Name the record by a fixed hash.** The record name is `v2-` plus an FNV-1a hash (a simple checksum that gives the same number on every compiler) of hive, key and value name in lower case (`RegBackupRecordName`, `reg_restore_scope.hpp:28`; used at `registry.cpp:104`). Records written by older builds used `std::hash`, which another compiler may compute differently; they are still looked up under their old name before a new record is written and when restoring (`registry.cpp:118`, `:481`), so the first saved original is never replaced by an already changed value. The old lookup only works while `std::hash` gives the same number as the build that wrote the record.
-4. **Journal, then write.** `WriteValue` ([registry.cpp:387](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/registry.cpp)) calls the backup at `:412` and the journal entry at `:413` before it writes the value.
-5. **Restore.** `RegRestoreRecord` (`registry.cpp:248`) reads the record and refuses it unless its key is one VegaFlow edits, in the same hive (`:269`). The record is read from HKCU, which any user can write, so its target is never trusted as stored. It then writes the saved value back, or deletes the value if it did not exist. The record is deleted only after success (`:290-291`).
-6. **Restore everything.** `RestoreAllBackups` (`registry.cpp:489`) runs the restore for every record in both hives.
+1. **Save first.** Before the first change to a value, [`RegBackupValue`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/registry.cpp) creates a record under `SOFTWARE\VegaFlow\RegBackup` (the root is the constant `kRegBackupRoot` in `registry.cpp`). The record holds the key, the value name, the hive (HKLM or HKCU), whether the value existed, its type and its data.
+2. **Keep only the first.** If the record already exists, the function returns (inside `RegBackupValue`). The original value is therefore never overwritten by a second change.
+3. **Name the record by a fixed hash.** The record name is `v2-` plus an FNV-1a hash (a simple checksum that gives the same number on every compiler) of hive, key and value name in lower case (`RegBackupRecordName` in `reg_restore_scope.hpp`; used by `RecordNameFor` in `registry.cpp`). Records written by older builds used `std::hash`, which another compiler may compute differently; they are still looked up under their old name before a new record is written (`ExistingLegacyRecord` in `registry.cpp`) and when restoring (`RestoreBackedUpValue`), so the first saved original is never replaced by an already changed value. The old lookup only works while `std::hash` gives the same number as the build that wrote the record.
+4. **Journal, then write.** [`WriteValue`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/registry.cpp) calls `RegBackupValue` and then the journal entry (`JournalBeginRegChange`) before it writes the value.
+5. **Restore.** [`RegRestoreRecord`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/registry.cpp) reads the record and refuses it unless its key is one VegaFlow edits, in the same hive (the check is inside this function). The record is read from HKCU, which any user can write, so its target is never trusted as stored. It then writes the saved value back, or deletes the value if it did not exist. The record is deleted only after success (also inside `RegRestoreRecord`).
+6. **Restore everything.** [`RestoreAllBackups`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/registry.cpp) runs the restore for every record in both hives.
 
-The command: `--restore-registry` is read at [cli.cpp:73](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/app/cli.cpp). It runs the journal first, then `RestoreAllBackups` (`cli.cpp:304`). The exit code is 0 only if every change came back (`cli.cpp:312`).
+The command: `--restore-registry` is read in [`ParseCommandLine`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/app/cli.cpp). It runs the journal first, then `RestoreAllBackups` (both inside `RunOneShotCommand`). The exit code is 0 only if every change came back (also in `RunOneShotCommand`).
 
 ### Process control: priorities, EcoQoS and CPU sets
 
 [process_control.cpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/process_control.cpp) has two jobs: boost the game, and slow down the background programs.
 
-- **Game (`BoostGameProcess`, line 139).** It raises the priority class to High, or to Above Normal for DirectX 12 and Vulkan (`:177`). It sets the power-throttling state of the game to off (`:184`), sets memory priority to Normal, makes sure its I/O priority is not below Normal (2, `:196`), and applies the game's CPU sets with `SetProcessDefaultCpuSets` (`:204`). With `dry_run` it only reports what it would do (`:171`). The I/O priority values are named once (`kIoPriorityVeryLow = 0`, `kIoPriorityNormal = 2`, `:22-23`); restoring a process puts Normal back (`:250`, `:394`), not 1, which Windows reads as Low.
-- **Background (`ApplyBackgroundPolicy`, line 258).** It first checks that the process is still the one it found (creation time, so a recycled process id is never touched). Then it turns on power throttling with `EXECUTION_SPEED` (`:304`). This is the mechanism behind EcoQoS, the name the test suite uses for it (Test 19). The `Throttle` action also lowers memory priority, sets I/O priority to 0, VeryLow (`:318`) and confines the process to the background CPU sets (`:327`).
-- **A Windows call declared by hand.** The I/O priority uses `NtSetInformationProcess` (class 33). The code declares its function type itself (`process_control.cpp:25`) and finds the function at run time with `GetProcAddress` on `ntdll.dll` (`:52-55`). If the function is missing, the step is skipped and the rest still runs.
+- **Game (`BoostGameProcess`).** It raises the priority class to High, or to Above Normal for DirectX 12 and Vulkan. It sets the power-throttling state of the game to off, sets memory priority to Normal, makes sure its I/O priority is not below Normal (2), and applies the game's CPU sets with `SetProcessDefaultCpuSets`. With `dry_run` it only reports what it would do. The I/O priority values are named once (`kIoPriorityVeryLow = 0`, `kIoPriorityNormal = 2`, file-level constants in `process_control.cpp`); restoring a process puts Normal back (in `RestoreGameProcess` and `RestoreBackgroundProcess`), not 1, which Windows reads as Low.
+- **Background (`ApplyBackgroundPolicy`).** It first checks that the process is still the one it found (creation time, so a recycled process id is never touched). Then it turns on power throttling with `EXECUTION_SPEED`. This is the mechanism behind EcoQoS, the name the test suite uses for it (Test 19). The `Throttle` action also lowers memory priority, sets I/O priority to 0, VeryLow and confines the process to the background CPU sets (all inside `ApplyBackgroundPolicy`).
+- **A Windows call declared by hand.** The I/O priority uses `NtSetInformationProcess` (class 33). The code declares its function type itself (the typedef `PFN_NtSetInformationProcess` in `process_control.cpp`) and finds the function at run time with `GetProcAddress` on `ntdll.dll` (in `GetNtSetInformationProcess`). If the function is missing, the step is skipped and the rest still runs.
 
 ### Memory: telemetry, DXGI budget and the standby purge
 
 [memory.cpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/memory.cpp) reads memory and, when asked, empties the standby list.
 
-- **Free and standby memory.** It asks `NtQuerySystemInformation` for memory class 80 (`memory.cpp:213`; the number 80 is defined at `:30`). The code uses these exact lists and not the simpler "available" number, because that number includes the standby cache (comment at `:207`).
-- **Video memory budget.** It picks the graphics adapter by its LUID (a Windows identifier; the memory manager passes it in, `optimize/memory_manager.cpp:25`) (`:172-186`), then calls `QueryVideoMemoryInfo` for the local and non-local segments (`:204-212`). `valid` is set only when the query works.
-- **Standby purge.** `PurgeStandbyList` (`:278`) returns a simulated result under `dry_run` (`:280`). Otherwise it enables two privileges and calls `NtSetSystemInformation`, class 80, command 4 (`:289-298`). Status `0xC0000061` is reported as a missing privilege (`privilege_missing`, `:306-308`), and the result says the program needs Administrator. The decision of when to purge is made above this layer, in [memory_manager.cpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/optimize/memory_manager.cpp).
+- **Free and standby memory.** It asks `NtQuerySystemInformation` for memory class 80 (in `SampleSystemMemory`; the number 80 is the constant `kSystemMemoryListInformationClass` in `memory.cpp`). The code uses these exact lists and not the simpler "available" number, because that number includes the standby cache (comment in `SampleSystemMemory`).
+- **Video memory budget.** It picks the graphics adapter by its LUID (a Windows identifier; the memory manager passes it in from `SampleTelemetry` in [memory_manager.cpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/optimize/memory_manager.cpp)), then calls `QueryVideoMemoryInfo` for the local and non-local segments. Both steps are inside `SampleSystemMemory`. `valid` is set only when the query works.
+- **Standby purge.** `PurgeStandbyList` returns a simulated result under `dry_run`. Otherwise it enables two privileges and calls `NtSetSystemInformation`, class 80, command 4. Status `0xC0000061` is reported as a missing privilege (`privilege_missing`, also in `PurgeStandbyList`), and the result says the program needs Administrator. The decision of when to purge is made above this layer, in [memory_manager.cpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/optimize/memory_manager.cpp).
 
 ### Device probe: graphics, CPU sets and Windows version
 
 [device_probe.cpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/device_probe.cpp) builds the hardware snapshot shown by `--system-info` and `--status`.
 
-- **DXCore first.** It loads `dxcore.dll` and creates the adapter factory (`device_probe.cpp:263-272`). It keeps hardware adapters only (`:310`), skips the Microsoft software renderer (vendor `0x1414`, `:320`), and reads vendor and device id (`:337-340`), LUID (`:327`), dedicated and shared memory (`:364-368`), and whether the adapter is integrated (`:372`). An integrated adapter is shown as `Integrada` (`:380-381`).
-- **DXGI as backup.** `SupplementOrFallbackWithDxgi` (`:398`) loads `dxgi.dll` (`:403`) and fills in or replaces the list, depending on whether DXCore was available.
-- **Windows version.** `RtlGetVersion` gives the real build number (`:576-589`); the `os_kernel` block of `--system-info` shows it.
-- **CPU sets.** `DetectCpuSetsRaw` (`:647-673`) lists every CPU set with `GetSystemCpuSetInformation`. The game and background split is done later, in Rust.
+- **DXCore first.** It loads `dxcore.dll` and creates the adapter factory (in `ProbeGpusWithDxCore`). It keeps hardware adapters only, skips the Microsoft software renderer (vendor `0x1414`), and reads vendor and device id, LUID, dedicated and shared memory, and whether the adapter is integrated, all in `ProbeGpusWithDxCore`. An integrated adapter is shown as `Integrada` (also there).
+- **DXGI as backup.** `SupplementOrFallbackWithDxgi` loads `dxgi.dll` and fills in or replaces the list, depending on whether DXCore was available.
+- **Windows version.** `RtlGetVersion` gives the real build number (in `ProbeWindowsVersion`); the `os_kernel` block of `--system-info` shows it.
+- **CPU sets.** `DetectCpuSetsRaw` lists every CPU set with `GetSystemCpuSetInformation`. The game and background split is done later, in Rust.
 
 ### Change journal
 
 [change_journal.cpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/change_journal.cpp) is the log that lets VegaFlow undo its changes after a crash.
 
-- **Where.** A file named `config\change_journal.vfj` next to the executable (`JournalFilePath`, `:626`).
-- **How it is saved.** Each save writes the whole file through `Replace`, which goes through `SafeReplaceFile` and renames a temporary file over it (`PersistLocked`, `:691-712`). The file is replaced in one step, not written in place.
-- **Session markers.** `BeginSession` (`:838`) marks a run as active. `EndSessionClean` (`:846`) clears it. If the last run was not closed, the streak goes up (`:830-832`). Two unclean exits in a row turn on safe mode (`:843`).
-- **Undo.** `WindowsSystemUndo::RevertEntry` (`:970`) undoes each entry by its kind: registry, power plan, memory compression, process state, DXGI preference, game file or restore point. A restore point is created with `SRSetRestorePointW` from `srclient.dll` (`CreateRestorePoint`, `:1000-1011`).
-- **History.** Completed entries are capped at 200 (`kMaxHistoryEntries`, `:34`).
+- **Where.** A file named `config\change_journal.vfj` next to the executable (`JournalFilePath`).
+- **How it is saved.** Each save writes the whole file through `Replace`, which goes through `SafeReplaceFile` and renames a temporary file over it (`PersistLocked`). The file is replaced in one step, not written in place.
+- **Session markers.** `BeginSession` marks a run as active. `EndSessionClean` clears it. If the last run was not closed, the streak goes up (in `Load`). Two unclean exits in a row turn on safe mode (also in `Load`).
+- **Undo.** `WindowsSystemUndo::RevertEntry` undoes each entry by its kind: registry, power plan, memory compression, process state, DXGI preference, game file or restore point. A restore point is created with `SRSetRestorePointW` from `srclient.dll` (`CreateRestorePoint`).
+- **History.** Completed entries are capped at 200 (`kMaxHistoryEntries`).
 
 ### Smaller files
 
-- [privileges.cpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/privileges.cpp): `PrivilegeManager` (`privileges.hpp:23-33`). It reports whether the process is elevated and enables the privileges the other files need. Its status is the `Process Elevated (Admin)` line of `--status`.
-- [power.cpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/power.cpp): the power-plan adapter, through `powrprof.dll` (`power.hpp:2`).
-- [system_counters.cpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/system_counters.cpp): counts for the reports and the GUI, such as the EcoQoS count (`CountEcoQoSProcesses`, `:12`).
-- [steam_paths.cpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/steam_paths.cpp): finds Steam and its library file. The Rust core reads the list itself; this adapter only finds the file (`steam_paths.hpp:2-3`).
-- [config_location.cpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/config_location.cpp): finds the folder of the executable and the config file. It also tells whether accounts without administrator rights could change that folder (`config_location.hpp:2`). The `--dry-run` output shows the warning: `config.json está en una carpeta donde pueden escribir cuentas sin permisos de administrador`.
-- [text_convert.cpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/text_convert.cpp): UTF-8 to UTF-16 conversion, and case-insensitive name comparison (`text_convert.hpp:10`). Some conversions return `false` for bytes that are not valid UTF-8 (`text_convert.hpp:12`).
+- [privileges.cpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/privileges.cpp): `PrivilegeManager` (in `privileges.hpp`). It reports whether the process is elevated and enables the privileges the other files need. Its status is the `Process Elevated (Admin)` line of `--status`.
+- [power.cpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/power.cpp): the power-plan adapter, through `powrprof.dll` (`WindowsPowerPort`, in `power.hpp`).
+- [system_counters.cpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/system_counters.cpp): counts for the reports and the GUI, such as the EcoQoS count (`CountEcoQoSProcesses`).
+- [steam_paths.cpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/steam_paths.cpp): finds Steam and its library file. The Rust core reads the list itself; this adapter only finds the file (`FindSteamInstallPath`, in `steam_paths.hpp`).
+- [config_location.cpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/config_location.cpp): finds the folder of the executable and the config file. It also tells whether accounts without administrator rights could change that folder (`ExecutableDirectory` and `ConfigFilePath`, in `config_location.hpp`). The `--dry-run` output shows the warning: `config.json está en una carpeta donde pueden escribir cuentas sin permisos de administrador`.
+- [text_convert.cpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/text_convert.cpp): UTF-8 to UTF-16 conversion, and case-insensitive name comparison (`EqualsIgnoreCase`, in `text_convert.hpp`). Some conversions return `false` for bytes that are not valid UTF-8 (`IsValidUtf8`, in `text_convert.hpp`).
 - [unique_handle.hpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/unique_handle.hpp): wrappers that close a handle when they go out of scope, also on early returns.
 - [nt_defs.hpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/nt_defs.hpp): the NT structures used by the memory code, typed by hand.
 
 ### Ports and fakes: how tests replace Windows
 
-Each Windows adapter sits behind a port in [src/ports/](https://github.com/partprogramming09/vegaflow-universal/tree/main/src/ports). The port headers are pure C++ and say so in their first line (for example [registry.hpp:2](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/ports/registry.hpp)). The real classes in `src/windows/` implement them: `WindowsRegistryPort`, `WindowsProcessControl`, `WindowsMemoryProbe` and `WindowsMemoryControl`, `WindowsDeviceProbe`, `FileChangeJournal` with `WindowsSystemUndo`, and `SafeFileSystem`.
+Each Windows adapter sits behind a port in [src/ports/](https://github.com/partprogramming09/vegaflow-universal/tree/main/src/ports). The port headers are pure C++ and say so in their first line (for example [`RegistryPort`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/ports/registry.hpp)). The real classes in `src/windows/` implement them: `WindowsRegistryPort`, `WindowsProcessControl`, `WindowsMemoryProbe` and `WindowsMemoryControl`, `WindowsDeviceProbe`, `FileChangeJournal` with `WindowsSystemUndo`, and `SafeFileSystem`.
 
 Tests put fakes in place of them:
 
 | Port | Fake used by the unit tests | Where |
 |---|---|---|
-| RegistryPort, PowerPort | `FakeRegistryPort`, `FakePowerPort` | [fake_registry_power.hpp:24, :204](https://github.com/partprogramming09/vegaflow-universal/blob/main/tests/unit/fake_registry_power.hpp) |
-| FileSystem | `FakeFileSystem` | [fake_file_system.hpp:13](https://github.com/partprogramming09/vegaflow-universal/blob/main/tests/unit/fake_file_system.hpp) |
-| DeviceProbe | `FakeDeviceProbe` | [fake_device_probe.hpp:12](https://github.com/partprogramming09/vegaflow-universal/blob/main/tests/unit/fake_device_probe.hpp) |
-| ChangeJournal, SystemUndoPort, Clock | `FakeSystemUndo`, `FakeWallClock` | [fake_change_journal.hpp:13, :23](https://github.com/partprogramming09/vegaflow-universal/blob/main/tests/unit/fake_change_journal.hpp) |
-| MemoryProbe, MemoryControl | `FakeMemoryProbe`, `FakeMemoryControl` | [memory_purge_unit_tests.cpp:29, :68](https://github.com/partprogramming09/vegaflow-universal/blob/main/tests/unit/memory_purge_unit_tests.cpp) |
-| ProcessControl | `FakeProcessControl` | [process_class_unit_tests.cpp:96](https://github.com/partprogramming09/vegaflow-universal/blob/main/tests/unit/process_class_unit_tests.cpp) |
+| RegistryPort, PowerPort | `FakeRegistryPort`, `FakePowerPort` | [`FakeRegistryPort`, `FakePowerPort`](https://github.com/partprogramming09/vegaflow-universal/blob/main/tests/unit/fake_registry_power.hpp) |
+| FileSystem | `FakeFileSystem` | [`FakeFileSystem`](https://github.com/partprogramming09/vegaflow-universal/blob/main/tests/unit/fake_file_system.hpp) |
+| DeviceProbe | `FakeDeviceProbe` | [`FakeDeviceProbe`](https://github.com/partprogramming09/vegaflow-universal/blob/main/tests/unit/fake_device_probe.hpp) |
+| ChangeJournal, SystemUndoPort, Clock | `FakeSystemUndo`, `FakeWallClock` | [`FakeWallClock`, `FakeSystemUndo`](https://github.com/partprogramming09/vegaflow-universal/blob/main/tests/unit/fake_change_journal.hpp) |
+| MemoryProbe, MemoryControl | `FakeMemoryProbe`, `FakeMemoryControl` | [`FakeMemoryProbe`, `FakeMemoryControl`](https://github.com/partprogramming09/vegaflow-universal/blob/main/tests/unit/memory_purge_unit_tests.cpp) |
+| ProcessControl | `FakeProcessControl` | [`FakeProcessControl`](https://github.com/partprogramming09/vegaflow-universal/blob/main/tests/unit/process_class_unit_tests.cpp) |
 
 The clock is injected, so the purge cooldown can be tested without waiting (Test 37). `SandboxGuard` is not behind a port; its tests run the real checks, with the test hook described above.
 
@@ -163,14 +163,14 @@ The code does not say why the NT functions are loaded by name instead of being l
 ## What happens when it fails
 
 - **A write into a protected game is refused.** `SandboxGuard` returns `false`. The message depends on the reason. With a signature found, it says `Firma de Anti-Cheat detectada en el directorio: Escritura abortada para salvaguardar la cuenta del usuario` (signature found in the folder, write stopped to protect the user's account). With a kernel-level anti-cheat lock, it says `Bloqueo Anti-Cheat activo: Prohibida toda modificación en juegos con protección a nivel de kernel` (anti-cheat lock active, changes forbidden). A path outside the allowed folders gets `La ruta se encuentra fuera de los límites autorizados por VegaFlow Sandbox`. The messages are in Spanish in the code.
-- **The file is swapped while it is being written.** The check in step 6 fails. A new file created by that call is deleted (`sandbox_guard.cpp:575-578`). Test 42 covers this.
+- **The file is swapped while it is being written.** The check in step 6 fails. A new file created by that call is deleted (in `WriteVerified`). Test 42 covers this.
 - **The standby purge is not allowed.** The result says `Standby List purge skipped (requires Administrator / --elevate)` and sets `privilege_missing`. The purge is skipped and reported; nothing else in the program stops.
 - **An NT function is missing.** The purge reports `NtSetSystemInformation not available in ntdll.dll`. The I/O priority step is skipped without a message.
 - **A registry restore points at a key VegaFlow never edits.** The restore returns `false`. The record stays in place (it is deleted only after a successful restore), so nothing is lost.
-- **Some values could not be restored.** `--restore-registry` prints `Se devolvieron X de Y` (X of Y restored) and exits with code 1 (`cli.cpp:310-312`).
-- **The journal is corrupt.** The command prints `Diario de cambios corrupto (...); restaurando copias de respaldo del registro directamente` and restores from the registry backups directly (`cli.cpp:292-294`). At startup the program warns and tells the user to run `--restore-registry` (`main.cpp:131`).
-- **The program crashed during a session.** The next start reports `Se detectó un cierre anterior no limpio` (an unclean previous exit) and offers to undo the changes (`main.cpp:146-162`). Two unclean exits in a row start safe mode (`change_journal.cpp:834`).
-- **DXCore is missing.** The probe falls back to DXGI (`device_probe.cpp:398-403`), so the hardware report still appears.
+- **Some values could not be restored.** `--restore-registry` prints `Se devolvieron X de Y` (X of Y restored) and exits with code 1 (in `RunOneShotCommand`).
+- **The journal is corrupt.** The command prints `Diario de cambios corrupto (...); restaurando copias de respaldo del registro directamente` and restores from the registry backups directly (in `RunOneShotCommand`). At startup the program warns and tells the user to run `--restore-registry` (in `main`).
+- **The program crashed during a session.** The next start reports `Se detectó un cierre anterior no limpio` (an unclean previous exit) and offers to undo the changes (in `main`). Two unclean exits in a row start safe mode (in `Load`).
+- **DXCore is missing.** The probe falls back to DXGI (in `SupplementOrFallbackWithDxgi`), so the hardware report still appears.
 
 ## Evidence that it works this way
 
@@ -208,7 +208,7 @@ From the folder that holds `vegaflow_daemon.exe`, in PowerShell:
 .\vegaflow_daemon.exe --system-info
 ```
 
-The command prints the JSON and exits (`cli.cpp:149-152`). Look at `active_game_cpu_sets`, `dxgi_budget` and `valid`.
+The command prints the JSON and exits (in `RunOneShotCommand`). Look at `active_game_cpu_sets`, `dxgi_budget` and `valid`.
 
 ## Related
 

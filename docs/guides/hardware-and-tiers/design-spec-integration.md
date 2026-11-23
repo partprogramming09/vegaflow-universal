@@ -15,7 +15,7 @@ Some names in this page were updated to match the code. Each correction is marke
   - Implement `HardwareProfiler::BuildOptimizationPolicy(const SystemHardwareProfile& profile, uint64_t live_dxgi_local_budget_bytes = 0)` and the helper functions `ApuTierToString` and `ArchGenToString`.
 - In [`src/session/system_info.cpp`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/session/system_info.cpp) and [`src/session/system_info.hpp`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/session/system_info.hpp):
   - In `GatherGpu()`: replace the fixed suffix `" (Vega 6 / GCN 5.0)"` with the real suffix according to `arch_gen`. The design kept `" (Vega 6 / GCN 5.0)"` for a Renoir 4600H / GCN5, to keep full compatibility with existing reports, and showed `" (RDNA 2 UMA)"`, `" (RDNA 3/3.5 UMA)"` or `" (Intel Xe/Arc UMA)"` on other machines.
-    > Note: the current code writes `" (Vega / GCN 5.0)"` for every GCN 5 machine (`src/session/system_info.cpp:173-174`). The `(Vega 6 / GCN 5.0)` string is no longer produced.
+    > Note: the current code writes `" (Vega / GCN 5.0)"` for every GCN 5 machine (`SystemInfo::GatherGpu` in `src/session/system_info.cpp`). The `(Vega 6 / GCN 5.0)` string is no longer produced.
   - In `GatherCpu()`: adjust `boost_target_ghz` and `stapm_target` according to the policy (`boost_target_ghz` and the `stapm_target` string in `src/session/system_info.cpp`: Tier 1 `3.5 GHz` with `"Smart Uncapped Boost"`; Tier 2 `4.0 GHz` with `"4.0 GHz Smart Uncapped"`; Tiers 3 and 4 `4.4 GHz` with `"Dynamic Boost (Efficient Aggressive / Uncapped Guard)"`).
   - Export in `SystemInfo::ToJson()` an additional `"apu_guard"` block with `tier`, `guard_mode`, `safe_vram_pool_mb`, `dx12_async_compute_allowed`, `dxvk_compiler_threads` and `tessellation_cap`.
 
@@ -24,7 +24,7 @@ Some names in this page were updated to match the code. Each correction is marke
   - `DeployDxvk()` and `ConfigureApuProfile()` receive the policy already calculated (`const ApuOptimizationPolicy&`; since phase R2 they do not detect the hardware on each call: the daemon builds it once at startup).
   - Write `dxvk.numCompilerThreads`, `dxgi.maxDeviceMemory` and `dxgi.maxSharedMemory` using the policy values (`policy.dxvk_compiler_threads`, `policy.safe_vram_pool_mb`, `policy.safe_shared_pool_mb`).
   - In `ValidateDxvkApuProfile()`: accept as valid any `compilerThreads` between `1` and `16` (on the Ryzen 5 4600H it stays `6`, passing the DXVK profile check in `tests/integration/dxvk_tests.cpp` unchanged).
-    > Note: the design said the value must match the system policy. The current check only tests the range `1` to `16` (`src/optimize/dxvk_manager.cpp:615`); it does not compare the value with the policy.
+    > Note: the design said the value must match the system policy. The current check only tests the range `1` to `16` (`DxvkManager::ValidateDxvkApuProfile` in `src/optimize/dxvk_manager.cpp`); it does not compare the value with the policy.
 
 ### 4.3. `SteamEngineOptimizer` (DirectX 11 and DirectX 12 specialization in engines)
 - In [`src/optimize/steam/`](https://github.com/partprogramming09/vegaflow-universal/tree/main/src/optimize/steam):
@@ -57,7 +57,7 @@ Some names in this page were updated to match the code. Each correction is marke
     };
     ```
   - Add the method `EvaluateUmaPressureGuard(const SystemMemoryTelemetry& telem, const ApuOptimizationPolicy& policy, const std::vector<uint32_t>& background_pids = {}, bool dry_run = false)`.
-    > Note: the design sketch had no `background_pids` parameter. The current signature has it (`src/optimize/memory_manager.hpp:72-76`).
+    > Note: the design sketch had no `background_pids` parameter. The current signature has it (`MemoryManager::EvaluateUmaPressureGuard` in `src/optimize/memory_manager.hpp`).
     - Compute the ratio `local_usage_bytes / local_budget_bytes` and the available RAM cushion (`free_and_zero_bytes + standby_bytes`).
     - If DXGI budget use exceeds `policy.runtime_pressure_threshold` (`85%`), or the real free RAM falls below the critical threshold (`1536 MB`) while a game is running:
       - Set `guard_triggered = true`, increment `total_interventions` and run a non-invasive mitigation (trimming the working set of background processes, or a controlled purge if the disk has low I/O).
@@ -70,7 +70,7 @@ Some names in this page were updated to match the code. Each correction is marke
    - The 28 existing tests in `build/vegaflow_tests.exe`, plus the new Test 29, must pass (`29/29 PASS`).
    - On the current test machine (Ryzen 5 4600H, 16 GB RAM, Vega 6), the classifier must select `Tier2_MidVegaUMA`, keeping `safe_vram_pool_mb = 4096`, `dxvk_compiler_threads = 6`, `amd_tessellation_cap = 16`, `cpu_stapm_cap_mhz = 0` and `disable_dx12_async_compute = true`.
 2. **New Test 29 (planned name `Test 29: Universal APU Tier Classification, DX11/DX12 Policy & Advanced APU Safety Guards`):**
-   > Note: in the code this test is numbered `Test 25` (`tests/integration/hardware_tests.cpp:248`), with the same name.
+   > Note: in the code this test is numbered `Test 25` (`Test25` in `tests/integration/hardware_tests.cpp`), with the same name.
    - Check synthetic hardware profiles for:
      - **Entry APU (4C/8T, 8 GB RAM, Vega 8):** checks `Tier1_EntryUMA`, `safe_vram_pool_mb <= 2048`, `dxvk_compiler_threads <= 3`, `disable_dx12_async_compute == true`, `amd_tessellation_cap == 8`.
      - **Mid APU (6C/12T, 16 GB RAM, Vega 6 Renoir):** checks `Tier2_MidVegaUMA`, `safe_vram_pool_mb == 4096`, `dxvk_compiler_threads == 6`, `cpu_stapm_cap_mhz == 0`.

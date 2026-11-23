@@ -6,7 +6,7 @@
 
 ## Requirements
 
-- Windows 10 version 1709 (build 16299) or later, or Windows 11, 64-bit, and PowerShell. That is the minimum the "Requirements and warnings" screen checks (`src/session/requirements_screen.cpp:7`, the first build with the EcoQoS call); start-up on 1709 itself is not measured.
+- Windows 10 version 1709 (build 16299) or later, or Windows 11, 64-bit, and PowerShell. That is the minimum the "Requirements and warnings" screen checks (`kWindows10_1709` in `src/session/requirements_screen.cpp`, the first build with the EcoQoS call); start-up on 1709 itself is not measured.
 - A PowerShell console **run as administrator**. Both scripts require it and fail without it.
 - The package is **not signed**, so Windows may show a warning when you open it. That is why it is worth checking the hash (step 1). Signing and other installer formats are outside the current scope.
 

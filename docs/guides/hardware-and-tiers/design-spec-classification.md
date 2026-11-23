@@ -24,7 +24,7 @@ Although **VegaFlow Universal** started as an optimization framework for unified
 3. **`GraphicsOptimizer` and `SystemInfo`:**
    - `SetApuPowerMode` takes the CPU frequency ceiling from `policy.cpu_stapm_cap_mhz` (currently `0`, no ceiling in any tier; see 3.1) and the tessellation at `16x`. On a Zen 4 / Zen 5 APU (whose thermal efficiency point is around 4.2–4.5 GHz, or which has dual RDNA3 geometry engines), a fixed 3.4 GHz ceiling would throttle FPS in CPU-bound games (not measured).
    - `SystemInfo::GatherGpu()` appends a suffix chosen by GPU architecture to any AMD UMA integrated GPU: `(Vega / GCN 5.0)` for GCN 5, `(RDNA 2 UMA)` for RDNA 2, `(RDNA 3/3.5 UMA)` for RDNA 3 and later, and `(Integrada)` for other AMD integrated GPUs.
-     > Note: the design text described a fixed `(Vega 6 / GCN 5.0)` suffix. The current code writes `(Vega / GCN 5.0)` for every GCN 5 machine (`src/session/system_info.cpp:169-176`).
+     > Note: the design text described a fixed `(Vega 6 / GCN 5.0)` suffix. The current code writes `(Vega / GCN 5.0)` for every GCN 5 machine (`SystemInfo::GatherGpu` in `src/session/system_info.cpp`).
 
 **Goal:** turn DirectX 11 and DirectX 12 handling into a **universal system classified by APU tiers with Guards (`ApuCapabilityGuard`)**, keeping the optimal behavior on the Ryzen 5 4600H (`Tier2_MidVegaUMA`) 100% intact and applying a **"Do-No-Harm" guard + dynamic UMA budget ceiling** for entry-level and advanced APUs.
 
