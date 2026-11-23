@@ -98,7 +98,7 @@ If you add a new folder inside `src/`, add it to `COMMON`. `build.ps1` and `buil
 
 Every change to the repository must be checked by running `build/vegaflow_tests.exe`. All the tests must pass, with no exceptions.
 
-The suite prints one `[PASS]` or `[FAIL]` line per test and ends with a summary. The last line should read as follows (last recorded run, 2026-11-19):
+The suite prints one `[PASS]` or `[FAIL]` line per test and ends with a summary. The last line should read as follows (last recorded run, 2026-11-22):
 
 ```
 TEST RESULTS: 418 PASSED, 0 FAILED
