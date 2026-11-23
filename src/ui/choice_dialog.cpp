@@ -1,7 +1,11 @@
 #include "ui/choice_dialog.hpp"
 
+#include <dwmapi.h>
+
 #include <algorithm>
 #include <cstring>
+
+#include "ui/native_controls.hpp"
 
 namespace vegaflow::ui {
 
@@ -22,9 +26,14 @@ struct DialogState {
     bool done = false;
     HFONT font = nullptr;
     HFONT mono = nullptr;
+    RECT edit_card = {};
 };
 
 int g_open = 0;
+HBRUSH g_bg_brush = nullptr;   // F4.5: the GUI palette (ui/gui_components.hpp), never the system's light button face
+HBRUSH g_card_brush = nullptr;
+
+constexpr int kEditInset = 8; // the card around the text: the frame drawn here, so no light system border
 
 LRESULT CALLBACK DialogProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     auto* st = reinterpret_cast<DialogState*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
@@ -42,6 +51,33 @@ LRESULT CALLBACK DialogProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
                 st->done = true;
             }
             return 0;
+        }
+        case WM_CTLCOLORSTATIC: // the read-only text
+        case WM_CTLCOLOREDIT:
+            SetTextColor(reinterpret_cast<HDC>(wp), CLR_TEXT_BODY);
+            SetBkColor(reinterpret_cast<HDC>(wp), CLR_CARD_BG);
+            return reinterpret_cast<LRESULT>(g_card_brush);
+        case WM_PAINT: {
+            PAINTSTRUCT ps;
+            HDC hdc = BeginPaint(hwnd, &ps);
+            if (st && st->edit_card.right > st->edit_card.left) DrawRoundedCard(hdc, st->edit_card, CLR_CARD_BG, CLR_CARD_BORDER);
+            EndPaint(hwnd, &ps);
+            return 0;
+        }
+        case WM_DRAWITEM: {
+            const auto* d = reinterpret_cast<const DRAWITEMSTRUCT*>(lp);
+            if (!st || !d || d->CtlType != ODT_BUTTON) break;
+            DrawButtonFrame(d->hDC, d->rcItem, CLR_BG_MAIN, (d->itemState & ODS_SELECTED) != 0);
+            wchar_t label[128] = {};
+            GetWindowTextW(d->hwndItem, label, 128);
+            HGDIOBJ old = SelectObject(d->hDC, st->font);
+            SetBkMode(d->hDC, TRANSPARENT);
+            SetTextColor(d->hDC, CLR_TEXT_TITLE);
+            RECT tr = {d->rcItem.left + 6, d->rcItem.top, d->rcItem.right - 6, d->rcItem.bottom};
+            DrawTextW(d->hDC, label, -1, &tr, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX | DT_END_ELLIPSIS);
+            SelectObject(d->hDC, old);
+            if (d->itemState & ODS_FOCUS) DrawFocusRing(d->hDC, d->rcItem);
+            return TRUE;
         }
         case WM_CLOSE: // the X
             if (st) {
@@ -90,7 +126,9 @@ int ShowChoiceDialog(HWND owner, const std::wstring& title, const std::wstring& 
         wc.lpfnWndProc = DialogProc;
         wc.hInstance = inst;
         wc.hCursor = LoadCursorW(nullptr, IDC_ARROW);
-        wc.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_BTNFACE + 1);
+        g_bg_brush = CreateSolidBrush(CLR_BG_MAIN);
+        g_card_brush = CreateSolidBrush(CLR_CARD_BG);
+        wc.hbrBackground = g_bg_brush;
         wc.lpszClassName = kDialogClass;
         if (!RegisterClassExW(&wc) && GetLastError() != ERROR_CLASS_ALREADY_EXISTS) return cancel_result;
         registered = true;
@@ -123,18 +161,22 @@ int ShowChoiceDialog(HWND owner, const std::wstring& title, const std::wstring& 
         if (st.mono) DeleteObject(st.mono);
         return cancel_result;
     }
+    const BOOL dark = TRUE; // DWMWA_USE_IMMERSIVE_DARK_MODE (20): the title bar follows the palette; ignored where unsupported
+    DwmSetWindowAttribute(dlg, 20, &dark, sizeof(dark));
     RECT client;
     GetClientRect(dlg, &client);
     const int cw = client.right, ch = client.bottom;
 
-    HWND edit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", st.body.c_str(),
-                                WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_VSCROLL | ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL, kMargin, kMargin, cw - 2 * kMargin,
-                                ch - 3 * kMargin - kBtnH, dlg, nullptr, inst, nullptr);
+    st.edit_card = {kMargin, kMargin, cw - kMargin, ch - 2 * kMargin - kBtnH};
+    HWND edit = CreateWindowExW(0, L"EDIT", st.body.c_str(),
+                                WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_VSCROLL | ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL, st.edit_card.left + kEditInset,
+                                st.edit_card.top + kEditInset, st.edit_card.right - st.edit_card.left - 2 * kEditInset,
+                                st.edit_card.bottom - st.edit_card.top - 2 * kEditInset, dlg, nullptr, inst, nullptr);
     if (edit) SendMessageW(edit, WM_SETFONT, reinterpret_cast<WPARAM>(st.mono ? st.mono : st.font), TRUE);
     int bx = cw - kMargin;
     for (int i = n - 1; i >= 0; --i) { // the first button is the left-most, the last the right-most
         bx -= kBtnW;
-        HWND b = CreateWindowExW(0, L"BUTTON", buttons[static_cast<size_t>(i)].label.c_str(), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, bx,
+        HWND b = CreateWindowExW(0, L"BUTTON", buttons[static_cast<size_t>(i)].label.c_str(), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_OWNERDRAW, bx,
                                  ch - kMargin - kBtnH, kBtnW, kBtnH, dlg, reinterpret_cast<HMENU>(static_cast<INT_PTR>(kBtnBaseId + i)), inst, nullptr);
         if (b) SendMessageW(b, WM_SETFONT, reinterpret_cast<WPARAM>(st.font), TRUE);
         bx -= 8;
