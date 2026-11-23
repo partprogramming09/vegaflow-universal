@@ -31,16 +31,11 @@ For example, the game gets the fastest CPU cores, while browsers and other backg
 - **For Unity:** it edits `boot.config` to enable native multithreading (`gfx-enable-native-gfx-jobs=1`, `gfx-enable-gfx-jobs=1`, `gc-max-time-slice=3`).
 - **Guaranteed safety:** it automatically creates `.vegaflow.bak` backup files, so every change can be reverted with a single click.
 
-### 2.3. DXVK-GPLAsync Module (6-Thread Compilation)
+### 2.3. DXVK removal (VegaFlow no longer installs DXVK)
 
-- It integrates the optimized **DXVK-GPLAsync v2.5.3** build, which translates DirectX 11 calls into native Vulkan. The DLLs are not shipped with the project: they go in `assets/dxvk/dxvk-2.5.3/` (see `assets/dxvk/README.md`).
-- It writes a `dxvk.conf` file tuned for the architecture of the 6 physical Zen 2 cores:
-  - Asynchronous compilation, decoupled from the render thread (`dxvk.enableAsync = True`, `dxvk.gplAsyncCache = True`).
-  - 6 dedicated threads for compiling pipelines in parallel (`dxvk.numCompilerThreads = 6`).
-  - Device memory limit set to 4096 MB and shared memory to 8192 MB (`dxgi.maxDeviceMemory = 4096`).
-- It prevents stutter in DX11 games, where AMD's official drivers suffer from shader-compilation overhead.
+- VegaFlow used to install DXVK-GPLAsync into games. No gain was measured, so it no longer does; its DLLs are not part of the project.
+- It can still remove a DXVK that an earlier version installed (`--dxvk-remove`, or the remove button) and put the DirectX 11 backend back.
 - **Your `dxvk.conf` is kept.** If the game folder already had a `dxvk.conf` that is not VegaFlow's, it is copied as `dxvk.conf.vegaflow.bak` before ours is written. The game's own DLLs, as always, are saved as `d3d11.dll.original.bak` and `dxgi.dll.original.bak`. When DXVK is removed, the original `dxvk.conf` goes back to its place. If it could not be restored, the message says so and the copy stays in `dxvk.conf.vegaflow.bak`. If the game had no `dxvk.conf`, removing DXVK deletes VegaFlow's file.
-- **When it counts as installed:** VegaFlow only treats DXVK as installed if `d3d11.dll` and `dxgi.dll` exist and the first line of `dxvk.conf` starts with `# VegaFlow`. A game that ships its own DLLs does not count as "with VegaFlow's DXVK".
 
 ### 2.5. CPU Orchestration & MMCSS Quantum Tuning
 

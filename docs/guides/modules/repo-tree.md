@@ -12,8 +12,6 @@ vegaflow-universal/
 ├── CHANGELOG.md                  # Version history (version 0.1.0 is the first)
 ├── config/
 │   └── config.json               # Persistent daemon configuration and game list
-├── assets/
-│   └── dxvk/                     # Put the DXVK DLLs here (not included; see its README)
 ├── scripts/
 │   ├── build/
 │   │   ├── build.ps1             # Automated PowerShell build and test script

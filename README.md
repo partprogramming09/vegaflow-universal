@@ -1,6 +1,6 @@
 # VegaFlow Universal
 
-A Windows daemon written in C++20, with a hybrid Rust core, that optimizes games on AMD APUs (test bench: Ryzen 5 4600H with Radeon Vega 6). It isolates background processes, applies profiles according to the APU tier, and uses DXVK-GPLAsync. It never injects anything into games that use anti-cheat. Current version: **0.1.0** ([`CHANGELOG.md`](CHANGELOG.md)).
+A Windows daemon written in C++20, with a hybrid Rust core, that optimizes games on AMD APUs (test bench: Ryzen 5 4600H with Radeon Vega 6). It isolates background processes, applies profiles according to the APU tier, and tunes the memory and graphics settings of each game. It never injects anything into games that use anti-cheat. Current version: **0.1.0** ([`CHANGELOG.md`](CHANGELOG.md)).
 
 ![Language](https://img.shields.io/badge/C%2B%2B20%20%2B%20Rust-blue.svg) ![Platform](https://img.shields.io/badge/Windows%2010%20%7C%2011%20x64-0078D6.svg) ![Tests](https://img.shields.io/badge/tests-415%20C%2B%2B%20%7C%20295%20Rust-success.svg)
 
@@ -14,7 +14,7 @@ On an APU the CPU and the iGPU share the RAM and the thermal budget, and the sys
 
 1. **Shared memory (UMA):** background processes compete with the iGPU for the same DDR4 bus.
 2. **The false 512 MB VRAM limit:** BIOSes report it and game engines take it literally.
-3. **No GPL in AMD's Vega drivers:** shaders compile on the game's own thread; DXVK-GPLAsync moves them to background threads.
+3. **No GPL in AMD's Vega drivers:** shaders compile on the game's own thread. VegaFlow used to install DXVK-GPLAsync to move them to background threads, but no gain was measured, so it no longer installs it (it can still remove one an earlier version installed).
 4. **Windowed DWM composition:** the intermediate copy adds latency; Flip mode avoids it.
 5. **Shared thermal budget (STAPM):** if the CPU draws too much, the GPU lowers its clock.
 
@@ -76,7 +76,6 @@ src/                C++20 daemon code, grouped by function (each .hpp next to it
 rust/vegaflow-core/ pure rules in Rust (tiers, path policy, anti-cheat signatures, memory purge, process classes)
 tests/              the C++ suite (tests/integration/ touches Windows, tests/unit/ uses fake ports), the package test (tests/package/) and the cases shared with Rust (tests/vectors/)
 scripts/            build, package, measure and operate the test laptop (see scripts/README.md)
-assets/dxvk/        DXVK DLLs are not included, and VegaFlow no longer installs DXVK (it only removes it)
 config/             daemon defaults
 docs/               the documentation site (VitePress)
 ```

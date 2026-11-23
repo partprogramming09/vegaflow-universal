@@ -134,7 +134,7 @@ Specified in [hardware-and-tiers](./hardware-and-tiers/) and implemented in [`sr
 
 #### 1.3. Dual DirectX 11 and DirectX 12 specialization
 
-- **DirectX 11:** safe deployment of `DXVK-GPLAsync` (a DXVK build) adapted to the core count, an AMD tessellation limiter (8x/16x/32x) and a low-latency queue with `FlipQueueSize=1`.
+- **DirectX 11:** an AMD tessellation limiter (8x/16x/32x) and a low-latency queue with `FlipQueueSize=1`.
 - **DirectX 12:** a dynamic guard for the asynchronous compute queue (`AsyncCompute`), optimized budgets for cascaded shadow maps (CSM, the shadows of distant objects), and proportional streaming of UMA texture pools in Unreal and Unity engines.
 
 #### 1.4. Runtime DXGI Pressure Guard and anti-cheat shielding
