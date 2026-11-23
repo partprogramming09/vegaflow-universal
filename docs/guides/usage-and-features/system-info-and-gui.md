@@ -43,6 +43,7 @@ The Win32/GDI graphical interface ([`gui_window.cpp`](https://github.com/partpro
 
 | Extra | What it does |
 |---|---|
+| Tray menu | Right click on the tray icon: «Restaurar VegaFlow», «Purgar Standby RAM Ahora», «Copiar informe» (the same report as the Home button, built from fresh data even if the window was hidden), and «Cerrar VegaFlow Universal». |
 | Exit notice | Closing the window (X, or «Cerrar VegaFlow Universal» in the tray menu) with changes still in force asks: «Devolver todo a como estaba» (runs the same restore as the Home button, then closes), «Dejarlos» (closes; the journal is untouched) or «Cancelar». With no change in force it closes without asking. A second close while the dialog is open is ignored. Windows shutting down never asks. |
 | Panic shortcut | `Ctrl+Alt+Shift+R`, registered with `RegisterHotKey` and `MOD_NOREPEAT`; it does what «Devolver todo a como estaba» does. One restore runs at a time, and a press queued behind it is dropped. If another program owns the shortcut, «Configuración» says so under its subtitle and nothing else changes. |
 | Welcome | A dialog the first time the window opens, until the file `welcome.seen` (next to `config.json`) exists. If the file cannot be written, it shows again next time. |

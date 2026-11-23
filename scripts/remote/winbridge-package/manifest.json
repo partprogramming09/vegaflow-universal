@@ -205,6 +205,16 @@
       "description": "Start a second test-build GUI while the first is open and report whether the first is brought forward",
       "params": {}
     },
+    "gui-tray": {
+      "script": "gui_tray.ps1",
+      "timeout_s": 2000,
+      "session": 1,
+      "description": "Hide, minimise, restore, open the tray menu or copy the report in the test-build GUI like the tray does, or measure its CPU",
+      "params": {
+        "Action": "^(hide|minimize|restore|menu|report|cpu)$",
+        "Seconds": "^[0-9]{1,4}$"
+      }
+    },
     "dpi": {
       "script": "dpi.ps1",
       "timeout_s": 60,

@@ -11,6 +11,8 @@
 #include "ui/home_view.hpp"
 #include "ui/settings_view.hpp"
 #include "ui/texts.hpp"
+#include "session/gui_cadence.hpp"
+#include "session/wake_loop.hpp"
 
 #include <psapi.h>
 #include <shellapi.h>
@@ -223,6 +225,43 @@ void RefreshActiveScreen(HWND hwnd, GuiWindowState* state) {
     else if (state->current_tab == 8) ui::RequirementsViewRefresh(hwnd, state);
 }
 
+// F4.1: the telemetry and pad timers follow what the window is doing, so a hidden one with no game wakes only for events.
+void ApplyCadence(HWND hwnd, GuiWindowState* state) {
+    const session::GuiCadence c = session::PlanGuiCadence({state->shown, state->data.game_active, state->events_active});
+    if (c.telemetry_ms != state->telemetry_ms) {
+        SetTimer(hwnd, TIMER_TELEMETRY_ID, c.telemetry_ms, nullptr);
+        state->telemetry_ms = c.telemetry_ms;
+    }
+    if (c.pad_active != state->pad_timer_on && state->xinput_get_state) {
+        if (c.pad_active) SetTimer(hwnd, TIMER_PAD_ID, TIMER_PAD_INTERVAL, nullptr);
+        else { KillTimer(hwnd, TIMER_PAD_ID); state->pad_nav.Reset(); }
+        state->pad_timer_on = c.pad_active;
+    }
+}
+
+// One telemetry poll: the daemon part of this process runs its iteration inside it. A hidden window only keeps the data.
+void PollTelemetryNow(HWND hwnd, GuiWindowState* state) {
+    if (state->callbacks.on_PollTelemetry) {
+        const std::string prev_status = state->data.last_action_status;
+        state->data = state->callbacks.on_PollTelemetry();
+        if (state->data.last_action_status.empty()) state->data.last_action_status = prev_status;
+    }
+    if (state->shown) {
+        RefreshActiveScreen(hwnd, state);
+        InvalidateRect(hwnd, nullptr, FALSE);
+    }
+    ApplyCadence(hwnd, state); // a game that opened or closed changes the cadence
+}
+
+// WM_SHOWWINDOW and WM_SIZE: showing the window refreshes it at once, before the next tick would.
+void SetShown(HWND hwnd, GuiWindowState* state, bool shown) {
+    if (state->shown == shown) return;
+    const bool was = state->shown;
+    state->shown = shown;
+    if (session::PollWhenVisibilityChanges(was, shown)) PollTelemetryNow(hwnd, state);
+    else ApplyCadence(hwnd, state);
+}
+
 void HandleActionClick(HWND hwnd, GuiWindowState* state, int id) {
     if (!state) return;
 
@@ -361,9 +400,6 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
             wcscpy_s(state->nid.szTip, ui::kTrayTip);
             state->tray_registered = (Shell_NotifyIconW(NIM_ADD, &state->nid) == TRUE);
 
-            // 1500 ms telemetry timer
-            SetTimer(hwnd, TIMER_TELEMETRY_ID, TIMER_TELEMETRY_INTERVAL, nullptr);
-
             // E2.7 panic shortcut: Windows sends one WM_HOTKEY per press (MOD_NOREPEAT). A taken shortcut is only a notice.
             const session::PanicHotkeyPlan plan = session::PlanPanicHotkey(state->panic_hotkey);
             state->panic_registered = plan.vk != 0 && RegisterHotKey(hwnd, ID_HOTKEY_PANIC, plan.modifiers, plan.vk) != 0;
@@ -380,12 +416,13 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 #if defined(__GNUC__)
 #pragma GCC diagnostic pop
 #endif
-                if (state->xinput_get_state) SetTimer(hwnd, TIMER_PAD_ID, TIMER_PAD_INTERVAL, nullptr);
             }
 
             ChangeWindowMessageFilterEx(hwnd, RegisterWindowMessageW(ui::kRestoreWindowMessage), MSGFLT_ALLOW, nullptr);
 
-            // Initial query
+            if (state->callbacks.on_AttachWake) state->events_active = state->callbacks.on_AttachWake(hwnd, WM_APP_WAKE);
+
+            // Initial query; the timers start once the window is shown (WM_SHOWWINDOW)
             if (state->callbacks.on_PollTelemetry) {
                 state->data = state->callbacks.on_PollTelemetry();
             }
@@ -401,6 +438,8 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
         }
 
         case WM_SIZE: {
+            if (state && wParam == SIZE_MINIMIZED) SetShown(hwnd, state, false);
+            else if (state && (wParam == SIZE_RESTORED || wParam == SIZE_MAXIMIZED)) SetShown(hwnd, state, IsWindowVisible(hwnd) != FALSE);
             if (state && state->current_tab == 1) ui::SettingsViewRelayout(state);
             if (state && state->current_tab == 0) ui::HomeViewRelayout(state);
             if (state && state->current_tab == 3) ui::GamesViewRelayout(state);
@@ -577,23 +616,27 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                 }
                 return 0;
             }
-            if (wParam == TIMER_TELEMETRY_ID && state) {
-                if (IsWindowVisible(hwnd) && !IsIconic(hwnd)) RefreshActiveScreen(hwnd, state);
-                if (state->callbacks.on_PollTelemetry) {
-                    std::string prevStatus = state->data.last_action_status;
-                    state->data = state->callbacks.on_PollTelemetry();
-                    if (state->data.last_action_status.empty()) {
-                        state->data.last_action_status = prevStatus;
-                    }
-
-                    if (!IsWindowVisible(hwnd) || IsIconic(hwnd)) {
-                        return 0;
-                    }
-
-                    InvalidateRect(hwnd, nullptr, FALSE);
-                }
+            if (wParam == TIMER_TELEMETRY_ID && state) PollTelemetryNow(hwnd, state);
+            if (wParam == TIMER_WAKE_ID && state) {
+                KillTimer(hwnd, TIMER_WAKE_ID);
+                state->wake_pending = false;
+                if (session::WakeNeedsPoll(state->shown)) PollTelemetryNow(hwnd, state);
             }
             return 0;
+        }
+
+        case WM_APP_WAKE: {
+            // A foreground, adapter or power event: a burst (Alt+Tab) is merged into one poll after the minimum gap.
+            if (state && session::WakeNeedsPoll(state->shown) && !state->wake_pending) {
+                state->wake_pending = true;
+                SetTimer(hwnd, TIMER_WAKE_ID, session::kMinWakeGapMs, nullptr);
+            }
+            return 0;
+        }
+
+        case WM_SHOWWINDOW: {
+            if (state) SetShown(hwnd, state, wParam != FALSE && !IsIconic(hwnd));
+            break; // DefWindowProc still handles it
         }
 
         case WM_APP_TRAYICON: {
@@ -612,6 +655,7 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                 if (hMenu) {
                     AppendMenuW(hMenu, MF_STRING, ID_TRAY_RESTORE, L"Restaurar VegaFlow");
                     AppendMenuW(hMenu, MF_STRING, ID_TRAY_PURGE, L"Purgar Standby RAM Ahora");
+                    AppendMenuW(hMenu, MF_STRING, ID_TRAY_REPORT, ui::text::kTrayReport);
                     AppendMenuW(hMenu, MF_SEPARATOR, 0, nullptr);
                     AppendMenuW(hMenu, MF_STRING, ID_TRAY_EXIT, L"Cerrar VegaFlow Universal");
                     SetForegroundWindow(hwnd);
@@ -653,6 +697,12 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                             if (!res.empty()) state->data.last_action_status = res;
                         }
                     }
+                    break;
+                }
+                case ID_TRAY_REPORT: {
+                    // F4.6: a hidden window holds data up to 30 s old, and the report must show the machine now.
+                    PollTelemetryNow(hwnd, state);
+                    ui::CopyReportAndNote(hwnd, state);
                     break;
                 }
                 case ID_TRAY_EXIT: {
@@ -728,6 +778,7 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
             if (state) {
                 KillTimer(hwnd, TIMER_TELEMETRY_ID);
                 KillTimer(hwnd, TIMER_PAD_ID);
+                KillTimer(hwnd, TIMER_WAKE_ID);
                 if (state->panic_registered) UnregisterHotKey(hwnd, ID_HOTKEY_PANIC);
                 state->panic_registered = false;
                 if (state->xinput) FreeLibrary(state->xinput);

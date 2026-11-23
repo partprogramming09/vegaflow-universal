@@ -34,7 +34,7 @@ LRESULT CALLBACK PowerWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 // Runs on a system thread: it only signals the event, the loop thread does the reading.
 DWORD CALLBACK DeviceCallback(HCMNOTIFICATION, PVOID ctx, CM_NOTIFY_ACTION action, PCM_NOTIFY_EVENT_DATA, DWORD) {
     if (action == CM_NOTIFY_ACTION_DEVICEINTERFACEARRIVAL || action == CM_NOTIFY_ACTION_DEVICEINTERFACEREMOVAL) {
-        SetEvent(static_cast<HANDLE>(ctx));
+        static_cast<WindowsEventSource*>(ctx)->SignalDevice();
     }
     return ERROR_SUCCESS;
 }
@@ -60,7 +60,7 @@ WindowsEventSource::WindowsEventSource(HANDLE stop_event) : stop_event_(stop_eve
     filter.FilterType = CM_NOTIFY_FILTER_TYPE_DEVICEINTERFACE;
     filter.u.DeviceInterface.ClassGuid = kDisplayAdapterInterface;
     HCMNOTIFICATION cm = nullptr;
-    const CONFIGRET cr = device_event_ ? CM_Register_Notification(&filter, device_event_, DeviceCallback, &cm) : CR_FAILURE;
+    const CONFIGRET cr = device_event_ ? CM_Register_Notification(&filter, this, DeviceCallback, &cm) : CR_FAILURE;
     if (cr != CR_SUCCESS) {
         std::cerr << "[WARN] CM_Register_Notification failed (CONFIGRET: " << cr << ")\n";
         Release();
@@ -87,6 +87,7 @@ WindowsEventSource::~WindowsEventSource() { Release(); }
 
 void WindowsEventSource::Release() {
     active_ = false;
+    notify_hwnd_ = nullptr;
     if (power_notify_) { UnregisterPowerSettingNotification(power_notify_); power_notify_ = nullptr; }
     if (window_) { DestroyWindow(window_); window_ = nullptr; }
     if (cm_notify_) { CM_Unregister_Notification(static_cast<HCMNOTIFICATION>(cm_notify_)); cm_notify_ = nullptr; }
@@ -95,7 +96,20 @@ void WindowsEventSource::Release() {
     if (g_source == this) g_source = nullptr;
 }
 
-void WindowsEventSource::Post(WakeReason r) { pending_.fetch_or(Bit(r)); }
+void WindowsEventSource::NotifyWindow(HWND hwnd, UINT msg) {
+    notify_msg_ = msg;
+    notify_hwnd_ = hwnd;
+}
+
+void WindowsEventSource::SignalDevice() {
+    if (device_event_) SetEvent(device_event_);
+    if (HWND h = notify_hwnd_) PostMessageW(h, notify_msg_, 0, 0);
+}
+
+void WindowsEventSource::Post(WakeReason r) {
+    pending_.fetch_or(Bit(r));
+    if (HWND h = notify_hwnd_) PostMessageW(h, notify_msg_, 0, 0);
+}
 
 bool WindowsEventSource::TakePending(WakeReason& out) {
     for (WakeReason r : {WakeReason::Device, WakeReason::Power, WakeReason::Foreground}) {

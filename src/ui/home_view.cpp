@@ -151,6 +151,12 @@ bool CopyReport(HWND hwnd, GuiWindowState* st) {
 
 } // namespace
 
+void CopyReportAndNote(HWND hwnd, GuiWindowState* st) {
+    const std::string note = CopyReport(hwnd, st) ? Utf8Of(text::kHomeReportCopied) : Utf8Of(text::kHomeReportFailed);
+    st->data.last_action_status = note;
+    if (st->callbacks.on_NoteStatus) st->callbacks.on_NoteStatus(note);
+}
+
 void HomeViewDestroy(GuiWindowState* st) {
     for (HWND h : st->home_controls) {
         if (h) DestroyWindow(h);
@@ -335,9 +341,7 @@ bool HomeViewCommand(HWND hwnd, GuiWindowState* st, int id, int notify_code, HWN
         const auto m = Model(st);
         if (m.can_pause && st->callbacks.on_ExcludeGame) st->data.last_action_status = st->callbacks.on_ExcludeGame(m.pause_app_id);
     } else if (id == kHomeReportId) {
-        const std::string note = CopyReport(hwnd, st) ? Utf8Of(text::kHomeReportCopied) : Utf8Of(text::kHomeReportFailed);
-        st->data.last_action_status = note;
-        if (st->callbacks.on_NoteStatus) st->callbacks.on_NoteStatus(note);
+        CopyReportAndNote(hwnd, st);
     } else if (st->callbacks.on_PurgeNow) st->data.last_action_status = st->callbacks.on_PurgeNow();
     InvalidateRect(hwnd, nullptr, FALSE);
     return true;

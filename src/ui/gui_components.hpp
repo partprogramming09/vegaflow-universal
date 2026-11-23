@@ -38,11 +38,12 @@ namespace vegaflow {
 // Timer and system tray constants
 // =========================================================================
 constexpr UINT_PTR TIMER_TELEMETRY_ID       = 1;
-constexpr UINT     TIMER_TELEMETRY_INTERVAL = 1500;
 constexpr UINT_PTR TIMER_PAD_ID             = 2;  // E2.7: 1500 ms would lose a short button press, so the pad has its own tick
 constexpr UINT     TIMER_PAD_INTERVAL       = 50;
+constexpr UINT_PTR TIMER_WAKE_ID            = 3;  // F4.1: merges a burst of wake events into one poll of the hidden window
 constexpr int      ID_HOTKEY_PANIC          = 1;
 constexpr UINT     WM_APP_TRAYICON          = WM_USER + 101;
+constexpr UINT     WM_APP_WAKE              = WM_USER + 102; // F4.1: posted by the event source
 constexpr UINT     ID_TRAY_ICON             = 1001;
 
 // Side menu tab identifiers (0 to 7)
@@ -67,6 +68,7 @@ constexpr int ID_ACT_TOGGLE_APU_POWER   = 217;
 // Tray context menu
 constexpr int ID_TRAY_RESTORE           = ui::kTrayRestoreCommand;
 constexpr int ID_TRAY_PURGE             = 3002;
+constexpr int ID_TRAY_REPORT            = 3003; // F4.6: "Copiar informe"
 constexpr int ID_TRAY_EXIT              = 3004;
 
 // Design dimensions
@@ -140,6 +142,13 @@ struct GuiWindowState {
     HFONT hFontSmall = nullptr;
     HFONT hFontSmallBold = nullptr;
     HFONT hFontMetric = nullptr;
+
+    // F4.1: the polling cadence follows what the window is doing (session/gui_cadence.hpp)
+    bool shown = false;              // visible and not minimised; false until the first ShowWindow
+    bool events_active = false;      // the event source registered all its hooks
+    uint32_t telemetry_ms = 0;       // interval the telemetry timer runs at now
+    bool pad_timer_on = false;
+    bool wake_pending = false;       // TIMER_WAKE_ID is counting down to a poll
 
     NOTIFYICONDATAW nid = {};
     bool tray_registered = false;
