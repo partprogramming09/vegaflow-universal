@@ -97,6 +97,14 @@ docs/               the documentation site (VitePress)
 
 DLLs are never injected and the files of games with anti-cheat are never modified. Every disk and process operation goes through `SandboxGuard`, and every function that changes the system accepts `dry_run`. To report a vulnerability, see [SECURITY.md](SECURITY.md); to contribute, [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## Credits
+
+VegaFlow ships none of this code; it only works with it. The facts about third-party tools come from their public documentation and were rewritten in our own words, not copied:
+
+- **DXVK and DXVK-GPLAsync** (Direct3D to Vulkan layers, open source): how they behave and why async shader compilation helps on Vega. Their DLLs are not included.
+- **PresentMon** (Intel, open source): the frametime captures behind the measurements.
+- **AMD and Microsoft documentation**: APU memory (UMA), Windows APIs, power plans and process priorities.
+
 ## License
 
 Free software under the **GNU GPL v3 or later** (see [`LICENSE`](LICENSE)): you may use, study, modify and share it. If you distribute a modified version, you must also publish its source code under the same license.
