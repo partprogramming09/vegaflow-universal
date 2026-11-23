@@ -76,7 +76,7 @@ src/                C++20 daemon code, grouped by function (each .hpp next to it
 rust/vegaflow-core/ pure rules in Rust (tiers, path policy, anti-cheat signatures, memory purge, process classes)
 tests/              the C++ suite (tests/integration/ touches Windows, tests/unit/ uses fake ports), the package test (tests/package/) and the cases shared with Rust (tests/vectors/)
 scripts/            build, package, measure and operate the test laptop (see scripts/README.md)
-assets/dxvk/        where you put the DXVK DLLs the daemon installs into games (not included; see its README)
+assets/dxvk/        DXVK DLLs are not included, and VegaFlow no longer installs DXVK (it only removes it)
 config/             daemon defaults
 docs/               the documentation site (VitePress)
 ```

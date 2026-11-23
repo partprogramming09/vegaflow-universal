@@ -130,7 +130,7 @@ Specified in [hardware-and-tiers](./hardware-and-tiers/) and implemented in [`sr
    - For modern RDNA 2, RDNA 3 and RDNA 3.5 APUs (Radeon 680M, 780M, 890M, Strix Point) and Intel Xe/Arc UMA, or any configuration with ≥ 22 GB of RAM (`ADVANCED_MIN_RAM_MB = 22528`).
    - **Do-No-Harm Guard:** keeps asynchronous compute on (`D3D12.AsyncCompute=1` and `r.RDG.AsyncCompute=1`), does not limit CPU clocks (`cpu_stapm_cap_mhz = 0`), and assigns a generous UMA pool of 4096 to 8192 MB (30% of RAM, clamped to that range) with tessellation up to 32x.
 4. **Tier 4: Discrete / Custom (`Pass-Through Guard`):**
-   - Transparent, safe operation on configurations with a dedicated GPU. The tier is decided by the type of GPU, not by its memory size: any GPU that is not integrated, any NVIDIA GPU, or any discrete architecture (`classify` in `apu_tier.rs`; `resolve_intel_integrated_arch` in `device_profile.rs`). The earlier text's threshold of more than 2 GB of dedicated VRAM does not appear in the code.
+   - Transparent, safe operation on configurations with a dedicated GPU. The tier is decided by the type of GPU, not by its memory size: any GPU with dedicated VRAM, any NVIDIA GPU, or any discrete architecture (`classify_with_rule` in `apu_tier.rs`). The earlier text's threshold of more than 2 GB of dedicated VRAM does not appear in the code.
 
 #### 1.3. Dual DirectX 11 and DirectX 12 specialization
 
