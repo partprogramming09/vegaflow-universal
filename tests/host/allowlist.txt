@@ -22,6 +22,7 @@ src src/optimize/memory_manager.cpp
 src src/optimize/steam/engine_detection.cpp
 src src/session/config.cpp
 src src/session/config_actions.cpp
+src src/session/config_recovery.cpp
 src src/session/config_screen.cpp
 src src/session/equipment_screen.cpp
 src src/session/exit_notice.cpp
@@ -76,6 +77,7 @@ exclude tests/unit/reports_log_unit_tests.cpp compile
 exclude tests/unit/config_actions_unit_tests.cpp link
 exclude tests/unit/adapter_refresh_unit_tests.cpp link
 exclude tests/unit/config_adversarial_unit_tests.cpp link
+exclude tests/unit/config_recovery_unit_tests.cpp link
 exclude tests/unit/config_screen_unit_tests.cpp link
 exclude tests/unit/config_unit_tests.cpp link
 exclude tests/unit/cpu_topology_unit_tests.cpp link
