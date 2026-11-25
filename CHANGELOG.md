@@ -19,6 +19,7 @@ owner's approval.
 - No tier caps the CPU frequency any more (`cpu_stapm_cap_mhz = 0`, Smart Uncapped Boost); the old 3000/3400 MHz caps in the docs were removed. Not A/B measured: see `docs/mediciones/estado-de-verificacion.md`.
 
 ### Added
+- Epic and GOG game folders (F5.3, F5.4): `*.item` manifests and the `GOG.com\Games` registry key are read by the Rust core and their folders join the sandbox with the same checks as a Steam game folder (real path, anti-cheat scan; a game that names an anti-cheat is never modified). Not yet tried with a real Epic or GOG install; the Juegos list still shows Steam only.
 - "Copiar informe" in the tray menu (F4.1): the same plain-text report as on Inicio, with the Windows user name replaced by <usuario>.
 - Memoria tab drawn natively (F4.2): reachable with the keyboard (one Tab stop for the thread map, arrows to move) and a side menu that screen readers and Tab can reach.
 - Screens: Inicio, Juegos, Programas, Tu equipo, Configuración, Requisitos, plus Ajustes del sistema and Historial.

@@ -53,7 +53,9 @@ void Test160() {
             continue;
         }
         ++expected_ok;
-        if (!Has(epic, c[2], c[3] == "1")) failures += " [epic " + file + " not read as " + c[2] + "]";
+        // eac_only_on_disk shares its folder with eac_launcher, so the merged entry carries the flag.
+        const bool anticheat = c[3] == "1" || file == "eac_only_on_disk.item";
+        if (!Has(epic, c[2], anticheat)) failures += " [epic " + file + " not read as " + c[2] + "]";
     }
     // Two ok manifests share a folder (eac_launcher and eac_only_on_disk): one entry, anti-cheat if either says so.
     if (epic.size() != expected_ok - 1) failures += " [epic count " + std::to_string(epic.size()) + " vs " + std::to_string(expected_ok - 1) + "]";
