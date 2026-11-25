@@ -176,11 +176,12 @@ void Test142();  // F4.4: a broken config.json is the person's decision (factory
 void Test141();  // a standard-user token can join the session log lock an elevated process created
 void Test140();  // a filtered token cannot hard-link a protected file it cannot write (F3 hardlink investigation)
 void Test143();  // F4.1 the window's polling cadence: visible, hidden, with and without a game
-void Test144();  // F4.3 --doctor reads the machine through a DoctorProbe (fake machine)
+void Test149();  // F4.3 --doctor reads the machine through a DoctorProbe (fake machine)
 void Test145();  // F4.3 the Juegos buttons ask the GameFiles port (fake that records the calls)
 void Test146();  // F4.3 PartitionCpuSets / BuildOptimizationPolicy / session cycle with a fake environment
 void Test147();  // F4.3 SystemInfo built from a fake SystemReads
 void Test148();  // F4.3 SettingsActions driven through a fake TweakControls
 void Test139();  // end of input or a failed read is no answer and discards pending keys
+void Test144();  // F4.2 memory tab model, thread-map selection and sidebar order
 
 } // namespace vftest

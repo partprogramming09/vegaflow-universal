@@ -201,6 +201,17 @@ struct GuiWindowState {
     int equipment_scroll = 0;
     int equipment_max_scroll = 0;
 
+    // Memoria UMA y núcleos screen (ui/memory_view.cpp): [0] purge, [1] isolate, [2] restore, [3] the thread map (one tab stop, arrows inside)
+    std::vector<HWND> memory_controls;
+    int memory_scroll = 0;
+    int memory_max_scroll = 0;
+    int memory_selected = 0;   // the thread the map's keyboard selection is on
+    int memory_columns = 1;    // columns of the map at the last layout
+    std::string memory_signature;
+
+    // Sidebar (ui/sidebar_view.cpp): the eight entries, then "Minimizar a Bandeja"; created first, so Tab starts there
+    std::vector<HWND> sidebar_controls;
+
     // Requisitos screen (ui/requirements_view.cpp): read-only, one native button back to Configuración
     std::vector<HWND> requirements_controls;
     int requirements_scroll = 0;
@@ -223,8 +234,5 @@ void DrawMultiSegmentBar(HDC hdc, const RECT& rc, const std::vector<std::pair<do
 void DrawActionButton(HDC hdc, const RECT& rc, const std::wstring& text, bool is_hovered, COLORREF accentCol, HFONT hFont, int id, GuiWindowState* state);
 void DrawTabButton(HDC hdc, const RECT& rc, const std::wstring& text, bool is_active, bool is_hovered, int id, GuiWindowState* state);
 void DrawToggleSwitch(HDC hdc, const RECT& rc, bool is_on, bool is_hovered, int id, GuiWindowState* state);
-
-// Modular rendering of the 5 tabs
-void RenderTabMemory(HDC hdcMem, const RECT& rcClient, GuiWindowState* state, int contentLeft, int contentRight, int contentTop, int contentBottom, int contentW);
 
 } // namespace vegaflow

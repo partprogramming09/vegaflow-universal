@@ -74,14 +74,14 @@ public:
 } // namespace
 
 // F4.3: ReadDoctorReport asks a port for every Windows read, so a fake machine gives the whole report on any host.
-void Test144() {
+void Test149() {
     FakeDoctorProbe ok;
     ok.caches.push_back({"C:\\Cache", 2048, 3, true});
     ok.reasons = {"Reason one."};
     ok.procs = {"ArmouryCrate.exe"};
     const auto r1 = gs::ReadDoctorReport("0.2.0", ok);
     RecordResult(ok.asked == 9 && Has(r1.text, "Reason one.") && Has(r1.text, "ASUS Armoury Crate") && !Has(r1.text, "DESKTOP-ABC") && JsonOk(r1.json),
-                 "Test 144.1: ReadDoctorReport builds the report from the probe's answers and hides the computer name", r1.text);
+                 "Test 149.1: ReadDoctorReport builds the report from the probe's answers and hides the computer name", r1.text);
 
     // A game on another drive adds a second disk; on the same drive it does not.
     FakeDoctorProbe other;
@@ -91,7 +91,7 @@ void Test144() {
     same.game_drive = vegaflow::DoctorDisk{"Game drive", "C:\\", true, 10 * kGiB, 100 * kGiB};
     const auto r3 = gs::ReadDoctorReport("0.2.0", same);
     RecordResult(Has(r2.json, "\"Game drive\"") && !Has(r3.json, "\"Game drive\""),
-                 "Test 144.2: the game's drive is listed only when it is not the system drive", r2.json);
+                 "Test 149.2: the game's drive is listed only when it is not the system drive", r2.json);
 
     // A probe that throws costs its own section, not the report.
     FakeDoctorProbe broken;
@@ -100,14 +100,14 @@ void Test144() {
     broken.reasons = {"never shown"};
     const auto r4 = gs::ReadDoctorReport("0.2.0", broken);
     RecordResult(!Has(r4.text, "never shown") && Has(r4.text, "could not read the shader caches") && JsonOk(r4.json) && broken.asked == 9,
-                 "Test 144.3: a failing shader-cache or hardware read leaves out that section and the rest stands", r4.text);
+                 "Test 149.3: a failing shader-cache or hardware read leaves out that section and the rest stands", r4.text);
 
     // The config warning of the probe becomes a finding.
     FakeDoctorProbe warn;
     warn.warning = "config.json tiene valores no permitidos (x): esas claves usan su valor de fábrica.";
     const auto r5 = gs::ReadDoctorReport("0.2.0", warn);
     RecordResult(Has(r5.text, "[WARN] config.json") && r5.exit_code == 1,
-                 "Test 144.4: the config warning read by the probe is a finding", r5.text);
+                 "Test 149.4: the config warning read by the probe is a finding", r5.text);
 }
 
 void Test109() {

@@ -124,8 +124,8 @@ vegaflow-universal/
 │   │   ├── gui_components.*      # Modular UI components and graphics rendering
 │   │   ├── native_controls.*     # Shared parts of the native controls: create, place with scrolling, frame and focus ring
 │   │   ├── texts.hpp             # The texts of the new screens, in one file
-│   │   ├── *_view.*              # One per new screen: draws and creates the controls from the `session/` model
-│   │   └── gui_tabs.cpp          # The "UMA memory & CPU cores" tab (old GDI)
+│   │   ├── sidebar_view.*        # The side menu as native buttons (Tab, arrows, Enter)
+│   │   └── *_view.*              # One per screen: draws and creates the controls from the `session/` model (`memory_view` is the "UMA memory & CPU cores" tab)
 │   ├── windows/                  # Wrappers around the Windows API
 │   │   ├── nt_defs.hpp           # Typedefs and undocumented native NTDLL calls
 │   │   ├── system_counters.*     # Readings for the report and the GUI: processes in EcoQoS, games with Direct Flip, L3 cache (with CPUID fallback), DIMM slots via SMBIOS and window ids
