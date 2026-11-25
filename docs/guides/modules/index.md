@@ -29,6 +29,6 @@ Each folder of `src/` may only include the folders listed for it (its own folder
 | `bridge/` (Rust bridge) | `model/`, `ports/` |
 | `model/` | nothing |
 
-`session/` is strict since F4.3: a file that includes `detect/`, `optimize/` or `windows/` fails the check, and there is no exception list. Each family of Windows calls that `session/` needs is an interface in `ports/` (see [Code layers](./layers.md#what-f43-moved-2026-11-25)).
+`session/` is strict since F4.3: a file that includes `detect/`, `optimize/` or `windows/` fails the check, and there is no exception list. Each family of Windows calls that `session/` needs is an interface in `ports/` (see [Code layers](./layers.md#what-f4-3-moved-2026-11-25)).
 
 For what the repository checks against this table, see [Code layers](./layers.md#what-the-repository-checks).

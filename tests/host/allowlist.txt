@@ -8,7 +8,7 @@
 #
 # F4.3 (2026-11-25): session/ is strict in scripts/ci/check_layers.sh, with no exception list: it includes nothing from
 # detect/, optimize/ or windows/. The `link` and `stub` exclusions below link against optimizer or Windows code (each
-# line's reason says which); the fake-port tests (Tests 144-149) cover the same use cases on the host.
+# line's reason says which); the fake-port tests (Tests 145-149) cover the same use cases on the host.
 # history_screen* and home_screen* still link to FileChangeJournal (windows/change_journal.cpp calls CoCreateGuid).
 # game_actions_unit_tests / game_actions_adversarial_unit_tests build the real SteamEngineOptimizer and DxvkManager through
 # optimize/game_files_adapter.hpp; Test 145 (game_actions_port_unit_tests) covers the same buttons with a fake GameFiles.

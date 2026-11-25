@@ -27,7 +27,7 @@ Terms: a **port** is a small interface (for example, "read and write the registr
 
 ### What the repository checks
 
-- `scripts/ci/check_layers.sh` checks every `#include` in `src/` against the [layer table](./index.md#layer-table): 509 includes checked, layers respected (2026-11-25). It runs in CI.
+- `scripts/ci/check_layers.sh` checks every `#include` in `src/` against the [layer table](./index.md#layer-table): 523 includes checked, layers respected (2026-11-25). It runs in CI.
 - `session/` is strict since F4.3 (2026-11-25), with no exception: a file of `session/` that includes `detect/`, `optimize/` or `windows/` fails the check. Before, the whole folder was allowed to include them: 16 files and 58 includes. Now it is 0 files and 0 includes. The `debt()` exception list and the "Migration" mark of the script are gone.
 - The tests that touch the real registry are only in `tests/integration/`; `tests/unit/` uses fake ports. C++ suite on the test laptop, 2026-11-14: `57 PASSED, 0 FAILED`.
 
@@ -48,4 +48,4 @@ Terms: a **port** is a small interface (for example, "read and write the registr
 | The folder of the .exe and the path of config.json (`ExecutableDirectory`, `ConfigFilePath`, `ConfigLocationTrusted`) | declared in `ports/config_location.hpp`; `windows/config_location.cpp` implements it |
 | The switches of the Ajustes screen (MPO, memory compression, MMCSS, GameDVR, AMD driver, power plan, registry copies) | behind the `TweakControls` port (`ports/tweak_controls.hpp`); `GraphicsOptimizer` implements it |
 
-Terms: the **host** is this Mac (or any machine without Windows); the host tests run the C++ unit tests there with a stand-in for `text_convert` (`tests/host/host_stubs.cc`). Host tests went from 134 to 253.
+Terms: the **host** is this Mac (or any machine without Windows); the host tests run the C++ unit tests there with a stand-in for `text_convert` (`tests/host/host_stubs.cc`). Host tests went from 134 to 268.
