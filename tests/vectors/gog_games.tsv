@@ -1,0 +1,18 @@
+# GOG registry entries: key name <TAB> gameID <TAB> path <TAB> exe <TAB> ok|bad_id|bad_dir|exe_outside <TAB> install folder (ok only) <TAB> anti-cheat (1|0, ok only).
+# Values look like a real GOG Galaxy install (path with a trailing backslash, exe as a full path) with generic folders and made-up ids.
+1207658924	1207658924	C:\GOG Games\Sample Game\	C:\GOG Games\Sample Game\Sample.exe	ok	C:\GOG Games\Sample Game	0
+1207658925	1207658925	D:\Games\Second	D:\Games\Second\bin\Second.exe	ok	D:\Games\Second	0
+1207658926	1207658926	C:\GOG Games\Addon		ok	C:\GOG Games\Addon	0
+1207658927	1207658927	C:\GOG Games\Shooter	C:\GOG Games\Shooter\Shooter_BE.exe	ok	C:\GOG Games\Shooter	0
+1207658928	1207658928	C:\GOG Games\Arena	C:\GOG Games\Arena\EasyAntiCheat\Arena.exe	ok	C:\GOG Games\Arena	1
+1207658929	1207658929	C:\GOG Games\BattlEye Land	C:\GOG Games\BattlEye Land\Land.exe	ok	C:\GOG Games\BattlEye Land	1
+1207658930	1207658931	C:\GOG Games\X	C:\GOG Games\X\x.exe	bad_id		
+abc	abc	C:\GOG Games\X	C:\GOG Games\X\x.exe	bad_id		
+1207658932		C:\GOG Games\X		bad_id		
+1207658933	1207658933	C:\GOG Games\..\Windows	C:\Windows\notepad.exe	bad_dir		
+1207658934	1207658934	C:\Windows	C:\Windows\notepad.exe	bad_dir		
+1207658935	1207658935	\\server\share\g		bad_dir		
+1207658936	1207658936			bad_dir		
+1207658937	1207658937	C:\GOG Games\X	C:\Windows\System32\cmd.exe	exe_outside		
+1207658938	1207658938	C:\GOG Games\X	..\Y\y.exe	exe_outside		
+1207658939	1207658939	C:\GOG Games\X	C:\GOG Games\XY\y.exe	exe_outside		
