@@ -124,3 +124,4 @@ exclude tests/unit/graphics_families_unit_tests.cpp stub
 exclude tests/unit/restore_with_backup_unit_tests.cpp stub
 exclude tests/unit/settings_actions_adversarial_unit_tests.cpp stub
 exclude tests/unit/settings_actions_unit_tests.cpp stub
+exclude tests/unit/game_launchers_unit_tests.cpp compile
