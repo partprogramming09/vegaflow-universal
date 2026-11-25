@@ -82,7 +82,7 @@ How they talk: the window holds one `GuiWindowState` (in [gui_components.hpp](ht
 ## What happens when it fails
 
 - **No RAM total.** If the telemetry cannot read the memory, the model says "No se pudo leer la memoria del equipo." (could not read the machine's memory) and the card shows "Sin dato" (no data) instead of a percent (`BuildHomeScreen` in `src/session/home_screen.cpp`, `HomeViewPaint` in `src/ui/home_view.cpp`). The card still draws.
-- **Window hidden or minimized.** The timer still polls, but skips the repaint and the screen refresh (`DashboardWndProc`, `WM_TIMER`). Nothing is drawn for a window nobody sees.
+- **Window hidden or minimized.** The poll slows down: with the window hidden and no game open, the 1.5 s tick is replaced by a 30 s safety net, and the daemon's own events wake it sooner (`PlanGuiCadence` in `src/session/gui_cadence.cpp`). Nothing is drawn for a window nobody sees.
 - **A notice survives the poll.** Each poll replaces the data, so the window keeps the previous status sentence when the new one is empty (`DashboardWndProc`, `WM_TIMER`). A result shown in the status bar is not wiped by the next tick.
 - **Second start, no window found.** `main` posts the message only if `FindWindowW` finds the window; otherwise it prints "already running in the background (no window to show)" and exits with 0.
 - **Second start, low rights.** The filter lets only the restore message through; the other messages from a lower-rights program are refused by Windows (`ChangeWindowMessageFilterEx`, in `DashboardWndProc`).

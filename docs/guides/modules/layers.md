@@ -1,12 +1,12 @@
 # Modules: code layers
 
-**In short:** each folder in `src/` is a layer, and a layer may only use the layers listed for it. Since phase R3, the use-case code does not call Windows itself: it asks `windows/` for the readings. For example, `--status` counts the processes in power-saving mode through `windows/`, so the `session/` code reads without any Windows detail. The full rule table is in the [index](./index.md#layer-table).
+**In short:** each folder in `src/` is a layer, and a layer may only use the layers listed for it. Since phase R3 the use-case code does not call Windows itself, and since F4.3 it does not even include `windows/`: it asks a port in `ports/` for the readings, and the Windows adapter answers. For example, `--status` counts the processes in power-saving mode through `windows/`, so the `session/` code reads without any Windows detail. The full rule table is in the [index](./index.md#layer-table).
 
 **Reader:** people
 
 ## Code layers (state after phase R3, 2026-11-14)
 
-**The essentials:** each folder of `src/` may only include the folders below it. Since R3, the use cases in `session/` do not call Win32 functions: they ask `windows/` for those readings.
+**The essentials:** each folder of `src/` may only include the folders below it. Since R3, the use cases in `session/` do not call Win32 functions. Since F4.3 they do not include `windows/`, `detect/` or `optimize/` at all: they ask an interface in `ports/` for those readings, and the Windows adapter that implements it lives in `windows/`, `app/` or `optimize/`.
 
 **Example.** `--status` shows how many processes have power-saving mode (EcoQoS) on. Before, `session/` walked the process list with Windows calls itself. Now the `--status` command (`app/report_commands.cpp`) calls `CountEcoQoSProcesses()`, and the one that talks to Windows is [`src/windows/system_counters.cpp`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/system_counters.cpp). That way the `session/` code reads without knowing anything about Win32.
 
@@ -29,7 +29,7 @@ Terms: a **port** is a small interface (for example, "read and write the registr
 
 - `scripts/ci/check_layers.sh` checks every `#include` in `src/` against the [layer table](./index.md#layer-table): 523 includes checked, layers respected (2026-11-25). It runs in CI.
 - `session/` is strict since F4.3 (2026-11-25), with no exception: a file of `session/` that includes `detect/`, `optimize/` or `windows/` fails the check. Before, the whole folder was allowed to include them: 16 files and 58 includes. Now it is 0 files and 0 includes. The `debt()` exception list and the "Migration" mark of the script are gone.
-- The tests that touch the real registry are only in `tests/integration/`; `tests/unit/` uses fake ports. C++ suite on the test laptop, 2026-11-14: `57 PASSED, 0 FAILED`.
+- The tests that touch the real registry are only in `tests/integration/`; `tests/unit/` uses fake ports. C++ suite on the test laptop, 2026-11-25 (F4.3): `465 PASSED, 0 FAILED`.
 
 ### What F4.3 moved (2026-11-25)
 

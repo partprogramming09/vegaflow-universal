@@ -25,7 +25,7 @@ The project includes the script [`scripts/build/build.ps1`](https://github.com/p
 # Build vegaflow_daemon.exe and vegaflow_tests.exe:
 powershell -ExecutionPolicy Bypass -File .\scripts\build\build.ps1
 
-# Build and run the C++ suite right away (the last recorded run, 2026-11-19, printed
+# Build and run the C++ suite right away (the last recorded run, 2026-11-25, printed
 # `TEST RESULTS: 465 PASSED, 0 FAILED`; the number grows with each new test, so don't copy it from here):
 powershell -ExecutionPolicy Bypass -File .\scripts\build\build.ps1 -RunTests
 ```
@@ -55,7 +55,7 @@ The file `.github/workflows/ci.yml` runs five jobs on GitHub's machines: the lay
 cargo test --manifest-path rust/vegaflow-core/Cargo.toml
 ```
 
-The Rust core makes no calls to `ntdll` (a Windows system library). The only mention of it in the Rust code is a comment (in the module header of `rust/vegaflow-core/src/policy/memory_purge.rs`). The calls are in the C++ code, for example `ResolveNtQuerySystemInformation` and `ResolveNtSetSystemInformation` in `src/windows/memory.cpp`. So the rest of the logic (the Tiers, the path blacklist and the other rules in `rust/vegaflow-core/src/policy/`) runs without any Windows call. On a Mac, `cargo test` gave 258 passed, 0 failed (2026-11-20).
+The Rust core makes no calls to `ntdll` (a Windows system library). The only mention of it in the Rust code is a comment (in the module header of `rust/vegaflow-core/src/policy/memory_purge.rs`). The calls are in the C++ code, for example `ResolveNtQuerySystemInformation` and `ResolveNtSetSystemInformation` in `src/windows/memory.cpp`. So the rest of the logic (the Tiers, the path blacklist and the other rules in `rust/vegaflow-core/src/policy/`) runs without any Windows call. On a Mac, `cargo test` gave 295 passed, 0 failed (last recorded run, 2026-11-22).
 
 The cases for the Tier classification and for the path blacklist come from `tests/vectors/apu_tier.tsv` and `tests/vectors/sandbox_blacklist.tsv`. The Rust tests and C++ tests 32 and 33 both read them (in the module headers of `rust/vegaflow-core/src/policy/apu_tier.rs` and `path_policy.rs`). If the two implementations disagree, one of the two tests fails.
 
@@ -98,7 +98,7 @@ If you add a new folder inside `src/`, add it to `COMMON`. `build.ps1` and `buil
 
 Every change to the repository must be checked by running `build/vegaflow_tests.exe`. All the tests must pass, with no exceptions.
 
-The suite prints one `[PASS]` or `[FAIL]` line per test and ends with a summary. The last line should read as follows (last recorded run, 2026-11-22):
+The suite prints one `[PASS]` or `[FAIL]` line per test and ends with a summary. The last line should read as follows (last recorded run, 2026-11-25):
 
 ```
 TEST RESULTS: 465 PASSED, 0 FAILED
