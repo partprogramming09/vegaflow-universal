@@ -42,6 +42,7 @@ vegaflow-universal/
 │               ├── memory_purge.rs # Single purge rule and UMA guard (85% threshold, 90s pause, disk, and the factory "No tocar" ("do not touch") list)
 │               ├── path_policy.rs  # SandboxGuard path blacklist
 │               ├── process_class.rs # Process classification and action (OBS/Discord, "No tocar", verified path, exceptions and AC)
+│               ├── process_tree.rs  # A child of a throttled program takes its action; cut at the game, Windows, protected processes and unprovable links (F5.1)
 │               ├── steam_library.rs # libraryfolders.vdf reader (Steam libraries)
 │               └── sandbox_core.rs # Anti-cheat signatures and critical system files
 ├── src/                          # Each .hpp lives next to its .cpp, grouped by function

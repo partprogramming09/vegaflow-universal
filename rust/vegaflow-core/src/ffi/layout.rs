@@ -8,7 +8,7 @@ use super::ffi_guard;
 use super::folder_trust::{VfAceEntry, VF_SID_ADMINISTRATORS, VF_SID_OTHER, VF_SID_SYSTEM, VF_SID_TRUSTED_INSTALLER};
 use super::ini::VfIniKv;
 use super::paths::VfAllowedRoot;
-use super::process::VfProcessClassifyInput;
+use super::process::{VfProcessClassifyInput, VfProcessTreeNode};
 use crate::policy::apu_tier::VfTierInput;
 use crate::policy::cpu_governor::{VfCpuCoreEntry, VfTopologyPartitionOut};
 use crate::policy::device_profile::{
@@ -80,6 +80,8 @@ fn bridge_layout() -> Vec<usize> {
     layout!(v, VfProcessClassifyInput, full_path_ptr, full_path_len, exe_name_ptr, exe_name_len,
         category_actions, exceptions_ptr, exceptions_count, custom_games_nul_ptr, custom_games_nul_len,
         excluded_games_nul_ptr, excluded_games_nul_len, heavy_work_as_game, is_foreground_3d, has_anticheat_signal);
+    layout!(v, VfProcessTreeNode, pid, parent_pid, creation_time, process_class, action, has_user_exception,
+        has_anticheat_signal);
     v
 }
 

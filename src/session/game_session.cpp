@@ -194,10 +194,25 @@ void RunGameSessionCycle(
         return;
     }
 
+    // F5.2: a target without a window (a local-AI benchmark listed in custom_game_exes) has no hwnd to validate, so the
+    // cache is trusted while the very same process lives (PID and creation time), instead of a full scan every cycle.
+    // The first target keeps the session until it exits; a second one at the same time is not switched to.
+    const bool windowless_cached = state.game_active && state.active_game_pid != 0 &&
+        state.active_game_hwnd == nullptr && state.active_game_creation_time != 0 &&
+        env.IsProcessAlive(state.active_game_pid) &&
+        env.ProcessCreationTime(state.active_game_pid) == state.active_game_creation_time;
     std::optional<DetectedGameProcess> game_opt;
-    if (state.game_active && state.active_game_pid != 0 &&
+    if (windowless_cached) {
+        // The foreground may preempt the cache: another game in front wins, and the cached target itself having
+        // opened a window updates its hwnd. Otherwise the cached target stays.
+        game_opt = env.DetectForegroundGame(policy);
+    }
+    const bool windowed_cached = state.game_active && state.active_game_pid != 0 &&
         state.active_game_hwnd != nullptr && env.IsWindowValid(state.active_game_hwnd) &&
-        env.IsProcessAlive(state.active_game_pid)) {
+        env.IsProcessAlive(state.active_game_pid);
+    if (game_opt.has_value()) {
+        // taken from the foreground: nothing else to look up
+    } else if (windowless_cached || windowed_cached) {
         DetectedGameProcess cached{};
         cached.pid = state.active_game_pid;
         cached.creation_time = state.active_game_creation_time;
@@ -206,9 +221,11 @@ void RunGameSessionCycle(
         if (state.active_game_api == "DirectX 12") cached.api = RenderApi::DirectX12;
         else if (state.active_game_api == "Vulkan") cached.api = RenderApi::Vulkan;
         else if (state.active_game_api == "DirectX 9/10") cached.api = RenderApi::DirectX9_10;
+        else if (state.active_game_api == "OpenGL") cached.api = RenderApi::OpenGL;
+        else if (state.active_game_api == "Unknown") cached.api = RenderApi::Unknown;
         else cached.api = RenderApi::DirectX11;
         cached.main_window = state.active_game_hwnd;
-        cached.presenter_thread_id = env.WindowThreadId(state.active_game_hwnd);
+        cached.presenter_thread_id = state.active_game_hwnd ? env.WindowThreadId(state.active_game_hwnd) : 0;
         cached.generic_anticheat_detected = state.active_game_anticheat;
         game_opt = cached;
     } else {
@@ -234,6 +251,8 @@ void RunGameSessionCycle(
             case RenderApi::DirectX12:   state.active_game_api = "DirectX 12"; break;
             case RenderApi::Vulkan:      state.active_game_api = "Vulkan"; break;
             case RenderApi::DirectX9_10: state.active_game_api = "DirectX 9/10"; break;
+            case RenderApi::OpenGL:      state.active_game_api = "OpenGL"; break;
+            case RenderApi::Unknown:     state.active_game_api = game.main_window ? "DirectX 11" : "Unknown"; break; // windowless: no API seen
             default:                     state.active_game_api = "DirectX 11"; break;
         }
 

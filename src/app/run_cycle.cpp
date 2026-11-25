@@ -53,6 +53,14 @@ public:
         return vegaflow::ProcessDetector::IsProcessAlive(pid);
     }
 
+    std::optional<vegaflow::DetectedGameProcess> DetectForegroundGame(const vegaflow::ProcessPolicyConfig& policy) override {
+        return vegaflow::ProcessDetector::DetectForegroundGame(policy);
+    }
+
+    uint64_t ProcessCreationTime(uint32_t pid) override {
+        return vegaflow::ProcessDetector::ProcessCreationTime(pid);
+    }
+
     std::vector<vegaflow::BackgroundProcessTarget> ClassifyBackgroundProcesses(
         uint32_t game_pid,
         const vegaflow::ProcessPolicyConfig& policy) override {

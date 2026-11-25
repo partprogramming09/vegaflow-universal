@@ -19,6 +19,8 @@ owner's approval.
 - No tier caps the CPU frequency any more (`cpu_stapm_cap_mhz = 0`, Smart Uncapped Boost); the old 3000/3400 MHz caps in the docs were removed. Not A/B measured: see `docs/mediciones/estado-de-verificacion.md`.
 
 ### Added
+- Process tree (F5.1): an unknown child of a throttled or eco-only program (a WebView2 helper, a worker) takes its parent's action. The game, its children, store launchers (Steam and others lend nothing to what they start), Windows processes, per-program exceptions, anti-cheat and any link that cannot be proven (parent exited, reused PID, cycle) are never touched. Not A/B measured.
+- Programs without a window listed in `custom_game_exes` (for example `llama-bench`) use the cached session instead of a full scan each cycle (a game brought to the front still takes over), and OpenGL is detected (F5.2). Not measured on hardware.
 - "Copiar informe" in the tray menu (F4.1): the same plain-text report as on Inicio, with the Windows user name replaced by <usuario>.
 - Memoria tab drawn natively (F4.2): reachable with the keyboard (one Tab stop for the thread map, arrows to move) and a side menu that screen readers and Tab can reach.
 - Screens: Inicio, Juegos, Programas, Tu equipo, Configuración, Requisitos, plus Ajustes del sistema and Historial.

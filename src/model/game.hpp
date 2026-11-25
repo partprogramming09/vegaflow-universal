@@ -18,7 +18,8 @@ enum class RenderApi {
     DirectX9_10,
     DirectX11,
     DirectX12,
-    Vulkan
+    Vulkan,
+    OpenGL // F5.2: opengl32.dll with a GPU driver loaded (or a listed custom game)
 };
 
 enum class ProcessClass : uint8_t {

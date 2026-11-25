@@ -317,6 +317,24 @@ uint32_t vf_rust_config_save_ex(const char* original, size_t original_len, const
 /* Pure process classification and action decision (policy/process_class.rs). */
 bool vf_rust_classify_process(const VfProcessClassifyInput* input, VfProcessDecision* out);
 
+/* F5.1: one process of a snapshot, with its own decision from vf_rust_classify_process. creation_time is a FILETIME
+   (0 when unreadable). */
+typedef struct VfProcessTreeNode {
+    uint32_t pid;
+    uint32_t parent_pid;
+    uint64_t creation_time;
+    uint8_t process_class;
+    uint8_t action;
+    bool has_user_exception;
+    bool has_anticheat_signal;
+} VfProcessTreeNode;
+
+/* F5.1: writes `count` decisions to `out`, in the order of `nodes`. An unknown child takes the Throttle/EcoOnly action
+   of its nearest proven ancestor; the link is cut at the active game and its descendants, Windows, protected
+   processes, and any link that cannot be proven (parent gone, reused PID, cycle). false: bad pointers, `out` untouched. */
+bool vf_rust_inherit_process_actions(const VfProcessTreeNode* nodes, size_t count, uint32_t active_game_pid,
+                                     VfProcessDecision* out);
+
 /* The rule for a name in custom_game_exes (also applied to names found in the Steam library): a bare .exe file name
    that Windows reads as written, not a device name and not a Windows process. UTF-8; false for invalid UTF-8. */
 bool vf_rust_is_allowed_game_exe(const char* utf8_name, size_t len);
@@ -456,7 +474,7 @@ bool vf_rust_evaluate_device_profile(
    VfMemoryPurgeInput, VfMemoryPurgeDecision, VfCpuCoreEntry, VfTopologyPartitionOut, VfTierInput, VfAllowedRoot,
    VfConfigSettings, VfConfigLoad, VfAceEntry, VfIniKv, VfGpuAdapterInput, VfDeviceProfileInput,
    VfDeviceProfileDecision, VfProcessCategoryActions, VfProcessDecision, VfProcessPolicyConfig,
-   VfProcessExceptionEntry, VfProcessClassifyInput (the order of vf_rust_bridge_layout in rust/vegaflow-core/src/ffi.rs): its size, its alignment and the offset and size of each field in declaration order. Writes at most `cap`
+   VfProcessExceptionEntry, VfProcessClassifyInput, VfProcessTreeNode (the order of vf_rust_bridge_layout in rust/vegaflow-core/src/ffi.rs): its size, its alignment and the offset and size of each field in declaration order. Writes at most `cap`
    numbers and returns how many there are in total. Checked by C++ Test 34. */
 size_t vf_rust_bridge_layout(size_t* out, size_t cap);
 
