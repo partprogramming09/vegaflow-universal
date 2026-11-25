@@ -157,6 +157,13 @@ void Test144() {
         RecordResult(s.find("Hilo 1:") != std::string::npos && s.find("JUEGO") != std::string::npos && ms::DescribeCell(m, 12).empty() && ms::DescribeCell(m, -1).empty(),
                      "Test 144.13: the selected thread is described with its role as text; an index out of range gives nothing");
     }
+    // 8b. A click picks a cell only on a real cell: not in a gap, not in the empty slots of the last row, not outside the grid.
+    {
+        const auto at = [](int x, int y) { return ms::CoreAtPoint(x, y, 10, 4, 86, 10, 46, 8); }; // 3 rows, the last has 2 cells
+        RecordResult(at(5, 5) == 0 && at(96 + 5, 5) == 1 && at(5, 54 + 5) == 4 && at(96 + 5, 108 + 5) == 9 && at(2 * 96 + 5, 108 + 5) == -1 && at(88, 5) == -1 && at(5, 48) == -1 &&
+                         at(-1, 5) == -1 && at(5, -1) == -1 && at(4 * 96 + 5, 5) == -1 && ms::CoreAtPoint(5, 5, 0, 4, 86, 10, 46, 8) == -1,
+                     "Test 144.15: a click selects only a real cell (gap, empty slot of the last row, outside, no cells all give -1)");
+    }
     // 9. Sidebar: the active entry follows the tab (Requisitos belongs to Configuración), arrows wrap, digits map to tabs.
     {
         using ms::SidebarKey;

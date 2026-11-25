@@ -150,11 +150,9 @@ LRESULT CALLBACK GridProc(HWND h, UINT msg, WPARAM w, LPARAM l) {
     }
     if (st && msg == WM_LBUTTONDOWN) {
         SetFocus(h);
-        const int col = GET_X_LPARAM(l) / (kCellW + kGapX);
-        const int row = GET_Y_LPARAM(l) / (kCellH + kGapY);
-        const int x_in = GET_X_LPARAM(l) % (kCellW + kGapX);
-        const int y_in = GET_Y_LPARAM(l) % (kCellH + kGapY);
-        if (col < st->memory_columns && x_in < kCellW && y_in < kCellH) Select(st, row * st->memory_columns + col);
+        // A click in a gap or in the empty slots of the last row selects nothing.
+        const int idx = session::CoreAtPoint(GET_X_LPARAM(l), GET_Y_LPARAM(l), static_cast<int>(Model(st).cells.size()), st->memory_columns, kCellW, kGapX, kCellH, kGapY);
+        if (idx >= 0) Select(st, idx);
         return 0;
     }
     return CallWindowProcW(g_grid_proc, h, msg, w, l);

@@ -98,4 +98,14 @@ GridGeometry ComputeGrid(int count, int width, int cell_w, int gap_x, int cell_h
     return g;
 }
 
+int CoreAtPoint(int x, int y, int count, int columns, int cell_w, int gap_x, int cell_h, int gap_y) {
+    const int cols = std::max(columns, 1);
+    if (x < 0 || y < 0 || count <= 0 || cell_w <= 0 || cell_h <= 0) return -1;
+    const int col = x / (cell_w + gap_x);
+    const int row = y / (cell_h + gap_y);
+    if (col >= cols || x % (cell_w + gap_x) >= cell_w || y % (cell_h + gap_y) >= cell_h) return -1;
+    const int idx = row * cols + col;
+    return idx < count ? idx : -1;
+}
+
 } // namespace vegaflow::session

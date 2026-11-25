@@ -97,6 +97,11 @@ bool SidebarViewCommand(GuiWindowState* st, int id, int notify_code, HWND from, 
 }
 
 bool SidebarViewKey(GuiWindowState* st, HWND focus, WPARAM key) {
+    // The "Minimizar a Bandeja" button is the last control and not a tab entry: Enter must press it too.
+    if (key == VK_RETURN && !st->sidebar_controls.empty() && focus == st->sidebar_controls.back()) {
+        SendMessageW(focus, BM_CLICK, 0, 0);
+        return true;
+    }
     const int entry = EntryOfWindow(st, focus);
     if (entry < 0) return false;
     if (key == VK_RETURN) { // IsDialogMessage would answer Enter with IDOK, not with the focused button

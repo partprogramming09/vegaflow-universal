@@ -72,4 +72,7 @@ struct GridGeometry {
 };
 GridGeometry ComputeGrid(int count, int width, int cell_w, int gap_x, int cell_h, int gap_y);
 
+// The cell under a click at (x, y) inside the map, or -1 for a gap, a slot past the last cell, or a point outside the grid.
+int CoreAtPoint(int x, int y, int count, int columns, int cell_w, int gap_x, int cell_h, int gap_y);
+
 } // namespace vegaflow::session
