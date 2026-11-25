@@ -45,6 +45,8 @@ src src/session/settings_screen.cpp
 src src/session/startup_prompts.cpp
 src src/session/system_info.cpp
 src src/session/gui_cadence.cpp
+src src/session/memory_screen.cpp
+src src/session/sidebar_nav.cpp
 src src/session/wake_loop.cpp
 src src/session/welcome.cpp
 
@@ -59,6 +61,7 @@ test tests/unit/give_back_no_blind_write_unit_tests.cpp
 test tests/unit/gpu_usage_unit_tests.cpp
 test tests/unit/gui_wiring_unit_tests.cpp
 test tests/unit/memcompression_journal_unit_tests.cpp
+test tests/unit/memory_screen_unit_tests.cpp
 test tests/unit/phase_g_extras_unit_tests.cpp
 test tests/unit/power_restore_unit_tests.cpp
 test tests/unit/reg_restore_scope_unit_tests.cpp

@@ -141,4 +141,21 @@ inline constexpr const wchar_t* kGamesFile = L"Archivo que cambia: ";
 inline constexpr const wchar_t* kGamesChanges = L"Lo que se escribe, línea por línea";
 inline constexpr const wchar_t* kGamesTooMany = L"Se muestran los primeros 200 juegos.";
 
+// Memoria UMA y núcleos (F4.2)
+inline constexpr const wchar_t* kMemTitle = L"MEMORIA UNIFICADA UMA & ASIGNACIÓN DE NÚCLEOS";
+inline constexpr const wchar_t* kMemSubtitle = L"Gestión en tiempo real de Standby List y afinidad de procesos de fondo";
+inline constexpr const wchar_t* kMemManagerTitle = L"GESTOR DE MEMORIA UNIFICADA (UMA)";
+inline constexpr const wchar_t* kMemCpuTitle = L"MAPA DE TOPOLOGÍA CPU & AISLAMIENTO (CPU SETS)";
+inline constexpr const wchar_t* kMemLegend = L"Borde azul: JUEGO   ·   borde morado: FONDO   ·   borde gris: WINDOWS   (el rol también está escrito en cada hilo)";
+inline constexpr const wchar_t* kMemGridHint = L"Con el mapa enfocado, las flechas, Inicio y Fin cambian de hilo.";
+inline constexpr const wchar_t* kMemPurge = L"VACIAR STANDBY RAM AHORA";
+inline constexpr const wchar_t* kMemIsolate = L"Aislar Procesos en 2º Plano";
+inline constexpr const wchar_t* kMemRestore = L"Restaurar Afinidad de CPU";
+inline constexpr const wchar_t* kMemGridName = L"Mapa de hilos del procesador. ";
+
+// Barra lateral
+inline constexpr const wchar_t* kSidebarTabs[8] = {L"1. Inicio",   L"2. Ajustes del sistema", L"3. Memoria UMA & Núcleos CPU", L"4. Juegos",
+                                                   L"5. Historial", L"6. Configuración",       L"7. Programas",                L"8. Tu equipo"};
+inline constexpr const wchar_t* kSidebarTray = L"Minimizar a Bandeja";
+
 } // namespace vegaflow::ui::text
