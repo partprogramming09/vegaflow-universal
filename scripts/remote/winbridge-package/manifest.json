@@ -215,6 +215,15 @@
         "Seconds": "^[0-9]{1,4}$"
       }
     },
+    "gui-mem": {
+      "script": "gui_mem.ps1",
+      "timeout_s": 700,
+      "session": 1,
+      "description": "Read the working set and private working set of the test-build GUI (read-only)",
+      "params": {
+        "Wait": "^[0-9]{1,3}$"
+      }
+    },
     "dpi": {
       "script": "dpi.ps1",
       "timeout_s": 60,
