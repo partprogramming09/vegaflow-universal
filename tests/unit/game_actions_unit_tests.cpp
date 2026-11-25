@@ -1,6 +1,7 @@
 // Unit tests: what the buttons of the "Juegos" screen do (phase G), driven with a fake file system and registry:
 // apply, restore, "Me fue mal" (restore + exclude + save), include again, DXVK refusal on anti-cheat, rescan, refresh.
 
+#include "optimize/game_files_adapter.hpp"
 #include "session/game_actions.hpp"
 #include "fake_file_system.hpp"
 #include "fake_registry_power.hpp"
@@ -40,6 +41,7 @@ void Test72() {
     FakeRegistryPort reg;
     SteamEngineOptimizer steam(fs, &reg);
     DxvkManager dxvk(fs);
+    vegaflow::OptimizeGameFiles files(steam, dxvk);
     AppConfig config;
     ConfigStore store(fs, L"C:\\VegaFlow\\config.json", true);
     config = store.Load();
@@ -49,7 +51,7 @@ void Test72() {
     std::vector<std::string> audit;
     bool inspect_applied = false;
     int scans = 0;
-    gs::GameActionsDeps deps{steam, dxvk, config, store, games, DetectedPolicy(),
+    gs::GameActionsDeps deps{files, config, store, games, DetectedPolicy(),
                              [&]() { ++scans; return std::vector<SteamGameEntry>{Unity(7, L"A.exe"), Unity(8, L"B.exe")}; },
                              [&](const SteamGameEntry& g) { SteamGameEntry n = g; n.engine_preset_applied = inspect_applied; return n; },
                              [&](const std::string& s) { audit.push_back(s); }};

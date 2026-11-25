@@ -177,6 +177,7 @@ void Test141();  // a standard-user token can join the session log lock an eleva
 void Test140();  // a filtered token cannot hard-link a protected file it cannot write (F3 hardlink investigation)
 void Test143();  // F4.1 the window's polling cadence: visible, hidden, with and without a game
 void Test144();  // F4.3 --doctor reads the machine through a DoctorProbe (fake machine)
+void Test145();  // F4.3 the Juegos buttons ask the GameFiles port (fake that records the calls)
 void Test139();  // end of input or a failed read is no answer and discards pending keys
 
 } // namespace vftest

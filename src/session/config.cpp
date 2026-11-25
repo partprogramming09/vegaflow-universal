@@ -7,10 +7,10 @@
 #include <utility>
 #include <vector>
 
-#include "optimize/steam/steam_engine_optimizer.hpp"
 #include <filesystem>
 
 #include "model/path_name.hpp"
+#include "model/steam.hpp"
 #include "ports/text_convert.hpp"
 #include "bridge/rust_bridge.h"
 #include "bridge/ffi_callback_guard.hpp"

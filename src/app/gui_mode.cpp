@@ -43,6 +43,7 @@
 #include "session/run_cycle.hpp"
 #include "windows/system_counters.hpp"
 #include "app/doctor_probe.hpp"
+#include "optimize/game_files_adapter.hpp"
 #include "ports/text_convert.hpp"
 #include "windows/event_sources.hpp"
 
@@ -143,8 +144,9 @@ int RunGuiMode(
     SyncSteamGamesToCustomExes(cached_steam_games, config);
 
     // What the Juegos buttons do lives in session/game_actions; the scan and the folder read are handed in because they touch Windows.
+    OptimizeGameFiles game_files(steam, dxvk);
     session::GameActions game_actions(session::GameActionsDeps{
-        steam, dxvk, config, config_store, cached_steam_games, policy,
+        game_files, config, config_store, cached_steam_games, policy,
         []() {
             auto games = SteamEngineOptimizer::ScanSteamLibrary();
             SandboxGuard::ReloadSteamLibraryFolders(); // a library added in Steam becomes writable without a restart

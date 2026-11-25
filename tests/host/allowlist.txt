@@ -59,6 +59,7 @@ test tests/unit/ffi_layout_unit_tests.cpp
 test tests/unit/fse_compat_unit_tests.cpp
 test tests/unit/gamedvr_restore_unit_tests.cpp
 test tests/unit/give_back_no_blind_write_unit_tests.cpp
+test tests/unit/game_actions_port_unit_tests.cpp
 test tests/unit/gpu_usage_unit_tests.cpp
 test tests/unit/gui_wiring_unit_tests.cpp
 test tests/unit/memcompression_journal_unit_tests.cpp

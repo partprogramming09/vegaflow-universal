@@ -211,6 +211,7 @@ int main() {
         {142, vftest::Test142},  // F4.4 a broken config.json is the person's decision
         {143, vftest::Test143},  // F4.1 GUI cadence in the tray
         {144, vftest::Test144},  // F4.3 doctor reads through DoctorProbe
+        {145, vftest::Test145},  // F4.3 Juegos buttons reach game files through GameFiles
     };
     for (const auto& [number, run] : tests) {
         try {
