@@ -23,7 +23,7 @@ Terms: a **port** is a small interface (for example, "read and write the registr
 | RAM slots used according to SMBIOS, with a bounded walk: it stops at a truncated entry instead of reading past the end | `windows/system_counters.*` (the pure part, `CountDimmsInSmbiosTable`, is tested with invented tables) |
 | Check a window and its thread | `windows/system_counters.*` |
 | UTF-8 ↔ UTF-16 conversion (`text_convert`) | from `session/` to `windows/text_convert.*` |
-| Version (0.1.0), window class and title, tray command id and the line "processor \| graphics" | `ui/app_identity.hpp` |
+| Version (0.2.0), window class and title, tray command id and the line "processor \| graphics" | `ui/app_identity.hpp` |
 
 ### What the repository checks
 

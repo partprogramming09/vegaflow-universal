@@ -95,7 +95,7 @@ The report is made to be pasted in public: the Windows user name in paths become
 
 Shape of the output (taken from the unit-test inputs, not yet captured on the test laptop):
 ```text
-VegaFlow doctor 0.1.0
+VegaFlow doctor 0.2.0
 Administrator: yes
 Disks:
   System drive (C:\): 4.0 GiB free of 500.0 GiB

@@ -8,7 +8,7 @@
 namespace vegaflow::ui {
 
 // Must match rust/vegaflow-core/Cargo.toml; scripts/build/package.sh refuses to build a package if they differ.
-inline constexpr char kVersion[] = "0.1.0";
+inline constexpr char kVersion[] = "0.2.0";
 
 inline constexpr wchar_t kWindowClass[] = L"VegaFlowUniversalWindow";
 inline constexpr wchar_t kWindowTitle[] = L"VegaFlow Universal";

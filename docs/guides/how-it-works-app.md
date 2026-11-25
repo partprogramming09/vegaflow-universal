@@ -137,7 +137,7 @@ Only lines from the real runs are shown. Indentation is trimmed.
 
 | Step | Command or action | Real output |
 | --- | --- | --- |
-| 1 and 2 | `vegaflow_daemon.exe --version` | `VegaFlow Universal 0.1.0` |
+| 1 and 2 | `vegaflow_daemon.exe --version` | `VegaFlow Universal 0.2.0` |
 | 2 (`--status`) | `vegaflow_daemon.exe --status` (two lines, trimmed) | `Process Elevated (Admin)   : YES` and `Detected APU Tier & Guard  : Tier 2: Mid Vega UMA [Sweet-Spot Guard]` |
 | 1, 2, 4 and 5 (simulation path) | `vegaflow_daemon.exe --dry-run --once` (three lines, trimmed) | `[WARN] config.json está en una carpeta donde pueden escribir cuentas sin permisos de administrador: se usan los valores de fábrica y no se guarda nada.`, `-> Background Sets to confine: 2 core IDs (would be isolated: 22 background processes; nothing changed)` and `[KPI] Daemon Memory Working Set: 2.09375 MB (< 15 MB KPI passed)` |
 | 8 and 9 (safe mode in the monitor) | `vegaflow_daemon.exe --observe --monitor --once` (one line) | `[WARN] MODO SEGURO ACTIVO (pedido con --observe: solo observar): el monitor solo muestra datos, no aplica ajustes.` |

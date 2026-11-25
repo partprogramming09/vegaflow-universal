@@ -103,7 +103,7 @@ Known differences, checked in the code and not fixed by this page:
 | 4 (safe mode in the model) | Suite, `[PASS]` line | `[PASS] Test 70.8: in safe mode the waiting card says VegaFlow changes nothing by itself and does not promise detection` |
 | 4 (RAM share) | Suite, `[PASS]` line | `[PASS] Test 70.5: the RAM share in use is computed from total and free, an unknown total is unknown, and the last purge states both numbers` |
 | 5 (hardware line) | Suite, `[PASS]` line | `[PASS] Test 58: the hardware line shows this machine, never the test laptop (normal: PASS, name over 65 chars cut, not replaced: PASS, ...)` |
-| 8 (identity) | `vegaflow_daemon.exe --version` | `VegaFlow Universal 0.1.0` |
+| 8 (identity) | `vegaflow_daemon.exe --version` | `VegaFlow Universal 0.2.0` |
 | 8 (identity) | Suite, `[PASS]` line | `[PASS] Test 59: window class, title and version are VegaFlow's own (names: PASS, version 0.1.0 is MAJOR.MINOR.PATCH: PASS)` |
 | 8 (second start, mutex) | Suite, `[PASS]` line | `[PASS] Test 14: Single-Instance Guard, ... (Mutex 1: OK, Mutex 2 ERROR_ALREADY_EXISTS: PASS, ...)` |
 | 6 (purge behind the Home button) | Suite, `[PASS]` line; the click itself was not run | `[PASS] Test 8: ... (Relaunch Dry-Run: OK, IsProcessAlive: OK, MPO Set Dry-Run: OK, ForcePurgeNow Dry-Run: OK)` |
