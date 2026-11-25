@@ -129,7 +129,7 @@ Only lines from the evidence files are pasted here, trimmed where long. The suit
 | DXVK | Suite, Test 16 | `[PASS] Test 16: DXVK Manager Module (Detection, Dry-run, Removal, Restoring the originals) (…)` |
 | DXVK | Suite, Test 71 and Test 72.3 | `[PASS] Test 71: a user's dxvk.conf kept as .vegaflow.bak is restored on removal` / `[PASS] Test 72.3: DXVK is not deployed to an anti-cheat game` |
 | Steam | Suite, Test 13 and Test 43 | `[PASS] Test 13: SteamEngineOptimizer Engine Detection, Safe Backup & Restore (UE Detection: PASS, Backup Created: PASS, Preset Applied: PASS, Restored & Bak Cleared: PASS, AntiCheat Blocking: PASS)` / `[PASS] Test 43: engine presets create no folder outside the allowed ones (Unreal detected: yes, preset applied: no, folder created: no)` |
-| all | Suite total | `TEST RESULTS: 467 PASSED, 0 FAILED` |
+| all | Suite total | `TEST RESULTS: 469 PASSED, 0 FAILED` |
 
 Not reproduced:
 - The `r.Streaming.PoolSize` value written to a real `Engine.ini` on the laptop. The value (4096 MB on Tier 2 with visual cuts) is read from `GenerateUnrealUmaBlock`; no run on a real game folder is in the evidence.
