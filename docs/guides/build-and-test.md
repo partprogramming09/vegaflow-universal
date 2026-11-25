@@ -26,7 +26,7 @@ The project includes the script [`scripts/build/build.ps1`](https://github.com/p
 powershell -ExecutionPolicy Bypass -File .\scripts\build\build.ps1
 
 # Build and run the C++ suite right away (the last recorded run, 2026-11-25, printed
-# `TEST RESULTS: 465 PASSED, 0 FAILED`; the number grows with each new test, so don't copy it from here):
+# `TEST RESULTS: 467 PASSED, 0 FAILED`; the number grows with each new test, so don't copy it from here):
 powershell -ExecutionPolicy Bypass -File .\scripts\build\build.ps1 -RunTests
 ```
 
@@ -101,7 +101,7 @@ Every change to the repository must be checked by running `build/vegaflow_tests.
 The suite prints one `[PASS]` or `[FAIL]` line per test and ends with a summary. The last line should read as follows (last recorded run, 2026-11-25):
 
 ```
-TEST RESULTS: 465 PASSED, 0 FAILED
+TEST RESULTS: 467 PASSED, 0 FAILED
 ```
 
 Where each test lives:
@@ -109,7 +109,7 @@ Where each test lives:
 - `tests/unit/`: these use fake ports (stand-ins for the file system, the registry and the clock), so they don't write game files or the registry.
 - `tests/test_main.cpp`: runs the tests in order. At the end, a guard returns the system to its previous state. Don't interrupt it halfway.
 
-The Rust rules are tested separately with `cargo test` (295 tests passed on 2026-11-22), and the layers of `src/` are checked with `scripts/ci/check_layers.sh`.
+The Rust rules are tested separately with `cargo test` (326 tests passed on 2026-11-25), and the layers of `src/` are checked with `scripts/ci/check_layers.sh`.
 
 ---
 
