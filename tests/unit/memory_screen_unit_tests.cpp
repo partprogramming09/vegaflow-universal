@@ -58,7 +58,7 @@ void Test144() {
         const auto m = ms::BuildMemoryScreen(in);
         bool ok = m.cells.size() == 6 && m.cells[0].role == ms::CoreRole::Game && m.cells[2].role == ms::CoreRole::Game && m.cells[3].role == ms::CoreRole::Windows &&
                   m.cells[4].role == ms::CoreRole::Background && m.cells[5].role == ms::CoreRole::Background;
-        RecordResult(ok && m.has_cpu_data && m.cells[0].label == "Hilo #0" && m.cells[4].role_text == "FONDO" && m.cells[3].role_text == "WINDOWS" &&
+        RecordResult(ok && m.has_cpu_data && m.cells[0].label == "Hilo 1" && m.cells[4].role_text == "FONDO" && m.cells[3].role_text == "WINDOWS" &&
                          m.cores_summary.find("6 hilos") != std::string::npos && m.cores_summary.find("3 del juego") != std::string::npos &&
                          m.cores_summary.find("2 de fondo") != std::string::npos && m.cores_summary.find("1 de Windows") != std::string::npos,
                      "Test 144.2: roles by real CPU set id (ids from 1000), and the summary counts each role");
@@ -83,7 +83,7 @@ void Test144() {
         in.cpu_sets = Sets(128, 5000, 2);
         in.game_cpu_sets = {5000, 5127};
         const auto m = ms::BuildMemoryScreen(in);
-        RecordResult(m.cells.size() == 128 && m.cells[127].role == ms::CoreRole::Game && m.cells[127].label == "Hilo #127",
+        RecordResult(m.cells.size() == 128 && m.cells[127].role == ms::CoreRole::Game && m.cells[127].label == "Hilo 128",
                      "Test 144.5: 128 threads in two groups give 128 cells with the last one marked");
         const ms::GridGeometry g = ms::ComputeGrid(128, 960 - 250 - 32 - 32, 86, 10, 46, 8);
         const int right = (g.columns - 1) * (86 + 10) + 86;
@@ -154,7 +154,7 @@ void Test144() {
         in.game_cpu_sets = {256};
         const auto m = ms::BuildMemoryScreen(in);
         const std::string s = ms::DescribeCell(m, 0);
-        RecordResult(s.find("Hilo #0") != std::string::npos && s.find("JUEGO") != std::string::npos && ms::DescribeCell(m, 12).empty() && ms::DescribeCell(m, -1).empty(),
+        RecordResult(s.find("Hilo 1:") != std::string::npos && s.find("JUEGO") != std::string::npos && ms::DescribeCell(m, 12).empty() && ms::DescribeCell(m, -1).empty(),
                      "Test 144.13: the selected thread is described with its role as text; an index out of range gives nothing");
     }
     // 9. Sidebar: the active entry follows the tab (Requisitos belongs to Configuración), arrows wrap, digits map to tabs.

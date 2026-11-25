@@ -671,6 +671,7 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                 }
                 if (ui::MemoryViewCommand(hwnd, state, wmId, HIWORD(wParam), reinterpret_cast<HWND>(lParam), &act)) {
                     if (act) HandleActionClick(hwnd, state, act);
+                    if (act) ui::MemoryViewRefresh(hwnd, state); // native children are not repainted by the parent: show the new roles now
                     return 0;
                 }
             }

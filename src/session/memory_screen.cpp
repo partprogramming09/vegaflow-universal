@@ -23,7 +23,7 @@ MemoryScreenModel BuildMemoryScreen(const MemoryScreenInputs& in) {
     size_t game = 0, bg = 0, win = 0;
     for (size_t i = 0; i < in.cpu_sets.size(); ++i) {
         CoreCell c;
-        c.label = "Hilo #" + std::to_string(i);
+        c.label = "Hilo " + std::to_string(i + 1); // numbered from 1, as on Tu equipo
         const uint32_t id = in.cpu_sets[i].id;
         // Only the real CPU set id counts; a thread in both lists is background, as on Tu equipo.
         if (Contains(in.background_cpu_sets, id)) { c.role = CoreRole::Background; c.role_text = "FONDO"; ++bg; }

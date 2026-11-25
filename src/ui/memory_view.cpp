@@ -245,6 +245,7 @@ void MemoryViewPaint(HDC hdc, GuiWindowState* st, const RECT& content) {
     const RECT& tc = l.top_card;
     DrawRoundedCard(hdc, tc, CLR_CARD_BG, CLR_CARD_BORDER, 8);
     DrawTextAt(hdc, tc.left + kPad, tc.top + 12, text::kMemManagerTitle, CLR_ACCENT_CYAN, st->hFontBold);
+    const int title_right = tc.left + kPad + TextWidth(hdc, st->hFontBold, text::kMemManagerTitle);
     const RECT dxgi = {tc.right - 195, tc.top + 10, tc.right - kPad, tc.top + 32};
     if (m.pressure_alert) DrawBadge(hdc, dxgi, Utf8ToWide(m.pressure_badge), CLR_ACCENT_AMBER, RGB(36, 26, 20), CLR_ACCENT_AMBER, st->hFontSmallBold);
     else DrawBadge(hdc, dxgi, Utf8ToWide(m.pressure_badge), CLR_ACCENT_CYAN, RGB(20, 36, 44), CLR_ACCENT_CYAN, st->hFontSmallBold);
@@ -260,7 +261,11 @@ void MemoryViewPaint(HDC hdc, GuiWindowState* st, const RECT& content) {
         const uint32_t pool_mb = st->data.amd_vram_reported_mb > 0 ? st->data.amd_vram_reported_mb : (pool_active ? 4096 : 512);
         swprintf_s(buf, L"POOL TEXTURAS: %u MB", pool_mb);
         const RECT pool = {tc.right - 390, tc.top + 10, tc.right - 203, tc.top + 32};
-        if (pool_active) DrawBadge(hdc, pool, buf, CLR_ACCENT_GREEN, RGB(20, 36, 28), CLR_ACCENT_GREEN, st->hFontSmallBold);
+        if (pool.left < title_right + 8) { // too narrow for the badge next to the title: the size goes into the memory line instead
+            swprintf_s(buf, L"   |   Pool: %u MB", pool_mb);
+            line += buf;
+        }
+        else if (pool_active) DrawBadge(hdc, pool, buf, CLR_ACCENT_GREEN, RGB(20, 36, 28), CLR_ACCENT_GREEN, st->hFontSmallBold);
         else DrawBadge(hdc, pool, buf, CLR_TEXT_MUTED, RGB(33, 38, 48), CLR_CARD_BORDER, st->hFontSmallBold);
     }
     DrawTextRect(hdc, {tc.left + kPad, tc.top + 38, tc.right - kPad, tc.top + 58}, line, CLR_TEXT_TITLE, st->hFontRegular, DT_LEFT | DT_END_ELLIPSIS | DT_SINGLELINE | DT_NOPREFIX);
