@@ -4,6 +4,7 @@
 #include "optimize/graphics/graphics_internal.hpp"
 #include "session/restore.hpp"
 #include "session/settings_actions.hpp"
+#include "optimize/graphics/graphics_optimizer.hpp"
 #include "session/settings_catalog.hpp"
 #include "fake_registry_power.hpp"
 #include "../test_support.hpp"
