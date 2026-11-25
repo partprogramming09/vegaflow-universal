@@ -1,10 +1,7 @@
 #include "session/system_info.hpp"
-#include "detect/hardware_profiler.hpp"
-#include "optimize/memory_manager.hpp"
-#include "optimize/graphics/graphics_optimizer.hpp"
-#include "windows/power.hpp"
-#include "windows/registry.hpp"
-#include "windows/system_counters.hpp"
+#include "bridge/hardware_policy.hpp"
+#include "model/hardware_names.hpp"
+#include "ports/system_reads.hpp"
 #include "ports/text_convert.hpp"
 
 #include <iomanip>
@@ -51,53 +48,48 @@ std::string FormatUintVector(const std::vector<uint32_t>& vec) {
 
 } // anonymous namespace
 
-SystemInfo::SystemInfo()
-    : snapshot_(Gather()) {}
+SystemInfo::SystemInfo(SystemReads& reads)
+    : snapshot_(Gather(reads)) {}
 
 SystemInfo::SystemInfo(const SystemInfoSnapshot& snapshot)
     : snapshot_(snapshot) {}
 
-SystemInfoSnapshot SystemInfo::Gather(bool include_displays) {
-    SystemHardwareProfile hw = HardwareProfiler::DetectHardware(include_displays);
-    return FromHardware(hw, true);
+SystemInfoSnapshot SystemInfo::Gather(SystemReads& reads, bool include_displays) {
+    SystemHardwareProfile hw = reads.DetectHardware(include_displays);
+    return FromHardware(hw, reads, true);
 }
 
-SystemInfoSnapshot SystemInfo::FromHardware(const SystemHardwareProfile& hw, bool include_live_telemetry) {
+SystemInfoSnapshot SystemInfo::FromHardware(const SystemHardwareProfile& hw, SystemReads& reads, bool include_live_telemetry) {
     if (!include_live_telemetry) {
-        return Build(hw, nullptr, nullptr);
+        return Build(hw, nullptr, nullptr, reads);
     }
     // One sample serves both the VRAM budget (target adapter) and the RAM lists.
-    MemoryManager mem_mgr;
-    mem_mgr.SetTargetLuid(hw.primary_gpu.luid);
-    const SystemMemoryTelemetry mem = mem_mgr.SampleTelemetry();
-    WindowsRegistryPort reg;
-    WindowsPowerPort power;
-    GraphicsOptimizer opt(hw, HardwareProfiler::BuildOptimizationPolicy(hw), reg, &power);
-    const SystemGraphicsTweaksState tweaks = opt.QuerySystemGraphicsTweaks();
-    return Build(hw, &mem, &tweaks);
+    const SystemMemoryTelemetry mem = reads.SampleMemory(hw.primary_gpu.luid);
+    const SystemGraphicsTweaksState tweaks = reads.QueryTweaks(hw, ::vegaflow::BuildOptimizationPolicy(hw));
+    return Build(hw, &mem, &tweaks, reads);
 }
 
 SystemInfoSnapshot SystemInfo::FromHardware(
-    const SystemHardwareProfile& hw, const SystemMemoryTelemetry& mem, const SystemGraphicsTweaksState& tweaks) {
-    return Build(hw, &mem, &tweaks);
+    const SystemHardwareProfile& hw, const SystemMemoryTelemetry& mem, const SystemGraphicsTweaksState& tweaks, SystemReads& reads) {
+    return Build(hw, &mem, &tweaks, reads);
 }
 
 SystemInfoSnapshot SystemInfo::Build(
-    const SystemHardwareProfile& hw, const SystemMemoryTelemetry* mem, const SystemGraphicsTweaksState* tweaks) {
+    const SystemHardwareProfile& hw, const SystemMemoryTelemetry* mem, const SystemGraphicsTweaksState* tweaks, SystemReads& reads) {
     SystemInfoSnapshot snapshot{};
-    snapshot.cpu = GatherCpu(hw);
+    snapshot.cpu = GatherCpu(hw, reads);
     snapshot.gpu = GatherGpu(hw, mem);
-    snapshot.ram = GatherRam(hw, mem);
+    snapshot.ram = GatherRam(hw, mem, reads);
     snapshot.os_kernel = GatherOsKernel(hw, tweaks);
     const uint64_t live_budget = snapshot.gpu.dxgi_budget.valid ? snapshot.gpu.dxgi_budget.local_budget_bytes : 0;
     snapshot.apu_guard = GatherApuGuard(hw, live_budget);
     snapshot.power = hw.power_status;
-    snapshot.last_game_disk = HardwareProfiler::DiskTypeToString(hw.last_game_disk);
+    snapshot.last_game_disk = DiskTypeToString(hw.last_game_disk);
     snapshot.displays = hw.displays;
     return snapshot;
 }
 
-CpuInfo SystemInfo::GatherCpu(const SystemHardwareProfile& hw) {
+CpuInfo SystemInfo::GatherCpu(const SystemHardwareProfile& hw, SystemReads& reads) {
     CpuInfo cpu{};
     cpu.probe_ok = hw.cpu_probe_ok && (hw.cpu_topology.physical_cores > 0);
     cpu.brand_string = hw.cpu_topology.brand_string.empty()
@@ -147,12 +139,12 @@ CpuInfo SystemInfo::GatherCpu(const SystemHardwareProfile& hw) {
         cpu.microarchitecture = "x86_64";
     }
 
-    const uint64_t total_l3_bytes = ReadL3CacheBytes();
+    const uint64_t total_l3_bytes = reads.ReadL3CacheBytes();
 
     cpu.l3_cache_bytes = total_l3_bytes;
     cpu.l3_cache_mb = static_cast<double>(total_l3_bytes) / (1024.0 * 1024.0);
 
-    const auto policy = HardwareProfiler::BuildOptimizationPolicy(hw);
+    const auto policy = ::vegaflow::BuildOptimizationPolicy(hw);
     if (policy.tier == ApuTier::Tier1_EntryUMA) {
         cpu.boost_target_ghz = 3.5;
         cpu.stapm_target = "Smart Uncapped Boost (100% CPU/GPU Efficient-Aggressive + EPP 25)";
@@ -170,7 +162,7 @@ CpuInfo SystemInfo::GatherCpu(const SystemHardwareProfile& hw) {
 GpuInfo SystemInfo::GatherGpu(const SystemHardwareProfile& hw, const SystemMemoryTelemetry* mem) {
     GpuInfo gpu{};
     gpu.probe_ok = hw.gpu_probe_ok;
-    gpu.connection = HardwareProfiler::ConnectionToString(hw.primary_gpu.connection);
+    gpu.connection = ConnectionToString(hw.primary_gpu.connection);
     gpu.driver_version = hw.primary_gpu.driver_version.empty() ? "No se pudo leer" : hw.primary_gpu.driver_version;
 
     if (!hw.gpu_probe_ok) {
@@ -234,7 +226,7 @@ GpuInfo SystemInfo::GatherGpu(const SystemHardwareProfile& hw, const SystemMemor
     return gpu;
 }
 
-RamInfo SystemInfo::GatherRam(const SystemHardwareProfile& hw, const SystemMemoryTelemetry* mem) {
+RamInfo SystemInfo::GatherRam(const SystemHardwareProfile& hw, const SystemMemoryTelemetry* mem, SystemReads& reads) {
     RamInfo ram{};
     ram.probe_ok = hw.ram_probe_ok && (hw.total_physical_ram_bytes > 0);
     if (!ram.probe_ok) {
@@ -267,8 +259,8 @@ RamInfo SystemInfo::GatherRam(const SystemHardwareProfile& hw, const SystemMemor
         return ram;
     }
 
-    // The DIMMs cannot change while Windows runs: read the firmware table once, not on every GUI poll.
-    static const int populated_slots = static_cast<int>(CountPopulatedDimmSlots());
+    // The adapter keeps the firmware table read for the whole run (the DIMMs cannot change), so asking each time is cheap.
+    const int populated_slots = static_cast<int>(reads.CountPopulatedDimmSlots());
 
     if (populated_slots >= 2) {
         ram.channel_topology = "Dual-Channel (128-bit bus bandwidth)";
@@ -287,7 +279,7 @@ RamInfo SystemInfo::GatherRam(const SystemHardwareProfile& hw, const SystemMemor
 
 OsKernelInfo SystemInfo::GatherOsKernel(const SystemHardwareProfile& hw, const SystemGraphicsTweaksState* tweaks) {
     OsKernelInfo os{};
-    os.system_arch = HardwareProfiler::SystemArchToString(hw.system_arch);
+    os.system_arch = SystemArchToString(hw.system_arch);
 
     if (hw.windows_version.known && hw.windows_version.build > 0) {
         os.build_number = hw.windows_version.build;
@@ -314,11 +306,11 @@ OsKernelInfo SystemInfo::GatherOsKernel(const SystemHardwareProfile& hw, const S
 
 ApuGuardInfo SystemInfo::GatherApuGuard(const SystemHardwareProfile& hw, uint64_t live_budget_bytes) {
     ApuGuardInfo guard{};
-    ApuOptimizationPolicy policy = HardwareProfiler::BuildOptimizationPolicy(hw, live_budget_bytes);
+    ApuOptimizationPolicy policy = ::vegaflow::BuildOptimizationPolicy(hw, live_budget_bytes);
 
-    guard.tier_name = HardwareProfiler::ApuTierToString(policy.tier);
+    guard.tier_name = ApuTierToString(policy.tier);
     guard.guard_mode = policy.guard_mode_name;
-    guard.arch_generation = HardwareProfiler::ArchGenToString(policy.arch_gen);
+    guard.arch_generation = ArchGenToString(policy.arch_gen);
     guard.safe_vram_pool_mb = policy.safe_vram_pool_mb;
     guard.os_reserve_floor_mb = policy.os_reserve_floor_mb;
     guard.dxvk_compiler_threads = policy.dxvk_compiler_threads;

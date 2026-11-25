@@ -43,6 +43,7 @@
 #include "app/run_cycle.hpp"
 #include "windows/system_counters.hpp"
 #include "app/doctor_probe.hpp"
+#include "app/system_reads.hpp"
 #include "optimize/game_files_adapter.hpp"
 #include "ports/text_convert.hpp"
 #include "windows/event_sources.hpp"
@@ -144,6 +145,7 @@ int RunGuiMode(
     SyncSteamGamesToCustomExes(cached_steam_games, config);
 
     // What the Juegos buttons do lives in session/game_actions; the scan and the folder read are handed in because they touch Windows.
+    WindowsSystemReads system_reads;
     OptimizeGameFiles game_files(steam, dxvk);
     session::GameActions game_actions(session::GameActionsDeps{
         game_files, config, config_store, cached_steam_games, policy,
@@ -314,7 +316,7 @@ int RunGuiMode(
         data.active_game_engine = active_game_engine;
         data.has_steam_games = !cached_steam_games.empty();
 
-        data.system_info = SystemInfo::FromHardware(hw, mem_sample, cached_tweaks);
+        data.system_info = SystemInfo::FromHardware(hw, mem_sample, cached_tweaks, system_reads);
         data.sandbox_violations = SandboxGuard::GetViolationCount();
         data.sandbox_guard_active = true;
 

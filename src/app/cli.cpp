@@ -25,6 +25,7 @@
 #include "ui/app_identity.hpp"
 #include "windows/command_line.hpp"
 #include "app/doctor_probe.hpp"
+#include "app/system_reads.hpp"
 #include "ports/text_convert.hpp"
 
 namespace vegaflow::app {
@@ -148,7 +149,8 @@ std::optional<int> RunOneShotCommand(const CliOptions& opts, int argc, char* arg
     vegaflow::WindowsRegistryPort reg;
     vegaflow::WindowsPowerPort power;
     if (opts.system_info_flag) {
-        vegaflow::SystemInfo sys_info;
+        WindowsSystemReads reads;
+        vegaflow::SystemInfo sys_info(reads);
         std::cout << sys_info.ToJson() << "\n";
         return 0;
     }
