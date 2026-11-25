@@ -3,6 +3,7 @@
 #include <algorithm>
 
 #include "session/sidebar_nav.hpp"
+#include "session/window_fit.hpp"
 #include "ui/native_controls.hpp"
 #include "ui/texts.hpp"
 
@@ -13,6 +14,9 @@ namespace {
 constexpr int kTabTop = 78;
 constexpr int kTabStep = 44;
 constexpr int kTabH = 38;
+constexpr int kTabMinStep = 30;
+// Room the block under the tabs needs (divider, badge, tray button, two text lines), as painted in gui_window.cpp.
+constexpr int kBottomBlock = 145 + 8;
 
 int EntryOfId(int id) { return id >= ID_TAB_0 && id < ID_TAB_0 + session::kSidebarEntries ? id - ID_TAB_0 : -1; }
 
@@ -39,11 +43,14 @@ void SidebarViewRelayout(GuiWindowState* st) {
     if (!st->hwnd || st->sidebar_controls.size() != static_cast<size_t>(session::kSidebarEntries) + 1) return;
     RECT c{};
     GetClientRect(st->hwnd, &c);
-    for (int i = 0; i < session::kSidebarEntries; ++i) {
-        const int y = kTabTop + i * kTabStep;
-        SetWindowPos(st->sidebar_controls[static_cast<size_t>(i)], nullptr, 12, y, SIDEBAR_WIDTH - 24, kTabH, SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW);
-    }
     const int bottom = c.bottom - STATUSBAR_HEIGHT;
+    // In a short window (175 % scale on 1080p) the tabs get closer instead of running into the block under them.
+    const int step = session::SidebarTabStep(bottom - kBottomBlock - kTabTop, session::kSidebarEntries, kTabStep, kTabMinStep);
+    const int height = std::min(kTabH, step - (kTabStep - kTabH));
+    for (int i = 0; i < session::kSidebarEntries; ++i) {
+        const int y = kTabTop + i * step;
+        SetWindowPos(st->sidebar_controls[static_cast<size_t>(i)], nullptr, 12, y, SIDEBAR_WIDTH - 24, height, SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW);
+    }
     SetWindowPos(st->sidebar_controls.back(), nullptr, 14, bottom - 102, SIDEBAR_WIDTH - 28, 26, SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW);
 }
 

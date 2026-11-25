@@ -16,6 +16,7 @@
 #include "ui/texts.hpp"
 #include "session/gui_cadence.hpp"
 #include "session/wake_loop.hpp"
+#include "session/window_fit.hpp"
 
 #include <psapi.h>
 #include <shellapi.h>
@@ -28,6 +29,45 @@
 namespace vegaflow {
 
 namespace {
+
+// Design size of the client area and the smallest size the person may drag the window to (outer, frame included).
+constexpr int kDesignClientWidth = 1120;
+constexpr int kDesignClientHeight = 740;
+constexpr int kMinTrackWidth = 960;
+constexpr int kMinTrackHeight = 640;
+
+// Usable area (screen minus taskbar) of the monitor the window is on; the process is DPI-unaware, so these are the
+// same scaled units the window itself is measured in. Leaves both at 0 when Windows does not answer.
+void WorkAreaOf(HWND hwnd, int* width, int* height) {
+    *width = 0;
+    *height = 0;
+    MONITORINFO mi = {};
+    mi.cbSize = sizeof(mi);
+    const HMONITOR mon = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+    if (mon && GetMonitorInfoW(mon, &mi)) {
+        *width = mi.rcWork.right - mi.rcWork.left;
+        *height = mi.rcWork.bottom - mi.rcWork.top;
+    }
+}
+
+// Moves and shrinks a normal (not maximised, not minimised) window that no longer fits the usable area.
+void RefitToWorkArea(HWND hwnd) {
+    if (IsIconic(hwnd) || IsZoomed(hwnd)) return;
+    MONITORINFO mi = {};
+    mi.cbSize = sizeof(mi);
+    const HMONITOR mon = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+    RECT r = {};
+    if (!mon || !GetMonitorInfoW(mon, &mi) || !GetWindowRect(hwnd, &r)) return;
+    const int work_w = mi.rcWork.right - mi.rcWork.left;
+    const int work_h = mi.rcWork.bottom - mi.rcWork.top;
+    const session::WindowFit fit = session::FitWindowToWorkArea({r.right - r.left, r.bottom - r.top, kMinTrackWidth, kMinTrackHeight, work_w, work_h});
+    int x = std::min<int>(r.left, mi.rcWork.right - fit.width);
+    int y = std::min<int>(r.top, mi.rcWork.bottom - fit.height);
+    x = std::max<int>(x, mi.rcWork.left);
+    y = std::max<int>(y, mi.rcWork.top);
+    if (x != r.left || y != r.top || fit.width != r.right - r.left || fit.height != r.bottom - r.top)
+        SetWindowPos(hwnd, nullptr, x, y, fit.width, fit.height, SWP_NOZORDER | SWP_NOACTIVATE);
+}
 
 // =============================================================================
 // Main Dashboard painting (Sidebar + Tab Dispatch + Status Bar)
@@ -417,10 +457,22 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
         }
 
         case WM_GETMINMAXINFO: {
+            // The minimum may not exceed the monitor's usable area: at 175 % on 1080p that area is shorter than 640 px
+            // and a fixed minimum kept the window taller than it, hiding the status bar under the taskbar.
             auto* mmi = reinterpret_cast<MINMAXINFO*>(lParam);
-            mmi->ptMinTrackSize.x = 960;
-            mmi->ptMinTrackSize.y = 640;
+            int work_w = 0, work_h = 0;
+            WorkAreaOf(hwnd, &work_w, &work_h);
+            const session::WindowFit fit = session::FitWindowToWorkArea({kMinTrackWidth, kMinTrackHeight, kMinTrackWidth, kMinTrackHeight, work_w, work_h});
+            mmi->ptMinTrackSize.x = fit.min_width;
+            mmi->ptMinTrackSize.y = fit.min_height;
             return 0;
+        }
+
+        case WM_DISPLAYCHANGE:
+        case WM_SETTINGCHANGE: {
+            // Scale, resolution, taskbar or monitor changed: pull the window back inside the usable area.
+            if (uMsg == WM_DISPLAYCHANGE || wParam == SPI_SETWORKAREA) RefitToWorkArea(hwnd);
+            break;
         }
 
         case WM_SIZE: {
@@ -865,21 +917,19 @@ int GuiWindow::RunGuiLoop(const GuiCallbacks& callbacks) {
 
     RegisterClassExW(&wc);
 
-    // Wide 1120 x 740 window, centered
-    RECT rc = { 0, 0, 1120, 740 };
+    // Wide 1120 x 740 window, centered, limited to the usable area (screen minus taskbar): at 175 % scale a 1080p screen is
+    // about 1097 x 590 for this window, smaller than the design size.
+    RECT rc = { 0, 0, kDesignClientWidth, kDesignClientHeight };
     DWORD dwStyle = WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN;
     AdjustWindowRect(&rc, dwStyle, FALSE);
-
-    int winWidth = rc.right - rc.left;
-    int winHeight = rc.bottom - rc.top;
-    // Fit the usable area (screen minus taskbar): at 150 % scale a 1080p screen is 1280 x 720 for this window, smaller than
-    // the design size, and a window taller than that hid its status bar under the taskbar.
     RECT work = {0, 0, GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN)};
     SystemParametersInfoW(SPI_GETWORKAREA, 0, &work, 0);
-    winWidth = std::min<int>(winWidth, work.right - work.left);
-    winHeight = std::min<int>(winHeight, work.bottom - work.top);
-    int posX = work.left + std::max<int>(0, (work.right - work.left - winWidth) / 2);
-    int posY = work.top + std::max<int>(0, (work.bottom - work.top - winHeight) / 2);
+    const session::WindowFit fit = session::FitWindowToWorkArea(
+        {rc.right - rc.left, rc.bottom - rc.top, kMinTrackWidth, kMinTrackHeight, static_cast<int>(work.right - work.left), static_cast<int>(work.bottom - work.top)});
+    const int winWidth = fit.width;
+    const int winHeight = fit.height;
+    const int posX = work.left + std::max<int>(0, (work.right - work.left - winWidth) / 2);
+    const int posY = work.top + std::max<int>(0, (work.bottom - work.top - winHeight) / 2);
 
     GuiWindowState state;
     state.callbacks = callbacks;

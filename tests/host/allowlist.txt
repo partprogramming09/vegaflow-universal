@@ -56,6 +56,7 @@ src src/session/settings_screen.cpp
 src src/session/startup_prompts.cpp
 src src/session/system_info.cpp
 src src/session/gui_cadence.cpp
+src src/session/window_fit.cpp
 src src/session/memory_screen.cpp
 src src/session/sidebar_nav.cpp
 src src/session/wake_loop.cpp
@@ -119,6 +120,7 @@ exclude tests/unit/journal_unit_tests.cpp link
 exclude tests/unit/memory_purge_unit_tests.cpp link
 test tests/unit/programs_screen_adversarial_unit_tests.cpp
 test tests/unit/programs_screen_unit_tests.cpp
+test tests/unit/window_fit_unit_tests.cpp
 exclude tests/unit/reports_kpi_unit_tests.cpp link
 exclude tests/unit/system_counters_unit_tests.cpp link
 exclude tests/unit/graphics_families_unit_tests.cpp stub

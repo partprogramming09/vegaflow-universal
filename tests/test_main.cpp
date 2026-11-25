@@ -217,6 +217,7 @@ int main() {
         {170, vftest::Test170},  // F5.1 process tree inheritance
         {171, vftest::Test171},  // F5.2 windowless target, OpenGL
         {144, vftest::Test144},  // F4.2 memory tab model, thread-map keys, sidebar order
+        {150, vftest::Test150},  // F4.7 window size limited to the work area (175 % scale no longer hides the status bar)
         {160, vftest::Test160},  // F5.3/F5.4 Epic and GOG readers on the shared vectors
         {161, vftest::Test161},  // F5.3/F5.4 Epic and GOG folders through SandboxGuard
         {149, vftest::Test149},  // F4.3 doctor reads through DoctorProbe (was 144 before merging F4.2)
