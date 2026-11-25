@@ -9,6 +9,9 @@
 #include "ui/games_view.hpp"
 #include "ui/history_view.hpp"
 #include "ui/home_view.hpp"
+#include "ui/memory_view.hpp"
+#include "ui/sidebar_view.hpp"
+#include "session/sidebar_nav.hpp"
 #include "ui/settings_view.hpp"
 #include "ui/texts.hpp"
 #include "session/gui_cadence.hpp"
@@ -72,25 +75,7 @@ void PaintDashboard(HDC hdcMem, const RECT& rcClient, GuiWindowState* state) {
     SelectObject(hdcMem, hOldPen);
     DeleteObject(hPenHeadDiv);
 
-    // 8 tab buttons in the side menu
-    const wchar_t* tabTitles[8] = {
-        L"1. Inicio",
-        L"2. Ajustes del sistema",
-        L"3. Memoria UMA & Núcleos CPU",
-        L"4. Juegos",
-        L"5. Historial",
-        L"6. Configuración",
-        L"7. Programas",
-        L"8. Tu equipo"
-    };
-
-    for (int i = 0; i < 8; ++i) {
-        int tabY = 78 + i * 44;
-        RECT rcTab = { 12, tabY, SIDEBAR_WIDTH - 12, tabY + 38 };
-        bool isActive = (state->current_tab == i) || (i == 5 && state->current_tab == 8); // Requisitos hangs from Configuración
-        bool isHovered = (state->hovered_id == (ID_TAB_0 + i));
-        DrawTabButton(hdcMem, rcTab, tabTitles[i], isActive, isHovered, ID_TAB_0 + i, state);
-    }
+    // The eight tab buttons are native controls (ui/sidebar_view.cpp): Tab reaches them and they draw themselves.
 
     // Bottom of the sidebar (UAC, tray, memory usage)
     int sideBottomY = rcClient.bottom - STATUSBAR_HEIGHT;
@@ -109,10 +94,7 @@ void PaintDashboard(HDC hdcMem, const RECT& rcClient, GuiWindowState* state) {
         DrawBadge(hdcMem, rcElevBadge, L"USUARIO ESTÁNDAR", CLR_ACCENT_AMBER, RGB(36, 30, 20), CLR_ACCENT_AMBER, state->hFontSmallBold);
     }
 
-    // Minimize to Tray button
-    RECT rcTrayBtn = { 14, sideBottomY - 102, SIDEBAR_WIDTH - 14, sideBottomY - 76 };
-    bool isTrayHover = (state->hovered_id == ID_ACT_MINIMIZE_TRAY);
-    DrawActionButton(hdcMem, rcTrayBtn, L"Minimizar a Bandeja", isTrayHover, CLR_ACCENT_CYAN, state->hFontSmall, ID_ACT_MINIMIZE_TRAY, state);
+    // "Minimizar a Bandeja" is a native button too (ui/sidebar_view.cpp).
 
     // Daemon process usage
     wchar_t wsBuf[64];
@@ -134,7 +116,6 @@ void PaintDashboard(HDC hdcMem, const RECT& rcClient, GuiWindowState* state) {
     int contentRight  = rcClient.right - padX;
     int contentTop    = padY;
     int contentBottom = rcClient.bottom - STATUSBAR_HEIGHT - padY;
-    int contentW      = contentRight - contentLeft;
 
     switch (state->current_tab) {
         case 0:
@@ -144,7 +125,7 @@ void PaintDashboard(HDC hdcMem, const RECT& rcClient, GuiWindowState* state) {
             ui::SettingsViewPaint(hdcMem, state, RECT{contentLeft, contentTop, contentRight, contentBottom});
             break;
         case 2:
-            RenderTabMemory(hdcMem, rcClient, state, contentLeft, contentRight, contentTop, contentBottom, contentW);
+            ui::MemoryViewPaint(hdcMem, state, RECT{contentLeft, contentTop, contentRight, contentBottom});
             break;
         case 3:
             ui::GamesViewPaint(hdcMem, state, RECT{contentLeft, contentTop, contentRight, contentBottom});
@@ -218,6 +199,7 @@ void PaintDashboard(HDC hdcMem, const RECT& rcClient, GuiWindowState* state) {
 void RefreshActiveScreen(HWND hwnd, GuiWindowState* state) {
     if (state->current_tab == 0) ui::HomeViewRefresh(hwnd, state);
     else if (state->current_tab == 1) ui::SettingsViewRefresh(hwnd, state);
+    else if (state->current_tab == 2) ui::MemoryViewRefresh(hwnd, state);
     else if (state->current_tab == 3) ui::GamesViewRefresh(hwnd, state);
     else if (state->current_tab == 4) ui::HistoryViewRefresh(hwnd, state);
     else if (state->current_tab == 5) ui::ConfigViewRefresh(hwnd, state);
@@ -272,6 +254,8 @@ void HandleActionClick(HWND hwnd, GuiWindowState* state, int id) {
         RefreshActiveScreen(hwnd, state);
         ui::SettingsViewShow(state, state->current_tab == 1);
         ui::HomeViewShow(state, state->current_tab == 0);
+        ui::MemoryViewShow(state, state->current_tab == 2);
+        ui::SidebarViewSync(state);
         ui::GamesViewShow(state, state->current_tab == 3);
         ui::HistoryViewShow(state, state->current_tab == 4);
         ui::ConfigViewShow(state, state->current_tab == 5);
@@ -420,6 +404,8 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 
             ChangeWindowMessageFilterEx(hwnd, RegisterWindowMessageW(ui::kRestoreWindowMessage), MSGFLT_ALLOW, nullptr);
 
+            ui::SidebarViewCreate(hwnd, state); // first, so Tab starts on the sidebar
+
             if (state->callbacks.on_AttachWake) state->events_active = state->callbacks.on_AttachWake(hwnd, WM_APP_WAKE);
 
             // Initial query; the timers start once the window is shown (WM_SHOWWINDOW)
@@ -440,6 +426,8 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
         case WM_SIZE: {
             if (state && wParam == SIZE_MINIMIZED) SetShown(hwnd, state, false);
             else if (state && (wParam == SIZE_RESTORED || wParam == SIZE_MAXIMIZED)) SetShown(hwnd, state, IsWindowVisible(hwnd) != FALSE);
+            if (state) ui::SidebarViewRelayout(state);
+            if (state && state->current_tab == 2) ui::MemoryViewRelayout(state);
             if (state && state->current_tab == 1) ui::SettingsViewRelayout(state);
             if (state && state->current_tab == 0) ui::HomeViewRelayout(state);
             if (state && state->current_tab == 3) ui::GamesViewRelayout(state);
@@ -458,6 +446,10 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
             }
             if (state && state->current_tab == 0) {
                 ui::HomeViewScroll(state, -GET_WHEEL_DELTA_WPARAM(wParam) / 2);
+                return 0;
+            }
+            if (state && state->current_tab == 2) {
+                ui::MemoryViewScroll(state, -GET_WHEEL_DELTA_WPARAM(wParam) / 2);
                 return 0;
             }
             if (state && state->current_tab == 3) {
@@ -490,6 +482,8 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
         case WM_DRAWITEM: {
             auto* item = reinterpret_cast<const DRAWITEMSTRUCT*>(lParam);
             if (state && item && item->CtlType == ODT_BUTTON) {
+                if (ui::SidebarViewOwnsId(static_cast<int>(item->CtlID))) { ui::SidebarViewDrawItem(item, state); return TRUE; }
+                if (ui::MemoryViewOwnsId(static_cast<int>(item->CtlID))) { ui::MemoryViewDrawItem(item, state); return TRUE; }
                 if (static_cast<int>(item->CtlID) >= ui::kHomeEquipmentId) ui::HomeViewDrawItem(item, state);
                 else if (static_cast<int>(item->CtlID) >= ui::kGamesRowBaseId) ui::GamesViewDrawItem(item, state);
                 else if (static_cast<int>(item->CtlID) == ui::kRequirementsBackId) ui::RequirementsViewDrawItem(item, state);
@@ -669,6 +663,17 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
         case WM_COMMAND: {
             int wmId = LOWORD(wParam);
             if (!state) break;
+            {
+                int act = 0;
+                if (ui::SidebarViewCommand(state, wmId, HIWORD(wParam), reinterpret_cast<HWND>(lParam), &act)) {
+                    if (act) HandleActionClick(hwnd, state, act);
+                    return 0;
+                }
+                if (ui::MemoryViewCommand(hwnd, state, wmId, HIWORD(wParam), reinterpret_cast<HWND>(lParam), &act)) {
+                    if (act) HandleActionClick(hwnd, state, act);
+                    return 0;
+                }
+            }
             if (ui::HomeViewCommand(hwnd, state, wmId, HIWORD(wParam), reinterpret_cast<HWND>(lParam))) return 0;
             if (ui::GamesViewCommand(hwnd, state, wmId, HIWORD(wParam), reinterpret_cast<HWND>(lParam))) return 0;
             if (ui::RequirementsViewCommand(hwnd, state, wmId, HIWORD(wParam), reinterpret_cast<HWND>(lParam))) return 0;
@@ -787,6 +792,8 @@ LRESULT CALLBACK DashboardWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                 ui::ConfigViewDestroy(state);
                 ui::ProgramsViewDestroy(state);
                 ui::HomeViewDestroy(state);
+                ui::MemoryViewDestroy(state);
+                ui::SidebarViewDestroy(state);
                 ui::GamesViewDestroy(state);
                 ui::RequirementsViewDestroy(state);
 
@@ -897,6 +904,8 @@ int GuiWindow::RunGuiLoop(const GuiCallbacks& callbacks) {
     ui::SettingsViewShow(&state, false);
     ui::HomeViewRefresh(hwnd, &state);
     ui::HomeViewShow(&state, true);
+    ui::MemoryViewRefresh(hwnd, &state);
+    ui::MemoryViewShow(&state, false);
     ui::GamesViewRefresh(hwnd, &state);
     ui::GamesViewShow(&state, false);
     ui::HistoryViewRefresh(hwnd, &state);
@@ -919,11 +928,25 @@ int GuiWindow::RunGuiLoop(const GuiCallbacks& callbacks) {
     // Standard message loop
     MSG msg = {};
     while (GetMessageW(&msg, nullptr, 0, 0)) {
-        // Ctrl+1..8 jump to a tab: the sidebar is not a control yet, so this is the keyboard way in.
-        if (msg.message == WM_KEYDOWN && msg.wParam >= '1' && msg.wParam <= '8' && (GetKeyState(VK_CONTROL) & 0x8000) && !(GetKeyState(VK_MENU) & 0x8000) &&
+        // Ctrl+1..8 jump to a tab from anywhere (the sidebar buttons are also reachable with Tab).
+        if (msg.message == WM_KEYDOWN && session::TabOfDigit(static_cast<int>(msg.wParam)) >= 0 && (GetKeyState(VK_CONTROL) & 0x8000) && !(GetKeyState(VK_MENU) & 0x8000) &&
             GetAncestor(msg.hwnd, GA_ROOT) == hwnd) {
-            HandleActionClick(hwnd, &state, ID_TAB_0 + static_cast<int>(msg.wParam - '1'));
+            HandleActionClick(hwnd, &state, ID_TAB_0 + session::TabOfDigit(static_cast<int>(msg.wParam)));
             continue;
+        }
+        // F4.2: IsDialogMessage answers Enter with IDOK (this window is not a dialog), so Enter presses the focused sidebar or Memoria button itself;
+        // the arrows move between the sidebar entries. Space and Tab already work through the button class and IsDialogMessage.
+        if (msg.message == WM_KEYDOWN && GetAncestor(msg.hwnd, GA_ROOT) == hwnd && !(GetKeyState(VK_CONTROL) & 0x8000) && !(GetKeyState(VK_MENU) & 0x8000)) {
+            if (ui::SidebarViewKey(&state, msg.hwnd, msg.wParam)) continue;
+            const int fid = GetDlgCtrlID(msg.hwnd);
+            if (msg.wParam == VK_RETURN && state.current_tab == 2 && ui::MemoryViewOwnsId(fid) && fid != ui::kMemGridId) {
+                SendMessageW(msg.hwnd, BM_CLICK, 0, 0);
+                continue;
+            }
+            if (state.current_tab == 2 && (msg.wParam == VK_NEXT || msg.wParam == VK_PRIOR)) {
+                ui::MemoryViewScroll(&state, msg.wParam == VK_NEXT ? 240 : -240);
+                continue;
+            }
         }
         // The read-only screens have no field to focus: Page Up/Down, Home and End (and the arrows on Tu equipo) scroll them.
         if (msg.message == WM_KEYDOWN && (state.current_tab == 0 || state.current_tab == 7 || state.current_tab == 8) && GetAncestor(msg.hwnd, GA_ROOT) == hwnd &&
