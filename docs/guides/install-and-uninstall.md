@@ -17,26 +17,26 @@ If PowerShell blocks the scripts because of its execution policy (the setting th
 Next to the zip is its `.sha256` file, in the format `shasum` writes: the hash, two spaces, and the file name.
 
 ```powershell
-$esperado = (Get-Content .\VegaFlow-0.1.0-win-x64.zip.sha256).Split(' ')[0]
-(Get-FileHash .\VegaFlow-0.1.0-win-x64.zip -Algorithm SHA256).Hash -ieq $esperado
+$esperado = (Get-Content .\VegaFlow-0.2.0-win-x64.zip.sha256).Split(' ')[0]
+(Get-FileHash .\VegaFlow-0.2.0-win-x64.zip -Algorithm SHA256).Hash -ieq $esperado
 ```
 
 You should see `True`. If you see `False`, don't install it: download the zip again.
 
-This hash only proves that the zip matches its `.sha256` file. Both files are attached to the same GitHub release page (checked with `gh release view v0.1.0`). The release workflow (`.github/workflows/release.yml`) does this for every pushed `v*` tag: on Ubuntu it cross-compiles the program with mingw-w64, checks that the tag matches the version in `Cargo.toml`, builds the zip with `scripts/build/package.sh`, and runs `gh release create` with the zip, its `.sha256` and generated release notes. The workflow signs nothing. So the check catches a damaged download, but it does not protect you if someone changes both files on that page. The zip is not signed; that guarantee would need a *code-signing certificate* (a certificate that proves who published the program).
+This hash only proves that the zip matches its `.sha256` file. Both files are attached to the same GitHub release page (checked with `gh release view v0.2.0`). The release workflow (`.github/workflows/release.yml`) does this for every pushed `v*` tag: on Ubuntu it cross-compiles the program with mingw-w64, checks that the tag matches the version in `Cargo.toml`, builds the zip with `scripts/build/package.sh`, and runs `gh release create` with the zip, its `.sha256` and generated release notes. The workflow signs nothing. So the check catches a damaged download, but it does not protect you if someone changes both files on that page. The zip is not signed; that guarantee would need a *code-signing certificate* (a certificate that proves who published the program).
 
-**Only the executable.** The release also includes a loose `vegaflow_daemon.exe` with its own `.sha256`, the same file that is inside the zip (checked with `gh release view v0.1.0`; the release workflow does not attach it, since it attaches only the zip and its `.sha256`, and `scripts/build/package.sh` does not create a separate copy). If you run it from a folder where standard accounts can write (Downloads, the desktop), VegaFlow shows a warning, uses its factory values and saves no configuration. It is a way to try it, not to install it. To keep its configuration, install it with `install.ps1`. See [`security.md`](./security.md), point 5.
+**Only the executable.** The release also includes a loose `vegaflow_daemon.exe` with its own `.sha256`, the same file that is inside the zip (checked with `gh release view v0.2.0`; the release workflow does not attach it, since it attaches only the zip and its `.sha256`, and `scripts/build/package.sh` does not create a separate copy). If you run it from a folder where standard accounts can write (Downloads, the desktop), VegaFlow shows a warning, uses its factory values and saves no configuration. It is a way to try it, not to install it. To keep its configuration, install it with `install.ps1`. See [`security.md`](./security.md), point 5.
 
 ## Step 2 of 5: unzip
 
-The zip contains a folder `VegaFlow-0.1.0-win-x64` with:
+The zip contains a folder `VegaFlow-0.2.0-win-x64` with:
 
 | File | What it is for |
 | --- | --- |
 | `vegaflow_daemon.exe` | The program |
 | `install.ps1`, `uninstall.ps1` | Install and uninstall |
 | `config/config.json` | The factory configuration |
-| `VERSION` | The version (0.1.0) |
+| `VERSION` | The version (0.2.0) |
 | `SHA256SUMS` | The hash of each file; `install.ps1` checks them |
 | `LICENSE`, `CHANGELOG.md`, `README.md` | License, version history and documentation |
 
@@ -46,7 +46,7 @@ The zip contains a folder `VegaFlow-0.1.0-win-x64` with:
 .\install.ps1 -DryRun
 ```
 
-You should see lines starting with the prefix `[dry-run]`. The first one is `Paquete 0.1.0 verificado (SHA-256 de 8 archivos).` (the messages the scripts print are in Spanish), followed by each step. No folder is created and Windows is not touched. Even so, the script checks the hashes, so if the package has been altered, it fails here.
+You should see lines starting with the prefix `[dry-run]`. The first one is `Paquete 0.2.0 verificado (SHA-256 de 8 archivos).` (the messages the scripts print are in Spanish), followed by each step. No folder is created and Windows is not touched. Even so, the script checks the hashes, so if the package has been altered, it fails here.
 
 ## Step 4 of 5: install
 
@@ -82,7 +82,7 @@ The Add/Remove Programs entry has a fixed name. If you install into two folders,
 & "C:\Program Files\VegaFlow\vegaflow_daemon.exe" --version
 ```
 
-You should see `VegaFlow Universal 0.1.0`.
+You should see `VegaFlow Universal 0.2.0`.
 
 ## Uninstall
 
@@ -130,10 +130,10 @@ To reinstall over a folder that `-KeepConfig` left behind, run `install.ps1` fro
 
 ```powershell
 # Temporary folder: installs into C:\ProgramData\vf-pkgtest-<8 characters> and deletes it at the end
-.\tests\package\package_tests.ps1 -PackageDir .\dist\VegaFlow-0.1.0-win-x64
+.\tests\package\package_tests.ps1 -PackageDir .\dist\VegaFlow-0.2.0-win-x64
 
 # Real installation: also tests the Add/Remove Programs entry and the Start menu shortcut
-.\tests\package\package_tests.ps1 -PackageDir .\dist\VegaFlow-0.1.0-win-x64 -InstallDir 'C:\Program Files\VegaFlow' -Shell
+.\tests\package\package_tests.ps1 -PackageDir .\dist\VegaFlow-0.2.0-win-x64 -InstallDir 'C:\Program Files\VegaFlow' -Shell
 ```
 
 `-PackageDir` is the folder that is already unzipped, not the zip. The target folder must not exist, with or without `-Shell`. With `-Shell`, there must also be no other VegaFlow entry in Add/Remove Programs: uninstall first if there is one.

@@ -36,7 +36,7 @@ The figures come from PresentMon, with their method and limits, in [`docs/measur
 
 ## Install
 
-The `VegaFlow-0.1.0-win-x64.zip` package holds the daemon and two PowerShell scripts. It is built with `scripts/build/package.sh`. Unzip it and, in PowerShell as administrator, from the unzipped folder:
+The `VegaFlow-0.2.0-win-x64.zip` package holds the daemon and two PowerShell scripts. It is built with `scripts/build/package.sh`. Unzip it and, in PowerShell as administrator, from the unzipped folder:
 
 | Command | What it does |
 | --- | --- |

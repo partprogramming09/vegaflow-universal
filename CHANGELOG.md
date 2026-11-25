@@ -5,16 +5,22 @@ versions follow [Semantic Versioning](https://semver.org/).
 
 ## [0.2.0] - Unreleased
 
-New native GUI (Win32, owner-draw controls reachable with Tab). Not tagged yet: the version number in the binary and
-`Cargo.toml` still reads 0.1.0 until the release step.
+New native GUI (Win32, owner-draw controls reachable with Tab). Not tagged or published yet: the release needs the
+owner's approval.
 
 ### Changed
+- The window hidden in the tray sleeps on events instead of polling (F4.1): with no game and the window hidden, nothing wakes the process until a foreground, device or power event, or the 30 s safety net.
+- Dialogs follow the dark theme (F4.x), including the question about a broken `config.json`.
+- A `config.json` that cannot be read is now the person's decision: "Valores de fábrica" (saves a copy of the broken file first) or "Abrir el archivo" (F4.4); before, the daemon went on silently with factory values.
+- `session/` is a strict layer (F4.3): it includes nothing from `detect/`, `optimize/` or `windows/`, and `scripts/ci/check_layers.sh` has no exception list. The Windows reads behind `--doctor`, `SystemInfo` and the Ajustes switches, and the game-file buttons, go through ports (`DoctorProbe`, `SystemReads`, `TweakControls`, `GameFiles`); `run_cycle` and the `--status`, `--purge-now` and `--dry-run` commands moved to `app/`. No behaviour change; host tests went from 134 to 268.
 - The Unreal Engine `Engine.ini` preset is off unless `config.json` sets `auto_engine_presets` to `true`; it also has an experimental row in Ajustes.
 - `--doctor` and `--status` say why the profile is what it is (`VfDecisionReason` mask, one line per rule that fired).
 - `--vram-override` and `--observe` help text now describe what the code does.
 - No tier caps the CPU frequency any more (`cpu_stapm_cap_mhz = 0`, Smart Uncapped Boost); the old 3000/3400 MHz caps in the docs were removed. Not A/B measured: see `docs/mediciones/estado-de-verificacion.md`.
 
 ### Added
+- "Copiar informe" in the tray menu (F4.1): the same plain-text report as on Inicio, with the Windows user name replaced by <usuario>.
+- Memoria tab drawn natively (F4.2): reachable with the keyboard (one Tab stop for the thread map, arrows to move) and a side menu that screen readers and Tab can reach.
 - Screens: Inicio, Juegos, Programas, Tu equipo, Configuración, Requisitos, plus Ajustes del sistema and Historial.
   Plain-language text; every tweak shows its evidence status and whether it is measured.
 - Juegos: per-game "Aplicar perfil", "Volver al archivo original", "Me fue mal en este juego" (restores the files and
