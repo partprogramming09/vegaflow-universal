@@ -48,6 +48,7 @@ Steps 1 and 2 run once, at start. Steps 3 to 7 repeat on every tick while a game
 |---|---|
 | [run_cycle.cpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/app/run_cycle.cpp) | One tick. It wires the real Windows classes into the cycle and copies the state in and out, both in `RunSingleIteration` |
 | [game_session.cpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/session/game_session.cpp) | The cycle itself (`RunGameSessionCycle`), written against the [`GameSessionEnvironment`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/session/game_session.hpp) interface. Also the hardware refresh (`RefreshHardwareProfileIfChanged`). A game is excluded only through the Games button (`GameActions::Exclude`); the next cycle then restores it. The old `ExcludeGameAndRevert`, which nothing but a test called, was removed on 2026-11-20 |
+
 | [config.cpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/session/config.cpp) and [config.hpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/session/config.hpp) | `ConfigStore` (`Load`, `Save`) and `ConfigLoadReport`, which says whether saving is allowed and what to warn about (`ConfigLoadReport::CanSave` and `ConfigLoadReport::Warning` in `config.cpp`) |
 | [config_actions.cpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/session/config_actions.cpp) | The edits of Configuración and Programs. Each one changes a copy, then calls `Save`; the in-memory settings follow only when the file was written (`ConfigActions::Save`) |
 | [config_screen.cpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/session/config_screen.cpp) | The rows of Configuración (`BuildConfigScreen`) and the reading of what the person types (`ApplyConfigNumber`). The allowed ranges are not here; the Rust rules hold them |
@@ -67,6 +68,12 @@ Ports, their real adapters and the fakes the tests use:
 | `GameSessionEnvironment` (in `session/`, not in `ports/`) | `WindowsGameSessionEnv` in `run_cycle.cpp` | [`FakeGameSessionEnv`](https://github.com/partprogramming09/vegaflow-universal/blob/main/tests/unit/device_profile_unit_tests.cpp) |
 
 The screen models need no fakes at all. They are functions of plain data: a test sets `ram_total_mb = 8000` and `ram_available_mb = 9000` and reads the result ([Test 77.1](https://github.com/partprogramming09/vegaflow-universal/blob/main/tests/unit/home_screen_adversarial_unit_tests.cpp)). The actions (`ConfigActions`, `GameActions`, the restore) take their ports in the constructor, so a test passes fakes in and checks what was written.
+
+### Targets without a window and OpenGL (F5.2)
+
+A program listed in `custom_game_exes` that has no window (for example `llama-bench.exe`, a local-AI benchmark) is found by the process scan and boosted like a game. Because it has no window to check, the session trusts its saved record only while the very same process lives: `GameSessionEnvironment::ProcessCreationTime` must return the creation time saved at detection. A reused PID, or a record with no creation time, sends the cycle back to the full scan instead of trusting the cache. The foreground can still take the session from the cache: each cycle, `DetectForegroundGame` (step 1 of the full scan, only the process that owns the foreground window) runs first, so a game the person brings to the front replaces the windowless target, and the cached target that opens a window gets its window recorded. If two listed targets without a window run at once, the first keeps the session until it exits; the second is neither switched to nor throttled (the rules classify it as a game), and it is picked up on the next scan after the first ends.
+
+`opengl32.dll` now counts as a 3D API (`RenderApi::OpenGL`), but only when a GPU driver DLL is also loaded (the OpenGL driver is loaded when a context is created; the list gained the AMD `atio6axx.dll`, `atioglxx.dll` and the Intel `ig9icd64.dll`, `igxelpicd64.dll`) or the exe is in `custom_game_exes`. `opengl32.dll` alone is loaded by many non-games. Direct3D and Vulkan take precedence when both are present.
 
 ## Why it was built this way
 
@@ -122,7 +129,7 @@ Output from the test run of 2026-11-20 on the test laptop (Ryzen 5 4600H, Vega 6
 | Programs (81.x) | Tests 81.1, 81.4, 81.7, 81.8 | `[PASS] Test 81.1: the seven categories are well formed: unique ids, filled texts, ids the editor knows, no promise of gain`; `[PASS] Test 81.4: BoostAsGame is refused for an exception just as it is for a category (the screen offers only three choices)`; `[PASS] Test 81.7: AddException refuses with a sentence the names the Rust rules refuse, never stores them, and works with a null error pointer`; `[PASS] Test 81.8: Remove and SetExceptionAction find a program in any letter case, ignore folders and blanks, and report a miss as false` |
 | Restore sentence | Test 75 | `[PASS] Test 75: the Volver todo sentence names the journal summary, else the registry count, else 0 of 0` |
 | Restore with failures and dry run | Tests 82.12 and 82.13 | `[PASS] Test 82.12: 'Volver todo' with failures: reverts the rest, names each failure with its fix, and a second call retries only the failures` and `[PASS] Test 82.13: 'Volver todo' as a dry run reverts and marks nothing; on an empty journal it says 0 of 0` |
-| Whole suite | `build.ps1 -RunTests` | `TEST RESULTS: 465 PASSED, 0 FAILED` |
+| Whole suite | `build.ps1 -RunTests` | `TEST RESULTS: 467 PASSED, 0 FAILED` |
 
 ## Check it yourself
 
@@ -132,7 +139,7 @@ On Windows, in the repository folder:
 powershell -ExecutionPolicy Bypass -File .\scripts\build\build.ps1 -RunTests
 ```
 
-The last line should read `TEST RESULTS: 465 PASSED, 0 FAILED`. The number grows as tests are added. The full procedure is in [build and test](./build-and-test.md).
+The last line should read `TEST RESULTS: 467 PASSED, 0 FAILED`. The number grows as tests are added. The full procedure is in [build and test](./build-and-test.md).
 
 ## Related
 

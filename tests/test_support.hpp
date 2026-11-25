@@ -183,6 +183,8 @@ void Test146();  // F4.3 PartitionCpuSets / BuildOptimizationPolicy / session cy
 void Test147();  // F4.3 SystemInfo built from a fake SystemReads
 void Test148();  // F4.3 SettingsActions driven through a fake TweakControls
 void Test139();  // end of input or a failed read is no answer and discards pending keys
+void Test170();  // F5.1 process tree inheritance through the Rust bridge
+void Test171();  // F5.2 windowless target cache, reused PID, two targets, OpenGL
 void Test144();  // F4.2 memory tab model, thread-map selection and sidebar order
 
 } // namespace vftest
