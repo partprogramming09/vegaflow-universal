@@ -3,10 +3,9 @@
 All notable changes to VegaFlow Universal. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [Semantic Versioning](https://semver.org/).
 
-## [0.2.0] - Unreleased
+## [0.2.0] - 2026-11-25
 
-New native GUI (Win32, owner-draw controls reachable with Tab). Not tagged or published yet: the release needs the
-owner's approval.
+New native GUI (Win32, owner-draw controls reachable with Tab).
 
 ### Changed
 - The window hidden in the tray sleeps on events instead of polling (F4.1): with no game and the window hidden, nothing wakes the process until a foreground, device or power event, or the 30 s safety net.
@@ -19,12 +18,9 @@ owner's approval.
 - No tier caps the CPU frequency any more (`cpu_stapm_cap_mhz = 0`, Smart Uncapped Boost); the old 3000/3400 MHz caps in the docs were removed. Not A/B measured: see `docs/mediciones/estado-de-verificacion.md`.
 
 ### Added
-<<<<<<< HEAD
 - Epic and GOG game folders (F5.3, F5.4): `*.item` manifests and the `GOG.com\Games` registry key are read by the Rust core and their folders join the sandbox with the same checks as a Steam game folder (real path, anti-cheat scan; a game that names an anti-cheat is never modified). Not yet tried with a real Epic or GOG install; the Juegos list still shows Steam only.
-=======
 - Process tree (F5.1): an unknown child of a throttled or eco-only program (a WebView2 helper, a worker) takes its parent's action. The game, its children, store launchers (Steam and others lend nothing to what they start), Windows processes, per-program exceptions, anti-cheat and any link that cannot be proven (parent exited, reused PID, cycle) are never touched. Not A/B measured.
 - Programs without a window listed in `custom_game_exes` (for example `llama-bench`) use the cached session instead of a full scan each cycle (a game brought to the front still takes over), and OpenGL is detected (F5.2). Not measured on hardware.
->>>>>>> origin/main
 - "Copiar informe" in the tray menu (F4.1): the same plain-text report as on Inicio, with the Windows user name replaced by <usuario>.
 - Memoria tab drawn natively (F4.2): reachable with the keyboard (one Tab stop for the thread map, arrows to move) and a side menu that screen readers and Tab can reach.
 - Screens: Inicio, Juegos, Programas, Tu equipo, Configuración, Requisitos, plus Ajustes del sistema and Historial.
