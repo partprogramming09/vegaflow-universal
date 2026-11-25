@@ -17,8 +17,8 @@
 
 namespace vegaflow {
 
-// Installs and removes DXVK in a game folder. Writes, copies and removals go through the FileSystem port it is given
-// (the real one is windows/SafeFileSystem, i.e. SandboxGuard). Only metadata and DLL bytes (exists, PE header, comparing DLLs) are read directly.
+// Detects and removes DXVK in a game folder. Writes, copies and removals go through the FileSystem port it is given
+// (the real one is windows/SafeFileSystem, i.e. SandboxGuard). Only metadata (exists) and the dxvk.conf marker are read directly.
 class DxvkManager {
 public:
     explicit DxvkManager(FileSystem& fs) : fs_(fs) {}
@@ -26,29 +26,15 @@ public:
     // Checks whether d3d11.dll and dxgi.dll exist in the directory of game_exe_path
     static bool IsDxvkInstalled(const std::wstring& game_exe_path);
 
-    // Deploys DXVK (DirectX 11 to Vulkan with asynchronous GPL compilation)
-    // If has_anticheat == true, refuses the installation to protect the user's account.
-    bool DeployDxvk(
-        const std::wstring& game_exe_path,
-        const ApuOptimizationPolicy& policy,
-        bool has_anticheat = false,
-        bool is_64bit = true,
-        bool dry_run = false,
-        std::string* out_message = nullptr);
-
     // Removes DXVK and restores the original .original.bak files if they existed
     bool RemoveDxvk(
         const std::wstring& game_exe_path,
         bool dry_run = false,
         std::string* out_message = nullptr);
 
-    // A dxvk.conf the user already had is kept as dxvk.conf.vegaflow.bak before ours replaces it, and put back when DXVK
-    // is removed. The backup is made once: a later deploy never overwrites it. false = the copy failed, change nothing.
-    static bool BackupUserDxvkConf(FileSystem& fs, const std::wstring& conf_path, bool anticheat_protected);
+    // Puts back the dxvk.conf the user had before 0.1.0's install replaced it (kept as dxvk.conf.vegaflow.bak); with no copy, ours is deleted.
+    // false = the copy failed, nothing is deleted.
     static bool RestoreUserDxvkConf(FileSystem& fs, const std::wstring& conf_path);
-
-    // Returns the existing absolute path of assets/dxvk/dxvk-2.5.3
-    static std::wstring GetDxvkAssetsPath();
 
     // Generates or updates dxvk.conf with parameters calibrated for APU Zen 2 / Vega 6
     bool ConfigureApuProfile(const std::filesystem::path& targetDir, const ApuOptimizationPolicy& policy, bool dryRun = false);
