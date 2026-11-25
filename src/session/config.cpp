@@ -9,6 +9,8 @@
 
 #include "optimize/steam/steam_engine_optimizer.hpp"
 #include <filesystem>
+
+#include "model/path_name.hpp"
 #include "ports/text_convert.hpp"
 #include "bridge/rust_bridge.h"
 #include "bridge/ffi_callback_guard.hpp"
@@ -344,7 +346,7 @@ void SyncSteamGamesToCustomExes(const std::vector<vegaflow::SteamGameEntry>& ste
     cfg.custom_game_exes = cfg.user_custom_game_exes;
     for (const auto& sg : steam_games) {
         if (!sg.primary_exe_path.empty()) {
-            std::wstring exe_name = std::filesystem::path(sg.primary_exe_path).filename().wstring();
+            const std::wstring exe_name = FileNameOf(sg.primary_exe_path);
             const std::string utf8_name = WideToUtf8(exe_name);
             // A name planted in a game folder must not turn a Windows process into "the game".
             if (vf_rust_is_allowed_game_exe(utf8_name.data(), utf8_name.size())) {

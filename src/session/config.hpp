@@ -14,8 +14,8 @@
 #include <vector>
 
 #include "model/game.hpp"
-#include "optimize/memory_manager.hpp"
-#include "optimize/steam/steam_engine_optimizer.hpp"
+#include "model/memory.hpp"
+#include "model/steam.hpp"
 #include "ports/file_system.hpp"
 
 namespace vegaflow::app {

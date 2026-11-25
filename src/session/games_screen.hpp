@@ -8,7 +8,8 @@
 #include <vector>
 
 #include "model/hardware.hpp"
-#include "optimize/steam/steam_engine_optimizer.hpp"
+#include "model/engine_presets.hpp"
+#include "model/steam.hpp"
 #include "session/config.hpp"
 
 namespace vegaflow::session {

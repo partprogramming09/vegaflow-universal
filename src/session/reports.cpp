@@ -353,7 +353,7 @@ void PrintStatusReport() {
         size_t show_count = std::min<size_t>(steam_games.size(), 5);
         for (size_t i = 0; i < show_count; ++i) {
             std::cout << "    - AppID " << steam_games[i].app_id << ": " << steam_games[i].name
-                      << " [" << SteamEngineOptimizer::EngineTypeToString(steam_games[i].engine) << "]"
+                      << " [" << EngineTypeToString(steam_games[i].engine) << "]"
                       << (steam_games[i].has_anticheat ? " (AntiCheat Protected)" : "")
                       << (steam_games[i].dxvk_installed ? " [DXVK Vulkan: ACTIVO]" : "") << "\n";
         }

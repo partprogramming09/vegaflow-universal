@@ -21,6 +21,7 @@ src src/optimize/graphics/vram_reporting.cpp
 src src/optimize/memory_manager.cpp
 src src/optimize/steam/engine_detection.cpp
 src src/session/config.cpp
+src src/model/engine_presets.cpp
 src src/session/doctor.cpp
 src src/session/profile_reasons.cpp
 src src/session/config_actions.cpp
@@ -78,20 +79,20 @@ exclude tests/unit/device_profile_unit_tests.cpp compile
 exclude tests/unit/process_class_unit_tests.cpp compile
 exclude tests/unit/power_balanced_unit_tests.cpp compile
 exclude tests/unit/reports_log_unit_tests.cpp compile
-exclude tests/unit/config_actions_unit_tests.cpp link
+test tests/unit/config_actions_unit_tests.cpp
 exclude tests/unit/adapter_refresh_unit_tests.cpp link
-exclude tests/unit/config_adversarial_unit_tests.cpp link
-exclude tests/unit/config_recovery_unit_tests.cpp link
-exclude tests/unit/config_screen_unit_tests.cpp link
-exclude tests/unit/config_unit_tests.cpp link
+test tests/unit/config_adversarial_unit_tests.cpp
+test tests/unit/config_recovery_unit_tests.cpp
+test tests/unit/config_screen_unit_tests.cpp
+test tests/unit/config_unit_tests.cpp
 exclude tests/unit/cpu_topology_unit_tests.cpp link
 test tests/unit/doctor_unit_tests.cpp
 exclude tests/unit/dxvk_unit_tests.cpp link
 exclude tests/unit/factory_settings_unit_tests.cpp link
 exclude tests/unit/game_actions_adversarial_unit_tests.cpp link
 exclude tests/unit/game_actions_unit_tests.cpp link
-exclude tests/unit/games_screen_adversarial_unit_tests.cpp link
-exclude tests/unit/games_screen_unit_tests.cpp link
+test tests/unit/games_screen_adversarial_unit_tests.cpp
+test tests/unit/games_screen_unit_tests.cpp
 exclude tests/unit/history_screen_adversarial_unit_tests.cpp link
 exclude tests/unit/history_screen_unit_tests.cpp link
 exclude tests/unit/home_screen_adversarial_unit_tests.cpp link
@@ -100,8 +101,8 @@ exclude tests/unit/ini_unit_tests.cpp link
 exclude tests/unit/game_file_safety_unit_tests.cpp compile
 exclude tests/unit/journal_unit_tests.cpp link
 exclude tests/unit/memory_purge_unit_tests.cpp link
-exclude tests/unit/programs_screen_adversarial_unit_tests.cpp link
-exclude tests/unit/programs_screen_unit_tests.cpp link
+test tests/unit/programs_screen_adversarial_unit_tests.cpp
+test tests/unit/programs_screen_unit_tests.cpp
 exclude tests/unit/reports_kpi_unit_tests.cpp link
 exclude tests/unit/system_counters_unit_tests.cpp link
 exclude tests/unit/graphics_families_unit_tests.cpp stub

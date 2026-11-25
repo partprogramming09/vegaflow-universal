@@ -1,6 +1,8 @@
 #pragma once
 
 #include "model/hardware.hpp"
+#include "model/engine_presets.hpp"
+#include "model/steam.hpp"
 #include "ports/file_system.hpp"
 #include "ports/registry.hpp"
 
@@ -19,42 +21,6 @@
 #include <vector>
 
 namespace vegaflow {
-
-enum class GameEngineType {
-    Unknown = 0,
-    UnrealEngine4_5,
-    Unity,
-    Source1_2,
-    NativeDirectX_Vulkan
-};
-
-struct SteamGameEntry {
-    uint32_t app_id = 0;
-    std::string name;
-    std::wstring install_dir;
-    std::wstring primary_exe_path;
-    GameEngineType engine = GameEngineType::Unknown;
-    bool has_anticheat = false;
-    bool flip_model_applied = false;
-    bool engine_preset_applied = false;
-    bool dxvk_installed = false;
-};
-
-struct EngineOptimizationReport {
-    bool success = false;
-    bool blocked_by_anticheat = false;
-    bool backup_created = false;
-    std::wstring config_modified_path;
-    std::string status_message;
-};
-
-struct ApuShadowConfig {
-    uint32_t max_cascades = 2;          // r.Shadow.CSM.MaxCascades
-    float distance_scale = 0.7f;        // r.Shadow.DistanceScale
-    float radius_threshold = 0.04f;     // r.Shadow.RadiusThreshold (prunes distant microscopic shadows)
-    bool half_res_ao = true;            // r.AOHalfRes
-    uint32_t volumetric_fog = 0;        // r.VolumetricFog (0 = disabled, 1 = active)
-};
 
 // Steam library scan (static, read-only) and engine presets. The methods that change game files are members and go
 // through the FileSystem port given to the constructor (the real one is windows/SafeFileSystem, i.e. SandboxGuard).

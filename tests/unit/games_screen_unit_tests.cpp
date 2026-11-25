@@ -1,6 +1,7 @@
 // Unit tests: the model of the "Juegos" screen (phase G): one row per Steam game with what VegaFlow can do to it, the
 // exact list of what a profile changes (taken from the code that writes it), and the "Me fue mal" exclusion.
 
+#include "model/engine_presets.hpp"
 #include "session/games_screen.hpp"
 #include "fake_file_system.hpp"
 #include "../test_support.hpp"
@@ -65,7 +66,7 @@ void Test69() {
                  "Test 69.1: rows are sorted by name; Unreal and Unity can take a profile, an anti-cheat game is protected, an unknown engine has no profile");
 
     // 2. What an Unreal profile changes is exactly what the writer writes: the registry value plus every key of the block.
-    const std::string block = vegaflow::SteamEngineOptimizer::GenerateUnrealUmaBlock(policy, 4096);
+    const std::string block = vegaflow::GenerateUnrealUmaBlock(policy, 4096);
     std::set<std::string> expected;
     size_t pos = 0;
     while (pos < block.size()) {
@@ -84,7 +85,7 @@ void Test69() {
 
     // 3. Same for Unity: the keys come from the one list the writer uses.
     std::set<std::string> unity_expected;
-    for (const auto& [k, v] : vegaflow::SteamEngineOptimizer::UnityBootConfigKeys()) unity_expected.insert(k + "=" + v);
+    for (const auto& [k, v] : vegaflow::UnityBootConfigKeys()) unity_expected.insert(k + "=" + v);
     std::set<std::string> unity_shown(unity->changes.begin(), unity->changes.end());
     bool unity_all = !unity_expected.empty();
     for (const auto& k : unity_expected) unity_all = unity_all && unity_shown.count(k) == 1;

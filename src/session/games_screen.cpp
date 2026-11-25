@@ -4,6 +4,8 @@
 #include <cwctype>
 #include <filesystem>
 
+#include "model/path_name.hpp"
+
 #include "bridge/rust_bridge.h"
 #include "ports/text_convert.hpp"
 
@@ -16,7 +18,7 @@ namespace {
 
 bool SameName(const std::wstring& a, const std::wstring& b) { return app::EqualsIgnoreCase(a, b); }
 
-std::wstring FileName(const std::wstring& path) { return std::filesystem::path(path).filename().wstring(); }
+std::wstring FileName(const std::wstring& path) { return FileNameOf(path); }
 
 const char* EngineLabel(GameEngineType t) {
     switch (t) {
@@ -36,7 +38,7 @@ std::string RegistryChange(const std::wstring& exe_path) {
 
 // Keys of the Unreal block as written to Engine.ini: the lines of GenerateUnrealUmaBlock that set something.
 std::vector<std::string> UnrealKeys(const ApuOptimizationPolicy& policy, uint32_t pool_mb) {
-    const std::string block = SteamEngineOptimizer::GenerateUnrealUmaBlock(policy, pool_mb);
+    const std::string block = GenerateUnrealUmaBlock(policy, pool_mb);
     std::vector<std::string> out;
     size_t pos = 0;
     while (pos < block.size()) {
@@ -109,7 +111,7 @@ GamesScreenModel BuildGamesScreen(const std::vector<SteamGameEntry>& games, cons
                 r.changes = UnrealKeys(policy, vram_pool_mb);
             } else {
                 r.file_hint = "boot.config, en la carpeta de datos del juego (la que termina en _Data)";
-                for (const auto& [k, v] : SteamEngineOptimizer::UnityBootConfigKeys()) r.changes.push_back(k + "=" + v);
+                for (const auto& [k, v] : UnityBootConfigKeys()) r.changes.push_back(k + "=" + v);
             }
         } else {
             r.backup_hint.clear();

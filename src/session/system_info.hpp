@@ -13,7 +13,7 @@
 #include <vector>
 
 #include "model/hardware.hpp"
-#include "optimize/graphics/graphics_optimizer.hpp"
+#include "model/tweaks.hpp"
 #include "ports/memory_probe.hpp"
 
 namespace vegaflow {
