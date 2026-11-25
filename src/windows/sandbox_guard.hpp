@@ -8,6 +8,8 @@
 #endif
 #include <windows.h>
 
+#include "windows/game_launchers.hpp"
+
 #include <cstdint>
 #include <filesystem>
 #include <string>
@@ -84,7 +86,12 @@ public:
 
     // Steam libraries whose steamapps\common folders are allowed. Read once from libraryfolders.vdf unless set here.
     static void SetSteamLibraryFolders(std::vector<std::wstring> folders);
-    static void ReloadSteamLibraryFolders();
+    static void ReloadSteamLibraryFolders(); // also drops the Epic and GOG list, so both are read again on next use
+
+    // Epic and GOG game folders, allowed like a Steam game folder (the same real-path check and anti-cheat scan). A game
+    // whose manifest names an anti-cheat is never a writable root. Read once from the Epic manifests and the GOG registry
+    // unless set here.
+    static void SetLauncherGameFolders(std::vector<LauncherGameFolder> games);
 
     // Test seam: runs after a path is validated and before the file is opened (Test 42 swaps a folder there).
     static void SetBeforeOpenHookForTesting(void (*hook)());

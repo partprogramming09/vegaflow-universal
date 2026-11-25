@@ -2,6 +2,7 @@
 #include "ports/config_location.hpp"
 #include "bridge/rust_bridge.h"
 #include "windows/steam_paths.hpp"
+#include "windows/registry.hpp"
 #include "windows/unique_handle.hpp"
 
 #ifndef WIN32_LEAN_AND_MEAN
@@ -26,6 +27,7 @@ std::mutex g_sandbox_mutex;
 std::vector<std::wstring> g_custom_allowed_paths;
 std::vector<std::wstring> g_read_only_paths;
 std::optional<std::vector<std::wstring>> g_steam_libraries; // empty: read from Steam on first use
+std::optional<std::vector<LauncherGameFolder>> g_launcher_games; // empty: read from Epic and GOG on first use
 void (*g_before_open_hook)() = nullptr;
 std::vector<SandboxViolationRecord> g_violations;
 
@@ -265,8 +267,29 @@ const std::vector<std::wstring>& SteamLibrariesLocked() {
     return *g_steam_libraries;
 }
 
+const std::vector<LauncherGameFolder>& LauncherGamesLocked() {
+    if (!g_launcher_games) {
+        std::vector<LauncherGameFolder> games = ReadEpicGames(DefaultEpicManifestsDir());
+        WindowsRegistryPort registry;
+        for (auto& g : ReadGogGames(registry)) {
+            const bool known = std::any_of(games.begin(), games.end(), [&](const LauncherGameFolder& e) {
+                return _wcsicmp(e.dir.c_str(), g.dir.c_str()) == 0;
+            });
+            if (!known) games.push_back(std::move(g));
+        }
+        g_launcher_games = std::move(games);
+    }
+    return *g_launcher_games;
+}
+
+std::vector<LauncherGameFolder> LauncherGames() {
+    std::lock_guard<std::mutex> lock(g_sandbox_mutex);
+    return LauncherGamesLocked();
+}
+
 // The folders VegaFlow may touch: its own folder, LOCALAPPDATA, temp, My Games and Saved Games, the steamapps\common
-// folder of each Steam library, and the folders registered at run time.
+// folder of each Steam library, the folder of each Epic and GOG game (except one that names an anti-cheat), and the folders
+// registered at run time.
 std::vector<Root> CollectAllowedRoots() {
     std::vector<Root> roots;
     AddRoot(roots, ExecutableDirectory(), true);
@@ -280,13 +303,19 @@ std::vector<Root> CollectAllowedRoots() {
         AddRoot(roots, profile + L"\\Saved Games", true);
     }
     std::vector<std::wstring> libraries, custom, read_only;
+    std::vector<LauncherGameFolder> launcher_games;
     {
         std::lock_guard<std::mutex> lock(g_sandbox_mutex);
         libraries = SteamLibrariesLocked();
+        launcher_games = LauncherGamesLocked();
         custom = g_custom_allowed_paths;
         read_only = g_read_only_paths;
     }
     for (const auto& lib : libraries) AddRoot(roots, lib + L"\\steamapps\\common", true);
+    // Same check as a Steam folder (AddRoot): a folder that is, or lies under, a junction or link allows nothing.
+    for (const auto& g : launcher_games) {
+        if (!g.anticheat) AddRoot(roots, g.dir, true);
+    }
     for (const auto& p : custom) AddRoot(roots, p, true);
     for (const auto& p : read_only) AddRoot(roots, p, false);
     return roots;
@@ -339,6 +368,24 @@ std::filesystem::path SteamGameRoot(const std::filesystem::path& dir_in) {
     return {};
 }
 
+// The Epic or GOG game folder that contains `dir` (compared folder by folder, ignoring case), else empty; `protect` is
+// set when that game names an anti-cheat. `..` is folded first, so `<game>\..\x` is not inside the game.
+std::filesystem::path LauncherGameRoot(const std::filesystem::path& dir_in, bool& protect) {
+    protect = false;
+    const std::filesystem::path dir = dir_in.lexically_normal();
+    for (const auto& g : LauncherGames()) {
+        const std::filesystem::path root = std::filesystem::path(g.dir).lexically_normal();
+        auto d = dir.begin();
+        auto r = root.begin();
+        for (; r != root.end() && d != dir.end() && ToLowerW(d->wstring()) == ToLowerW(r->wstring()); ++r, ++d) {}
+        if (r == root.end()) {
+            protect = g.anticheat;
+            return root;
+        }
+    }
+    return {};
+}
+
 // true = an anti-cheat file was found, or the walk broke off (long path, dead junction): refusing is the safe answer.
 bool DeepScanFindsAntiCheat(const std::filesystem::path& root) {
     std::error_code ec;
@@ -367,6 +414,10 @@ bool SandboxGuard::DirectoryContainsAntiCheat(const std::filesystem::path& dir) 
     std::filesystem::path current = dir;
 
     if (const auto game_root = SteamGameRoot(dir); !game_root.empty() && DeepScanFindsAntiCheat(game_root)) return true;
+    bool protect = false;
+    if (const auto game_root = LauncherGameRoot(dir, protect); !game_root.empty()) {
+        if (protect || DeepScanFindsAntiCheat(game_root)) return true;
+    }
 
     std::error_code cwd_ec;
     std::filesystem::path project_root = std::filesystem::current_path(cwd_ec);
@@ -735,6 +786,11 @@ void SandboxGuard::SetSteamLibraryFolders(std::vector<std::wstring> folders) {
     g_steam_libraries = std::move(folders);
 }
 
+void SandboxGuard::SetLauncherGameFolders(std::vector<LauncherGameFolder> games) {
+    std::lock_guard<std::mutex> lock(g_sandbox_mutex);
+    g_launcher_games = std::move(games);
+}
+
 void SandboxGuard::SetBeforeOpenHookForTesting(void (*hook)()) {
     g_before_open_hook = hook;
 }
@@ -742,6 +798,7 @@ void SandboxGuard::SetBeforeOpenHookForTesting(void (*hook)()) {
 void SandboxGuard::ReloadSteamLibraryFolders() {
     std::lock_guard<std::mutex> lock(g_sandbox_mutex);
     g_steam_libraries.reset();
+    g_launcher_games.reset();
 }
 
 void SandboxGuard::ClearCustomAllowedPaths() {

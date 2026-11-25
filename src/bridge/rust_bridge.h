@@ -171,6 +171,22 @@ uint32_t vf_rust_decide_file_access(
 typedef void (*VfSteamLibraryFn)(void* ctx, const char* utf8_path, size_t len);
 size_t vf_rust_steam_library_paths(const char* vdf, size_t len, VfSteamLibraryFn on_path, void* ctx);
 
+/* Epic and GOG install folders (policy/epic_manifest.rs, policy/gog_registry.rs). Both call on_dir(ctx, path, len) once, with
+   the install folder (UTF-8, backslashes, not NUL-terminated, valid only during the call), only for an accepted game, and return:
+   VF_LAUNCHER_GAME (0) accepted; VF_LAUNCHER_GAME_ANTICHEAT (10) accepted but anti-cheat named: never modify it;
+   1 to 5 refused (1 broken or bad id, 2 not a game, 3 incomplete, 4 bad folder, 5 exe outside the folder);
+   VF_LAUNCHER_ERROR (255) bad pointers or invalid UTF-8: treat as refused. */
+#define VF_LAUNCHER_GAME 0u
+#define VF_LAUNCHER_GAME_ANTICHEAT 10u
+#define VF_LAUNCHER_ERROR 255u
+typedef void (*VfLauncherDirFn)(void* ctx, const char* utf8_path, size_t len);
+uint32_t vf_rust_epic_manifest_install_dir(const char* json, size_t len, VfLauncherDirFn on_dir, void* ctx);
+uint32_t vf_rust_gog_install_dir(
+    const char* key, size_t key_len, const char* game_id, size_t game_id_len,
+    const char* path, size_t path_len, const char* exe, size_t exe_len,
+    VfLauncherDirFn on_dir, void* ctx
+);
+
 /* config.json (policy/config_file.rs). Status bits of VfConfigLoad.status: */
 #define VF_CONFIG_CORRUPT        (1u << 0) /* not JSON or not an object: every setting at its factory value */
 #define VF_CONFIG_KEY_REJECTED   (1u << 1) /* some keys broke their rule and took their factory value */
