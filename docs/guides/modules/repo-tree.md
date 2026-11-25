@@ -51,12 +51,11 @@ vegaflow-universal/
 │   │   ├── daemon_loop.*         # Default mode: the daemon loop and clean shutdown
 │   │   ├── gui_mode.*            # --gui: native window with tray; assembles `session/` and connects the buttons (see 3.3b)
 │   │   ├── monitor.*             # --monitor: live console panel
-│   │   ├── doctor_probe.*        # The real `DoctorProbe` (disks, caches, hardware, config, processes)
+│   │   ├── doctor_probe.*        # Windows adapter of the `DoctorProbe` port (`WindowsDoctorProbe`; the port is `ports/doctor_probe.hpp`): disks, caches, hardware, config, processes
 │   │   ├── app_state.*           # Shared state and the Ctrl+C handler
 │   │   ├── run_cycle.*           # One evaluation cycle: detect a game, apply or release (builds the real Windows classes)
 │   │   ├── report_commands.*     # --status, --dry-run and --purge-now (build the real detectors and optimizers)
-│   │   ├── system_reads.hpp      # Windows adapter of the `SystemReads` port
-│   │   └── doctor_probe.*        # Windows adapter of the `DoctorProbe` port
+│   │   └── system_reads.hpp      # Windows adapter of the `SystemReads` port (`WindowsSystemReads`)
 │   ├── session/                  # Use cases: what the daemon does with a game (includes nothing from detect/, optimize/ or windows/)
 │   │   ├── game_session.*        # Session injectable through ports, GPU hot-plug detection, static/live step and on-the-fly exclusion
 │   │   ├── reports.*             # The session log and the report lines (--status, --monitor)
@@ -66,6 +65,11 @@ vegaflow-universal/
 │   │   ├── startup_prompts.*     # Who may be asked at startup (only a visible console) and the safe default when nobody answers
 │   │   ├── *_screen.*            # Pure models of the screens (home, settings, games, history, config, programs, equipment, requirements)
 │   │   ├── settings_catalog.*    # Catalog of settings for the System settings screen (families by hardware, experimental, evidence)
+│   │   ├── memory_screen.*       # Model of the Memory tab (F4.2): CPU sets, memory numbers, "no data" states, keyboard logic
+│   │   ├── config_recovery.*     # F4.4: what happens to a broken config.json; the person decides, nothing is overwritten by itself
+│   │   ├── sidebar_nav.*         # Keyboard logic of the side menu: active entry, arrows, Ctrl+digit
+│   │   ├── gui_cadence.*         # How often the window polls (1.5 s visible; 30 s safety net when hidden with no game)
+│   │   ├── profile_reasons.*     # Plain sentences that say why a hardware profile is what it is (the words live in Rust)
 │   │   └── *_actions.*           # What the buttons do: `GameActions`, `SettingsActions` and `ConfigActions`
 │   ├── ports/                    # Interfaces that the use cases ask for and the tests fake
 │   │   ├── system_reads.hpp      # What SystemInfo reads (hardware, memory sample, tweaks, L3, DIMM slots)
@@ -144,7 +148,9 @@ vegaflow-universal/
 │   │   ├── power.*               # Windows implementation of `PowerPort` (PowrProf: plans and AC/DC)
 │   │   └── privileges.*          # NT privilege management and UAC elevation
 │   └── bridge/
-│       └── rust_bridge.h         # C/Rust type definitions and FFI signatures (zero-allocation)
+│       ├── rust_bridge.h         # C/Rust type definitions and FFI signatures (zero-allocation)
+│       ├── hardware_policy.*     # The hardware decisions Rust takes (device profile, CPU Set split), converted to and from the model types
+│       └── ffi_callback_guard.hpp # C++ callbacks that Rust calls must never throw; the body runs inside RunCallbackGuarded
 ├── tests/
 │   ├── test_main.cpp             # Entry point of the suite: runs all the tests in order and restores the system at the end
 │   ├── test_support.*            # Counters, RecordResult and the reader of the .tsv files

@@ -4,13 +4,13 @@
 Before any write to disk, a checker called `SandboxGuard` works out the real location of the path, applies the allowed and forbidden folder rules, and refuses anything that would touch a game with anti-cheat.
 Before a registry value is changed, its original value is saved, so `--restore-registry` can put it back.
 
-**Reader:** people and agents. **Last review:** 2026-11-21. **Explains:** `src/windows/`. **Answers:** where does VegaFlow touch Windows, how does it stay safe while doing so, and how can a test replace those calls with fakes?
+**Reader:** people and agents. **Last review:** 2026-11-25. **Explains:** `src/windows/`. **Answers:** where does VegaFlow touch Windows, how does it stay safe while doing so, and how can a test replace those calls with fakes?
 
 ## Why it exists
 
 VegaFlow changes Windows settings: process priorities, memory, power, registry values and game files. These are the risky calls. A wrong path could write into Windows' own folders, and a registry value changed and never restored would stay changed after VegaFlow closes.
 
-The layer rule is that calls into Windows live here. The architecture record says `session/` no longer calls Win32 directly, and `scripts/ci/check_layers.sh` checks which folders may depend on this one. Some other folders still include `windows.h` for its types, so the rule is kept by those checks, not by the compiler. Win32 is the Windows programming interface, the set of functions a C++ program uses to ask Windows for things. Before this layer was split out, the optimizers called Windows themselves, so the tests changed the real registry and power plan ([ADR 0001](../adr/0001-nucleo-que-decide-y-puertos.md)).
+The layer rule is that calls into Windows live here, with four exceptions whose adapters sit next to their user in `app/` and `optimize/` (see the ports paragraph below). The architecture record says `session/` no longer calls Win32 directly, and `scripts/ci/check_layers.sh` checks which folders may depend on this one. Some other folders still include `windows.h` for its types, so the rule is kept by those checks, not by the compiler. Win32 is the Windows programming interface, the set of functions a C++ program uses to ask Windows for things. Before this layer was split out, the optimizers called Windows themselves, so the tests changed the real registry and power plan ([ADR 0001](../adr/0001-nucleo-que-decide-y-puertos.md)).
 
 Terms used below. A **port** is an interface: a list of functions with no Windows code in it. A **fake** is a stand-in that a test puts in place of the real one. A **junction** is a folder shortcut that Windows follows as if it were the real folder. A **handle** is Windows' reference to an open file or process; the code wraps it so it is always closed ([unique_handle.hpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/unique_handle.hpp)).
 
@@ -131,7 +131,7 @@ The command: `--restore-registry` is read in [`ParseCommandLine`](https://github
 
 ### Ports and fakes: how tests replace Windows
 
-Each Windows adapter sits behind a port in [src/ports/](https://github.com/partprogramming09/vegaflow-universal/tree/main/src/ports). The port headers are pure C++ and say so in their first line (for example [`RegistryPort`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/ports/registry.hpp)). The real classes in `src/windows/` implement them: `WindowsRegistryPort`, `WindowsProcessControl`, `WindowsMemoryProbe` and `WindowsMemoryControl`, `WindowsDeviceProbe`, `FileChangeJournal` with `WindowsSystemUndo`, and `SafeFileSystem`.
+Each Windows adapter sits behind a port in [src/ports/](https://github.com/partprogramming09/vegaflow-universal/tree/main/src/ports). The port headers are pure C++ and say so in their first line (for example [`RegistryPort`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/ports/registry.hpp)). The real classes in `src/windows/` implement them: `WindowsRegistryPort`, `WindowsProcessControl`, `WindowsMemoryProbe` and `WindowsMemoryControl`, `WindowsDeviceProbe`, `FileChangeJournal` with `WindowsSystemUndo`, and `SafeFileSystem`. Four ports are implemented outside `src/windows/`: `DoctorProbe` and `SystemReads` in `src/app/` (`WindowsDoctorProbe` in `doctor_probe.hpp`, `WindowsSystemReads` in `system_reads.hpp`), and `GameFiles` and `TweakControls` in `src/optimize/` (`OptimizeGameFiles` in `game_files_adapter.hpp`, `GraphicsOptimizer` in `graphics/graphics_optimizer.hpp`).
 
 Tests put fakes in place of them:
 
