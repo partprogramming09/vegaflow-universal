@@ -64,7 +64,7 @@ The CPU lever and the memory lever run on each session cycle. The file and regis
 
 - **[cpu_orchestrator.hpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/optimize/cpu_orchestrator.hpp)** and **[.cpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/optimize/cpu_orchestrator.cpp)**: `CpuOrchestrator`. It keeps a list of what it changed, each entry a process ID plus its creation time, so a reused ID is never touched. It restores the old game when another game starts.
 - **[memory_manager.hpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/optimize/memory_manager.hpp)** and **[.cpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/optimize/memory_manager.cpp)**: `MemoryManager`. It samples RAM and graphics memory, asks Rust, and runs the trim and purge. It also holds the UMA pressure guard (`EvaluateUmaPressureGuard`), which watches the graphics memory budget.
-- **[dxvk_manager.hpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/optimize/dxvk_manager.hpp)** and **[.cpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/optimize/dxvk_manager.cpp)**: `DxvkManager`. It removes DXVK's `d3d11.dll` and `dxgi.dll` and the `dxvk.conf` profile that an earlier version left next to the game (`RemoveDxvk`). Its install function, `DeployDxvk`, has no caller any more, so the program does not install DXVK. Every write goes through the `FileSystem` port, whose real version is SandboxGuard.
+- **[dxvk_manager.hpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/optimize/dxvk_manager.hpp)** and **[.cpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/optimize/dxvk_manager.cpp)**: `DxvkManager`. It removes DXVK's `d3d11.dll` and `dxgi.dll` and the `dxvk.conf` profile that an earlier version left next to the game (`RemoveDxvk`). The program does not install DXVK any more (the install code was deleted). Every write goes through the `FileSystem` port, whose real version is SandboxGuard.
 - **[graphics/](https://github.com/partprogramming09/vegaflow-universal/tree/main/src/optimize/graphics)**: `GraphicsOptimizer` (`graphics_optimizer.hpp`) groups the switches into families and gates them by GPU vendor. The families:
   - [amd_driver_tweaks.cpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/optimize/graphics/amd_driver_tweaks.cpp): AMD driver keys (`FlipQueueSize`, `SurfaceFormatReplacements`, tessellation cap, shader cache, VRAM report). Only the AMD adapter is written (`IsAmdAdapterKey` in `graphics_internal.hpp`).
   - [kernel_tweaks.cpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/optimize/graphics/kernel_tweaks.cpp): `Win32PrioritySeparation` (the CPU quantum setting; the default is 0x2).
@@ -88,7 +88,7 @@ How they talk: the session and the GUI call `CpuOrchestrator` and `MemoryManager
 - **One cooldown for purges.** Standby purges and UMA trims share a 90 s cooldown (`EvaluateAndOptimize`, and `evaluate_memory_purge` in `rust/.../memory_purge.rs`), so the two paths cannot run back to back.
 - **Dry run still reads pressure.** In dry run the cooldown is ignored, so the report shows the real pressure (`EvaluateUmaPressureGuard`).
 - **Identity before every change.** A process is changed only if its ID and creation time still match (`RestoreTrackedGame`, `ApplyOptimizations`; `ApplyBackgroundPolicy`). A recycled ID belongs to another program.
-- **Refuse, do not hide.** DXVK on an anti-cheat game returns an explicit error (`DeployDxvk`), and the engine presets set `blocked_by_anticheat` (`ApplyEngineUmaPreset`).
+- **Refuse, do not hide.** The engine presets set `blocked_by_anticheat` (`ApplyEngineUmaPreset`).
 - **Remove only what VegaFlow wrote.** A game that ships its own `d3d11.dll` with no VegaFlow marker is left alone (`RemoveDxvk`).
 - **Alternatives discarded:** no code comment, ADR or doc in the repo records the rejected options for these levers. Pending confirmation (see the report).
 
@@ -96,8 +96,6 @@ How they talk: the session and the GUI call `CpuOrchestrator` and `MemoryManager
 
 | Situation | What the code does | What the user sees (text from the code) |
 |---|---|---|
-| DXVK on an anti-cheat game | Refused before any file is touched (`DeployDxvk`) | "Bloqueado: El juego utiliza Anti-Cheat (EAC/BattlEye/etc.) y no es seguro inyectar DXVK" |
-| The user's `dxvk.conf` cannot be copied | Stops before any change (`DeployDxvk`) | "No se pudo guardar una copia del dxvk.conf que ya había; el juego quedó intacto" |
 | `Engine.ini` backup cannot be made | No change (`ApplyEngineUmaPreset`) | "No se pudo crear la copia de seguridad .vegaflow.bak; juego intacto" |
 | `Engine.ini` has a broken VegaFlow block | File left as it is (`ApplyEngineUmaPreset`) | "Marcador de bloque VegaFlow incompleto en Engine.ini; archivo intacto" |
 | DXVK removal while the game is open | The DLL stays, with its backup (`RemoveDxvk`) | "No se pudo quitar DXVK del todo: ¿el juego está abierto? ..." |
@@ -127,14 +125,14 @@ Only lines from the evidence files are pasted here, trimmed where long. The suit
 | graphics | `vegaflow_daemon.exe --status`, section `[SYSTEM GRAPHICS TWEAKS]` | `  AMD ShaderCache Mode       : FORCED ON (0x3200, Stutter Elimination)` / `  AMD DX11/UMA Driver Boost  : ACTIVE (SurfaceFormat FP16 + FlipQueue=1)` / `  AMD VRAM Reporting Pool    : FORCED (4096 MB DXGI/AMD)` / `  MMCSS WDDM Gaming Profile  : Windows Default` / `  GameDVR & FSE Bypass       : OPTIMIZED (Background Capture Off + FSE Mode 2)` / `  APU Laptop Power & Bus     : STANDARD (Windows Default)` / `  CPU Quantum Separation     : 0x2` / `  Kernel Memory Paging Shield: DEFAULT (Paging Allowed)` |
 | graphics | Suite, Test 15 | `[PASS] Test 15: DX11/DX12 FPS Boost Suite (MMCSS Profile, Win32PrioritySeparation Quantum & AMD Driver Boost Dry-Run) (MMCSS Dry-Run: PASS, PrioritySeparation (0x26/0x28): PASS, AMD Driver Boost Dry-Run: PASS, ... Win32PrioritySeparation: 2)` |
 | graphics | Suite, Test 57 | `[PASS] Test 57: GraphicsOptimizer family gating, ven_1002 guard & MMCSS GPU Priority cleanup (Intel gate: PASS, NVIDIA gate: PASS, Blocked AMD: PASS, AMD ven_1002: PASS, PowerMode roundtrip: PASS, ...)` |
-| DXVK | Suite, Test 16 | `[PASS] Test 16: DXVK Manager Module (Deployment, Async GPL, AntiCheat Safety, Backup & Removal) (Assets: PASS, AC Protection: PASS, Deployment & Conf: PASS, Backup & Restore: PASS, Logs & Conf Cleaned: PASS)` |
-| DXVK | Suite, Test 71 and Test 72.3 | `[PASS] Test 71: a user's dxvk.conf is backed up once before DXVK writes its own, and restored on removal` / `[PASS] Test 72.3: DXVK is not deployed to an anti-cheat game` |
+| DXVK | Suite, Test 16 | `[PASS] Test 16: DXVK Manager Module (Detection, Dry-run, Removal, Restoring the originals) (…)` |
+| DXVK | Suite, Test 71 and Test 72.3 | `[PASS] Test 71: a user's dxvk.conf kept as .vegaflow.bak is restored on removal` / `[PASS] Test 72.3: DXVK is not deployed to an anti-cheat game` |
 | Steam | Suite, Test 13 and Test 43 | `[PASS] Test 13: SteamEngineOptimizer Engine Detection, Safe Backup & Restore (UE Detection: PASS, Backup Created: PASS, Preset Applied: PASS, Restored & Bak Cleared: PASS, AntiCheat Blocking: PASS)` / `[PASS] Test 43: engine presets create no folder outside the allowed ones (Unreal detected: yes, preset applied: no, folder created: no)` |
 | all | Suite total | `TEST RESULTS: 465 PASSED, 0 FAILED` |
 
 Not reproduced:
 - The `r.Streaming.PoolSize` value written to a real `Engine.ini` on the laptop. The value (4096 MB on Tier 2 with visual cuts) is read from `GenerateUnrealUmaBlock`; no run on a real game folder is in the evidence.
-- A DXVK install into a real game folder. Test 16 and Test 36 use test folders and a fake file system.
+- A DXVK removal on a real game folder. Test 16 and Test 36 use test folders and a fake file system.
 - Any change in frames per second. This module makes no gain claim; see [verification status](../measurements/verification-status.md).
 
 ## Check it yourself

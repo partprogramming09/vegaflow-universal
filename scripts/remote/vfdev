@@ -13,6 +13,7 @@
 #   vfdev first-start [EXE]           first unattended start with no journal (MODE=hidden|task = the installer's autostart task|wt = Windows Terminal, ARG=none|once|dry-run, STDIN=console|file|pipe, JOURNAL=none|unclean|corrupt, ANSWER=n types "n"+Enter in the task's visible console): must reach Global\VegaFlowStop (or exit by itself for --once/--dry-run) in bounded time
 #   vfdev octo Conditions=full,... Prefix=x [Captures=1 Seconds=120 Warmup=1 Leave=0]   opens Octopath through Steam, loads the autosave, checks it and measures one block per launch; fetches the screenshots to build/octo
 #   vfdev stats FILE|- [PREFIX]      groups result rows by condition: n, mean, median and range
+#   vfdev screen NAME [DEST]          brings the PNG saved by `vfdev run screenshot Name=NAME` (read it with the Read tool)
 #   vfdev fetch PREFIX [DEST]         fetches from the laptop the JSON and frame CSVs of captures whose label starts with PREFIX
 #   vfdev frames GLOB_A GLOB_B        compares two conditions using the frame CSVs: grouped frames and confidence interval
 #   vfdev regress BASE.json GLOB      regression gate: compares new captures with a scene's baseline (baselines/); --make creates it
@@ -65,6 +66,13 @@ fetch)
     [ -n "${2:-}" ] || { sed -n '2,21p' "$0"; exit 1; }
     mkdir -p "${3:-.}"
     exec scp -q -i "$KEY" -o BatchMode=yes "$HOST:C:/ProgramData/WinBridgeJobs/bench/results/${2}*" "${3:-.}/"
+    ;;
+screen)
+    # vfdev screen NAME [DEST]: brings the PNG that `vfdev run screenshot Name=NAME` saved on the laptop (the key stays in .env).
+    [ -n "${2:-}" ] || { echo "uso: vfdev screen NAME [DEST]"; exit 1; }
+    case "$2" in *[!A-Za-z0-9_.-]*) echo "NAME: solo letras, digitos, punto, guion y guion bajo"; exit 1 ;; esac
+    mkdir -p "${3:-.}"
+    exec scp -q -i "$KEY" -o BatchMode=yes "$HOST:C:/ProgramData/VegaFlow/screens/${2}.png" "${3:-.}/"
     ;;
 frames)
     shift

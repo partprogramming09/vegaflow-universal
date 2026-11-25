@@ -43,21 +43,13 @@ void Test36() {
                                    allowed.files[conf].find("dxvk.numCompilerThreads = 3\n") != std::string::npos;
     const bool nothing_on_disk = !std::filesystem::exists(conf, ec);
 
-    FakeFileSystem anticheat;
-    std::string msg;
-    const bool anticheat_ok =
-        !vegaflow::DxvkManager(anticheat).DeployDxvk((dir / L"game.exe").wstring(), policy, true /* has_anticheat */,
-                                                     true, false, &msg) &&
-        anticheat.Changes() == 0;
-
     std::filesystem::remove_all(dir, ec);
 
     auto pass = [](bool b) { return std::string(b ? "PASS" : "FAIL"); };
-    RecordResult(refused_ok && conf_through_port && nothing_on_disk && anticheat_ok,
+    RecordResult(refused_ok && conf_through_port && nothing_on_disk,
                  "Test 36: DxvkManager changes game files only through the FileSystem port (fake file system)",
                  "refused folder, no change: " + pass(refused_ok) + ", dxvk.conf via port with policy threads: " +
-                     pass(conf_through_port) + ", nothing on disk: " + pass(nothing_on_disk) +
-                     ", anti-cheat, no change: " + pass(anticheat_ok));
+                     pass(conf_through_port) + ", nothing on disk: " + pass(nothing_on_disk));
 }
 
 void Test71() {
@@ -66,35 +58,23 @@ void Test71() {
     const std::wstring bak = conf + L".vegaflow.bak";
     using vegaflow::DxvkManager;
 
-    // 1. The user's file is copied once, byte for byte, through the port.
+    // The user's file, kept by an earlier install as dxvk.conf.vegaflow.bak, is what removal gives back.
     FakeFileSystem a;
-    a.files[conf] = "dxgi.maxDeviceMemory = 1024\n";
-    const bool kept = DxvkManager::BackupUserDxvkConf(a, conf, false) && a.files[bak] == "dxgi.maxDeviceMemory = 1024\n";
-    // 2. A second deploy does not overwrite that copy with our own file.
     a.files[conf] = "dxvk.gpl = True\n";
-    const bool once = DxvkManager::BackupUserDxvkConf(a, conf, false) && a.files[bak] == "dxgi.maxDeviceMemory = 1024\n" && a.copies.size() == 1;
-    // 3. Our own file from an earlier deploy needs no copy; no file needs none either.
+    a.files[bak] = "dxgi.maxDeviceMemory = 1024\n";
     FakeFileSystem b;
     b.files[conf] = "# VegaFlow DXVK AMD Vega 6 Profile\ndxvk.gpl = True\n";
-    const bool ours = DxvkManager::BackupUserDxvkConf(b, conf, false) && b.copies.empty();
-    FakeFileSystem none;
-    const bool absent = DxvkManager::BackupUserDxvkConf(none, conf, false) && none.copies.empty();
-    // 4. A failed copy reports it, so the deploy stops before changing anything.
-    FakeFileSystem failing;
-    failing.files[conf] = "x = 1\n";
-    failing.fail_copy = true;
-    const bool failed = !DxvkManager::BackupUserDxvkConf(failing, conf, false);
-    // 5. Removing DXVK puts the user's file back and drops the copy; with no copy, ours is deleted.
+    // Removing DXVK puts the user's file back and drops the copy; with no copy, ours is deleted.
     const bool restored = DxvkManager::RestoreUserDxvkConf(a, conf) && a.files[conf] == "dxgi.maxDeviceMemory = 1024\n" && a.files.count(bak) == 0;
     const bool dropped = DxvkManager::RestoreUserDxvkConf(b, conf) && b.files.count(conf) == 0;
-    // 6. If the user's file cannot be put back, nothing is deleted and the caller is told (the copy stays for them).
+    // If the user's file cannot be put back, nothing is deleted and the caller is told (the copy stays for them).
     FakeFileSystem stuck;
     stuck.files[conf] = "dxvk.gpl = True\n";
     stuck.files[bak] = "dxgi.maxDeviceMemory = 1024\n";
     stuck.fail_copy = true;
     const bool told = !DxvkManager::RestoreUserDxvkConf(stuck, conf) && stuck.files.count(bak) == 1 && stuck.files.count(conf) == 1;
-    RecordResult(kept && once && ours && absent && failed && restored && dropped && told,
-                 "Test 71: a user's dxvk.conf is backed up once before DXVK writes its own, and restored on removal");
+    RecordResult(restored && dropped && told,
+                 "Test 71: a user's dxvk.conf kept as .vegaflow.bak is restored on removal");
 }
 
 } // namespace vftest

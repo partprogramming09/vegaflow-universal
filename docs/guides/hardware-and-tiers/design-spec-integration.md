@@ -21,7 +21,7 @@ Some names in this page were updated to match the code. Each correction is marke
 
 ### 4.2. `DxvkManager` (DirectX 11 -> Vulkan specialization)
 - In [`src/optimize/dxvk_manager.cpp`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/optimize/dxvk_manager.cpp):
-  - `DeployDxvk()` and `ConfigureApuProfile()` receive the policy already calculated (`const ApuOptimizationPolicy&`; since phase R2 they do not detect the hardware on each call: the daemon builds it once at startup).
+  - `ConfigureApuProfile()` receives the policy already calculated (`const ApuOptimizationPolicy&`; since phase R2 they do not detect the hardware on each call: the daemon builds it once at startup).
   - Write `dxvk.numCompilerThreads`, `dxgi.maxDeviceMemory` and `dxgi.maxSharedMemory` using the policy values (`policy.dxvk_compiler_threads`, `policy.safe_vram_pool_mb`, `policy.safe_shared_pool_mb`).
   - In `ValidateDxvkApuProfile()`: accept as valid any `compilerThreads` between `1` and `16` (on the Ryzen 5 4600H it stays `6`, passing the DXVK profile check in `tests/integration/dxvk_tests.cpp` unchanged).
     > Note: the design said the value must match the system policy. The current check only tests the range `1` to `16` (`DxvkManager::ValidateDxvkApuProfile` in `src/optimize/dxvk_manager.cpp`); it does not compare the value with the policy.
