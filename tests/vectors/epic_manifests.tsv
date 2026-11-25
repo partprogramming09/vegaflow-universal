@@ -1,0 +1,20 @@
+# Epic .item manifests: file (in tests/vectors/epic/) <TAB> ok|broken|not_a_game|incomplete|bad_dir <TAB> install folder (ok only) <TAB> anti-cheat (1|0, ok only).
+# Samples are written to look like real manifests (field order and values of Epic Launcher 15.x) with generic paths and made-up ids.
+sample_game.item	ok	C:\Program Files\Epic Games\SampleGame	0
+second_drive.item	ok	D:\Games\SecondGame	0
+eac_launcher.item	ok	C:\Program Files\Epic Games\Shooter	1
+eac_folder_name.item	ok	C:\Program Files\Epic Games\EasyAntiCheat_Arena	1
+launch_escapes.item	ok	C:\Games\Esc	0
+engine_tool.item	not_a_game		
+incomplete.item	incomplete		
+traversal.item	bad_dir		
+system_root.item	bad_dir		
+users_root.item	bad_dir		
+unc_path.item	bad_dir		
+relative_path.item	bad_dir		
+truncated.item	broken		
+empty.item	broken		
+not_an_object.item	broken		
+no_install_location.item	broken		
+location_not_text.item	broken		
+eac_only_on_disk.item	ok	C:\Program Files\Epic Games\Shooter	0
