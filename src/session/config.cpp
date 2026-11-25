@@ -210,6 +210,15 @@ std::string ConfigLoadReport::Warning() const {
     return warning;
 }
 
+ConfigProblem ConfigLoadReport::Problem() const {
+    if (!folder_trusted) return ConfigProblem::UntrustedFolder;
+    if (unreadable) return ConfigProblem::Unreadable;
+    if (status & VF_CONFIG_CORRUPT) return ConfigProblem::Corrupt;
+    if (status & VF_CONFIG_KEY_REJECTED) return ConfigProblem::Rejected;
+    if (status & VF_CONFIG_NEWER_VERSION) return ConfigProblem::NewerVersion;
+    return ConfigProblem::None;
+}
+
 ConfigStore::ConfigStore(vegaflow::FileSystem& fs, std::wstring path, bool folder_trusted)
     : fs_(fs), path_(std::move(path)) {
     report_.folder_trusted = folder_trusted;
@@ -305,6 +314,29 @@ bool ConfigStore::Save(const AppConfig& cfg, bool dry_run, std::string* why) {
     if (dry_run) return true;
     if (!fs_.Replace(path_, text[0])) return refuse("no se pudo escribir config.json");
     last_known_ = KnownSettings(text[0]);
+    return true;
+}
+
+bool ConfigStore::ResetToFactory(bool dry_run, std::string* why) {
+    auto refuse = [&](const std::string& reason) {
+        if (why) *why = reason;
+        return false;
+    };
+    if (!report_.folder_trusted) return refuse("la carpeta de config.json no es de confianza");
+    std::string current;
+    if (!fs_.Read(path_, current)) return refuse("no se pudo leer config.json para guardar una copia antes");
+    std::wstring bak = path_ + L".vegaflow.bak";
+    for (int n = 1; fs_.Exists(bak); ++n) { // an older copy may be the only good one
+        if (n > 9) return refuse("ya hay demasiadas copias de config.json junto al archivo");
+        bak = path_ + L".vegaflow.bak." + std::to_wstring(n);
+    }
+    if (dry_run) return true;
+    std::string copied;
+    if (!fs_.Copy(path_, bak, false) || !fs_.Read(bak, copied) || copied != current) {
+        fs_.Remove(bak);
+        return refuse("no se pudo guardar la copia de config.json; no se cambió nada");
+    }
+    if (!fs_.Replace(path_, "{\n  \"version\": 1\n}\n")) return refuse("no se pudo escribir config.json; la copia quedó en " + WideToUtf8(bak));
     return true;
 }
 

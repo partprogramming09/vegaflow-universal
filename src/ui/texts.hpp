@@ -117,6 +117,13 @@ inline constexpr const wchar_t* kWelcomeBody =
     L"VegaFlow detecta tus juegos y le da prioridad al juego mientras está abierto. Cada cambio que hace queda en Historial y puedes deshacerlo.\r\n\r\n"
     L"Si algo va mal, usa «Devolver todo a como estaba» en Inicio o el atajo Ctrl+Alt+Mayús+R.";
 inline constexpr const wchar_t* kWelcomeButton = L"Entendido";
+// F4.4: config.json broken; the body is ConfigLoadReport::Warning(), then this question
+inline constexpr const wchar_t* kConfigProblemTitle = L"config.json necesita tu decisión";
+inline constexpr const wchar_t* kConfigProblemAsk = L"¿Qué quieres hacer? «Valores de fábrica» guarda antes una copia junto al archivo (.vegaflow.bak).";
+inline constexpr const wchar_t* kConfigProblemAskOpenOnly = L"VegaFlow no puede guardar una copia de este archivo, así que no lo reemplaza. Puedes abrirlo y corregirlo.";
+inline constexpr const wchar_t* kConfigFactoryButton = L"Valores de fábrica";
+inline constexpr const wchar_t* kConfigOpenButton = L"Abrir el archivo";
+inline constexpr const wchar_t* kConfigLaterButton = L"Decidir después";
 inline constexpr const wchar_t* kHotkeyTitle = L"Atajo de pánico";
 
 // Juegos

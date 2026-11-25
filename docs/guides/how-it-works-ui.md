@@ -108,8 +108,8 @@ Known differences, checked in the code and not fixed by this page:
 | 3 and 5 (tab 3) | Opened tab 3 on the laptop, screenshot. How the tab was opened is not recorded | [gui-uma-cores.png](./img/gui-uma-cores.png): "Procesos en segundo plano detectados: 22 \| Procesos aislados en núcleos secundarios: 0" |
 | 6 (Tab key reaches the buttons) | Keyboard run | not reproduced |
 | 8 (restore message brings the window forward) | `scripts/remote/vfdev run gui-second` on the laptop, with one GUI open | `segunda salio=True (codigo 0); GUIs abiertas=1; ventana al frente es la primera=True` |
-| 2 and 3 (cadence) | Suite, `[PASS]` lines | `Test 142.2: hidden without a game -> 30 s safety net, no pad tick (30000 ms)` and `Test 142.5: game closed while hidden -> cadence falls to the safety net`; the window itself was driven on the laptop (see `docs/measurements/verification-status.md`) |
-| Whole suite | Full C++ suite | `TEST RESULTS: 425 PASSED, 0 FAILED` |
+| 2 and 3 (cadence) | Suite, `[PASS]` lines | `Test 143.2: hidden without a game -> 30 s safety net, no pad tick (30000 ms)` and `Test 143.5: game closed while hidden -> cadence falls to the safety net`; the window itself was driven on the laptop (see `docs/measurements/verification-status.md`) |
+| Whole suite | Full C++ suite | `TEST RESULTS: 426 PASSED, 0 FAILED` |
 
 ## Check it yourself
 

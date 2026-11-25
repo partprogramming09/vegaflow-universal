@@ -34,6 +34,9 @@
 #include "app/app_state.hpp"
 #include "session/config.hpp"
 #include "session/config_actions.hpp"
+#include "session/config_recovery.hpp"
+#include "ui/choice_dialog.hpp"
+#include "ui/texts.hpp"
 #include "session/game_actions.hpp"
 #include "session/settings_actions.hpp"
 #include "session/reports.hpp"
@@ -95,6 +98,27 @@ int RunGuiMode(
         last_gui_status = warning;
         AddAuditLog(warning);
         LogNoticeToSessionLog(warning);
+        // F4.4: the person decides what happens to a broken config.json (nothing is overwritten by itself).
+        ConfigRecoveryDeps recovery;
+        recovery.ask = [](const ConfigLoadReport& report, const ConfigRecoveryOffer& offer) {
+            std::vector<ui::DialogButton> buttons;
+            if (offer.factory_reset) buttons.push_back({ui::text::kConfigFactoryButton, static_cast<int>(ConfigChoice::FactoryReset), true, nullptr});
+            if (offer.open_file) buttons.push_back({ui::text::kConfigOpenButton, static_cast<int>(ConfigChoice::OpenFile), true, nullptr});
+            buttons.push_back({ui::text::kConfigLaterButton, static_cast<int>(ConfigChoice::Dismiss), true, nullptr});
+            const std::wstring body = Utf8ToWide(report.Warning()) + L"\r\n\r\n" +
+                                      (offer.factory_reset ? ui::text::kConfigProblemAsk : ui::text::kConfigProblemAskOpenOnly);
+            return static_cast<ConfigChoice>(ui::ShowChoiceDialog(nullptr, ui::text::kConfigProblemTitle, body, buttons,
+                                                                  static_cast<int>(ConfigChoice::Dismiss)));
+        };
+        recovery.open_file = [](const std::wstring& path) {
+            const std::wstring quoted = L"\"" + path + L"\"";
+            return reinterpret_cast<INT_PTR>(ShellExecuteW(nullptr, L"open", L"notepad.exe", quoted.c_str(), nullptr, SW_SHOWNORMAL)) > 32;
+        };
+        if (const std::string note = ResolveConfigProblem(config_store, config, recovery); !note.empty()) {
+            last_gui_status = note;
+            AddAuditLog(note);
+            LogNoticeToSessionLog(note);
+        }
     }
     // Saves the setting the person just changed; when config.json must not be overwritten, says so instead.
     auto SaveSettings = [&](std::string& msg) {

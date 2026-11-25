@@ -7,7 +7,7 @@
 
 namespace vftest {
 
-void Test142() {
+void Test143() {
     using namespace vegaflow::session;
     const auto plan = [](bool visible, bool game, bool events) { return PlanGuiCadence({visible, game, events}); };
 
@@ -18,34 +18,34 @@ void Test142() {
                 const GuiCadence c = plan(true, game, events);
                 ok = ok && c.telemetry_ms == kPollFallbackMs && c.pad_active;
             }
-        RecordResult(ok, "Test 142.1: visible window polls every 1500 ms and keeps the pad tick");
+        RecordResult(ok, "Test 143.1: visible window polls every 1500 ms and keeps the pad tick");
     }
     { // hidden, no game, events working: only the safety net, no pad tick
         const GuiCadence c = plan(false, false, true);
         RecordResult(c.telemetry_ms == kIdleSafetyNetMs && kIdleSafetyNetMs == 30000 && !c.pad_active,
-                     "Test 142.2: hidden without a game -> 30 s safety net, no pad tick", std::to_string(c.telemetry_ms) + " ms");
+                     "Test 143.2: hidden without a game -> 30 s safety net, no pad tick", std::to_string(c.telemetry_ms) + " ms");
     }
     { // hidden with a game: the daemon part still detects it closing, so 1500 ms, but no pad tick
         const GuiCadence c = plan(false, true, true);
-        RecordResult(c.telemetry_ms == kPollFallbackMs && !c.pad_active, "Test 142.3: hidden with a game keeps 1500 ms, no pad tick");
+        RecordResult(c.telemetry_ms == kPollFallbackMs && !c.pad_active, "Test 143.3: hidden with a game keeps 1500 ms, no pad tick");
     }
     { // hidden, hooks failed: the old polling, because nothing else would notice a game
         const GuiCadence c = plan(false, false, false);
-        RecordResult(c.telemetry_ms == kPollFallbackMs && !c.pad_active, "Test 142.4: hidden without events -> 1500 ms polling");
+        RecordResult(c.telemetry_ms == kPollFallbackMs && !c.pad_active, "Test 143.4: hidden without events -> 1500 ms polling");
     }
     { // the game closes while the window is hidden: the next plan drops to the safety net
         const GuiCadence during = plan(false, true, true);
         const GuiCadence after = plan(false, false, true);
         RecordResult(during.telemetry_ms == kPollFallbackMs && after.telemetry_ms == kIdleSafetyNetMs,
-                     "Test 142.5: game closed while hidden -> cadence falls to the safety net");
+                     "Test 143.5: game closed while hidden -> cadence falls to the safety net");
     }
     { // showing the window polls at once; hiding or staying the same does not
         RecordResult(PollWhenVisibilityChanges(false, true) && !PollWhenVisibilityChanges(true, false) &&
                          !PollWhenVisibilityChanges(true, true) && !PollWhenVisibilityChanges(false, false),
-                     "Test 142.6: only hidden -> visible polls at once");
+                     "Test 143.6: only hidden -> visible polls at once");
     }
     { // a wake event polls only when the 1500 ms timer is not already doing it
-        RecordResult(WakeNeedsPoll(false) && !WakeNeedsPoll(true), "Test 142.7: events poll a hidden window, a visible one has its timer");
+        RecordResult(WakeNeedsPoll(false) && !WakeNeedsPoll(true), "Test 143.7: events poll a hidden window, a visible one has its timer");
     }
 }
 
