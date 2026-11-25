@@ -10,16 +10,15 @@
 #include <vector>
 
 #include "model/hardware.hpp"
-#include "optimize/dxvk_manager.hpp"
-#include "optimize/steam/steam_engine_optimizer.hpp"
+#include "model/steam.hpp"
+#include "ports/game_files.hpp"
 #include "session/config.hpp"
 #include "session/games_screen.hpp"
 
 namespace vegaflow::session {
 
 struct GameActionsDeps {
-    SteamEngineOptimizer& steam;
-    DxvkManager& dxvk;
+    GameFiles& files;
     app::AppConfig& config;
     app::ConfigStore& store;
     std::vector<SteamGameEntry>& games;              // the library as scanned; the actions keep its flags current

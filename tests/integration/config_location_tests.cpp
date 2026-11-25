@@ -14,7 +14,7 @@
 #include <string>
 
 #include "session/config.hpp"
-#include "windows/config_location.hpp"
+#include "ports/config_location.hpp"
 #include "windows/safe_file_system.hpp"
 #include "../test_support.hpp"
 

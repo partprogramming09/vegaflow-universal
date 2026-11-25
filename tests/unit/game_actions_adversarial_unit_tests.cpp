@@ -1,6 +1,7 @@
 // Adversarial unit tests: the Juegos buttons (GameActions) with unknown AppIDs, anti-cheat and excluded games, repeated
 // clicks, writes that fail halfway, a refused save after files were already changed, and a hostile library.
 
+#include "optimize/game_files_adapter.hpp"
 #include "session/game_actions.hpp"
 #include "fake_file_system.hpp"
 #include "fake_registry_power.hpp"
@@ -59,6 +60,7 @@ struct Rig {
     FakeRegistryPort reg;
     SteamEngineOptimizer steam{fs, &reg};
     DxvkManager dxvk{fs};
+    vegaflow::OptimizeGameFiles files{steam, dxvk};
     ConfigStore store{fs, L"C:\\VegaFlow\\config.json", true};
     AppConfig config;
     std::vector<SteamGameEntry> games;
@@ -71,7 +73,7 @@ struct Rig {
 
     explicit Rig(std::vector<SteamGameEntry> g)
         : games(std::move(g)),
-          act(gs::GameActionsDeps{steam, dxvk, config, store, games, DetectedPolicy(),
+          act(gs::GameActionsDeps{files, config, store, games, DetectedPolicy(),
                                   [this]() { ++scans; return scan_result; },
                                   [this](const SteamGameEntry& x) { ++inspects; SteamGameEntry n = x; n.engine_preset_applied = inspect_applied; return n; },
                                   [this](const std::string& s) { audit.push_back(s); }}) {

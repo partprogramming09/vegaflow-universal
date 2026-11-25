@@ -15,8 +15,8 @@
 #include "app/app_state.hpp"
 #include "windows/safe_file_system.hpp"
 #include "session/reports.hpp"
-#include "session/run_cycle.hpp"
-#include "windows/text_convert.hpp"
+#include "app/run_cycle.hpp"
+#include "ports/text_convert.hpp"
 
 namespace vegaflow::app {
 

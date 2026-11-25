@@ -13,8 +13,9 @@
 #include <vector>
 
 #include "model/hardware.hpp"
-#include "optimize/graphics/graphics_optimizer.hpp"
+#include "model/tweaks.hpp"
 #include "ports/memory_probe.hpp"
+#include "ports/system_reads.hpp"
 
 namespace vegaflow {
 
@@ -117,15 +118,16 @@ struct SystemInfoSnapshot {
 
 class SystemInfo {
 public:
-    SystemInfo();
+    explicit SystemInfo(SystemReads& reads);
     explicit SystemInfo(const SystemInfoSnapshot& snapshot);
 
     // Gathers real-time hardware, connection architecture, RAM topology, and OS specs
-    static SystemInfoSnapshot Gather(bool include_displays = false);
-    static SystemInfoSnapshot FromHardware(const SystemHardwareProfile& hw, bool include_live_telemetry = false);
-    // Same snapshot from a memory sample and tweak state the caller already has (the GUI poll): no probe, no registry read.
+    static SystemInfoSnapshot Gather(SystemReads& reads, bool include_displays = false);
+    static SystemInfoSnapshot FromHardware(const SystemHardwareProfile& hw, SystemReads& reads, bool include_live_telemetry = false);
+    // Same snapshot from a memory sample and tweak state the caller already has (the GUI poll): no memory or registry read
+    // (only the L3 cache and the DIMM slots still come from `reads`).
     static SystemInfoSnapshot FromHardware(const SystemHardwareProfile& hw, const SystemMemoryTelemetry& mem,
-                                           const SystemGraphicsTweaksState& tweaks);
+                                           const SystemGraphicsTweaksState& tweaks, SystemReads& reads);
 
     const SystemInfoSnapshot& Snapshot() const { return snapshot_; }
 
@@ -136,11 +138,11 @@ public:
 private:
     SystemInfoSnapshot snapshot_;
 
-    static CpuInfo GatherCpu(const SystemHardwareProfile& hw);
+    static CpuInfo GatherCpu(const SystemHardwareProfile& hw, SystemReads& reads);
     static SystemInfoSnapshot Build(const SystemHardwareProfile& hw, const SystemMemoryTelemetry* mem,
-                                    const SystemGraphicsTweaksState* tweaks);
+                                    const SystemGraphicsTweaksState* tweaks, SystemReads& reads);
     static GpuInfo GatherGpu(const SystemHardwareProfile& hw, const SystemMemoryTelemetry* mem);
-    static RamInfo GatherRam(const SystemHardwareProfile& hw, const SystemMemoryTelemetry* mem);
+    static RamInfo GatherRam(const SystemHardwareProfile& hw, const SystemMemoryTelemetry* mem, SystemReads& reads);
     static OsKernelInfo GatherOsKernel(const SystemHardwareProfile& hw, const SystemGraphicsTweaksState* tweaks);
     static ApuGuardInfo GatherApuGuard(const SystemHardwareProfile& hw, uint64_t live_budget_bytes);
 };

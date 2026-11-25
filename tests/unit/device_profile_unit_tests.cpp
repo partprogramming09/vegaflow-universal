@@ -13,6 +13,7 @@
 #include "optimize/steam/steam_engine_optimizer.hpp"
 #include "session/game_session.hpp"
 #include "session/system_info.hpp"
+#include "fake_system_reads.hpp"
 #include "fake_device_probe.hpp"
 #include "../test_support.hpp"
 
@@ -98,6 +99,7 @@ public:
         return active_game;
     }
     bool IsWindowValid(HWND) override { return true; }
+    uint32_t WindowThreadId(HWND) override { return 0; }
     bool IsProcessAlive(uint32_t) override { return active_game.has_value(); }
     std::vector<vegaflow::BackgroundProcessTarget> ClassifyBackgroundProcesses(uint32_t, const vegaflow::ProcessPolicyConfig&) override {
         vegaflow::BackgroundProcessTarget t{};
@@ -295,7 +297,8 @@ void Test51() {
     failed_snap.windows_version.known = false;
     const auto failed_hw = vegaflow::session::BuildHardwareProfileFromSnapshot(failed_snap, false, 0);
     const auto failed_pol = vegaflow::HardwareProfiler::BuildOptimizationPolicy(failed_hw);
-    const auto failed_sys = vegaflow::SystemInfo::FromHardware(failed_hw, false);
+    FakeSystemReads reads;
+    const auto failed_sys = vegaflow::SystemInfo::FromHardware(failed_hw, reads, false);
     const std::string failed_json = vegaflow::SystemInfo::ToJson(failed_sys);
     const bool unreadable_ok =
         !failed_pol.apply_visual_cuts &&
@@ -427,7 +430,8 @@ void Test101() {
     tweaks.memory_compression_enabled = true;
     tweaks.mmcss_gaming_optimized = true;
 
-    const auto s = vegaflow::SystemInfo::FromHardware(hw, mem, tweaks);
+    FakeSystemReads reads;
+    const auto s = vegaflow::SystemInfo::FromHardware(hw, mem, tweaks, reads);
     const auto pol = vegaflow::HardwareProfiler::BuildOptimizationPolicy(hw, mem.vram.local_budget_bytes);
     const bool gpu_ok = s.gpu.dxgi_budget.valid && s.gpu.dxgi_budget.local_budget_bytes == mem.vram.local_budget_bytes &&
                         s.gpu.dxgi_budget.local_usage_bytes == mem.vram.local_usage_bytes;
@@ -440,7 +444,7 @@ void Test101() {
 
     // A sample with no valid VRAM reading keeps the budget invalid (no made-up numbers) and the guard on the static policy.
     vegaflow::SystemMemoryTelemetry no_vram{};
-    const auto n = vegaflow::SystemInfo::FromHardware(hw, no_vram, tweaks);
+    const auto n = vegaflow::SystemInfo::FromHardware(hw, no_vram, tweaks, reads);
     const bool invalid_ok = !n.gpu.dxgi_budget.valid && n.gpu.dxgi_budget.local_budget_bytes == 0 &&
                             n.ram.total_physical_bytes == hw.total_physical_ram_bytes &&
                             n.apu_guard.safe_vram_pool_mb == vegaflow::HardwareProfiler::BuildOptimizationPolicy(hw, 0).safe_vram_pool_mb;

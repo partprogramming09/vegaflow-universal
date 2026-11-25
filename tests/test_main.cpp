@@ -210,7 +210,12 @@ int main() {
         {141, vftest::Test141},  // a standard-user token can join the session log lock
         {142, vftest::Test142},  // F4.4 a broken config.json is the person's decision
         {143, vftest::Test143},  // F4.1 GUI cadence in the tray
+        {145, vftest::Test145},  // F4.3 Juegos buttons reach game files through GameFiles
+        {146, vftest::Test146},  // F4.3 hardware partition/policy and the session cycle without Windows
+        {147, vftest::Test147},  // F4.3 SystemInfo reads through SystemReads
+        {148, vftest::Test148},  // F4.3 SettingsActions drives the switches through TweakControls
         {144, vftest::Test144},  // F4.2 memory tab model, thread-map keys, sidebar order
+        {149, vftest::Test149},  // F4.3 doctor reads through DoctorProbe (was 144 before merging F4.2)
     };
     for (const auto& [number, run] : tests) {
         try {

@@ -1,4 +1,6 @@
 #pragma once
+// Port: UTF-8 <-> UTF-16 and Windows-style name comparison. Declared here so session/ needs no Windows header;
+// windows/text_convert.cpp implements it (a link-time seam: pure functions, nothing to inject).
 
 #include <string>
 

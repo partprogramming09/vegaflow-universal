@@ -21,7 +21,7 @@
 #include <sstream>
 
 #include "ports/power.hpp"
-#include "windows/config_location.hpp"
+#include "ports/config_location.hpp"
 #include "windows/power_settings.hpp"
 #include "windows/reg_restore_scope.hpp"
 #include "windows/unique_handle.hpp"

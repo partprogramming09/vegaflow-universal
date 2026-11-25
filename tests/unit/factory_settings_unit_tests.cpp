@@ -37,6 +37,7 @@ public:
 
     std::optional<vegaflow::DetectedGameProcess> DetectActiveGame(const vegaflow::ProcessPolicyConfig&) override { return active_game; }
     bool IsWindowValid(HWND) override { return true; }
+    uint32_t WindowThreadId(HWND) override { return 0; }
     bool IsProcessAlive(uint32_t) override { return active_game.has_value(); }
     std::vector<vegaflow::BackgroundProcessTarget> ClassifyBackgroundProcesses(uint32_t, const vegaflow::ProcessPolicyConfig&) override { return {}; }
     void QueryLiveMemory(uint64_t& b, uint64_t& u, bool& v) override { b = 0; u = 0; v = false; }

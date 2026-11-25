@@ -2,7 +2,7 @@
 // The model the "Ajustes del sistema" screen reads: what is visible on this machine, whether each setting is on
 // right now, its evidence label and its (i) text. The screen only draws it and decides nothing (no <windows.h>).
 
-#include "optimize/graphics/graphics_optimizer.hpp"
+#include "model/tweaks.hpp"
 #include "session/settings_catalog.hpp"
 
 #include <string>

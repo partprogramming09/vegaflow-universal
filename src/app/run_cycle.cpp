@@ -1,4 +1,4 @@
-#include "session/run_cycle.hpp"
+#include "app/run_cycle.hpp"
 
 #include <windows.h>
 
@@ -16,7 +16,7 @@
 #include "optimize/steam/steam_engine_optimizer.hpp"
 #include "session/game_session.hpp"
 #include "session/reports.hpp"
-#include "windows/text_convert.hpp"
+#include "ports/text_convert.hpp"
 #include "windows/device_probe.hpp"
 #include "windows/power.hpp"
 #include "windows/registry.hpp"
@@ -43,6 +43,10 @@ public:
 
     bool IsWindowValid(HWND hwnd) override {
         return vegaflow::IsWindowHandleValid(hwnd);
+    }
+
+    uint32_t WindowThreadId(HWND hwnd) override {
+        return vegaflow::WindowThreadId(hwnd);
     }
 
     bool IsProcessAlive(uint32_t pid) override {

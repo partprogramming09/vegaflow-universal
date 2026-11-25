@@ -25,7 +25,7 @@
 #include "session/config_screen.hpp"
 #include "session/doctor.hpp"
 #include "session/welcome.hpp"
-#include "windows/config_location.hpp"
+#include "ports/config_location.hpp"
 #include "ui/app_identity.hpp"
 #include "session/history_screen.hpp"
 #include "session/programs_screen.hpp"
@@ -40,9 +40,12 @@
 #include "session/game_actions.hpp"
 #include "session/settings_actions.hpp"
 #include "session/reports.hpp"
-#include "session/run_cycle.hpp"
+#include "app/run_cycle.hpp"
 #include "windows/system_counters.hpp"
-#include "windows/text_convert.hpp"
+#include "app/doctor_probe.hpp"
+#include "app/system_reads.hpp"
+#include "optimize/game_files_adapter.hpp"
+#include "ports/text_convert.hpp"
 #include "windows/event_sources.hpp"
 
 namespace vegaflow::app {
@@ -142,8 +145,10 @@ int RunGuiMode(
     SyncSteamGamesToCustomExes(cached_steam_games, config);
 
     // What the Juegos buttons do lives in session/game_actions; the scan and the folder read are handed in because they touch Windows.
+    WindowsSystemReads system_reads;
+    OptimizeGameFiles game_files(steam, dxvk);
     session::GameActions game_actions(session::GameActionsDeps{
-        steam, dxvk, config, config_store, cached_steam_games, policy,
+        game_files, config, config_store, cached_steam_games, policy,
         []() {
             auto games = SteamEngineOptimizer::ScanSteamLibrary();
             SandboxGuard::ReloadSteamLibraryFolders(); // a library added in Steam becomes writable without a restart
@@ -311,7 +316,7 @@ int RunGuiMode(
         data.active_game_engine = active_game_engine;
         data.has_steam_games = !cached_steam_games.empty();
 
-        data.system_info = SystemInfo::FromHardware(hw, mem_sample, cached_tweaks);
+        data.system_info = SystemInfo::FromHardware(hw, mem_sample, cached_tweaks, system_reads);
         data.sandbox_violations = SandboxGuard::GetViolationCount();
         data.sandbox_guard_active = true;
 
@@ -403,7 +408,10 @@ int RunGuiMode(
     const std::wstring welcome_mark = std::filesystem::path(ConfigFilePath()).replace_filename(L"welcome.seen").wstring();
     callbacks.on_ShouldShowWelcome = [&]() { return session::ShouldShowWelcome(file_system, welcome_mark); };
     callbacks.on_MarkWelcomeSeen = [&]() { session::MarkWelcomeSeen(file_system, welcome_mark); };
-    callbacks.on_RunDoctor = [&]() { return session::ReadDoctorReport(ui::kVersion).text; };
+    callbacks.on_RunDoctor = [&]() {
+        WindowsDoctorProbe probe;
+        return session::ReadDoctorReport(ui::kVersion, probe).text;
+    };
 
     // Configuración and Programas edits live in session/config_actions: `config` follows only when config.json was written.
     session::ConfigActions config_actions(config, config_store, cached_steam_games, [&](const std::string& line) { AddAuditLog(line); });

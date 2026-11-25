@@ -124,7 +124,7 @@ The command: `--restore-registry` is read in [`ParseCommandLine`](https://github
 - [power.cpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/power.cpp): the power-plan adapter, through `powrprof.dll` (`WindowsPowerPort`, in `power.hpp`).
 - [system_counters.cpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/system_counters.cpp): counts for the reports and the GUI, such as the EcoQoS count (`CountEcoQoSProcesses`).
 - [steam_paths.cpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/steam_paths.cpp): finds Steam and its library file. The Rust core reads the list itself; this adapter only finds the file (`FindSteamInstallPath`, in `steam_paths.hpp`).
-- [config_location.cpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/config_location.cpp): finds the folder of the executable and the config file. It also tells whether accounts without administrator rights could change that folder (`ExecutableDirectory` and `ConfigFilePath`, in `config_location.hpp`). The `--dry-run` output shows the warning: `config.json está en una carpeta donde pueden escribir cuentas sin permisos de administrador`.
+- [config_location.cpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/config_location.cpp): finds the folder of the executable and the config file. It also tells whether accounts without administrator rights could change that folder (`ExecutableDirectory` and `ConfigFilePath`, in `ports/config_location.hpp`). The `--dry-run` output shows the warning: `config.json está en una carpeta donde pueden escribir cuentas sin permisos de administrador`.
 - [text_convert.cpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/text_convert.cpp): UTF-8 to UTF-16 conversion, and case-insensitive name comparison (`EqualsIgnoreCase`, in `text_convert.hpp`). Some conversions return `false` for bytes that are not valid UTF-8 (`IsValidUtf8`, in `text_convert.hpp`).
 - [unique_handle.hpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/unique_handle.hpp): wrappers that close a handle when they go out of scope, also on early returns.
 - [nt_defs.hpp](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/windows/nt_defs.hpp): the NT structures used by the memory code, typed by hand.
@@ -195,7 +195,7 @@ All lines below were run on the test laptop on 2026-11-20 and are trimmed from t
 | Journal crash recovery | Suite, Test 49 and Test 50 | `[PASS] Test 49: Change journal atomic writes, crash recovery, Safe Mode, and corrupt handling (fresh: PASS, crash1: PASS, ..., safe mode: PASS, corrupt: PASS, ...)` and `[PASS] Test 50: Real disk FileChangeJournal + WindowsSystemUndo restores HKCU registry and game INI after crash (setup: PASS, restored 2/2: PASS, HKCU==123: PASS, INI exact: PASS)` |
 | `--system-info` JSON | `vegaflow_daemon.exe --system-info` | The JSON excerpt in "A concrete example" |
 | `--status` lines | `vegaflow_daemon.exe --status` | The lines in "A concrete example" |
-| Whole suite | `scripts/build/build.ps1 -RunTests` | `TEST RESULTS: 426 PASSED, 0 FAILED` |
+| Whole suite | `scripts/build/build.ps1 -RunTests` | `TEST RESULTS: 465 PASSED, 0 FAILED` |
 | `--restore-registry` run from the command line | not run | not reproduced |
 | Standby purge without Administrator | not run | not reproduced |
 | The exact refusal message of a write | not run; Test 17 shows PASS only | not reproduced |

@@ -14,8 +14,8 @@
 #include <vector>
 
 #include "model/game.hpp"
-#include "optimize/memory_manager.hpp"
-#include "optimize/steam/steam_engine_optimizer.hpp"
+#include "model/memory.hpp"
+#include "model/steam.hpp"
 #include "ports/file_system.hpp"
 
 namespace vegaflow::app {
@@ -42,7 +42,7 @@ enum class ConfigProblem { None, UntrustedFolder, Unreadable, Corrupt, Rejected,
 struct ConfigLoadReport {
     uint32_t status = 0;         // VF_CONFIG_* bits (bridge/rust_bridge.h)
     uint32_t rejected_keys = 0;  // VF_CONFIG_KEY_* bits
-    bool folder_trusted = true;  // only administrators can write the folder (windows/config_location.hpp)
+    bool folder_trusted = true;  // only administrators can write the folder (ports/config_location.hpp)
     bool unreadable = false;     // the file is there but could not be read, or is too large
 
     bool CanSave() const;

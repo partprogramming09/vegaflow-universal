@@ -112,7 +112,7 @@ Known differences, checked in the code and not fixed by this page:
 | 6 (Tab key reaches the buttons) | Keyboard run | not reproduced |
 | 8 (restore message brings the window forward) | `scripts/remote/vfdev run gui-second` on the laptop, with one GUI open | `segunda salio=True (codigo 0); GUIs abiertas=1; ventana al frente es la primera=True` |
 | 2 and 3 (cadence) | Suite, `[PASS]` lines | `Test 143.2: hidden without a game -> 30 s safety net, no pad tick (30000 ms)` and `Test 143.5: game closed while hidden -> cadence falls to the safety net`; the window itself was driven on the laptop (see `docs/measurements/verification-status.md`) |
-| Whole suite | Full C++ suite | `TEST RESULTS: 426 PASSED, 0 FAILED` |
+| Whole suite | Full C++ suite | `TEST RESULTS: 465 PASSED, 0 FAILED` |
 
 ## Check it yourself
 

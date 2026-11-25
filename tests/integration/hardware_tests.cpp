@@ -30,6 +30,7 @@
 #include "optimize/steam/steam_engine_optimizer.hpp"
 #include "optimize/dxvk_manager.hpp"
 #include "windows/sandbox_guard.hpp"
+#include "app/system_reads.hpp"
 #include "session/system_info.hpp"
 #include "bridge/rust_bridge.h"
 #include <filesystem>
@@ -232,7 +233,8 @@ void Test25() {
         // ---------------------------------------------------------------------
         // Case E — SystemInfo JSON serialization
         // ---------------------------------------------------------------------
-        std::string sys_json = vegaflow::SystemInfo().ToJson();
+        vegaflow::app::WindowsSystemReads real_reads;
+        std::string sys_json = vegaflow::SystemInfo(real_reads).ToJson();
         bool case_e_ok = (sys_json.find("\"apu_guard\":") != std::string::npos) &&
                          (sys_json.find("\"guard_mode\":") != std::string::npos) &&
                          (sys_json.find("\"dx12_async_compute_allowed\":") != std::string::npos);

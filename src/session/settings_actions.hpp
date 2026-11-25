@@ -1,6 +1,6 @@
 #pragma once
-// What the switches of the "Ajustes" screen do: one switch sets a row of the catalog on or off through the graphics
-// optimizer (and so through its registry and power ports), and every answer is the sentence for the status bar.
+// What the switches of the "Ajustes" screen do: one switch sets a row of the catalog on or off through the TweakControls
+// port (the optimizer behind it writes the registry and the power plan), and every answer is the sentence for the status bar.
 
 #include <cstddef>
 #include <functional>
@@ -8,12 +8,12 @@
 #include <utility>
 
 #include "model/hardware.hpp"
-#include "optimize/graphics/graphics_optimizer.hpp"
+#include "ports/tweak_controls.hpp"
 
 namespace vegaflow::session {
 
 struct SettingsActionsDeps {
-    GraphicsOptimizer& gfx;
+    TweakControls& gfx;
     ApuOptimizationPolicy policy;                                // the boot policy
     std::function<ApuOptimizationPolicy()> live_policy;          // the same, with the video budget read now
     std::function<void(const std::string&)> audit;               // one line in the audit log

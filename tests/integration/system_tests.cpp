@@ -29,6 +29,7 @@
 #include "optimize/steam/steam_engine_optimizer.hpp"
 #include "optimize/dxvk_manager.hpp"
 #include "windows/sandbox_guard.hpp"
+#include "app/system_reads.hpp"
 #include "session/system_info.hpp"
 #include "bridge/rust_bridge.h"
 #include <filesystem>
@@ -59,7 +60,8 @@ void Test18() {
     // TEST 18: SystemInfo Telemetry, Hardware Specs Gathering & JSON Serialization
     // -------------------------------------------------------------------------
     {
-        vegaflow::SystemInfo sys_info;
+        vegaflow::app::WindowsSystemReads real_reads;
+        vegaflow::SystemInfo sys_info(real_reads);
         const auto& snap = sys_info.Snapshot();
 
         // 1. CPU Validation

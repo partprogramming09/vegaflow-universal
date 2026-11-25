@@ -18,7 +18,7 @@
 #include "session/config.hpp"
 #include "session/game_session.hpp"
 #include "session/games_screen.hpp"
-#include "windows/text_convert.hpp"
+#include "ports/text_convert.hpp"
 #include "windows/change_journal.hpp"
 #include "fake_change_journal.hpp"
 #include "fake_file_system.hpp"

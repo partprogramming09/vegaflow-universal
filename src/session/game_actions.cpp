@@ -2,7 +2,7 @@
 
 #include <filesystem>
 
-#include "windows/text_convert.hpp"
+#include "ports/text_convert.hpp"
 
 namespace vegaflow::session {
 
@@ -53,7 +53,7 @@ std::string GameActions::Apply(uint32_t app_id) {
     SteamGameEntry* g = Find(app_id);
     if (!g) return NotFound(app_id);
     if (IsExcludedGame(d_.config.process_policy.excluded_game_exes, *g)) return Said("Este juego está en tu lista de excluidos: VegaFlow no escribe nada para él.");
-    const auto rep = d_.steam.ApplyEngineUmaPreset(*g, d_.policy, d_.policy.safe_vram_pool_mb, false);
+    const auto rep = d_.files.ApplyEngineUmaPreset(*g, d_.policy, d_.policy.safe_vram_pool_mb, false);
     if (rep.success) {
         g->engine_preset_applied = true;
         g->flip_model_applied = true;
@@ -64,7 +64,7 @@ std::string GameActions::Apply(uint32_t app_id) {
 std::string GameActions::Restore(uint32_t app_id) {
     SteamGameEntry* g = Find(app_id);
     if (!g) return NotFound(app_id);
-    const auto rep = d_.steam.RestoreEngineOriginalConfig(*g, false);
+    const auto rep = d_.files.RestoreEngineOriginalConfig(*g, false);
     if (rep.success) g->engine_preset_applied = false;
     return Said(rep.status_message);
 }
@@ -86,7 +86,7 @@ std::string GameActions::Exclude(uint32_t app_id) {
     d_.config = candidate;
     std::string note;
     if (HasProfile(*g) && !g->has_anticheat && g->engine_preset_applied) {
-        const auto rep = d_.steam.RestoreEngineOriginalConfig(*g, false);
+        const auto rep = d_.files.RestoreEngineOriginalConfig(*g, false);
         if (rep.success) g->engine_preset_applied = false;
         note = rep.success ? "Archivo original devuelto. " : "No se pudo devolver el archivo original: " + rep.status_message + ". ";
     }
@@ -111,7 +111,7 @@ std::string GameActions::ToggleDxvk(uint32_t app_id) {
     if (g->has_anticheat) return Said("Este juego usa anti-cheat: VegaFlow no cambia ni quita archivos en su carpeta.");
     if (!g->dxvk_installed) return Said("VegaFlow ya no instala DXVK: no hay nada que quitar en este juego.");
     std::string msg;
-    if (d_.dxvk.RemoveDxvk(g->primary_exe_path, false, &msg)) g->dxvk_installed = false;
+    if (d_.files.RemoveDxvk(g->primary_exe_path, false, &msg)) g->dxvk_installed = false;
     return Said(msg);
 }
 

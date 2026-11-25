@@ -51,11 +51,15 @@ vegaflow-universal/
 │   │   ├── daemon_loop.*         # Default mode: the daemon loop and clean shutdown
 │   │   ├── gui_mode.*            # --gui: native window with tray; assembles `session/` and connects the buttons (see 3.3b)
 │   │   ├── monitor.*             # --monitor: live console panel
-│   │   └── app_state.*           # Shared state and the Ctrl+C handler
-│   ├── session/                  # Use cases: what the daemon does with a game
-│   │   ├── run_cycle.*           # One evaluation cycle: detect a game, apply or release
+│   │   ├── doctor_probe.*        # The real `DoctorProbe` (disks, caches, hardware, config, processes)
+│   │   ├── app_state.*           # Shared state and the Ctrl+C handler
+│   │   ├── run_cycle.*           # One evaluation cycle: detect a game, apply or release (builds the real Windows classes)
+│   │   ├── report_commands.*     # --status, --dry-run and --purge-now (build the real detectors and optimizers)
+│   │   ├── system_reads.hpp      # Windows adapter of the `SystemReads` port
+│   │   └── doctor_probe.*        # Windows adapter of the `DoctorProbe` port
+│   ├── session/                  # Use cases: what the daemon does with a game (includes nothing from detect/, optimize/ or windows/)
 │   │   ├── game_session.*        # Session injectable through ports, GPU hot-plug detection, static/live step and on-the-fly exclusion
-│   │   ├── reports.*             # --status, --dry-run and --purge-now
+│   │   ├── reports.*             # The session log and the report lines (--status, --monitor)
 │   │   ├── system_info.*         # SystemInfo report (hardware, UMA, RAM, OS and JSON); the Windows readings are requested from windows/system_counters
 │   │   ├── config.*              # ConfigStore: read and save config.json (rules in Rust) and the game list
 │   │   ├── restore.*             # Startup evaluation, journal recovery, history format, restore point and `RestoreAllMessage`
@@ -64,6 +68,9 @@ vegaflow-universal/
 │   │   ├── settings_catalog.*    # Catalog of settings for the System settings screen (families by hardware, experimental, evidence)
 │   │   └── *_actions.*           # What the buttons do: `GameActions`, `SettingsActions` and `ConfigActions`
 │   ├── ports/                    # Interfaces that the use cases ask for and the tests fake
+│   │   ├── system_reads.hpp      # What SystemInfo reads (hardware, memory sample, tweaks, L3, DIMM slots)
+│   │   ├── tweak_controls.hpp    # The Ajustes switches (implemented by `GraphicsOptimizer`)
+│   │   ├── config_location.hpp   # Folder of the .exe and path of config.json (implemented in windows/config_location.cpp)
 │   │   ├── file_system.hpp       # Read, write, replace whole, copy and delete files
 │   │   ├── clock.hpp             # The current time and readable date (`WallNow`); the tests move it by hand
 │   │   ├── device_probe.hpp      # Machine probe (GPU/DXCore/SetupAPI, per-game disk, power, displays, ARM64)
@@ -72,11 +79,19 @@ vegaflow-universal/
 │   │   ├── process_control.hpp   # Process control checking PID + creation_time (EcoOnly vs Throttle, and games)
 │   │   ├── registry.hpp          # Read, write, delete and backup in the Windows registry
 │   │   ├── power.hpp             # Read/write of the active power plan and AC/DC restore
-│   │   └── change_journal.hpp    # Atomic change journal and the system's undo port
+│   │   ├── change_journal.hpp    # Atomic change journal and the system's undo port
+│   │   ├── doctor_probe.hpp      # The reads of `--doctor` as plain data (the real one is `app/doctor_probe.cpp`)
+│   │   ├── game_files.hpp        # What the Juegos buttons change in a game folder (the real one is `optimize/game_files_adapter.hpp`)
+│   │   └── text_convert.hpp      # UTF-8 <-> UTF-16 (`Utf8ToWide`, `WideToUtf8`); `windows/text_convert.cpp` implements it
 │   ├── model/                    # Shared types, no logic
 │   │   ├── hardware.hpp          # GPU (connection, PCI IDs, driver), CPU, disk, power, Tier and policy
 │   │   ├── game.hpp              # Detected game, graphics API and process classification/policy
-│   │   └── console.hpp           # `StdinKind`: where stdin comes from (visible or hidden console, pipe, file)
+│   │   ├── console.hpp           # `StdinKind`: where stdin comes from (visible or hidden console, pipe, file)
+│   │   ├── memory.hpp, steam.hpp, tweaks.hpp # Plain data of the optimizers (thresholds, reports, Steam games, applied tweaks)
+│   │   ├── hardware_names.hpp    # Plain names of the hardware enums
+│   │   ├── engine_presets.*      # The Unreal block and Unity keys a preset writes
+│   │   ├── path_name.hpp         # File-name part of a Windows path
+│   │   └── doctor.hpp            # Disk and cache rows of `--doctor`
 │   ├── detect/                   # What hardware and which game are present
 │   │   ├── hardware_profiler.*   # Orchestration of the universal probe and policy from Rust (`device_profile.rs`)
 │   │   └── process_detector.*    # Game detection (path + 3D DLL + generic AC signals) and classification via Rust
@@ -114,7 +129,7 @@ vegaflow-universal/
 │   ├── windows/                  # Wrappers around the Windows API
 │   │   ├── nt_defs.hpp           # Typedefs and undocumented native NTDLL calls
 │   │   ├── system_counters.*     # Readings for the report and the GUI: processes in EcoQoS, games with Direct Flip, L3 cache (with CPUID fallback), DIMM slots via SMBIOS and window ids
-│   │   ├── text_convert.*        # UTF-8 <-> UTF-16 (`Utf8ToWide`, `WideToUtf8`)
+│   │   ├── text_convert.cpp      # Implements `ports/text_convert.hpp`
 │   │   ├── console_prompt.*      # `ClassifyStdin` and `ConsoleKeyInput`: the real console for a question with a time limit
 │   │   ├── unique_handle.hpp     # Automatic closing of handles, registry keys and searches (RAII)
 │   │   ├── device_probe.*        # Real Windows probe (DXCore COM, DXGI, SetupAPI RemovalPolicy, Storage SeekPenalty/BusType, Power, IsWow64Process2)

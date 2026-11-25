@@ -715,6 +715,9 @@ RawDeviceSnapshot WindowsDeviceProbe::ProbeSystem(bool include_displays) {
     snap.adapter_signature = ComputeAdapterSignature(snap.gpus);
 
     DetectCpuSetsRaw(snap.cpu_topology);
+    PROCESSOR_NUMBER here{};
+    GetCurrentProcessorNumberEx(&here);
+    snap.current_processor_group = here.Group;
     snap.cpu_probe_ok = !snap.cpu_topology.all_cpu_sets.empty() || !snap.cpu_topology.brand_string.empty();
     QueryCpuFamilyModel(snap.cpu_family, snap.cpu_model);
 

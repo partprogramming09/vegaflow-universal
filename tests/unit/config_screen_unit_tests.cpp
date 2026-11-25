@@ -116,7 +116,8 @@ void Test65() {
     for (unsigned ms : {250u, 1001u, 1050u, 1500u, 60000u}) {
         AppConfig c;
         c.poll_interval_ms = ms;
-        const auto* row = Find(cs::BuildConfigScreen(c), "poll_interval");
+        const auto screen = cs::BuildConfigScreen(c); // kept alive: Find returns a pointer into it
+        const auto* row = Find(screen, "poll_interval");
         AppConfig d;
         std::string e;
         round_trip = round_trip && row && cs::ApplyConfigNumber(d, "poll_interval", row->value, &e) && d.poll_interval_ms == ms;

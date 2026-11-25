@@ -25,6 +25,7 @@ struct RawDeviceSnapshot {
     SystemArch system_arch = SystemArch::Unknown;
     std::vector<DisplayMonitorInfo> displays;
     uint64_t adapter_signature = 0;
+    uint16_t current_processor_group = 0; // group of the processor the probing thread ran on (CPU Sets are split by it)
 };
 
 class DeviceProbe {

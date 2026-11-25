@@ -1,10 +1,9 @@
 #include "session/game_session.hpp"
 
 #include "bridge/rust_bridge.h"
-#include "detect/hardware_profiler.hpp"
-#include "optimize/cpu_orchestrator.hpp"
-#include "windows/system_counters.hpp"
-#include "windows/text_convert.hpp"
+#include "bridge/hardware_policy.hpp"
+#include "model/hardware_names.hpp"
+#include "ports/text_convert.hpp"
 
 #include <cwctype>
 #include <filesystem>
@@ -89,7 +88,7 @@ SystemHardwareProfile BuildHardwareProfileFromSnapshot(
 
     if (!hw.cpu_topology.all_cpu_sets.empty() &&
         (hw.cpu_topology.game_optimal_cpu_set_ids.empty() || hw.cpu_topology.background_cpu_set_ids.empty())) {
-        HardwareProfiler::PartitionCpuSetsFromTopology(hw.cpu_topology);
+        PartitionCpuSets(hw.cpu_topology, snap.current_processor_group);
     }
 
     std::vector<std::string> names;
@@ -209,7 +208,7 @@ void RunGameSessionCycle(
         else if (state.active_game_api == "DirectX 9/10") cached.api = RenderApi::DirectX9_10;
         else cached.api = RenderApi::DirectX11;
         cached.main_window = state.active_game_hwnd;
-        cached.presenter_thread_id = WindowThreadId(state.active_game_hwnd);
+        cached.presenter_thread_id = env.WindowThreadId(state.active_game_hwnd);
         cached.generic_anticheat_detected = state.active_game_anticheat;
         game_opt = cached;
     } else {
@@ -251,14 +250,14 @@ void RunGameSessionCycle(
         env.QueryLiveMemory(live_vram_budget, live_vram_usage, live_vram_valid);
         (void)live_vram_usage;
 
-        const ApuOptimizationPolicy static_policy = HardwareProfiler::BuildOptimizationPolicy(hw);
-        const ApuOptimizationPolicy live_policy = HardwareProfiler::BuildOptimizationPolicy(
+        const ApuOptimizationPolicy static_policy = ::vegaflow::BuildOptimizationPolicy(hw);
+        const ApuOptimizationPolicy live_policy = ::vegaflow::BuildOptimizationPolicy(
             hw, live_vram_valid ? live_vram_budget : 0);
 
         if (hw_changed && audit_cb) {
             audit_cb("[GPU] Cambio de adaptador o preferencia detectado: GPU=" +
                      app::WideToUtf8(hw.primary_gpu.description) + " [" +
-                     HardwareProfiler::ConnectionToString(hw.primary_gpu.connection) + "]");
+                     ConnectionToString(hw.primary_gpu.connection) + "]");
         }
 
         if (is_new_game) {

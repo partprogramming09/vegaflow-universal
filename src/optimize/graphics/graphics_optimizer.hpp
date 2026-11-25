@@ -2,8 +2,10 @@
 // System and graphics optimization families backed by RegistryPort and PowerPort (no <windows.h>).
 
 #include "model/hardware.hpp"
+#include "model/tweaks.hpp"
 #include "ports/power.hpp"
 #include "ports/registry.hpp"
+#include "ports/tweak_controls.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -13,31 +15,6 @@
 #include <vector>
 
 namespace vegaflow {
-
-struct SystemGraphicsTweaksState {
-    bool mpo_disabled = false; // HKLM\SOFTWARE\Microsoft\Windows\Dwm -> OverlayTestMode == 5 (undocumented; off by default)
-    uint32_t dwm_overlay_test_mode = 0;
-    bool amd_shader_cache_forced = false; // ShaderCache == 32 00 in Class\{4d36e968-e325-11ce-bfc1-08002be10318}
-    bool memory_compression_enabled = false; // "MemCompression" kernel process active
-    bool mmcss_gaming_optimized = false; // SystemProfile\SystemResponsiveness <= 10 && Tasks\Games\Priority == 6 && Scheduling Category == "High"
-    bool amd_dx11_uma_boost = false;     // SurfaceFormatReplacements == 0x3100
-    bool gamedvr_disabled = false;       // GameDVR_Enabled == 0
-    bool fse_disabled = false;           // GameDVR_FSEBehaviorMode == 2
-    bool apu_power_optimized = false;    // APU power plan (PCIe ASPM Off)
-    uint32_t win32_priority_separation = 2; // HKLM\SYSTEM\CurrentControlSet\Control\PriorityControl -> Win32PrioritySeparation
-    bool kernel_paging_shield_active = false; // HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management -> DisablePagingExecutive == 1
-    uint32_t amd_tessellation_max = 0;       // Detected tessellation limit (e.g. 16, 8, 64)
-    std::string mmcss_scheduling_category;
-    std::string mmcss_sfio_priority;
-    uint32_t mmcss_clock_rate = 10000;
-    uint32_t amd_vram_reported_mb = 0;
-    bool amd_vram_override_active = false;
-};
-
-enum class ApuPowerMode {
-    Balanced = 0,            // Default: standard aggressive Boost (4.0 GHz)
-    GpuPrioritySustained = 1 // Efficient boost (3.2-3.4 GHz ceiling / Mode 4) to yield ~15W continuously to the iGPU
-};
 
 // AMD display driver & UMA VRAM reporting tweaks (instantiated only for AMD GPUs).
 class AmdDriverTweaks {
@@ -156,7 +133,7 @@ private:
 };
 
 // Coordinator that decides vendor-gated and policy-gated tweak families in a single place.
-class GraphicsOptimizer {
+class GraphicsOptimizer final : public TweakControls {
 public:
     GraphicsOptimizer(
         const SystemHardwareProfile& hw,
@@ -182,8 +159,31 @@ public:
     PowerModeTweaks* PowerMode() { return power_mode_ ? &*power_mode_ : nullptr; }
     const PowerModeTweaks* PowerMode() const { return power_mode_ ? &*power_mode_ : nullptr; }
 
-    SystemGraphicsTweaksState QuerySystemGraphicsTweaks();
-    bool RestoreAllRegistryBackups(size_t* out_reverted = nullptr, size_t* out_total = nullptr);
+    SystemGraphicsTweaksState QuerySystemGraphicsTweaks() override;
+    bool RestoreAllRegistryBackups(size_t* out_reverted = nullptr, size_t* out_total = nullptr) override;
+
+    // TweakControls: one-line forwards to the families above (the Ajustes screen reaches them through the port).
+    bool HasAmdDriver() const override { return amd_driver_.has_value(); }
+    bool HasPowerMode() const override { return power_mode_.has_value(); }
+    bool SetMpoDisabled(bool disable, bool dry_run) override { return display_.SetMpoDisabled(disable, dry_run); }
+    bool SetGameDvrCaptureDisabled(bool disable, bool dry_run, bool user_off) override { return display_.SetGameDvrCaptureDisabled(disable, dry_run, user_off); }
+    bool SetFullscreenOptimizationsDisabled(bool disable, bool dry_run) override { return display_.SetFullscreenOptimizationsDisabled(disable, dry_run); }
+    bool SetMemoryCompressionEnabled(bool enable, bool dry_run) override { return kernel_.SetMemoryCompressionEnabled(enable, dry_run); }
+    bool RevertMemoryCompressionChange(bool dry_run) override { return kernel_.RevertMemoryCompressionChange(dry_run); }
+    bool SetDynamicPrioritySeparation(uint32_t value, bool dry_run, bool user_off) override { return kernel_.SetDynamicPrioritySeparation(value, dry_run, user_off); }
+    bool SetKernelMemoryPagingShield(bool enable, bool dry_run, bool user_off) override { return kernel_.SetKernelMemoryPagingShield(enable, dry_run, user_off); }
+    bool SetGamingProfileOptimized(bool optimize, bool dry_run, bool user_off) override { return mmcss_.SetGamingProfileOptimized(optimize, dry_run, user_off); }
+    bool SetShaderCacheForced(bool force_on, const ApuOptimizationPolicy& policy, bool dry_run) override {
+        return amd_driver_ && amd_driver_->SetShaderCacheForced(force_on, policy, dry_run);
+    }
+    bool ApplyVramReportingOverride(uint32_t target_mb, bool dry_run) override { return amd_driver_ && amd_driver_->ApplyVramReportingOverride(target_mb, dry_run); }
+    bool RestoreVramReporting(bool dry_run) override { return amd_driver_ && amd_driver_->RestoreVramReporting(dry_run); }
+    bool SetApuPowerMode(ApuPowerMode mode, const ApuOptimizationPolicy& policy, bool dry_run) override {
+        return power_mode_ && power_mode_->SetApuPowerMode(mode, policy, dry_run);
+    }
+    bool SetApuLaptopPowerProfile(bool optimize, const ApuOptimizationPolicy& policy, bool dry_run) override {
+        return power_mode_ && power_mode_->SetApuLaptopPowerProfile(optimize, policy, dry_run);
+    }
 
     struct RebindResult {
         bool rebuilt = false;            // the target GPU or its policy changed (with dry_run: would change)

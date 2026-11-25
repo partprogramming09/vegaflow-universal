@@ -6,17 +6,16 @@ set -u
 cd "$(dirname "$0")/../.." || exit 2
 
 # Folders each layer may include (its own folder is always allowed).
-# "Migration" entries are the old folders (detect/, optimize/): they go away phase by phase
-# and must be removed from these lists when they do.
+# detect/ and optimize/ are the old folders: they go away phase by phase (and drop out of these lists when they do).
 allowed() {
     case "$1" in
-    app) echo "session ui model windows bridge detect optimize" ;;
+    app) echo "session ui model ports windows bridge detect optimize" ;;
     ui) echo "session model" ;;
-    session) echo "model ports bridge detect optimize windows" ;; # Migration: detect optimize windows
+    session) echo "model ports bridge" ;; # strict
     ports) echo "model" ;;
     windows) echo "ports model bridge" ;;
     model) echo "" ;;
-    bridge) echo "" ;;
+    bridge) echo "model ports" ;; # the Rust bridge converts model types and uses ports/text_convert
     detect) echo "model windows bridge" ;;
     optimize) echo "model ports windows bridge" ;;
     *) echo "UNKNOWN" ;;
@@ -33,6 +32,7 @@ while IFS= read -r line; do
     checked=$((checked + 1))
     [ "$from" = "$to" ] && continue
     ok="$(allowed "$from")"
+    [ "$(allowed "$from")" = "UNKNOWN" ] && ok="UNKNOWN"
     if [ "$ok" = "UNKNOWN" ]; then
         echo "unknown layer: src/$from (add it to scripts/ci/check_layers.sh)"; fail=1; continue
     fi

@@ -21,10 +21,13 @@
 #include "session/config.hpp"
 #include "session/doctor.hpp"
 #include "session/reports.hpp"
-#include "session/run_cycle.hpp"
+#include "app/report_commands.hpp"
+#include "app/run_cycle.hpp"
 #include "ui/app_identity.hpp"
 #include "windows/command_line.hpp"
-#include "windows/text_convert.hpp"
+#include "app/doctor_probe.hpp"
+#include "app/system_reads.hpp"
+#include "ports/text_convert.hpp"
 
 namespace vegaflow::app {
 
@@ -126,7 +129,10 @@ std::optional<int> ParseCommandLine(int argc, char* argv[], CliOptions& opts) {
     }
 
     // E2.5: read-only, so it runs before the automatic UAC relaunch and works without administrator rights.
-    if (doctor) return vegaflow::session::RunDoctor(doctor_json, ui::kVersion);
+    if (doctor) {
+        WindowsDoctorProbe probe;
+        return vegaflow::session::RunDoctor(doctor_json, ui::kVersion, probe);
+    }
     if (doctor_json) {
         std::cerr << "[ERROR] --json is only valid with --doctor (see --help)\n";
         return 2;
@@ -144,7 +150,8 @@ std::optional<int> RunOneShotCommand(const CliOptions& opts, int argc, char* arg
     vegaflow::WindowsRegistryPort reg;
     vegaflow::WindowsPowerPort power;
     if (opts.system_info_flag) {
-        vegaflow::SystemInfo sys_info;
+        WindowsSystemReads reads;
+        vegaflow::SystemInfo sys_info(reads);
         std::cout << sys_info.ToJson() << "\n";
         return 0;
     }

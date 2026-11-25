@@ -207,19 +207,6 @@ SteamGameEntry SteamEngineOptimizer::InspectGameDirectory(
     return entry;
 }
 
-const char* SteamEngineOptimizer::EngineTypeToString(GameEngineType type) {
-    switch (type) {
-        case GameEngineType::UnrealEngine4_5:
-            return "Unreal Engine 4/5";
-        case GameEngineType::Unity:
-            return "Unity";
-        case GameEngineType::Source1_2:
-            return "Source 1/2";
-        case GameEngineType::NativeDirectX_Vulkan:
-            return "Native DirectX/Vulkan";
-        default:
-            return "Unknown";
-    }
-}
+const char* SteamEngineOptimizer::EngineTypeToString(GameEngineType type) { return ::vegaflow::EngineTypeToString(type); }
 
 } // namespace vegaflow

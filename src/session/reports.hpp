@@ -1,5 +1,5 @@
 #pragma once
-// Console reports: --status, --purge-now and --dry-run.
+// Console reports: the session log and the lines --status and --monitor print (the commands themselves: app/report_commands.hpp).
 
 #include <cstdint>
 #include <filesystem>
@@ -33,10 +33,6 @@ bool LogNoticeToSessionLog(const std::string& notice, const std::string& file_pa
 // F3.4: creates or opens the log lock (a HANDLE as void*; the caller closes it with CloseHandle). Null when it cannot.
 // Opens with only SYNCHRONIZE | MUTEX_MODIFY_STATE, so a standard-user GUI can join a lock an elevated daemon made.
 void* OpenSessionLogLock();
-
-void PrintStatusReport();
-void ExecutePurgeNow(bool dry_run);
-void ExecuteDryRun(const AppConfig& config);
 
 // The [WHY THIS PROFILE] block of --status: header plus one "  - " line per reason, and an empty string when there are none.
 std::string WhyThisProfileSection(const std::vector<std::string>& reasons);

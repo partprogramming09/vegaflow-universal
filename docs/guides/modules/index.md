@@ -19,13 +19,16 @@ Each folder of `src/` may only include the folders listed for it (its own folder
 
 | Folder | May include |
 | --- | --- |
-| `app/` (entry points) | `session/`, `ui/`, `model/`, `windows/`, `bridge/`, `detect/`, `optimize/` |
+| `app/` (entry points and adapters) | `session/`, `ui/`, `model/`, `ports/`, `windows/`, `bridge/`, `detect/`, `optimize/` |
 | `ui/` (GUI) | `session/`, `model/` |
-| `session/` (use cases) | `model/`, `ports/`, `bridge/`; during the migration, also `detect/`, `optimize/` and `windows/` |
+| `session/` (use cases) | `model/`, `ports/`, `bridge/` |
 | `ports/` (interfaces) | `model/` |
 | `windows/` (adapters) | `ports/`, `model/`, `bridge/` |
 | `detect/` (migration) | `model/`, `windows/`, `bridge/` |
 | `optimize/` (migration) | `model/`, `ports/`, `windows/`, `bridge/` |
-| `model/`, `bridge/` | nothing |
+| `bridge/` (Rust bridge) | `model/`, `ports/` |
+| `model/` | nothing |
+
+`session/` is strict since F4.3: a file that includes `detect/`, `optimize/` or `windows/` fails the check, and there is no exception list. Each family of Windows calls that `session/` needs is an interface in `ports/` (see [Code layers](./layers.md#what-f4-3-moved-2026-11-25)).
 
 For what the repository checks against this table, see [Code layers](./layers.md#what-the-repository-checks).
