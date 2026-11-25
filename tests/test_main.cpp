@@ -210,6 +210,7 @@ int main() {
         {141, vftest::Test141},  // a standard-user token can join the session log lock
         {142, vftest::Test142},  // F4.4 a broken config.json is the person's decision
         {143, vftest::Test143},  // F4.1 GUI cadence in the tray
+        {144, vftest::Test144},  // F4.2 memory tab model, thread-map keys, sidebar order
     };
     for (const auto& [number, run] : tests) {
         try {
