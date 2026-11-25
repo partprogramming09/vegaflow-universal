@@ -99,6 +99,7 @@ inline constexpr const wchar_t* kHomeTroubleBody =
     L"es texto con tu equipo y los últimos cambios; léelo antes de enviarlo.";
 inline constexpr const wchar_t* kHomeUndoAllButton = L"Devolver todo a como estaba";
 inline constexpr const wchar_t* kHomeReportButton = L"Copiar informe";
+inline constexpr const wchar_t* kTrayReport = L"Copiar informe";
 inline constexpr const wchar_t* kHomeReportCopied = L"Informe copiado: pégalo donde pidas ayuda. Revísalo antes de enviarlo.";
 inline constexpr const wchar_t* kHomeReportFailed = L"No se pudo copiar el informe al portapapeles.";
 // E2.7: pause offer, diagnosis, exit notice and welcome (the dialogs are the window's own, see ui/choice_dialog.hpp)

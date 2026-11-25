@@ -44,6 +44,7 @@ src src/session/settings_catalog.cpp
 src src/session/settings_screen.cpp
 src src/session/startup_prompts.cpp
 src src/session/system_info.cpp
+src src/session/gui_cadence.cpp
 src src/session/wake_loop.cpp
 src src/session/welcome.cpp
 
@@ -66,6 +67,7 @@ test tests/unit/startup_prompts_unit_tests.cpp
 test tests/unit/requirements_screen_unit_tests.cpp
 test tests/unit/settings_catalog_unit_tests.cpp
 test tests/unit/settings_screen_unit_tests.cpp
+test tests/unit/gui_cadence_unit_tests.cpp
 test tests/unit/ui_identity_unit_tests.cpp
 test tests/unit/wake_loop_unit_tests.cpp
 

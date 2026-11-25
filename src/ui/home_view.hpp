@@ -22,6 +22,8 @@ void HomeViewPaint(HDC hdc, GuiWindowState* state, const RECT& content);
 void HomeViewDrawItem(const DRAWITEMSTRUCT* item, GuiWindowState* state);
 // true when the id is ours; `from` must be one of our controls on our tab or the message is ignored.
 bool HomeViewCommand(HWND hwnd, GuiWindowState* state, int id, int notify_code, HWND from);
+// F4.6: copies the report to the clipboard and leaves the answer in the status bar (the Inicio button and the tray menu).
+void CopyReportAndNote(HWND hwnd, GuiWindowState* state);
 void HomeViewScroll(GuiWindowState* state, int delta_px);
 void HomeViewDestroy(GuiWindowState* state);
 

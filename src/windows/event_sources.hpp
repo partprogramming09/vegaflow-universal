@@ -22,6 +22,12 @@ public:
     WakeReason WaitForWake(uint32_t timeout_ms) override;
     bool EventsActive() const override { return active_; }
 
+    // F4.1: for a caller that owns its own message loop (the window) instead of calling WaitForWake: every event also
+    // posts `msg` to `hwnd`. Call it on the creating thread, once, before the loop runs.
+    void NotifyWindow(HWND hwnd, UINT msg);
+    // Called by the device callback, on a system thread.
+    void SignalDevice();
+
     // Called by the native callbacks (public so the file-local trampolines can reach it).
     void Post(WakeReason r);
 
@@ -36,6 +42,8 @@ private:
     HWND window_ = nullptr;
     HPOWERNOTIFY power_notify_ = nullptr;
     void* cm_notify_ = nullptr;      // HCMNOTIFICATION, kept opaque so this header needs no cfgmgr32.h
+    std::atomic<HWND> notify_hwnd_{nullptr};
+    std::atomic<UINT> notify_msg_{0};
     std::atomic<unsigned> pending_{0};  // bit per WakeReason, set by callbacks, read on the loop thread
     bool active_ = false;
 };

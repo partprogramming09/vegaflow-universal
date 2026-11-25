@@ -127,6 +127,9 @@ struct GuiCallbacks {
     std::function<std::string(uint32_t)> on_ExcludeGame;
     std::function<std::string(uint32_t)> on_IncludeGame;
     // E2.7: the welcome mark (a file next to config.json), the diagnosis text and the panic restore.
+    // F4.1: app/ makes the event source (foreground, adapter and power events) on this thread; it posts `msg` to `hwnd` on
+    // every event. Returns false when a hook could not be registered (the window then polls like before E2.4).
+    std::function<bool(HWND hwnd, UINT msg)> on_AttachWake;
     std::function<bool()> on_ShouldShowWelcome;
     std::function<void()> on_MarkWelcomeSeen;
     std::function<std::string()> on_RunDoctor;

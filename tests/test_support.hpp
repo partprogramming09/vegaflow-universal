@@ -175,6 +175,7 @@ void Test138();  // the startup question limit is absolute and a key after it do
 void Test142();  // F4.4: a broken config.json is the person's decision (factory values after a copy, or open the file)
 void Test141();  // a standard-user token can join the session log lock an elevated process created
 void Test140();  // a filtered token cannot hard-link a protected file it cannot write (F3 hardlink investigation)
+void Test143();  // F4.1 the window's polling cadence: visible, hidden, with and without a game
 void Test139();  // end of input or a failed read is no answer and discards pending keys
 
 } // namespace vftest

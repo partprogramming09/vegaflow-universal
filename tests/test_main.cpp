@@ -209,6 +209,7 @@ int main() {
         {140, vftest::Test140},  // a filtered token cannot hard-link a protected file it cannot write
         {141, vftest::Test141},  // a standard-user token can join the session log lock
         {142, vftest::Test142},  // F4.4 a broken config.json is the person's decision
+        {143, vftest::Test143},  // F4.1 GUI cadence in the tray
     };
     for (const auto& [number, run] : tests) {
         try {

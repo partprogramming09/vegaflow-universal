@@ -43,6 +43,7 @@
 #include "session/run_cycle.hpp"
 #include "windows/system_counters.hpp"
 #include "windows/text_convert.hpp"
+#include "windows/event_sources.hpp"
 
 namespace vegaflow::app {
 
@@ -471,6 +472,15 @@ int RunGuiMode(
     callbacks.on_ExcludeGame = [&](uint32_t app_id) { return say(game_actions.Exclude(app_id)); };
     callbacks.on_IncludeGame = [&](uint32_t app_id) { return say(game_actions.Include(app_id)); };
     callbacks.on_ToggleGameDxvk = [&](uint32_t app_id) { return say(game_actions.ToggleDxvk(app_id)); };
+
+    // F4.1: a window hidden in the tray with no game sleeps on these events (plus a 30 s net, session/gui_cadence). The source
+    // is made on this thread, which runs the window's message loop, so its hooks are delivered by that loop.
+    WindowsEventSource wake_source(nullptr);
+    callbacks.on_AttachWake = [&](HWND hwnd, UINT msg) {
+        if (!wake_source.EventsActive()) return false;
+        wake_source.NotifyWindow(hwnd, msg);
+        return true;
+    };
 
     int exit_code = GuiWindow::RunGuiLoop(callbacks);
     if (!safe_mode) {
