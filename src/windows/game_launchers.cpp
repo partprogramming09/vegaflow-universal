@@ -17,17 +17,6 @@ namespace {
 constexpr size_t kMaxManifestBytes = size_t{1} << 20; // the Rust core refuses more; do not even read it
 constexpr size_t kMaxGames = 512;
 
-void AddUnique(std::vector<LauncherGameFolder>& list, std::wstring dir, bool anticheat) {
-    if (list.size() >= kMaxGames) return;
-    for (auto& existing : list) {
-        if (_wcsicmp(existing.dir.c_str(), dir.c_str()) == 0) {
-            existing.anticheat = existing.anticheat || anticheat; // one entry naming an anti-cheat is enough
-            return;
-        }
-    }
-    list.push_back({std::move(dir), anticheat});
-}
-
 // Called from Rust: an exception must not unwind through it.
 void OnDir(void* ctx, const char* utf8, size_t len) noexcept {
     RunCallbackGuarded([&] {
@@ -45,6 +34,20 @@ std::wstring FolderOf(uint32_t status, const std::vector<std::wstring>& reported
 }
 
 } // namespace
+
+void MergeLauncherGame(std::vector<LauncherGameFolder>& list, LauncherGameFolder game) {
+    for (auto& existing : list) {
+        if (_wcsicmp(existing.dir.c_str(), game.dir.c_str()) == 0) {
+            existing.anticheat = existing.anticheat || game.anticheat; // one entry naming an anti-cheat is enough
+            return;
+        }
+    }
+    if (list.size() < kMaxGames) list.push_back(std::move(game));
+}
+
+void MergeLauncherGames(std::vector<LauncherGameFolder>& list, const std::vector<LauncherGameFolder>& more) {
+    for (const auto& g : more) MergeLauncherGame(list, g);
+}
 
 std::wstring DefaultEpicManifestsDir() {
     const wchar_t* program_data = _wgetenv(L"ProgramData");
@@ -80,7 +83,7 @@ std::vector<LauncherGameFolder> ReadEpicGames(const std::wstring& manifests_dir)
         std::vector<std::wstring> reported;
         const uint32_t status = vf_rust_epic_manifest_install_dir(json.data(), json.size(), OnDir, &reported);
         std::wstring dir = FolderOf(status, reported);
-        if (!dir.empty()) AddUnique(games, std::move(dir), status == VF_LAUNCHER_GAME_ANTICHEAT);
+        if (!dir.empty()) MergeLauncherGame(games, {std::move(dir), status == VF_LAUNCHER_GAME_ANTICHEAT});
     }
     return games;
 }
@@ -101,7 +104,7 @@ std::vector<LauncherGameFolder> ReadGogGames(RegistryPort& registry) {
         const uint32_t status = vf_rust_gog_install_dir(key_u8.data(), key_u8.size(), id.data(), id.size(), path.data(),
                                                         path.size(), exe.data(), exe.size(), OnDir, &reported);
         std::wstring dir = FolderOf(status, reported);
-        if (!dir.empty()) AddUnique(games, std::move(dir), status == VF_LAUNCHER_GAME_ANTICHEAT);
+        if (!dir.empty()) MergeLauncherGame(games, {std::move(dir), status == VF_LAUNCHER_GAME_ANTICHEAT});
     }
     return games;
 }

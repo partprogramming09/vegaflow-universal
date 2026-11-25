@@ -110,6 +110,23 @@ void Test161() {
     expect(SandboxGuard::PathContainsAntiCheatSignature(L"C:\\Program Files\\Epic Games\\Shooter\\EasyAntiCheat_EOS.dll"),
            "the single anti-cheat list knows EasyAntiCheat");
 
+    // The same folder in Epic (clean manifest) and GOG (exe inside EasyAntiCheat) is protected in either order, even
+    // when no EasyAntiCheat folder exists on disk (the dxvk.conf case of the review).
+    const auto arena = base / L"Games" / L"Arena";
+    std::filesystem::create_directories(arena, ec);
+    const LauncherGameFolder epic_entry{(base / L"games" / L"ARENA").wstring(), false}; // other case: same folder
+    const LauncherGameFolder gog_entry{arena.wstring(), true};
+    std::vector<LauncherGameFolder> epic_then_gog = {epic_entry};
+    vegaflow::MergeLauncherGames(epic_then_gog, {gog_entry});
+    SandboxGuard::SetLauncherGameFolders(epic_then_gog);
+    expect(denied(arena / L"dxvk.conf"), "Epic then GOG naming an anti-cheat: not writable");
+    std::vector<LauncherGameFolder> gog_then_epic = {gog_entry};
+    vegaflow::MergeLauncherGames(gog_then_epic, {epic_entry});
+    SandboxGuard::SetLauncherGameFolders(gog_then_epic);
+    expect(denied(arena / L"dxvk.conf"), "GOG then Epic naming an anti-cheat: not writable");
+    expect(!SandboxGuard::SafeWriteFile((arena / L"dxvk.conf").wstring(), "x") && !std::filesystem::exists(arena / L"dxvk.conf", ec),
+           "no file written into the merged anti-cheat game");
+
     SandboxGuard::ReloadSteamLibraryFolders();
     SandboxGuard::ClearCustomAllowedPaths();
     std::filesystem::remove_all(base, ec);

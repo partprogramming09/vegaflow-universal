@@ -92,6 +92,20 @@ void Test160() {
     if (!vegaflow::ReadGogGames(empty).empty()) failures += " [no GOG key gives games]";
     if (!reg.writes.empty() || !reg.deletes.empty()) failures += " [the reader wrote to the registry]";
 
+    // --- Merging Epic and GOG lists: the same folder (any case) keeps the anti-cheat flag whichever list came first.
+    {
+        using vegaflow::LauncherGameFolder;
+        std::vector<LauncherGameFolder> epic_first = {{L"C:\\Games\\Arena", false}};
+        vegaflow::MergeLauncherGames(epic_first, {{L"c:\\games\\ARENA", true}, {L"D:\\Other", false}});
+        if (epic_first.size() != 2 || !epic_first[0].anticheat) failures += " [merge Epic->GOG lost the anti-cheat flag]";
+        std::vector<LauncherGameFolder> gog_first = {{L"C:\\Games\\Arena", true}};
+        vegaflow::MergeLauncherGames(gog_first, {{L"C:\\GAMES\\Arena", false}});
+        if (gog_first.size() != 1 || !gog_first[0].anticheat) failures += " [merge GOG->Epic lost the anti-cheat flag]";
+        std::vector<LauncherGameFolder> clean = {{L"C:\\Games\\A", false}};
+        vegaflow::MergeLauncherGames(clean, {{L"C:\\Games\\A", false}});
+        if (clean.size() != 1 || clean[0].anticheat) failures += " [merge of clean duplicates]";
+    }
+
     RecordResult(failures.empty() && epic_rows.size() >= 17 && gog_rows >= 16,
                  "Test 160: Epic manifests and GOG entries give the folders the shared vectors expect",
                  std::to_string(epic_rows.size()) + " Epic and " + std::to_string(gog_rows) + " GOG vectors" +

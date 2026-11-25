@@ -271,12 +271,7 @@ const std::vector<LauncherGameFolder>& LauncherGamesLocked() {
     if (!g_launcher_games) {
         std::vector<LauncherGameFolder> games = ReadEpicGames(DefaultEpicManifestsDir());
         WindowsRegistryPort registry;
-        for (auto& g : ReadGogGames(registry)) {
-            const bool known = std::any_of(games.begin(), games.end(), [&](const LauncherGameFolder& e) {
-                return _wcsicmp(e.dir.c_str(), g.dir.c_str()) == 0;
-            });
-            if (!known) games.push_back(std::move(g));
-        }
+        MergeLauncherGames(games, ReadGogGames(registry));
         g_launcher_games = std::move(games);
     }
     return *g_launcher_games;
