@@ -104,9 +104,14 @@ std::string WideToUtf8(const std::wstring& wstr) {
 bool EqualsIgnoreCase(const std::wstring& a, const std::wstring& b) {
     if (a.size() != b.size()) return false;
     // A UTF-8 locale only for this call (a global setlocale would change other host tests): non-ASCII letters fold like on Windows.
-    static const locale_t utf8 = newlocale(LC_CTYPE_MASK, "en_US.UTF-8", nullptr);
+    static const locale_t utf8 = [] {
+        locale_t l = newlocale(LC_CTYPE_MASK, "en_US.UTF-8", nullptr);
+        return l ? l : newlocale(LC_CTYPE_MASK, "C.UTF-8", nullptr); // a CI image may only have C.UTF-8
+    }();
     for (size_t i = 0; i < a.size(); ++i) {
-        if (towupper_l(static_cast<wint_t>(a[i]), utf8) != towupper_l(static_cast<wint_t>(b[i]), utf8)) return false;
+        const auto x = static_cast<wint_t>(a[i]);
+        const auto y = static_cast<wint_t>(b[i]);
+        if ((utf8 ? towupper_l(x, utf8) != towupper_l(y, utf8) : towupper(x) != towupper(y))) return false;
     }
     return true;
 }
