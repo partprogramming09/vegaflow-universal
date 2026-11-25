@@ -10,7 +10,7 @@ std::string SettingsActions::Said(const std::string& msg, const char* audit_pref
 std::string SettingsActions::ToggleMpo() {
     auto& gfx = d_.gfx;
     const bool target = !gfx.QuerySystemGraphicsTweaks().mpo_disabled;
-    const bool ok = gfx.Display().SetMpoDisabled(target, false);
+    const bool ok = gfx.SetMpoDisabled(target, false);
     return Said(ok ? (target ? "MPO Desactivado (OverlayTestMode=5, no documentado)" : "MPO Restaurado a Default (OverlayTestMode=0)")
                    : "Fallo al modificar MPO (Requiere Administrador)",
                 "Ajuste DWM MPO: ");
@@ -19,7 +19,7 @@ std::string SettingsActions::ToggleMpo() {
 std::string SettingsActions::ToggleMemCompression() {
     auto& gfx = d_.gfx;
     const bool target = !gfx.QuerySystemGraphicsTweaks().memory_compression_enabled;
-    const bool ok = gfx.KernelScheduler().SetMemoryCompressionEnabled(target, false);
+    const bool ok = gfx.SetMemoryCompressionEnabled(target, false);
     return Said(ok ? (target ? "Compresión de Memoria Habilitada" : "Compresión de Memoria Deshabilitada")
                    : "Fallo al cambiar compresión (Requiere Administrador)",
                 "Ajuste Windows MMAgent: ");
@@ -27,9 +27,9 @@ std::string SettingsActions::ToggleMemCompression() {
 
 std::string SettingsActions::ToggleShaderCache() {
     auto& gfx = d_.gfx;
-    if (!gfx.AmdDriver()) return "Ajuste de ShaderCache AMD no disponible en esta GPU";
+    if (!gfx.HasAmdDriver()) return "Ajuste de ShaderCache AMD no disponible en esta GPU";
     const bool target = !gfx.QuerySystemGraphicsTweaks().amd_shader_cache_forced;
-    const bool ok = gfx.AmdDriver()->SetShaderCacheForced(target, d_.policy, false);
+    const bool ok = gfx.SetShaderCacheForced(target, d_.policy, false);
     return Said(ok ? (target ? "ShaderCache AMD 0x3200 forzada (SurfaceFormat + FlipQueue=1)" : "AMD ShaderCache restaurada al valor del driver")
                    : "Fallo al cambiar ShaderCache (Requiere Administrador)",
                 "Ajuste AMD ShaderCache: ");
@@ -37,12 +37,12 @@ std::string SettingsActions::ToggleShaderCache() {
 
 std::string SettingsActions::ToggleVramOverride() {
     auto& gfx = d_.gfx;
-    if (!gfx.AmdDriver()) return "Ajuste VRAM Reporting AMD no disponible en esta GPU";
+    if (!gfx.HasAmdDriver()) return "Ajuste VRAM Reporting AMD no disponible en esta GPU";
     const ApuOptimizationPolicy pol = d_.live_policy ? d_.live_policy() : d_.policy;
     const bool target = !gfx.QuerySystemGraphicsTweaks().amd_vram_override_active;
     if (target && pol.safe_vram_pool_mb == 0) return Said("No se pudo calcular un tamaño de memoria gráfica para este equipo: no se cambió nada", "Ajuste VRAM Reporting: ");
-    const bool ok = target ? gfx.AmdDriver()->ApplyVramReportingOverride(pol.safe_vram_pool_mb, false)
-                           : gfx.AmdDriver()->RestoreVramReporting(false);
+    const bool ok = target ? gfx.ApplyVramReportingOverride(pol.safe_vram_pool_mb, false)
+                           : gfx.RestoreVramReporting(false);
     const std::string pool = std::to_string(pol.safe_vram_pool_mb);
     return Said(ok ? (target ? "Sobrescritura VRAM UMA (" + pool + " MB DXGI/AMD) Activada (Pool Size = " + pool + " MB)"
                              : std::string("Reporte de VRAM devuelto al valor que tenía el driver"))
@@ -54,8 +54,8 @@ std::string SettingsActions::ToggleVramOverride() {
 std::string SettingsActions::ToggleMmcssGaming() {
     auto& gfx = d_.gfx;
     const bool target = !gfx.QuerySystemGraphicsTweaks().mmcss_gaming_optimized;
-    const bool ok = gfx.Mmcss().SetGamingProfileOptimized(target, false, !target);
-    if (ok) gfx.KernelScheduler().SetDynamicPrioritySeparation(target ? 0x26 : 0x02, false, !target);
+    const bool ok = gfx.SetGamingProfileOptimized(target, false, !target);
+    if (ok) gfx.SetDynamicPrioritySeparation(target ? 0x26 : 0x02, false, !target);
     return Said(ok ? (target ? "Planificador MMCSS Gaming + Quantum CPU (0x26) Activado" : "Planificador MMCSS y Quantum CPU restaurados a Stock Windows")
                    : "Fallo al optimizar MMCSS/Quantum (Requiere Administrador)",
                 "Ajuste Kernel MMCSS/Quantum: ");
@@ -63,9 +63,9 @@ std::string SettingsActions::ToggleMmcssGaming() {
 
 std::string SettingsActions::ToggleApuPowerMode() {
     auto& gfx = d_.gfx;
-    if (!gfx.PowerMode()) return "Modo de energía APU no disponible para la política actual";
+    if (!gfx.HasPowerMode()) return "Modo de energía APU no disponible para la política actual";
     const bool target = !gfx.QuerySystemGraphicsTweaks().apu_power_optimized;
-    const bool ok = gfx.PowerMode()->SetApuPowerMode(target ? ApuPowerMode::GpuPrioritySustained : ApuPowerMode::Balanced, d_.policy, false);
+    const bool ok = gfx.SetApuPowerMode(target ? ApuPowerMode::GpuPrioritySustained : ApuPowerMode::Balanced, d_.policy, false);
     // The text states the ceiling of the policy that was just applied (the boot one), not a newer reading.
     const std::string on = d_.policy.cpu_stapm_cap_mhz == 0
         ? "Control Térmico APU: perfil sin tope activado (Efficient-Aggressive + EPP 25)"
@@ -76,17 +76,17 @@ std::string SettingsActions::ToggleApuPowerMode() {
 void SettingsActions::ResetAll(size_t* reverted, size_t* total) {
     auto& gfx = d_.gfx;
     // MPO is not written here: if VegaFlow changed it, its RegBackup copy is put back below; otherwise it is the user's.
-    if (gfx.AmdDriver()) {
-        gfx.AmdDriver()->SetShaderCacheForced(false, d_.policy, false);
-        gfx.AmdDriver()->RestoreVramReporting(false);
+    if (gfx.HasAmdDriver()) {
+        gfx.SetShaderCacheForced(false, d_.policy, false);
+        gfx.RestoreVramReporting(false);
     }
-    gfx.KernelScheduler().RevertMemoryCompressionChange(false); // only what the journal says VegaFlow changed
-    gfx.Mmcss().SetGamingProfileOptimized(false, false);
-    gfx.Display().SetGameDvrCaptureDisabled(false, false);
-    gfx.Display().SetFullscreenOptimizationsDisabled(false, false);
-    if (gfx.PowerMode()) gfx.PowerMode()->SetApuLaptopPowerProfile(false, d_.policy, false);
-    gfx.KernelScheduler().SetDynamicPrioritySeparation(0x02, false);
-    gfx.KernelScheduler().SetKernelMemoryPagingShield(false, false);
+    gfx.RevertMemoryCompressionChange(false); // only what the journal says VegaFlow changed
+    gfx.SetGamingProfileOptimized(false, false, false);
+    gfx.SetGameDvrCaptureDisabled(false, false, false);
+    gfx.SetFullscreenOptimizationsDisabled(false, false);
+    if (gfx.HasPowerMode()) gfx.SetApuLaptopPowerProfile(false, d_.policy, false);
+    gfx.SetDynamicPrioritySeparation(0x02, false, false);
+    gfx.SetKernelMemoryPagingShield(false, false, false);
     gfx.RestoreAllRegistryBackups(reverted, total);
 }
 
@@ -112,25 +112,25 @@ std::string SettingsActions::Set(const std::string& id, bool turn_on) {
     } else if (id == "power_profile") {
         msg = toggle_if(cur.apu_power_optimized, &SettingsActions::ToggleApuPowerMode);
     } else if (id == "mmcss_gaming") {
-        const bool ok = gfx.Mmcss().SetGamingProfileOptimized(turn_on, false, !turn_on);
+        const bool ok = gfx.SetGamingProfileOptimized(turn_on, false, !turn_on);
         msg = ok ? (turn_on ? "Prioridad de multimedia para juegos activada" : "Prioridad de multimedia devuelta al valor de Windows")
                  : "No se pudo cambiar la prioridad de multimedia (hace falta ser administrador)";
     } else if (id == "priority_separation") {
-        const bool ok = gfx.KernelScheduler().SetDynamicPrioritySeparation(turn_on ? 0x26 : 0x02, false, !turn_on);
+        const bool ok = gfx.SetDynamicPrioritySeparation(turn_on ? 0x26 : 0x02, false, !turn_on);
         msg = ok ? (turn_on ? "Tiempo de CPU para la ventana activa: 0x26" : "Tiempo de CPU devuelto al valor de Windows (2)")
                  : "No se pudo cambiar Win32PrioritySeparation (hace falta ser administrador)";
     } else if (id == "paging_shield") {
-        const bool ok = gfx.KernelScheduler().SetKernelMemoryPagingShield(turn_on, false, !turn_on);
+        const bool ok = gfx.SetKernelMemoryPagingShield(turn_on, false, !turn_on);
         msg = ok ? (turn_on ? "Núcleo de Windows fijado en la RAM" : "Núcleo de Windows devuelto al comportamiento normal")
                  : "No se pudo cambiar el blindaje del núcleo (hace falta ser administrador)";
     } else if (id == "game_dvr") {
-        const bool ok = gfx.Display().SetGameDvrCaptureDisabled(turn_on, false, !turn_on);
+        const bool ok = gfx.SetGameDvrCaptureDisabled(turn_on, false, !turn_on);
         msg = ok ? (turn_on ? "Grabación de Xbox Game Bar apagada" : "Grabación de Xbox Game Bar devuelta a Windows")
                  : "No se pudo cambiar la grabación de Game Bar";
     } else if (id == "engine_presets") {
         msg = d_.set_engine_presets ? d_.set_engine_presets(turn_on) : "El preset de Unreal Engine no está disponible aquí";
     } else if (id == "fse_compat") {
-        const bool ok = gfx.Display().SetFullscreenOptimizationsDisabled(turn_on, false);
+        const bool ok = gfx.SetFullscreenOptimizationsDisabled(turn_on, false);
         msg = ok ? (turn_on ? "Optimizaciones de pantalla completa apagadas (modo compatibilidad)"
                             : "Optimizaciones de pantalla completa devueltas a como estaban")
                  : "No se pudieron cambiar las optimizaciones de pantalla completa";

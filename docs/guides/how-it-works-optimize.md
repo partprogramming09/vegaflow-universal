@@ -47,11 +47,11 @@ What it means:
 
 ![Flow of the optimize levers: sample, decide in Rust, act, restore](./img/how-it-works-optimize.png)
 
-The CPU lever and the memory lever run on each session cycle. The file and registry levers run when a game starts or when the user switches a setting (the dry-run report says "applied on game launch", in `ExecuteDryRun` in `src/session/reports.cpp`).
+The CPU lever and the memory lever run on each session cycle. The file and registry levers run when a game starts or when the user switches a setting (the dry-run report says "applied on game launch", in `ExecuteDryRun` in `src/app/report_commands.cpp`).
 
 | Step | Function | What to look at | Why |
 |---|---|---|---|
-| 1 | [`ApplyCpuOptimizations`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/session/run_cycle.cpp) | The `ApplyOptimizations` call with the game and background lists | The session hands the optimizer the list of processes it classified |
+| 1 | [`ApplyCpuOptimizations`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/app/run_cycle.cpp) | The `ApplyOptimizations` call with the game and background lists | The session hands the optimizer the list of processes it classified |
 | 2 | [`UpdateBackgroundLoad`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/optimize/cpu_orchestrator.cpp) | `UpdateBackgroundLoad`: CPU time per process, turned into "logical CPUs used" | The decision needs a load number. Samples are taken at least 1 s apart (`kMinSampleMs`, checked in `UpdateBackgroundLoad`) |
 | 3 | [`eval_bg_confinement`](https://github.com/partprogramming09/vegaflow-universal/blob/main/rust/vegaflow-core/src/policy/cpu_governor.rs) | `eval_bg_confinement`: on at 0.50 logical CPUs, off below 0.25 | The Rust core decides. The gap between the two numbers stops the state from flipping on every sample |
 | 4 | [`ApplyOptimizations`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/optimize/cpu_orchestrator.cpp) | `bg_sets` is the background set when confinement is on, empty when off; `SetModifiedBackgroundCpuSets` applies it | A process only gets the set while the load says it is needed |

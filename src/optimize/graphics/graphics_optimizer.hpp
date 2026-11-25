@@ -5,6 +5,7 @@
 #include "model/tweaks.hpp"
 #include "ports/power.hpp"
 #include "ports/registry.hpp"
+#include "ports/tweak_controls.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -132,7 +133,7 @@ private:
 };
 
 // Coordinator that decides vendor-gated and policy-gated tweak families in a single place.
-class GraphicsOptimizer {
+class GraphicsOptimizer final : public TweakControls {
 public:
     GraphicsOptimizer(
         const SystemHardwareProfile& hw,
@@ -158,8 +159,31 @@ public:
     PowerModeTweaks* PowerMode() { return power_mode_ ? &*power_mode_ : nullptr; }
     const PowerModeTweaks* PowerMode() const { return power_mode_ ? &*power_mode_ : nullptr; }
 
-    SystemGraphicsTweaksState QuerySystemGraphicsTweaks();
-    bool RestoreAllRegistryBackups(size_t* out_reverted = nullptr, size_t* out_total = nullptr);
+    SystemGraphicsTweaksState QuerySystemGraphicsTweaks() override;
+    bool RestoreAllRegistryBackups(size_t* out_reverted = nullptr, size_t* out_total = nullptr) override;
+
+    // TweakControls: one-line forwards to the families above (the Ajustes screen reaches them through the port).
+    bool HasAmdDriver() const override { return amd_driver_.has_value(); }
+    bool HasPowerMode() const override { return power_mode_.has_value(); }
+    bool SetMpoDisabled(bool disable, bool dry_run) override { return display_.SetMpoDisabled(disable, dry_run); }
+    bool SetGameDvrCaptureDisabled(bool disable, bool dry_run, bool user_off) override { return display_.SetGameDvrCaptureDisabled(disable, dry_run, user_off); }
+    bool SetFullscreenOptimizationsDisabled(bool disable, bool dry_run) override { return display_.SetFullscreenOptimizationsDisabled(disable, dry_run); }
+    bool SetMemoryCompressionEnabled(bool enable, bool dry_run) override { return kernel_.SetMemoryCompressionEnabled(enable, dry_run); }
+    bool RevertMemoryCompressionChange(bool dry_run) override { return kernel_.RevertMemoryCompressionChange(dry_run); }
+    bool SetDynamicPrioritySeparation(uint32_t value, bool dry_run, bool user_off) override { return kernel_.SetDynamicPrioritySeparation(value, dry_run, user_off); }
+    bool SetKernelMemoryPagingShield(bool enable, bool dry_run, bool user_off) override { return kernel_.SetKernelMemoryPagingShield(enable, dry_run, user_off); }
+    bool SetGamingProfileOptimized(bool optimize, bool dry_run, bool user_off) override { return mmcss_.SetGamingProfileOptimized(optimize, dry_run, user_off); }
+    bool SetShaderCacheForced(bool force_on, const ApuOptimizationPolicy& policy, bool dry_run) override {
+        return amd_driver_ && amd_driver_->SetShaderCacheForced(force_on, policy, dry_run);
+    }
+    bool ApplyVramReportingOverride(uint32_t target_mb, bool dry_run) override { return amd_driver_ && amd_driver_->ApplyVramReportingOverride(target_mb, dry_run); }
+    bool RestoreVramReporting(bool dry_run) override { return amd_driver_ && amd_driver_->RestoreVramReporting(dry_run); }
+    bool SetApuPowerMode(ApuPowerMode mode, const ApuOptimizationPolicy& policy, bool dry_run) override {
+        return power_mode_ && power_mode_->SetApuPowerMode(mode, policy, dry_run);
+    }
+    bool SetApuLaptopPowerProfile(bool optimize, const ApuOptimizationPolicy& policy, bool dry_run) override {
+        return power_mode_ && power_mode_->SetApuLaptopPowerProfile(optimize, policy, dry_run);
+    }
 
     struct RebindResult {
         bool rebuilt = false;            // the target GPU or its policy changed (with dry_run: would change)

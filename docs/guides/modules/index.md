@@ -21,13 +21,14 @@ Each folder of `src/` may only include the folders listed for it (its own folder
 | --- | --- |
 | `app/` (entry points and adapters) | `session/`, `ui/`, `model/`, `ports/`, `windows/`, `bridge/`, `detect/`, `optimize/` |
 | `ui/` (GUI) | `session/`, `model/` |
-| `session/` (use cases) | `model/`, `ports/`, `bridge/`; six files keep a listed exception (see below) |
+| `session/` (use cases) | `model/`, `ports/`, `bridge/` |
 | `ports/` (interfaces) | `model/` |
 | `windows/` (adapters) | `ports/`, `model/`, `bridge/` |
 | `detect/` (migration) | `model/`, `windows/`, `bridge/` |
 | `optimize/` (migration) | `model/`, `ports/`, `windows/`, `bridge/` |
-| `model/`, `bridge/` | nothing |
+| `bridge/` (Rust bridge) | `model/`, `ports/` |
+| `model/` | nothing |
 
-`session/` is strict since F4.3: a file that includes `detect/`, `optimize/` or `windows/` fails the check unless it is in the `debt()` list of the script. That list holds six files, it only shrinks, and the script also fails when a listed file no longer includes the folder, so an old entry cannot hide new debt. The files are `run_cycle.cpp`, `run_cycle.hpp`, `reports.cpp`, `system_info.cpp`, `game_session.cpp` and `settings_actions.hpp`; what is left in each is in [Code layers](./layers.md#what-is-still-open-in-session).
+`session/` is strict since F4.3: a file that includes `detect/`, `optimize/` or `windows/` fails the check, and there is no exception list. Each family of Windows calls that `session/` needs is an interface in `ports/` (see [Code layers](./layers.md#what-f43-moved-2026-11-25)).
 
 For what the repository checks against this table, see [Code layers](./layers.md#what-the-repository-checks).

@@ -52,11 +52,14 @@ vegaflow-universal/
 │   │   ├── gui_mode.*            # --gui: native window with tray; assembles `session/` and connects the buttons (see 3.3b)
 │   │   ├── monitor.*             # --monitor: live console panel
 │   │   ├── doctor_probe.*        # The real `DoctorProbe` (disks, caches, hardware, config, processes)
-│   │   └── app_state.*           # Shared state and the Ctrl+C handler
-│   ├── session/                  # Use cases: what the daemon does with a game
-│   │   ├── run_cycle.*           # One evaluation cycle: detect a game, apply or release
+│   │   ├── app_state.*           # Shared state and the Ctrl+C handler
+│   │   ├── run_cycle.*           # One evaluation cycle: detect a game, apply or release (builds the real Windows classes)
+│   │   ├── report_commands.*     # --status, --dry-run and --purge-now (build the real detectors and optimizers)
+│   │   ├── system_reads.hpp      # Windows adapter of the `SystemReads` port
+│   │   └── doctor_probe.*        # Windows adapter of the `DoctorProbe` port
+│   ├── session/                  # Use cases: what the daemon does with a game (includes nothing from detect/, optimize/ or windows/)
 │   │   ├── game_session.*        # Session injectable through ports, GPU hot-plug detection, static/live step and on-the-fly exclusion
-│   │   ├── reports.*             # --status, --dry-run and --purge-now
+│   │   ├── reports.*             # The session log and the report lines (--status, --monitor)
 │   │   ├── system_info.*         # SystemInfo report (hardware, UMA, RAM, OS and JSON); the Windows readings are requested from windows/system_counters
 │   │   ├── config.*              # ConfigStore: read and save config.json (rules in Rust) and the game list
 │   │   ├── restore.*             # Startup evaluation, journal recovery, history format, restore point and `RestoreAllMessage`
@@ -65,6 +68,9 @@ vegaflow-universal/
 │   │   ├── settings_catalog.*    # Catalog of settings for the System settings screen (families by hardware, experimental, evidence)
 │   │   └── *_actions.*           # What the buttons do: `GameActions`, `SettingsActions` and `ConfigActions`
 │   ├── ports/                    # Interfaces that the use cases ask for and the tests fake
+│   │   ├── system_reads.hpp      # What SystemInfo reads (hardware, memory sample, tweaks, L3, DIMM slots)
+│   │   ├── tweak_controls.hpp    # The Ajustes switches (implemented by `GraphicsOptimizer`)
+│   │   ├── config_location.hpp   # Folder of the .exe and path of config.json (implemented in windows/config_location.cpp)
 │   │   ├── file_system.hpp       # Read, write, replace whole, copy and delete files
 │   │   ├── clock.hpp             # The current time and readable date (`WallNow`); the tests move it by hand
 │   │   ├── device_probe.hpp      # Machine probe (GPU/DXCore/SetupAPI, per-game disk, power, displays, ARM64)

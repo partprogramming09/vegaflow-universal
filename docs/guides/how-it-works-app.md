@@ -40,9 +40,9 @@ VEGAFLOW DAEMON (DRY-RUN SIMULATION & EVALUATION)
 How to read it, line by line:
 
 - The first line is a warning from the settings step (`main` in `main.cpp`). The settings folder can be written by ordinary accounts, so VegaFlow used its factory values and saved nothing.
-- `[1/4]` looks for a game in the foreground. None was open, so the simulation used the background programs as a stand-in (`ExecuteDryRun` in `reports.cpp`).
-- `22 PIDs` are the process IDs (the numbers Windows gives each program) of background programs. `2 core IDs` are the CPU sets (groups of processor cores) the background work would be kept in (`ExecuteDryRun` in `reports.cpp`). "Would be isolated" and "nothing changed" say that a simulation touches no process.
-- `Standby` is memory that Windows keeps as a cache. The memory step decided not to clear it, and the reason line gives the numbers it checked (`ExecuteDryRun` in `reports.cpp`).
+- `[1/4]` looks for a game in the foreground. None was open, so the simulation used the background programs as a stand-in (`ExecuteDryRun` in `report_commands.cpp`).
+- `22 PIDs` are the process IDs (the numbers Windows gives each program) of background programs. `2 core IDs` are the CPU sets (groups of processor cores) the background work would be kept in (`ExecuteDryRun` in `report_commands.cpp`). "Would be isolated" and "nothing changed" say that a simulation touches no process.
+- `Standby` is memory that Windows keeps as a cache. The memory step decided not to clear it, and the reason line gives the numbers it checked (`ExecuteDryRun` in `report_commands.cpp`).
 - The `KPI` line shows the daemon's own memory use, about 2 MB. It says "KPI passed" below 15 MB and "KPI FAILED" at 15 MB or more (`MemoryKpiLine` in `reports.cpp`).
 - `--once` does not change this output. The simulation branch runs before any code reads that flag (`main` in `main.cpp`).
 
@@ -72,8 +72,8 @@ How to read it, line by line:
 | [`gui_mode.cpp`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/app/gui_mode.cpp) | `RunGuiMode`: builds the functions that the window's buttons call, runs the window loop (`GuiWindow::RunGuiLoop`), then undoes its changes (the code after that call). |
 | [`monitor.cpp`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/app/monitor.cpp) | `RunMonitorDashboard`: prints one telemetry line per poll interval. |
 | [`app_state.cpp`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/app/app_state.cpp) | Three process-wide values (a run flag, a stop event and the lock handle) and the console handler. |
-| [`session/reports.cpp`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/session/reports.cpp) | `PrintStatusReport`, `ExecutePurgeNow` and `ExecuteDryRun`. |
-| [`session/run_cycle.cpp`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/session/run_cycle.cpp) | `RunSingleIteration`: one evaluation tick. The loop, the window and the monitor all call it, and it hands the work to `RunGameSessionCycle` in [`game_session.cpp`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/session/game_session.cpp). |
+| [`report_commands.cpp`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/app/report_commands.cpp) | `PrintStatusReport`, `ExecutePurgeNow` and `ExecuteDryRun`. |
+| [`run_cycle.cpp`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/app/run_cycle.cpp) | `RunSingleIteration`: one evaluation tick. The loop, the window and the monitor all call it, and it hands the work to `RunGameSessionCycle` in [`game_session.cpp`](https://github.com/partprogramming09/vegaflow-universal/blob/main/src/session/game_session.cpp). |
 
 **How they talk.** `main` creates the long-lived objects once (hardware profile, memory manager, CPU orchestrator, settings) and passes them by reference to the mode. Each mode keeps its own state, such as the ID of the game being optimized. The app layer may include everything, because its job is to assemble the pieces; the rule is on the [code layers](./modules/layers.md) page.
 
@@ -157,7 +157,7 @@ vegaflow_daemon.exe --version
 vegaflow_daemon.exe --dry-run --once
 ```
 
-The first prints the version and exits. The second only simulates and changes nothing. If a game is open, its `[1/4]` section names that game instead of the background programs (`ExecuteDryRun` in `reports.cpp`).
+The first prints the version and exits. The second only simulates and changes nothing. If a game is open, its `[1/4]` section names that game instead of the background programs (`ExecuteDryRun` in `report_commands.cpp`).
 
 ## Related
 

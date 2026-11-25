@@ -1,5 +1,5 @@
 #include "windows/sandbox_guard.hpp"
-#include "windows/config_location.hpp"
+#include "ports/config_location.hpp"
 #include "bridge/rust_bridge.h"
 #include "windows/steam_paths.hpp"
 #include "windows/unique_handle.hpp"

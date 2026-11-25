@@ -14,7 +14,7 @@
 #include "ports/text_convert.hpp"
 #include "session/config.hpp"
 #include "session/profile_reasons.hpp"
-#include "windows/config_location.hpp"
+#include "ports/config_location.hpp"
 #include "windows/privileges.hpp"
 #include "windows/registry.hpp"
 #include "windows/safe_file_system.hpp"

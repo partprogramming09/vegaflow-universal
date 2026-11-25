@@ -214,6 +214,7 @@ int main() {
         {145, vftest::Test145},  // F4.3 Juegos buttons reach game files through GameFiles
         {146, vftest::Test146},  // F4.3 hardware partition/policy and the session cycle without Windows
         {147, vftest::Test147},  // F4.3 SystemInfo reads through SystemReads
+        {148, vftest::Test148},  // F4.3 SettingsActions drives the switches through TweakControls
     };
     for (const auto& [number, run] : tests) {
         try {

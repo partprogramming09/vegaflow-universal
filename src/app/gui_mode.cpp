@@ -25,7 +25,7 @@
 #include "session/config_screen.hpp"
 #include "session/doctor.hpp"
 #include "session/welcome.hpp"
-#include "windows/config_location.hpp"
+#include "ports/config_location.hpp"
 #include "ui/app_identity.hpp"
 #include "session/history_screen.hpp"
 #include "session/programs_screen.hpp"

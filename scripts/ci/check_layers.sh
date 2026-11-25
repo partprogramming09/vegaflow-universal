@@ -11,7 +11,7 @@ allowed() {
     case "$1" in
     app) echo "session ui model ports windows bridge detect optimize" ;;
     ui) echo "session model" ;;
-    session) echo "model ports bridge" ;; # strict; the debt() list below is the only way around it
+    session) echo "model ports bridge" ;; # strict
     ports) echo "model" ;;
     windows) echo "ports model bridge" ;;
     model) echo "" ;;
@@ -19,15 +19,6 @@ allowed() {
     detect) echo "model windows bridge" ;;
     optimize) echo "model ports windows bridge" ;;
     *) echo "UNKNOWN" ;;
-    esac
-}
-
-# Debt (F4.3): the session/ files that still include detect/, optimize/ or windows/ because the class they use has no port yet.
-# Every other session/ file is strict. This list only shrinks: a file leaves it when its last include is gone; never add one.
-debt() {
-    case "$1" in
-    src/session/reports.cpp) echo "detect optimize windows" ;;        # concrete optimizers, ProcessDetector, privileges, registry/power adapters
-    src/session/settings_actions.hpp) echo "optimize" ;;              # SettingsActionsDeps holds GraphicsOptimizer&
     esac
 }
 
@@ -40,20 +31,13 @@ while IFS= read -r line; do
     [ -d "src/$to" ] || continue # <sys/...>, "../x" and other non-layer paths
     checked=$((checked + 1))
     [ "$from" = "$to" ] && continue
-    ok="$(allowed "$from") $(debt "$file")"
+    ok="$(allowed "$from")"
     [ "$(allowed "$from")" = "UNKNOWN" ] && ok="UNKNOWN"
     if [ "$ok" = "UNKNOWN" ]; then
         echo "unknown layer: src/$from (add it to scripts/ci/check_layers.sh)"; fail=1; continue
     fi
     case " $ok " in *" $to "*) ;; *) echo "$file: $from/ must not include $to/ (${line#*:})"; fail=1 ;; esac
 done < <(grep -rnE '^[[:space:]]*#[[:space:]]*include[[:space:]]*[<"][^">/]+/' src --include='*.cpp' --include='*.hpp' --include='*.h' --include='*.inl' --include='*.ipp')
-
-# A debt entry whose includes are gone must be deleted, so the list cannot hide new debt behind an old name.
-for file in src/session/reports.cpp src/session/settings_actions.hpp; do
-    for to in $(debt "$file"); do
-        grep -qE "^[[:space:]]*#[[:space:]]*include[[:space:]]*[\"<]$to/" "$file" || { echo "$file: debt() lists $to/ but the file no longer includes it: remove it"; fail=1; }
-    done
-done
 
 # Reading nothing means grep or the folder failed, not that every layer is clean.
 [ "$checked" -gt 0 ] || { echo "no project #include found under src/: nothing was checked"; exit 2; }
