@@ -202,10 +202,17 @@ void RunGameSessionCycle(
         env.IsProcessAlive(state.active_game_pid) &&
         env.ProcessCreationTime(state.active_game_pid) == state.active_game_creation_time;
     std::optional<DetectedGameProcess> game_opt;
-    if (windowless_cached ||
-        (state.game_active && state.active_game_pid != 0 &&
-         state.active_game_hwnd != nullptr && env.IsWindowValid(state.active_game_hwnd) &&
-         env.IsProcessAlive(state.active_game_pid))) {
+    if (windowless_cached) {
+        // The foreground may preempt the cache: another game in front wins, and the cached target itself having
+        // opened a window updates its hwnd. Otherwise the cached target stays.
+        game_opt = env.DetectForegroundGame(policy);
+    }
+    const bool windowed_cached = state.game_active && state.active_game_pid != 0 &&
+        state.active_game_hwnd != nullptr && env.IsWindowValid(state.active_game_hwnd) &&
+        env.IsProcessAlive(state.active_game_pid);
+    if (game_opt.has_value()) {
+        // taken from the foreground: nothing else to look up
+    } else if (windowless_cached || windowed_cached) {
         DetectedGameProcess cached{};
         cached.pid = state.active_game_pid;
         cached.creation_time = state.active_game_creation_time;

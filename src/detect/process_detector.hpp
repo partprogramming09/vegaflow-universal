@@ -27,6 +27,8 @@ public:
 
     // Detects whether the foreground window (or Alt+Tab window / custom list) is a game eligible for boosting.
     static std::optional<DetectedGameProcess> DetectActiveGame(const ProcessPolicyConfig& policy);
+    // Step 1 of DetectActiveGame alone: the process owning the foreground window, if it inspects as a game (F5.2).
+    static std::optional<DetectedGameProcess> DetectForegroundGame(const ProcessPolicyConfig& policy);
     static std::optional<DetectedGameProcess> DetectActiveGame(const std::vector<std::wstring>& custom_game_exes = {});
 
     // Inspects a specific PID safely with respect to Anti-Cheat (only PROCESS_QUERY_LIMITED_INFORMATION and TH32CS_SNAPMODULE).

@@ -1,14 +1,14 @@
 //! Parent-child inheritance of the background process policy (F5.1).
 //! An unknown child (a WebView2 helper, a crash reporter, a worker) takes the `Throttle`/`EcoOnly`
 //! action of its nearest ancestor that has one. The link is cut, always, at the active game, at its
-//! descendants, at Windows processes, at anything the policy protects (`DO_NOT_TOUCH` with a known class,
-//! a user exception, an anti-cheat signal) and at any link that cannot be proven: parent gone,
+//! descendants, at store launchers (what they start is a game or its stub), at Windows processes, at anything
+//! the policy protects (`DO_NOT_TOUCH` with a known class, a user exception, an anti-cheat signal) and at any link that cannot be proven: parent gone,
 //! PID reused (parent created after the child), unknown creation time, ambiguous PID, cycle.
 //! Pure data in, one decision per node out; the exported C function is in `ffi/process.rs`.
 
 use super::process_class::{
     VfProcessDecision, VF_PROC_ACTION_DO_NOT_TOUCH, VF_PROC_ACTION_ECO_ONLY, VF_PROC_ACTION_THROTTLE,
-    VF_PROC_CLASS_UNKNOWN,
+    VF_PROC_CLASS_STORES_LAUNCHERS, VF_PROC_CLASS_UNKNOWN,
 };
 use std::collections::{HashMap, HashSet};
 
@@ -108,6 +108,11 @@ pub fn inherit_decisions(nodes: &[ProcessNode], active_game_pid: u32) -> Vec<VfP
             };
             for &ai in &chain {
                 let a = &nodes[ai];
+                // A launcher lends nothing: what Steam or Epic starts is a game or its stub, and only the
+                // active one is known here. Its own helpers are slowed by their own rules.
+                if a.decision.process_class == VF_PROC_CLASS_STORES_LAUNCHERS {
+                    break;
+                }
                 if is_background_action(a.decision.action) {
                     return VfProcessDecision {
                         process_class: a.decision.process_class,
@@ -130,7 +135,7 @@ mod tests {
     use super::*;
     use crate::policy::process_class::{
         classify_process, ProcessPolicyInput, VfProcessCategoryActions, VF_PROC_ACTION_BOOST_AS_GAME,
-        VF_PROC_CLASS_CALLS_VOICE, VF_PROC_CLASS_MESSAGING, VF_PROC_CLASS_WINDOWS_SYSTEM,
+        VF_PROC_CLASS_CALLS_VOICE, VF_PROC_CLASS_MESSAGING, VF_PROC_CLASS_STORES_LAUNCHERS, VF_PROC_CLASS_WINDOWS_SYSTEM,
     };
 
     const GAME: u32 = 900;
@@ -429,11 +434,48 @@ mod tests {
     }
 
     #[test]
-    fn steam_helper_that_is_not_the_active_game_is_throttled() {
-        // An unknown tool Steam started (not the game in front) follows Steam's policy.
+    fn nothing_a_launcher_starts_is_inherited_onto() {
+        // Whatever Steam starts may be a game that is not the active one: only its own rule slows it.
         let cats = VfProcessCategoryActions::default();
         let steam = decide(r"C:\Program Files (x86)\Steam\steam.exe", cats);
-        let n = [node(10, 1, 100, steam), unknown(11, 10, 200)];
-        assert_eq!(actions(&n)[1], VF_PROC_ACTION_THROTTLE);
+        assert_eq!(steam.action, VF_PROC_ACTION_THROTTLE);
+        let n = [node(10, 1, 100, steam), unknown(11, 10, 200), unknown(12, 11, 300)];
+        let d = actions(&n);
+        assert_eq!(d[1], VF_PROC_ACTION_DO_NOT_TOUCH);
+        assert_eq!(d[2], VF_PROC_ACTION_DO_NOT_TOUCH);
+    }
+
+    #[test]
+    fn launcher_stub_of_the_active_game_is_not_slowed() {
+        // steam -> Game.exe (launcher stub, unknown) -> Game-Win64-Shipping.exe (the active game)
+        let n = [
+            node(10, 1, 100, VfProcessDecision { process_class: VF_PROC_CLASS_STORES_LAUNCHERS, action: VF_PROC_ACTION_THROTTLE, protected_by_anticheat: false, path_verified: true }),
+            unknown(11, 10, 200),
+            node(GAME, 11, 300, dec(VF_PROC_CLASS_UNKNOWN, VF_PROC_ACTION_BOOST_AS_GAME)),
+        ];
+        let d = actions(&n);
+        assert_eq!(d[1], VF_PROC_ACTION_DO_NOT_TOUCH);
+        assert_eq!(d[2], VF_PROC_ACTION_BOOST_AS_GAME);
+    }
+
+    #[test]
+    fn second_game_started_by_steam_is_not_slowed() {
+        let n = [
+            node(10, 1, 100, VfProcessDecision { process_class: VF_PROC_CLASS_STORES_LAUNCHERS, action: VF_PROC_ACTION_THROTTLE, protected_by_anticheat: false, path_verified: true }),
+            node(GAME, 10, 200, dec(VF_PROC_CLASS_UNKNOWN, VF_PROC_ACTION_BOOST_AS_GAME)),
+            unknown(950, 10, 300), // another game, not in front
+        ];
+        assert_eq!(actions(&n)[2], VF_PROC_ACTION_DO_NOT_TOUCH);
+    }
+
+    #[test]
+    fn launcher_in_the_middle_cuts_the_chain_even_above_a_throttled_app() {
+        // slack (throttled) -> steam -> unknown: the nearest lender is a launcher, so nothing is inherited.
+        let n = [
+            throttled(5, 1, 50),
+            node(10, 5, 100, VfProcessDecision { process_class: VF_PROC_CLASS_STORES_LAUNCHERS, action: VF_PROC_ACTION_THROTTLE, protected_by_anticheat: false, path_verified: true }),
+            unknown(11, 10, 200),
+        ];
+        assert_eq!(actions(&n)[2], VF_PROC_ACTION_DO_NOT_TOUCH);
     }
 }

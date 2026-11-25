@@ -435,6 +435,15 @@ bool ProcessDetector::IsProcessAlive(uint32_t pid) {
     return (ok && exit_code == STILL_ACTIVE);
 }
 
+std::optional<DetectedGameProcess> ProcessDetector::DetectForegroundGame(const ProcessPolicyConfig& policy) {
+    HWND fg = GetForegroundWindow();
+    if (!fg) return std::nullopt;
+    DWORD pid = 0;
+    GetWindowThreadProcessId(fg, &pid);
+    if (pid == 0 || pid == 4 || pid == GetCurrentProcessId()) return std::nullopt;
+    return InspectProcess(pid, fg, policy);
+}
+
 std::optional<DetectedGameProcess> ProcessDetector::DetectActiveGame(const ProcessPolicyConfig& policy) {
     std::set<DWORD> inspected_pids;
     const DWORD my_pid = GetCurrentProcessId();

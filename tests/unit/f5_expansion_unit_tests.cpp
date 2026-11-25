@@ -50,6 +50,7 @@ public:
     std::map<uint32_t, uint64_t> alive;                 // pid -> creation time
     int detect_calls = 0;
     std::vector<uint32_t> boosted_pids;
+    std::optional<vegaflow::DetectedGameProcess> foreground; // what the foreground window's process inspects as
     std::string last_api;
 
     std::optional<vegaflow::DetectedGameProcess> DetectActiveGame(const vegaflow::ProcessPolicyConfig&) override {
@@ -57,6 +58,10 @@ public:
         for (const auto& t : targets) {
             if (alive.count(t.pid)) return t;
         }
+        return std::nullopt;
+    }
+    std::optional<vegaflow::DetectedGameProcess> DetectForegroundGame(const vegaflow::ProcessPolicyConfig&) override {
+        if (foreground && alive.count(foreground->pid)) return foreground;
         return std::nullopt;
     }
     bool IsWindowValid(HWND) override { return true; }
@@ -100,30 +105,34 @@ vegaflow::DetectedGameProcess Target(uint32_t pid, uint64_t t, const wchar_t* ex
 
 // F5.1: the Rust inheritance rule reached through the C ABI.
 void Test170() {
-    // steam (throttle) -> unknown tool: inherited; game and its helper: not; Windows parent: not; orphan: not.
+    // slack (throttle) -> unknown helper: inherited. steam (launcher) -> game/helper: never. The active game, its helper,
+    // Windows, orphans, cycles and reused PIDs: cut.
     const std::vector<VfProcessTreeNode> nodes = {
-        Node(10, 1, 100, VF_PROC_CLASS_STORES_LAUNCHERS, VF_PROC_ACTION_THROTTLE),        // 0 steam
-        Node(11, 10, 200, VF_PROC_CLASS_UNKNOWN, VF_PROC_ACTION_DO_NOT_TOUCH),            // 1 tool -> throttle
-        Node(kGame, 10, 300, VF_PROC_CLASS_UNKNOWN, VF_PROC_ACTION_BOOST_AS_GAME),        // 2 the game
-        Node(901, kGame, 400, VF_PROC_CLASS_UNKNOWN, VF_PROC_ACTION_DO_NOT_TOUCH),        // 3 game helper
-        Node(20, 1, 100, VF_PROC_CLASS_WINDOWS_SYSTEM, VF_PROC_ACTION_DO_NOT_TOUCH),      // 4 windows
-        Node(21, 20, 200, VF_PROC_CLASS_UNKNOWN, VF_PROC_ACTION_DO_NOT_TOUCH),            // 5 under windows
-        Node(30, 77, 200, VF_PROC_CLASS_UNKNOWN, VF_PROC_ACTION_DO_NOT_TOUCH),            // 6 parent gone
-        Node(40, 41, 100, VF_PROC_CLASS_UNKNOWN, VF_PROC_ACTION_DO_NOT_TOUCH),            // 7 cycle
-        Node(41, 40, 100, VF_PROC_CLASS_UNKNOWN, VF_PROC_ACTION_DO_NOT_TOUCH),            // 8 cycle
-        Node(50, 10, 50, VF_PROC_CLASS_UNKNOWN, VF_PROC_ACTION_DO_NOT_TOUCH),             // 9 older than "parent": reused PID
+        Node(10, 1, 100, VF_PROC_CLASS_MESSAGING, VF_PROC_ACTION_THROTTLE),               // 0 slack
+        Node(11, 10, 200, VF_PROC_CLASS_UNKNOWN, VF_PROC_ACTION_DO_NOT_TOUCH),            // 1 helper -> throttle
+        Node(60, 1, 100, VF_PROC_CLASS_STORES_LAUNCHERS, VF_PROC_ACTION_THROTTLE),        // 2 steam
+        Node(kGame, 60, 300, VF_PROC_CLASS_UNKNOWN, VF_PROC_ACTION_BOOST_AS_GAME),        // 3 the game
+        Node(901, kGame, 400, VF_PROC_CLASS_UNKNOWN, VF_PROC_ACTION_DO_NOT_TOUCH),        // 4 game helper
+        Node(950, 60, 300, VF_PROC_CLASS_UNKNOWN, VF_PROC_ACTION_DO_NOT_TOUCH),           // 5 another game from steam
+        Node(20, 1, 100, VF_PROC_CLASS_WINDOWS_SYSTEM, VF_PROC_ACTION_DO_NOT_TOUCH),      // 6 windows
+        Node(21, 20, 200, VF_PROC_CLASS_UNKNOWN, VF_PROC_ACTION_DO_NOT_TOUCH),            // 7 under windows
+        Node(30, 77, 200, VF_PROC_CLASS_UNKNOWN, VF_PROC_ACTION_DO_NOT_TOUCH),            // 8 parent gone
+        Node(40, 41, 100, VF_PROC_CLASS_UNKNOWN, VF_PROC_ACTION_DO_NOT_TOUCH),            // 9 cycle
+        Node(41, 40, 100, VF_PROC_CLASS_UNKNOWN, VF_PROC_ACTION_DO_NOT_TOUCH),            // 10 cycle
+        Node(50, 10, 50, VF_PROC_CLASS_UNKNOWN, VF_PROC_ACTION_DO_NOT_TOUCH),             // 11 older than "parent": reused PID
     };
     const auto d = Inherit(nodes);
     const bool shape = d.size() == nodes.size();
     const bool ok = shape &&
-        d[1].action == VF_PROC_ACTION_THROTTLE && d[1].process_class == VF_PROC_CLASS_STORES_LAUNCHERS &&
-        d[2].action == VF_PROC_ACTION_BOOST_AS_GAME && d[3].action == VF_PROC_ACTION_DO_NOT_TOUCH &&
-        d[5].action == VF_PROC_ACTION_DO_NOT_TOUCH && d[6].action == VF_PROC_ACTION_DO_NOT_TOUCH &&
+        d[1].action == VF_PROC_ACTION_THROTTLE && d[1].process_class == VF_PROC_CLASS_MESSAGING &&
+        d[3].action == VF_PROC_ACTION_BOOST_AS_GAME && d[4].action == VF_PROC_ACTION_DO_NOT_TOUCH &&
+        d[5].action == VF_PROC_ACTION_DO_NOT_TOUCH &&
         d[7].action == VF_PROC_ACTION_DO_NOT_TOUCH && d[8].action == VF_PROC_ACTION_DO_NOT_TOUCH &&
-        d[9].action == VF_PROC_ACTION_DO_NOT_TOUCH;
+        d[9].action == VF_PROC_ACTION_DO_NOT_TOUCH && d[10].action == VF_PROC_ACTION_DO_NOT_TOUCH &&
+        d[11].action == VF_PROC_ACTION_DO_NOT_TOUCH;
     const bool null_refused = !vf_rust_inherit_process_actions(nullptr, 3, kGame, nullptr);
     const bool empty_ok = vf_rust_inherit_process_actions(nullptr, 0, kGame, nullptr);
-    RecordResult(ok && null_refused && empty_ok, "Test 170: child inherits the parent's Throttle/EcoOnly; the game, its helpers, Windows, orphans, cycles and reused PIDs are cut (F5.1)",
+    RecordResult(ok && null_refused && empty_ok, "Test 170: child inherits the parent's Throttle/EcoOnly; launchers' children, the game, its helpers, Windows, orphans, cycles and reused PIDs are cut (F5.1)",
                  std::string("Shape=") + (shape ? "1" : "0") + ", NullRefused=" + (null_refused ? "1" : "0"));
 }
 
@@ -153,6 +162,19 @@ void Test171() {
     vegaflow::session::RunGameSessionCycle(cfg, probe, env, hw, state);
     const bool fast_path = env.detect_calls == 1 && env.boosted_pids.size() == 3; // no rescan, still boosted each cycle
     const bool two_targets = state.active_game_pid == 100; // B alive the whole time, A keeps the session
+
+    // A windowed game is brought to the front while A (no window) is cached: the foreground wins and A is released.
+    const int scans_before_fg = env.detect_calls;
+    env.alive[300] = 8000;
+    env.foreground = Target(300, 8000, L"game.exe", reinterpret_cast<HWND>(static_cast<uintptr_t>(0x77)), vegaflow::RenderApi::DirectX11);
+    vegaflow::session::RunGameSessionCycle(cfg, probe, env, hw, state);
+    const bool foreground_preempts = state.active_game_pid == 300 && state.active_game_hwnd != nullptr &&
+                                     env.detect_calls == scans_before_fg; // no full scan needed
+    // The game goes away; A is still alive and is found again by the full scan (it is a listed target).
+    env.alive.erase(300);
+    env.foreground.reset();
+    vegaflow::session::RunGameSessionCycle(cfg, probe, env, hw, state);
+    const bool back_to_a = state.active_game_pid == 100;
 
     // A exits: the next cycle falls back to the full scan and finds B.
     env.alive.erase(100);
@@ -195,10 +217,10 @@ void Test171() {
     vegaflow::session::RunGameSessionCycle(cfg, probe, gl_env, hw, gl_state);
     const bool gl_label = gl_state.active_game_api == "OpenGL" && gl_env.detect_calls == 1;
 
-    RecordResult(a_first && fast_path && two_targets && switched_to_b && reuse_rescans && unknown_time_rescans && gl_ok && gl_label,
-                 "Test 171: windowless custom target uses the cache, reused PID/unknown time rescan, two targets keep the first, OpenGL is named (F5.2)",
+    RecordResult(a_first && fast_path && two_targets && foreground_preempts && back_to_a && switched_to_b && reuse_rescans && unknown_time_rescans && gl_ok && gl_label,
+                 "Test 171: windowless custom target uses the cache, a foreground game preempts it, reused PID/unknown time rescan, two targets keep the first, OpenGL is named (F5.2)",
                  std::string("AFirst=") + (a_first ? "1" : "0") + ", FastPath=" + (fast_path ? "1" : "0") +
-                     ", TwoTargets=" + (two_targets ? "1" : "0") + ", SwitchedToB=" + (switched_to_b ? "1" : "0") +
+                     ", TwoTargets=" + (two_targets ? "1" : "0") + ", ForegroundPreempts=" + (foreground_preempts ? "1" : "0") + ", BackToA=" + (back_to_a ? "1" : "0") + ", SwitchedToB=" + (switched_to_b ? "1" : "0") +
                      ", ReuseRescans=" + (reuse_rescans ? "1" : "0") + ", UnknownTimeRescans=" + (unknown_time_rescans ? "1" : "0") +
                      ", GlOk=" + (gl_ok ? "1" : "0") + ", GlLabel=" + (gl_label ? "1" : "0"));
 }
