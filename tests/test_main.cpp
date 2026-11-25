@@ -214,6 +214,8 @@ int main() {
         {146, vftest::Test146},  // F4.3 hardware partition/policy and the session cycle without Windows
         {147, vftest::Test147},  // F4.3 SystemInfo reads through SystemReads
         {148, vftest::Test148},  // F4.3 SettingsActions drives the switches through TweakControls
+        {170, vftest::Test170},  // F5.1 process tree inheritance
+        {171, vftest::Test171},  // F5.2 windowless target, OpenGL
         {144, vftest::Test144},  // F4.2 memory tab model, thread-map keys, sidebar order
         {149, vftest::Test149},  // F4.3 doctor reads through DoctorProbe (was 144 before merging F4.2)
     };

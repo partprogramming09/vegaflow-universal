@@ -48,6 +48,13 @@ public:
     // Checks whether a process is still alive using PROCESS_QUERY_LIMITED_INFORMATION and GetExitCodeProcess.
     static bool IsProcessAlive(uint32_t pid);
 
+    // FILETIME creation time of a process (0 when it cannot be read): with the PID it names one process for good.
+    static uint64_t ProcessCreationTime(uint32_t pid);
+
+    // Chooses the render API from the loaded modules. Direct3D and Vulkan rank above OpenGL; pass opengl=true only when
+    // opengl32.dll is backed by a GPU driver or a listed custom game (see InspectProcess).
+    static RenderApi PickRenderApi(bool d3d12, bool vulkan, bool d3d11, bool d3d9_10, bool opengl);
+
     static const char* RenderApiToString(RenderApi api);
     static bool IsSystemOrExcludedProcess(const std::wstring& exe_name);
 };

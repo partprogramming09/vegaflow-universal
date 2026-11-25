@@ -201,6 +201,15 @@ struct PreparedPolicyBuffers {
     }
 };
 
+// True when the user listed this exe in the per-program exceptions (their choice is never overridden by inheritance).
+bool HasUserException(const ProcessPolicyConfig& policy, const std::wstring& exe_name) {
+    const std::wstring lower = ToLower(exe_name);
+    for (const auto& ex : policy.exceptions) {
+        if (ToLower(ExtractFileName(ex.exe_name)) == lower) return true;
+    }
+    return false;
+}
+
 } // anonymous namespace
 
 VfProcessDecision ProcessDetector::ClassifyProcess(
@@ -220,6 +229,7 @@ const char* ProcessDetector::RenderApiToString(RenderApi api) {
         case RenderApi::DirectX11:   return "DirectX 11";
         case RenderApi::DirectX12:   return "DirectX 12";
         case RenderApi::Vulkan:      return "Vulkan";
+        case RenderApi::OpenGL:      return "OpenGL";
         case RenderApi::Unknown:
         default:                     return "Unknown";
     }
@@ -281,6 +291,7 @@ std::optional<DetectedGameProcess> ProcessDetector::InspectProcess(
     bool has_vulkan = false;
     bool has_d3d11 = false;
     bool has_d3d9_10 = false;
+    bool has_opengl = false;
     bool module_ac_signal = false;
     std::wstring driver_dll;
 
@@ -308,19 +319,23 @@ std::optional<DetectedGameProcess> ProcessDetector::InspectProcess(
                 has_d3d11 = true;
             } else if (mod_lower == L"d3d9.dll" || mod_lower == L"d3d10.dll" || mod_lower == L"d3d10_1.dll") {
                 has_d3d9_10 = true;
+            } else if (mod_lower == L"opengl32.dll") {
+                has_opengl = true;
             }
 
             // Driver DLL detection (AMD, NVIDIA, Intel)
             if (driver_dll.empty()) {
                 if (mod_lower == L"amdxc64.dll" || mod_lower == L"atidxx64.dll" || mod_lower == L"amdvlk64.dll" ||
-                    mod_lower == L"amdxc32.dll" || mod_lower == L"atidxx32.dll" || mod_lower == L"amdvlk32.dll") {
+                    mod_lower == L"amdxc32.dll" || mod_lower == L"atidxx32.dll" || mod_lower == L"amdvlk32.dll" ||
+                    mod_lower == L"atio6axx.dll" || mod_lower == L"atioglxx.dll") { // the last two: AMD OpenGL (F5.2)
                     driver_dll = me.szModule;
                 } else if (mod_lower == L"nvwgf2umx.dll" || mod_lower == L"nvoglv64.dll" ||
                            mod_lower == L"nvwgf2um.dll"  || mod_lower == L"nvoglv32.dll") {
                     driver_dll = me.szModule;
                 } else if (mod_lower == L"igd12umd64.dll" || mod_lower == L"igd10iumd64.dll" ||
                            mod_lower == L"igvk64.dll"     || mod_lower == L"ze_intel_gpu64.dll" ||
-                           mod_lower == L"igd12umd32.dll" || mod_lower == L"igd10iumd32.dll") {
+                           mod_lower == L"igd12umd32.dll" || mod_lower == L"igd10iumd32.dll" ||
+                           mod_lower == L"ig9icd64.dll"   || mod_lower == L"igxelpicd64.dll") { // the last two: Intel OpenGL (F5.2)
                     driver_dll = me.szModule;
                 }
             }
@@ -328,16 +343,20 @@ std::optional<DetectedGameProcess> ProcessDetector::InspectProcess(
     }
     CloseHandle(hSnap);
 
-    RenderApi api = RenderApi::Unknown;
-    if (has_d3d12) {
-        api = RenderApi::DirectX12;
-    } else if (has_vulkan) {
-        api = RenderApi::Vulkan;
-    } else if (has_d3d11) {
-        api = RenderApi::DirectX11;
-    } else if (has_d3d9_10) {
-        api = RenderApi::DirectX9_10;
+    // F5.2: opengl32.dll alone is loaded by many non-games; it counts only with a GPU driver (the ICD, loaded when a
+    // context is made) or when the user listed the exe.
+    bool listed_custom_exe = false;
+    {
+        const std::wstring self_lower = ToLower(exe_name);
+        for (const auto& ce : policy.custom_game_exes) {
+            if (self_lower == ToLower(ExtractFileName(ce))) {
+                listed_custom_exe = true;
+                break;
+            }
+        }
     }
+    const RenderApi api = PickRenderApi(has_d3d12, has_vulkan, has_d3d11, has_d3d9_10,
+                                        has_opengl && (!driver_dll.empty() || listed_custom_exe));
 
     const bool has_3d_api = (api != RenderApi::Unknown);
     const bool ac_signal = module_ac_signal || HasActiveAntiCheatService();
@@ -381,6 +400,22 @@ std::optional<DetectedGameProcess> ProcessDetector::InspectProcess(
     result.generic_anticheat_detected = dec.protected_by_anticheat || ac_signal;
 
     return result;
+}
+
+RenderApi ProcessDetector::PickRenderApi(bool d3d12, bool vulkan, bool d3d11, bool d3d9_10, bool opengl) {
+    // Direct3D and Vulkan win over OpenGL: a game that also links opengl32.dll (launchers, overlays) is not an OpenGL game.
+    if (d3d12) return RenderApi::DirectX12;
+    if (vulkan) return RenderApi::Vulkan;
+    if (d3d11) return RenderApi::DirectX11;
+    if (d3d9_10) return RenderApi::DirectX9_10;
+    if (opengl) return RenderApi::OpenGL;
+    return RenderApi::Unknown;
+}
+
+uint64_t ProcessDetector::ProcessCreationTime(uint32_t pid) {
+    std::wstring path;
+    uint64_t created = 0;
+    return QueryProcessImageAndTime(pid, path, created) ? created : 0;
 }
 
 bool ProcessDetector::IsProcessAlive(uint32_t pid) {
@@ -552,32 +587,65 @@ std::vector<BackgroundProcessTarget> ProcessDetector::ClassifyBackgroundProcesse
 
     const DWORD my_pid = GetCurrentProcessId();
     PreparedPolicyBuffers prep(policy);
+
+    // F5.1: every process enters the tree (the game, Windows and protected ones too: they are what cuts a chain).
+    struct Seen {
+        std::wstring exe_name;
+        std::wstring full_path;
+    };
+    std::vector<Seen> seen;
+    std::vector<VfProcessTreeNode> nodes;
     PROCESSENTRY32W pe{};
     pe.dwSize = sizeof(PROCESSENTRY32W);
-
     if (Process32FirstW(hSnap, &pe)) {
         do {
-            if (pe.th32ProcessID == 0 || pe.th32ProcessID == 4 ||
-                pe.th32ProcessID == active_game_pid || pe.th32ProcessID == my_pid) {
-                continue;
-            }
-
-            std::wstring full_path;
+            Seen s;
+            s.exe_name = pe.szExeFile;
             uint64_t creation_time = 0;
-            QueryProcessImageAndTime(pe.th32ProcessID, full_path, creation_time);
+            QueryProcessImageAndTime(pe.th32ProcessID, s.full_path, creation_time);
 
-            const VfProcessDecision dec = prep.Classify(full_path, pe.szExeFile, false, false);
-            if (dec.action == VF_PROC_ACTION_ECO_ONLY || dec.action == VF_PROC_ACTION_THROTTLE) {
-                BackgroundProcessTarget t{};
-                t.pid = pe.th32ProcessID;
-                t.creation_time = creation_time;
-                t.exe_name = pe.szExeFile;
-                t.full_path = std::move(full_path);
-                t.process_class = static_cast<ProcessClass>(dec.process_class);
-                t.action = static_cast<ProcessAction>(dec.action);
-                targets.push_back(std::move(t));
-            }
+            const VfProcessDecision dec = prep.Classify(s.full_path, pe.szExeFile, false, false);
+            VfProcessTreeNode n{};
+            n.pid = pe.th32ProcessID;
+            n.parent_pid = pe.th32ParentProcessID;
+            n.creation_time = creation_time;
+            n.process_class = dec.process_class;
+            n.action = dec.action;
+            n.has_user_exception = HasUserException(policy, pe.szExeFile);
+            const std::string path_utf8 = WideToUtf8Local(ToLower(s.full_path.empty() ? s.exe_name : s.full_path));
+            n.has_anticheat_signal = !path_utf8.empty() &&
+                vf_rust_has_anticheat_signature(path_utf8.data(), path_utf8.size());
+            nodes.push_back(n);
+            seen.push_back(std::move(s));
         } while (Process32NextW(hSnap, &pe));
+    }
+
+    std::vector<VfProcessDecision> decided(nodes.size());
+    if (!nodes.empty() &&
+        !vf_rust_inherit_process_actions(nodes.data(), nodes.size(), active_game_pid, decided.data())) {
+        // Bridge refused: fall back to each process's own decision (the pre-F5.1 behavior).
+        for (size_t i = 0; i < nodes.size(); ++i) {
+            decided[i].process_class = nodes[i].process_class;
+            decided[i].action = nodes[i].action;
+        }
+    }
+
+    for (size_t i = 0; i < nodes.size(); ++i) {
+        const VfProcessTreeNode& n = nodes[i];
+        if (n.pid == 0 || n.pid == 4 || n.pid == active_game_pid || n.pid == my_pid) {
+            continue;
+        }
+        const VfProcessDecision& dec = decided[i];
+        if (dec.action == VF_PROC_ACTION_ECO_ONLY || dec.action == VF_PROC_ACTION_THROTTLE) {
+            BackgroundProcessTarget t{};
+            t.pid = n.pid;
+            t.creation_time = n.creation_time;
+            t.exe_name = seen[i].exe_name;
+            t.full_path = std::move(seen[i].full_path);
+            t.process_class = static_cast<ProcessClass>(dec.process_class);
+            t.action = static_cast<ProcessAction>(dec.action);
+            targets.push_back(std::move(t));
+        }
     }
 
     CloseHandle(hSnap);

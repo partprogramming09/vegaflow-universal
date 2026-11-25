@@ -60,6 +60,9 @@ struct GameSessionEnvironment {
     virtual bool IsWindowValid(HWND hwnd) = 0;
     virtual bool IsProcessAlive(uint32_t pid) = 0;
     virtual uint32_t WindowThreadId(HWND hwnd) = 0; // the thread that owns the game window (its presenter)
+    // F5.2: creation time (FILETIME) of a process; 0 = unknown. A windowless target is only trusted from the cache
+    // when this matches the one saved, so a reused PID is never taken for the target.
+    virtual uint64_t ProcessCreationTime(uint32_t /*pid*/) { return 0; }
     virtual std::vector<BackgroundProcessTarget> ClassifyBackgroundProcesses(
         uint32_t game_pid,
         const ProcessPolicyConfig& policy) = 0;
