@@ -30,6 +30,7 @@ src src/optimize/memory_manager.cpp
 src src/optimize/steam/engine_detection.cpp
 src src/session/config.cpp
 src src/model/engine_presets.cpp
+src src/bridge/hardware_policy.cpp
 src src/session/doctor.cpp
 src src/session/profile_reasons.cpp
 src src/session/config_actions.cpp
@@ -49,7 +50,7 @@ src src/session/programs_screen.cpp
 src src/session/report.cpp
 src src/session/requirements_screen.cpp
 src src/session/restore.cpp
-src src/session/run_cycle.cpp
+src src/app/run_cycle.cpp
 src src/session/settings_actions.cpp
 src src/session/settings_catalog.cpp
 src src/session/settings_screen.cpp
@@ -69,6 +70,7 @@ test tests/unit/gamedvr_restore_unit_tests.cpp
 test tests/unit/give_back_no_blind_write_unit_tests.cpp
 test tests/unit/game_actions_port_unit_tests.cpp
 test tests/unit/gpu_usage_unit_tests.cpp
+test tests/unit/hardware_policy_unit_tests.cpp
 test tests/unit/gui_wiring_unit_tests.cpp
 test tests/unit/memcompression_journal_unit_tests.cpp
 test tests/unit/phase_g_extras_unit_tests.cpp

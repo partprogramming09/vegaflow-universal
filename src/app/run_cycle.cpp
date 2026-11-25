@@ -1,4 +1,4 @@
-#include "session/run_cycle.hpp"
+#include "app/run_cycle.hpp"
 
 #include <windows.h>
 
@@ -43,6 +43,10 @@ public:
 
     bool IsWindowValid(HWND hwnd) override {
         return vegaflow::IsWindowHandleValid(hwnd);
+    }
+
+    uint32_t WindowThreadId(HWND hwnd) override {
+        return vegaflow::WindowThreadId(hwnd);
     }
 
     bool IsProcessAlive(uint32_t pid) override {

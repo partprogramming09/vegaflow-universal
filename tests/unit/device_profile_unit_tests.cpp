@@ -98,6 +98,7 @@ public:
         return active_game;
     }
     bool IsWindowValid(HWND) override { return true; }
+    uint32_t WindowThreadId(HWND) override { return 0; }
     bool IsProcessAlive(uint32_t) override { return active_game.has_value(); }
     std::vector<vegaflow::BackgroundProcessTarget> ClassifyBackgroundProcesses(uint32_t, const vegaflow::ProcessPolicyConfig&) override {
         vegaflow::BackgroundProcessTarget t{};

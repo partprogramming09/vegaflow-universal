@@ -21,7 +21,7 @@
 #include "session/config.hpp"
 #include "session/doctor.hpp"
 #include "session/reports.hpp"
-#include "session/run_cycle.hpp"
+#include "app/run_cycle.hpp"
 #include "ui/app_identity.hpp"
 #include "windows/command_line.hpp"
 #include "app/doctor_probe.hpp"

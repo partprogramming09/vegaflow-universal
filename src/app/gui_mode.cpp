@@ -40,7 +40,7 @@
 #include "session/game_actions.hpp"
 #include "session/settings_actions.hpp"
 #include "session/reports.hpp"
-#include "session/run_cycle.hpp"
+#include "app/run_cycle.hpp"
 #include "windows/system_counters.hpp"
 #include "app/doctor_probe.hpp"
 #include "optimize/game_files_adapter.hpp"

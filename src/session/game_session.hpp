@@ -59,6 +59,7 @@ struct GameSessionEnvironment {
     virtual std::optional<DetectedGameProcess> DetectActiveGame(const ProcessPolicyConfig& policy) = 0;
     virtual bool IsWindowValid(HWND hwnd) = 0;
     virtual bool IsProcessAlive(uint32_t pid) = 0;
+    virtual uint32_t WindowThreadId(HWND hwnd) = 0; // the thread that owns the game window (its presenter)
     virtual std::vector<BackgroundProcessTarget> ClassifyBackgroundProcesses(
         uint32_t game_pid,
         const ProcessPolicyConfig& policy) = 0;
