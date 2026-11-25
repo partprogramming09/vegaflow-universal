@@ -15,7 +15,7 @@ VegaFlow changes Windows settings: the registry (the database where Windows keep
 - `session/` decides. It gets those parts through ports: small interfaces such as "read a file" or "change a registry value". The real Windows code behind a port is called an adapter.
 - `ui/` draws the window. It only shows what `session/` prepared, so it decides nothing.
 
-The reasons for this split are in [ADR 0001](../adr/0001-nucleo-que-decide-y-puertos.md). The layer table still lets `session/` include `windows/`, `detect/` and `optimize/` during the migration, so the split is not complete yet.
+The reasons for this split are in [ADR 0001](../adr/0001-nucleo-que-decide-y-puertos.md). `session/` is strict except for six files that still use concrete optimizer classes (listed in [Code layers](./modules/layers.md#what-is-still-open-in-session)), so the split is not complete yet.
 
 ## A concrete example
 
@@ -122,7 +122,7 @@ Output from the test run of 2026-11-20 on the test laptop (Ryzen 5 4600H, Vega 6
 | Programs (81.x) | Tests 81.1, 81.4, 81.7, 81.8 | `[PASS] Test 81.1: the seven categories are well formed: unique ids, filled texts, ids the editor knows, no promise of gain`; `[PASS] Test 81.4: BoostAsGame is refused for an exception just as it is for a category (the screen offers only three choices)`; `[PASS] Test 81.7: AddException refuses with a sentence the names the Rust rules refuse, never stores them, and works with a null error pointer`; `[PASS] Test 81.8: Remove and SetExceptionAction find a program in any letter case, ignore folders and blanks, and report a miss as false` |
 | Restore sentence | Test 75 | `[PASS] Test 75: the Volver todo sentence names the journal summary, else the registry count, else 0 of 0` |
 | Restore with failures and dry run | Tests 82.12 and 82.13 | `[PASS] Test 82.12: 'Volver todo' with failures: reverts the rest, names each failure with its fix, and a second call retries only the failures` and `[PASS] Test 82.13: 'Volver todo' as a dry run reverts and marks nothing; on an empty journal it says 0 of 0` |
-| Whole suite | `build.ps1 -RunTests` | `TEST RESULTS: 426 PASSED, 0 FAILED` |
+| Whole suite | `build.ps1 -RunTests` | `TEST RESULTS: 435 PASSED, 0 FAILED` |
 
 ## Check it yourself
 
@@ -132,11 +132,11 @@ On Windows, in the repository folder:
 powershell -ExecutionPolicy Bypass -File .\scripts\build\build.ps1 -RunTests
 ```
 
-The last line should read `TEST RESULTS: 426 PASSED, 0 FAILED`. The number grows as tests are added. The full procedure is in [build and test](./build-and-test.md).
+The last line should read `TEST RESULTS: 435 PASSED, 0 FAILED`. The number grows as tests are added. The full procedure is in [build and test](./build-and-test.md).
 
 ## Related
 
-- [Code layers](./modules/layers.md): which folder may use which, and the migration exceptions.
+- [Code layers](./modules/layers.md): which folder may use which, and the six files that still have an exception.
 - [How ui/ works](./how-it-works-ui.md): the other side of the screens, the views that draw them, and the list of screens.
 - [How optimize/ works](./how-it-works-optimize.md) and [Windows and driver tweaks](./usage-and-features/tweaks.md): what the profiles change in each game.
 - [Rust and C++ core](./rust-cpp-core.md): how C++ calls the Rust rules.

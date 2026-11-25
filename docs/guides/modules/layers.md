@@ -27,6 +27,31 @@ Terms: a **port** is a small interface (for example, "read and write the registr
 
 ### What the repository checks
 
-- `scripts/ci/check_layers.sh` checks every `#include` in `src/` against the [layer table](./index.md#layer-table): 272 includes checked, layers respected (2026-11-14). It runs in CI.
-- `session/` still includes headers from `windows/`, `detect/` and `optimize/`. The script allows them as **migration** (they are marked that way in its table) until each piece sits behind a port. What is gone from `session/` are the Win32 calls.
+- `scripts/ci/check_layers.sh` checks every `#include` in `src/` against the [layer table](./index.md#layer-table): 485 includes checked, layers respected (2026-11-25). It runs in CI.
+- `session/` is strict since F4.3 (2026-11-25), except for six files listed in the `debt()` function of the script (see [what is still open](#what-is-still-open-in-session)). Before, the whole folder was allowed to include `detect/`, `optimize/` and `windows/`: 16 files and 58 includes. Now it is 6 files and 33 includes.
 - The tests that touch the real registry are only in `tests/integration/`; `tests/unit/` uses fake ports. C++ suite on the test laptop, 2026-11-14: `57 PASSED, 0 FAILED`.
+
+### What F4.3 moved (2026-11-25)
+
+| What moved | Where it went |
+| --- | --- |
+| The reads of `--doctor` (disks, shader caches, hardware reasons, config.json warning, process list, computer name) | behind the `DoctorProbe` port (`ports/doctor_probe.hpp`); the Windows code is `app/doctor_probe.cpp`, and `session/doctor.cpp` includes nothing from `windows/`, `detect/` or `optimize/` |
+| What the Juegos buttons change in a game folder (apply, restore, remove DXVK) | behind the `GameFiles` port (`ports/game_files.hpp`); `optimize/game_files_adapter.hpp` forwards to `SteamEngineOptimizer` and `DxvkManager` |
+| UTF-8 ↔ UTF-16 conversion (`text_convert.hpp`) | declared in `ports/`; `windows/text_convert.cpp` still implements it |
+| The plain data of the optimizers (`MemoryPurgeConfig` and the memory reports, `SteamGameEntry` and the engine types, `SystemGraphicsTweaksState`, `ApuPowerMode`) | `model/memory.hpp`, `model/steam.hpp`, `model/tweaks.hpp` |
+| Hardware enum names (`VendorToString` and the other six), the Unreal/Unity preset text and keys, the file-name rule of a Windows path | `model/hardware_names.hpp`, `model/engine_presets.*`, `model/path_name.hpp` |
+| The sentences of the hardware profile reasons (a Rust call) | `session/profile_reasons.*` |
+
+Terms: the **host** is this Mac (or any machine without Windows); the host tests run the C++ unit tests there with a stand-in for `text_convert` (`tests/host/host_stubs.cc`). Host tests went from 134 to 238.
+
+### What is still open in `session/`
+
+Six files still use concrete classes of `detect/`, `optimize/` or `windows/`, because each one needs an interface for a whole family of calls (the `GraphicsOptimizer` coordinator alone is used in about 34 places of `settings_actions.cpp`). They are the next step, one class at a time:
+
+| File | Includes still there | Why |
+| --- | --- | --- |
+| `reports.cpp:26-37` | `config_location`, `privileges`, `hardware_profiler`, `process_detector`, `graphics_optimizer`, `memory_manager`, `cpu_orchestrator`, `steam_engine_optimizer`, `dxvk_manager`, `power`, `registry`, `system_counters` | `--status`, `--dry-run` and `--purge-now` build the optimizers and adapters themselves |
+| `run_cycle.cpp:11-23`, `run_cycle.hpp:10-12` | `hardware_profiler`, `process_detector`, `graphics_optimizer`, `memory_manager`, `cpu_orchestrator`, `steam_engine_optimizer`, `device_probe`, `power`, `registry`, `system_counters` | one cycle takes `CpuOrchestrator&` and `MemoryManager&` and creates the Windows adapters |
+| `system_info.cpp:2-7` | `hardware_profiler`, `memory_manager`, `graphics_optimizer`, `power`, `registry`, `system_counters` | the report builds a `GraphicsOptimizer` to read the tweaks |
+| `game_session.cpp:4-6` | `hardware_profiler`, `cpu_orchestrator`, `system_counters` | `HardwareProfiler::BuildOptimizationPolicy`, CPU Sets and `WindowThreadId` |
+| `settings_actions.hpp:11` | `graphics_optimizer` | `SettingsActionsDeps` holds `GraphicsOptimizer&` |

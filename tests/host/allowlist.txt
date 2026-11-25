@@ -5,6 +5,14 @@
 #   exclude  <file> <reason> one word: compile = calls the Windows API or needs a Windows header beyond tests/host/,
 #                            link = needs src/ code that only builds on Windows (text_convert, change_journal, steam,
 #                            registry...), stub = reaches a stub in tests/host/host_stubs.cc (aborts when called)
+#
+# F4.3 (2026-11-25): session/ is strict in scripts/ci/check_layers.sh except six files (debt() there). The excluded tests
+# below that need them stay on the laptop until each class gets a port; what is still open, with file:line:
+#   reports.cpp:26-37  run_cycle.cpp:11-23  run_cycle.hpp:10-12  system_info.cpp:2-7  game_session.cpp:4-6  settings_actions.hpp:11
+#   -> the other `link` and `stub` exclusions below link against optimizer or Windows code (each line's reason says which).
+# history_screen* and home_screen* still link to FileChangeJournal (windows/change_journal.cpp calls CoCreateGuid).
+# game_actions_unit_tests / game_actions_adversarial_unit_tests build the real SteamEngineOptimizer and DxvkManager through
+# optimize/game_files_adapter.hpp; Test 145 (game_actions_port_unit_tests) covers the same buttons with a fake GameFiles.
 # Every tests/unit/*_tests.cpp must be a test or exclude line. To re-check an exclusion after a change, move it to
 # "test", run the script and read the error.
 
