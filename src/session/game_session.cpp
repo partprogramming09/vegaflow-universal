@@ -4,7 +4,7 @@
 #include "detect/hardware_profiler.hpp"
 #include "optimize/cpu_orchestrator.hpp"
 #include "windows/system_counters.hpp"
-#include "windows/text_convert.hpp"
+#include "ports/text_convert.hpp"
 
 #include <cwctype>
 #include <filesystem>

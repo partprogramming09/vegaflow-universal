@@ -9,7 +9,7 @@
 
 #include "optimize/steam/steam_engine_optimizer.hpp"
 #include <filesystem>
-#include "windows/text_convert.hpp"
+#include "ports/text_convert.hpp"
 #include "bridge/rust_bridge.h"
 #include "bridge/ffi_callback_guard.hpp"
 

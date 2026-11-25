@@ -42,7 +42,8 @@
 #include "session/reports.hpp"
 #include "session/run_cycle.hpp"
 #include "windows/system_counters.hpp"
-#include "windows/text_convert.hpp"
+#include "app/doctor_probe.hpp"
+#include "ports/text_convert.hpp"
 #include "windows/event_sources.hpp"
 
 namespace vegaflow::app {
@@ -403,7 +404,10 @@ int RunGuiMode(
     const std::wstring welcome_mark = std::filesystem::path(ConfigFilePath()).replace_filename(L"welcome.seen").wstring();
     callbacks.on_ShouldShowWelcome = [&]() { return session::ShouldShowWelcome(file_system, welcome_mark); };
     callbacks.on_MarkWelcomeSeen = [&]() { session::MarkWelcomeSeen(file_system, welcome_mark); };
-    callbacks.on_RunDoctor = [&]() { return session::ReadDoctorReport(ui::kVersion).text; };
+    callbacks.on_RunDoctor = [&]() {
+        WindowsDoctorProbe probe;
+        return session::ReadDoctorReport(ui::kVersion, probe).text;
+    };
 
     // Configuración and Programas edits live in session/config_actions: `config` follows only when config.json was written.
     session::ConfigActions config_actions(config, config_store, cached_steam_games, [&](const std::string& line) { AddAuditLog(line); });

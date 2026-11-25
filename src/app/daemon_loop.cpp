@@ -19,7 +19,7 @@
 #include "windows/registry.hpp"
 #include "windows/safe_file_system.hpp"
 #include "session/run_cycle.hpp"
-#include "windows/text_convert.hpp"
+#include "ports/text_convert.hpp"
 #include "windows/event_sources.hpp"
 #include "session/wake_loop.hpp"
 

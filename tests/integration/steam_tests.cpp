@@ -38,7 +38,7 @@
 #include "../test_support.hpp"
 #include "windows/safe_file_system.hpp"
 #include "windows/steam_paths.hpp"
-#include "windows/text_convert.hpp"
+#include "ports/text_convert.hpp"
 
 namespace vftest {
 

@@ -1,5 +1,6 @@
 #include "detect/hardware_profiler.hpp"
 #include "bridge/rust_bridge.h"
+#include "model/hardware_names.hpp"
 #include "windows/device_probe.hpp"
 
 #include <algorithm>
@@ -11,78 +12,19 @@
 
 namespace vegaflow {
 
-const char* HardwareProfiler::VendorToString(GpuVendor v) {
-    switch (v) {
-        case GpuVendor::AMD:    return "AMD";
-        case GpuVendor::Intel:  return "Intel";
-        case GpuVendor::NVIDIA: return "NVIDIA";
-        case GpuVendor::Unknown:
-        default:                return "Unknown";
-    }
-}
+const char* HardwareProfiler::VendorToString(GpuVendor v) { return ::vegaflow::VendorToString(v); }
 
-const char* HardwareProfiler::MemArchToString(MemoryArchitecture m) {
-    switch (m) {
-        case MemoryArchitecture::UMA_Integrated: return "UMA_Integrated";
-        case MemoryArchitecture::Dedicated_VRAM: return "Dedicated_VRAM";
-        case MemoryArchitecture::Unknown:
-        default:                                 return "Unknown";
-    }
-}
+const char* HardwareProfiler::MemArchToString(MemoryArchitecture m) { return ::vegaflow::MemArchToString(m); }
 
-const char* HardwareProfiler::ConnectionToString(GpuConnection c) {
-    switch (c) {
-        case GpuConnection::Integrated: return "Integrada";
-        case GpuConnection::Discrete:   return "Dedicada";
-        case GpuConnection::External:   return "Externa";
-        case GpuConnection::Unknown:
-        default:                        return "No se pudo leer";
-    }
-}
+const char* HardwareProfiler::ConnectionToString(GpuConnection c) { return ::vegaflow::ConnectionToString(c); }
 
-const char* HardwareProfiler::DiskTypeToString(GameDiskType d) {
-    switch (d) {
-        case GameDiskType::HDD:     return "HDD";
-        case GameDiskType::SSD:     return "SSD";
-        case GameDiskType::NVMe:    return "NVMe";
-        case GameDiskType::Unknown:
-        default:                    return "No se pudo leer";
-    }
-}
+const char* HardwareProfiler::DiskTypeToString(GameDiskType d) { return ::vegaflow::DiskTypeToString(d); }
 
-const char* HardwareProfiler::SystemArchToString(SystemArch a) {
-    switch (a) {
-        case SystemArch::X64:            return "x64";
-        case SystemArch::ARM64_Emulated: return "ARM64 (x64 emulado)";
-        case SystemArch::ARM64_Native:   return "ARM64";
-        case SystemArch::X86:            return "x86";
-        case SystemArch::Unknown:
-        default:                         return "No se pudo leer";
-    }
-}
+const char* HardwareProfiler::SystemArchToString(SystemArch a) { return ::vegaflow::SystemArchToString(a); }
 
-const char* HardwareProfiler::ApuTierToString(ApuTier tier) {
-    switch (tier) {
-        case ApuTier::Tier1_EntryUMA:        return "Tier1_EntryUMA";
-        case ApuTier::Tier2_MidVegaUMA:      return "Tier2_MidVegaUMA";
-        case ApuTier::Tier3_AdvancedUMA:     return "Tier3_AdvancedUMA";
-        case ApuTier::Tier4_DiscreteOrCustom:return "Tier4_DiscreteOrCustom";
-        default:                             return "Unknown";
-    }
-}
+const char* HardwareProfiler::ApuTierToString(ApuTier tier) { return ::vegaflow::ApuTierToString(tier); }
 
-const char* HardwareProfiler::ArchGenToString(GpuArchitectureGen gen) {
-    switch (gen) {
-        case GpuArchitectureGen::AMD_GCN5_Vega:    return "AMD_GCN5_Vega";
-        case GpuArchitectureGen::AMD_RDNA2:        return "AMD_RDNA2";
-        case GpuArchitectureGen::AMD_RDNA3_Plus:   return "AMD_RDNA3_Plus";
-        case GpuArchitectureGen::Intel_Gen9_11_UHD:return "Intel_Gen9_11_UHD";
-        case GpuArchitectureGen::Intel_Xe_Arc:     return "Intel_Xe_Arc";
-        case GpuArchitectureGen::Discrete_GPU:     return "Discrete_GPU";
-        case GpuArchitectureGen::Unknown:
-        default:                                   return "Unknown";
-    }
-}
+const char* HardwareProfiler::ArchGenToString(GpuArchitectureGen gen) { return ::vegaflow::ArchGenToString(gen); }
 
 namespace {
 
@@ -139,21 +81,7 @@ std::string TierLabelFor(ApuTier tier, GpuConnection conn) {
     }
 }
 
-void CollectReasonLine(void* ctx, const char* utf8, size_t len) noexcept {
-    try {
-        static_cast<std::vector<std::string>*>(ctx)->emplace_back(utf8, len);
-    } catch (...) {
-        // out of memory: the line is lost, the others still arrive
-    }
-}
-
 } // namespace
-
-std::vector<std::string> HardwareProfiler::DecisionReasonTexts(uint64_t reasons) {
-    std::vector<std::string> lines;
-    vf_rust_decision_reason_texts(reasons, CollectReasonLine, &lines);
-    return lines;
-}
 
 ApuOptimizationPolicy HardwareProfiler::BuildOptimizationPolicy(
     const SystemHardwareProfile& profile,

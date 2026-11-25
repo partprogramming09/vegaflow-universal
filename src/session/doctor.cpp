@@ -1,29 +1,13 @@
 #include "session/doctor.hpp"
 
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <windows.h>
-#include <tlhelp32.h>
-
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
 #include <iostream>
 
 #include "bridge/rust_bridge.h"
-#include "detect/hardware_profiler.hpp"
-#include "detect/process_detector.hpp"
-#include "session/config.hpp"
+#include "ports/doctor_probe.hpp"
 #include "session/report.hpp"
-#include "windows/config_location.hpp"
-#include "windows/safe_file_system.hpp"
-#include "windows/privileges.hpp"
-#include "windows/registry.hpp"
-#include "windows/text_convert.hpp"
 
 namespace vegaflow::session {
 
@@ -196,93 +180,42 @@ DoctorReport BuildDoctorReport(const DoctorInputs& in) {
     return r;
 }
 
-namespace {
-
-std::string Narrow(const std::wstring& w) { return app::WideToUtf8(w); }
-
-DoctorDisk ProbeDisk(const std::string& label, const std::wstring& any_path_on_drive) {
-    DoctorDisk d;
-    d.label = label;
-    wchar_t root[MAX_PATH] = {};
-    if (!GetVolumePathNameW(any_path_on_drive.c_str(), root, MAX_PATH)) {
-        d.path = Narrow(any_path_on_drive);
-        return d;
-    }
-    d.path = Narrow(root);
-    ULARGE_INTEGER avail{}, total{}, free_all{};
-    if (GetDiskFreeSpaceExW(root, &avail, &total, &free_all)) {
-        d.probed = true;
-        d.free_bytes = avail.QuadPart;
-        d.total_bytes = total.QuadPart;
-    }
-    return d;
-}
-
-std::string ComputerName(COMPUTER_NAME_FORMAT format) {
-    wchar_t buf[256] = {};
-    DWORD n = 256;
-    return GetComputerNameExW(format, buf, &n) ? Narrow(std::wstring(buf, n)) : std::string();
-}
-
-} // namespace
-
-DoctorReport ReadDoctorReport(const std::string& version) {
+DoctorReport ReadDoctorReport(const std::string& version, DoctorProbe& probe) {
     DoctorInputs in;
     in.version = version;
-    in.elevated = PrivilegeManager::IsProcessElevated();
+    in.elevated = probe.IsElevated();
 
-    wchar_t sys_dir[MAX_PATH] = {};
-    GetSystemDirectoryW(sys_dir, MAX_PATH);
-    in.disks.push_back(ProbeDisk("System drive", sys_dir));
+    in.disks.push_back(probe.ProbeSystemDrive());
 
     // The active game's drive, when a game is open and it lives on another drive.
-    if (const auto game = ProcessDetector::DetectActiveGame()) {
-        DoctorDisk g = ProbeDisk("Game drive", game->full_path);
-        if (g.path != in.disks[0].path) in.disks.push_back(g);
+    if (const auto g = probe.ProbeActiveGameDrive()) {
+        if (g->path != in.disks[0].path) in.disks.push_back(*g);
     }
 
     try {
-        WindowsRegistryPort reg;
-        for (const ShaderCacheReport& c : reg.InspectShaderCaches()) in.caches.push_back({Narrow(c.path), c.total_size_bytes, c.file_count, c.exists});
+        in.caches = probe.ProbeShaderCaches();
     } catch (...) {
+        in.caches.clear();
         in.caches_probed = false;
     }
 
     // F2.7: why the profile is what it is (read-only: the same detection the daemon runs at start).
     try {
-        const SystemHardwareProfile hw = HardwareProfiler::DetectHardware();
-        in.profile_reasons = HardwareProfiler::DecisionReasonTexts(HardwareProfiler::BuildOptimizationPolicy(hw).decision_reasons);
+        in.profile_reasons = probe.ProfileReasons();
     } catch (...) {
         in.profile_reasons.clear(); // the section is left out; the rest of the report stands
     }
 
-    {
-        vegaflow::SafeFileSystem fs;
-        const std::wstring path = vegaflow::ConfigFilePath();
-        app::ConfigStore store(fs, path, vegaflow::ConfigLocationTrusted(path));
-        store.Load();
-        in.config_warning = store.Report().Warning();
-    }
-
-    HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-    if (snap != INVALID_HANDLE_VALUE) {
-        PROCESSENTRY32W e{};
-        e.dwSize = sizeof e;
-        for (BOOL ok = Process32FirstW(snap, &e); ok; ok = Process32NextW(snap, &e)) in.processes.push_back(Narrow(e.szExeFile));
-        CloseHandle(snap);
-    }
-
-    in.computer_name = ComputerName(ComputerNameDnsHostname);
-    in.domain_name = ComputerName(ComputerNameDnsDomain);
-    wchar_t netbios[64] = {};
-    DWORD nb = 64;
-    if (in.computer_name.empty() && GetComputerNameW(netbios, &nb)) in.computer_name = Narrow(std::wstring(netbios, nb));
+    in.config_warning = probe.ConfigWarning();
+    in.processes = probe.RunningProcesses();
+    in.computer_name = probe.ComputerName();
+    in.domain_name = probe.DomainName();
 
     return BuildDoctorReport(in);
 }
 
-int RunDoctor(bool json, const std::string& version) {
-    const DoctorReport r = ReadDoctorReport(version);
+int RunDoctor(bool json, const std::string& version, DoctorProbe& probe) {
+    const DoctorReport r = ReadDoctorReport(version, probe);
     std::cout << (json ? r.json : r.text) << (json ? "\n" : "");
     return r.exit_code;
 }

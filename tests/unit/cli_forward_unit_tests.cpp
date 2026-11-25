@@ -5,7 +5,7 @@
 #include <vector>
 
 #include "windows/command_line.hpp"
-#include "windows/text_convert.hpp"
+#include "ports/text_convert.hpp"
 #include "../test_support.hpp"
 
 namespace vftest {

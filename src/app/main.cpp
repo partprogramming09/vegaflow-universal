@@ -25,7 +25,7 @@
 #include "app/monitor.hpp"
 #include "session/reports.hpp"
 #include "ui/app_identity.hpp"
-#include "windows/text_convert.hpp"
+#include "ports/text_convert.hpp"
 #include "windows/change_journal.hpp"
 #include "windows/command_line.hpp"
 #include "windows/console_prompt.hpp"

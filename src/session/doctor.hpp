@@ -3,26 +3,20 @@
 // caches and the manufacturer tools that fight VegaFlow over the power plan. It only reads; the rules are in Rust
 // (policy/doctor.rs) and BuildDoctorReport is a pure function of the probe results, so tests give it plain data.
 
+#include "model/doctor.hpp"
+
 #include <cstdint>
 #include <string>
 #include <vector>
 
+namespace vegaflow {
+class DoctorProbe;
+}
+
 namespace vegaflow::session {
 
-struct DoctorDisk {
-    std::string label; // "System drive", "Game drive"
-    std::string path;
-    bool probed = false; // false when the Windows call failed
-    uint64_t free_bytes = 0;
-    uint64_t total_bytes = 0;
-};
-
-struct DoctorCacheDir {
-    std::string path;
-    uint64_t bytes = 0;
-    uint32_t files = 0;
-    bool exists = false;
-};
+using vegaflow::DoctorCacheDir;
+using vegaflow::DoctorDisk;
 
 struct DoctorInputs {
     std::string version;
@@ -46,10 +40,10 @@ struct DoctorReport {
 // User, computer and domain names are replaced (RedactReport); nothing is cut or reflowed.
 DoctorReport BuildDoctorReport(const DoctorInputs& in);
 
-// E2.7: reads the machine (what the account can read; the window shows it) and builds the report. Writes nothing.
-DoctorReport ReadDoctorReport(const std::string& version);
+// E2.7: reads the machine through `probe` (what the account can read; the window shows it) and builds the report. Writes nothing.
+DoctorReport ReadDoctorReport(const std::string& version, DoctorProbe& probe);
 
 // Reads the machine, prints the report (text, or JSON when `json`) and returns its exit code. Writes nothing.
-int RunDoctor(bool json, const std::string& version);
+int RunDoctor(bool json, const std::string& version, DoctorProbe& probe);
 
 } // namespace vegaflow::session

@@ -5,7 +5,7 @@
 #include "windows/power.hpp"
 #include "windows/registry.hpp"
 #include "windows/system_counters.hpp"
-#include "windows/text_convert.hpp"
+#include "ports/text_convert.hpp"
 
 #include <iomanip>
 #include <sstream>

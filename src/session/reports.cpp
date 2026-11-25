@@ -22,6 +22,7 @@
 #include <string>
 #include <vector>
 
+#include "session/profile_reasons.hpp"
 #include "windows/config_location.hpp"
 #include "windows/privileges.hpp"
 #include "detect/hardware_profiler.hpp"
@@ -34,7 +35,7 @@
 #include "windows/power.hpp"
 #include "windows/registry.hpp"
 #include "windows/system_counters.hpp"
-#include "windows/text_convert.hpp"
+#include "ports/text_convert.hpp"
 
 namespace vegaflow::app {
 
@@ -275,7 +276,7 @@ void PrintStatusReport() {
     const int uma_thresh_pct = static_cast<int>(policy.runtime_pressure_threshold * 100.0 + 0.5);
     std::cout << "  Live DXGI Budget Pressure  : " << static_cast<int>(uma_guard.dxgi_budget_utilization * 100.0) << "% (Threshold: " << uma_thresh_pct << "% -> " << (uma_guard.guard_triggered ? "PRESSURE GUARD ACTIVE" : "HEALTHY") << ")\n\n";
 
-    const std::string why = WhyThisProfileSection(HardwareProfiler::DecisionReasonTexts(policy.decision_reasons));
+    const std::string why = WhyThisProfileSection(session::DecisionReasonTexts(policy.decision_reasons));
     if (!why.empty()) std::cout << why << "\n";
 
     std::cout << "[SYSTEM GRAPHICS TWEAKS]\n";

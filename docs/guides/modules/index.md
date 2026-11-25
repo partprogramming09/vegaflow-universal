@@ -19,7 +19,7 @@ Each folder of `src/` may only include the folders listed for it (its own folder
 
 | Folder | May include |
 | --- | --- |
-| `app/` (entry points) | `session/`, `ui/`, `model/`, `windows/`, `bridge/`, `detect/`, `optimize/` |
+| `app/` (entry points) | `session/`, `ui/`, `model/`, `ports/`, `windows/`, `bridge/`, `detect/`, `optimize/` |
 | `ui/` (GUI) | `session/`, `model/` |
 | `session/` (use cases) | `model/`, `ports/`, `bridge/`; during the migration, also `detect/`, `optimize/` and `windows/` |
 | `ports/` (interfaces) | `model/` |

@@ -4,11 +4,14 @@
 #include "../test_support.hpp"
 
 #include "bridge/rust_bridge.h"
-#include "detect/hardware_profiler.hpp"
+#include "session/profile_reasons.hpp"
+#include "ports/doctor_probe.hpp"
 #include "session/doctor.hpp"
 #include "session/report.hpp"
 
 #include <cstdint>
+#include <optional>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -33,7 +36,79 @@ bool Has(const std::string& s, const std::string& part) { return s.find(part) !=
 
 bool JsonOk(const std::string& s) { return vf_rust_doctor_json_is_valid(reinterpret_cast<const uint8_t*>(s.data()), s.size()); }
 
+// A probe that answers from plain data and records which questions were asked.
+class FakeDoctorProbe final : public vegaflow::DoctorProbe {
+public:
+    bool elevated = true;
+    vegaflow::DoctorDisk system_drive{"System drive", "C:\\", true, 200 * kGiB, 500 * kGiB};
+    std::optional<vegaflow::DoctorDisk> game_drive;
+    std::vector<vegaflow::DoctorCacheDir> caches;
+    bool caches_throw = false;
+    std::vector<std::string> reasons;
+    bool reasons_throw = false;
+    std::string warning;
+    std::vector<std::string> procs;
+    std::string computer = "DESKTOP-ABC";
+    std::string domain;
+    int asked = 0;
+
+    bool IsElevated() override { ++asked; return elevated; }
+    vegaflow::DoctorDisk ProbeSystemDrive() override { ++asked; return system_drive; }
+    std::optional<vegaflow::DoctorDisk> ProbeActiveGameDrive() override { ++asked; return game_drive; }
+    std::vector<vegaflow::DoctorCacheDir> ProbeShaderCaches() override {
+        ++asked;
+        if (caches_throw) throw std::runtime_error("registry");
+        return caches;
+    }
+    std::vector<std::string> ProfileReasons() override {
+        ++asked;
+        if (reasons_throw) throw std::runtime_error("hardware");
+        return reasons;
+    }
+    std::string ConfigWarning() override { ++asked; return warning; }
+    std::vector<std::string> RunningProcesses() override { ++asked; return procs; }
+    std::string ComputerName() override { ++asked; return computer; }
+    std::string DomainName() override { ++asked; return domain; }
+};
+
 } // namespace
+
+// F4.3: ReadDoctorReport asks a port for every Windows read, so a fake machine gives the whole report on any host.
+void Test144() {
+    FakeDoctorProbe ok;
+    ok.caches.push_back({"C:\\Cache", 2048, 3, true});
+    ok.reasons = {"Reason one."};
+    ok.procs = {"ArmouryCrate.exe"};
+    const auto r1 = gs::ReadDoctorReport("0.2.0", ok);
+    RecordResult(ok.asked == 9 && Has(r1.text, "Reason one.") && Has(r1.text, "ASUS Armoury Crate") && !Has(r1.text, "DESKTOP-ABC") && JsonOk(r1.json),
+                 "Test 144.1: ReadDoctorReport builds the report from the probe's answers and hides the computer name", r1.text);
+
+    // A game on another drive adds a second disk; on the same drive it does not.
+    FakeDoctorProbe other;
+    other.game_drive = vegaflow::DoctorDisk{"Game drive", "D:\\", true, 10 * kGiB, 100 * kGiB};
+    const auto r2 = gs::ReadDoctorReport("0.2.0", other);
+    FakeDoctorProbe same;
+    same.game_drive = vegaflow::DoctorDisk{"Game drive", "C:\\", true, 10 * kGiB, 100 * kGiB};
+    const auto r3 = gs::ReadDoctorReport("0.2.0", same);
+    RecordResult(Has(r2.json, "\"Game drive\"") && !Has(r3.json, "\"Game drive\""),
+                 "Test 144.2: the game's drive is listed only when it is not the system drive", r2.json);
+
+    // A probe that throws costs its own section, not the report.
+    FakeDoctorProbe broken;
+    broken.caches_throw = true;
+    broken.reasons_throw = true;
+    broken.reasons = {"never shown"};
+    const auto r4 = gs::ReadDoctorReport("0.2.0", broken);
+    RecordResult(!Has(r4.text, "never shown") && Has(r4.text, "could not read the shader caches") && JsonOk(r4.json) && broken.asked == 9,
+                 "Test 144.3: a failing shader-cache or hardware read leaves out that section and the rest stands", r4.text);
+
+    // The config warning of the probe becomes a finding.
+    FakeDoctorProbe warn;
+    warn.warning = "config.json tiene valores no permitidos (x): esas claves usan su valor de fábrica.";
+    const auto r5 = gs::ReadDoctorReport("0.2.0", warn);
+    RecordResult(Has(r5.text, "[WARN] config.json") && r5.exit_code == 1,
+                 "Test 144.4: the config warning read by the probe is a finding", r5.text);
+}
 
 void Test109() {
     // 1. 4 GiB free: critical, exit code 2.
@@ -171,10 +246,10 @@ void Test109() {
                      !Has(gs::BuildDoctorReport(Healthy()).text, "config.json"),
                  "Test 109.18b: a config.json warning is a finding; without it the report does not mention config.json", r18b.text);
     // The words come from the Rust table: one line per bit, bit order, bits with no rule skipped.
-    const auto lines = vegaflow::HardwareProfiler::DecisionReasonTexts((1ull << 37) | 1ull | (1ull << 60));
+    const auto lines = gs::DecisionReasonTexts((1ull << 37) | 1ull | (1ull << 60));
     RecordResult(lines.size() == 2 && lines[0].find("No graphics adapter") != std::string::npos &&
                      lines[1].find("async compute is off") != std::string::npos &&
-                     vegaflow::HardwareProfiler::DecisionReasonTexts(0).empty(),
+                     gs::DecisionReasonTexts(0).empty(),
                  "Test 109.19: DecisionReasonTexts asks Rust for one sentence per set bit, in bit order, and skips bits with no rule");
 
     // RedactReport on its own: keeps line breaks and length, hides the names case-insensitively.

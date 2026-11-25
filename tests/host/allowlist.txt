@@ -21,6 +21,8 @@ src src/optimize/graphics/vram_reporting.cpp
 src src/optimize/memory_manager.cpp
 src src/optimize/steam/engine_detection.cpp
 src src/session/config.cpp
+src src/session/doctor.cpp
+src src/session/profile_reasons.cpp
 src src/session/config_actions.cpp
 src src/session/config_recovery.cpp
 src src/session/config_screen.cpp
@@ -83,7 +85,7 @@ exclude tests/unit/config_recovery_unit_tests.cpp link
 exclude tests/unit/config_screen_unit_tests.cpp link
 exclude tests/unit/config_unit_tests.cpp link
 exclude tests/unit/cpu_topology_unit_tests.cpp link
-exclude tests/unit/doctor_unit_tests.cpp link
+test tests/unit/doctor_unit_tests.cpp
 exclude tests/unit/dxvk_unit_tests.cpp link
 exclude tests/unit/factory_settings_unit_tests.cpp link
 exclude tests/unit/game_actions_adversarial_unit_tests.cpp link

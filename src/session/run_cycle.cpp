@@ -16,7 +16,7 @@
 #include "optimize/steam/steam_engine_optimizer.hpp"
 #include "session/game_session.hpp"
 #include "session/reports.hpp"
-#include "windows/text_convert.hpp"
+#include "ports/text_convert.hpp"
 #include "windows/device_probe.hpp"
 #include "windows/power.hpp"
 #include "windows/registry.hpp"

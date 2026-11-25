@@ -10,7 +10,7 @@ cd "$(dirname "$0")/../.." || exit 2
 # and must be removed from these lists when they do.
 allowed() {
     case "$1" in
-    app) echo "session ui model windows bridge detect optimize" ;;
+    app) echo "session ui model ports windows bridge detect optimize" ;;
     ui) echo "session model" ;;
     session) echo "model ports bridge detect optimize windows" ;; # Migration: detect optimize windows
     ports) echo "model" ;;
