@@ -91,7 +91,7 @@ VegaFlow Universal starts from one basic engineering principle: **it does not co
 
 ### 7. Instructions for Assistants and Developers
 
-1. **Never skip dry runs (`dry_run`):** every function that modifies the system (`ApplyEngineUmaPreset`, `DeployDxvk`, `SetMpoDisabled`, etc.) must take a `dry_run = false` parameter so unit tests can run with no real effect.
+1. **Never skip dry runs (`dry_run`):** every function that modifies the system (`ApplyEngineUmaPreset`, `RemoveDxvk`, `SetMpoDisabled`, etc.) must take a `dry_run = false` parameter so unit tests can run with no real effect.
 2. **Keep zero overhead:** do not add heavy frameworks (Qt, WxWidgets, Boost). The GUI must stay pure native Win32/GDI to keep RAM use `< 15 MB`.
 3. **Paths with spaces and Unicode:** always use `std::wstring` to call the Win32 API, and convert cleanly with `Utf8ToWide` / `WideToUtf8`.
 4. **Back up before writing:** any change to a `.ini`, `.config` or DLL file must be preceded by creating a `.vegaflow.bak` or `.original.bak` file.
