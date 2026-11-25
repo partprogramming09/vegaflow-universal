@@ -4,6 +4,7 @@ use super::config::VfProcessExceptionEntry;
 use super::{bytes_or_empty, ffi_guard};
 use crate::policy::config_rules;
 use crate::policy::process_class::{self, ProcessPolicyInput, VfProcessCategoryActions, VfProcessDecision};
+use crate::policy::process_tree::{self, ProcessNode};
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
@@ -97,5 +98,58 @@ pub extern "C" fn vf_rust_is_allowed_game_exe(utf8_name: *const u8, len: usize) 
         }
         let bytes = unsafe { core::slice::from_raw_parts(utf8_name, len) };
         std::str::from_utf8(bytes).is_ok_and(config_rules::is_allowed_game_exe)
+    })
+}
+
+/// One process of a snapshot for `vf_rust_inherit_process_actions`: its link to the parent and its own decision.
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct VfProcessTreeNode {
+    pub pid: u32,
+    pub parent_pid: u32,
+    pub creation_time: u64,
+    pub process_class: u8,
+    pub action: u8,
+    pub has_user_exception: bool,
+    pub has_anticheat_signal: bool,
+}
+
+/// F5.1: writes `count` decisions to `out`, one per node in the same order: an unknown child takes the
+/// Throttle/EcoOnly action of its nearest proven ancestor (see `policy/process_tree.rs`). On false `out` is untouched.
+#[no_mangle]
+pub extern "C" fn vf_rust_inherit_process_actions(
+    nodes: *const VfProcessTreeNode,
+    count: usize,
+    active_game_pid: u32,
+    out: *mut VfProcessDecision,
+) -> bool {
+    ffi_guard(false, || {
+        if count == 0 {
+            return true;
+        }
+        if nodes.is_null() || out.is_null() {
+            return false;
+        }
+        let raw = unsafe { core::slice::from_raw_parts(nodes, count) };
+        let list: Vec<ProcessNode> = raw
+            .iter()
+            .map(|n| ProcessNode {
+                pid: n.pid,
+                parent_pid: n.parent_pid,
+                creation_time: n.creation_time,
+                decision: VfProcessDecision {
+                    process_class: n.process_class,
+                    action: n.action,
+                    protected_by_anticheat: false,
+                    path_verified: false,
+                },
+                has_user_exception: n.has_user_exception,
+                has_anticheat_signal: n.has_anticheat_signal,
+            })
+            .collect();
+        let decided = process_tree::inherit_decisions(&list, active_game_pid);
+        let dst = unsafe { core::slice::from_raw_parts_mut(out, count) };
+        dst.copy_from_slice(&decided);
+        true
     })
 }

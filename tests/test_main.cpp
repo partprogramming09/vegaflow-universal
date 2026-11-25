@@ -214,6 +214,8 @@ int main() {
         {146, vftest::Test146},  // F4.3 hardware partition/policy and the session cycle without Windows
         {147, vftest::Test147},  // F4.3 SystemInfo reads through SystemReads
         {148, vftest::Test148},  // F4.3 SettingsActions drives the switches through TweakControls
+        {170, vftest::Test170},  // F5.1 process tree inheritance
+        {171, vftest::Test171},  // F5.2 windowless target, OpenGL
         {144, vftest::Test144},  // F4.2 memory tab model, thread-map keys, sidebar order
         {160, vftest::Test160},  // F5.3/F5.4 Epic and GOG readers on the shared vectors
         {161, vftest::Test161},  // F5.3/F5.4 Epic and GOG folders through SandboxGuard

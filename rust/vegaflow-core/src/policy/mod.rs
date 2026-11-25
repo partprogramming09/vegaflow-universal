@@ -16,6 +16,7 @@ pub mod json_text;
 pub mod memory_purge;
 pub mod path_policy;
 pub mod process_class;
+pub mod process_tree;
 pub mod steam_library;
 pub mod sandbox_core;
 

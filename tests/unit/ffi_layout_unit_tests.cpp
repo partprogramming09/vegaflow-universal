@@ -116,6 +116,11 @@ void Test34() {
         VF_FIELD(VfProcessClassifyInput, custom_games_nul_len) VF_FIELD(VfProcessClassifyInput, excluded_games_nul_ptr)
         VF_FIELD(VfProcessClassifyInput, excluded_games_nul_len) VF_FIELD(VfProcessClassifyInput, heavy_work_as_game)
         VF_FIELD(VfProcessClassifyInput, is_foreground_3d) VF_FIELD(VfProcessClassifyInput, has_anticheat_signal)
+        VF_LAYOUT_BEGIN(VfProcessTreeNode)
+        VF_FIELD(VfProcessTreeNode, pid) VF_FIELD(VfProcessTreeNode, parent_pid)
+        VF_FIELD(VfProcessTreeNode, creation_time) VF_FIELD(VfProcessTreeNode, process_class)
+        VF_FIELD(VfProcessTreeNode, action) VF_FIELD(VfProcessTreeNode, has_user_exception)
+        VF_FIELD(VfProcessTreeNode, has_anticheat_signal)
 #undef VF_FIELD
 #undef VF_LAYOUT_BEGIN
 

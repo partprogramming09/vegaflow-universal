@@ -184,6 +184,8 @@ void Test148();  // F4.3 SettingsActions driven through a fake TweakControls
 void Test139();  // end of input or a failed read is no answer and discards pending keys
 void Test160();  // F5.3/F5.4 Epic manifests and GOG registry entries give the folders the shared vectors expect
 void Test161();  // F5.3/F5.4 Epic and GOG folders go through SandboxGuard with the Steam checks
+void Test170();  // F5.1 process tree inheritance through the Rust bridge
+void Test171();  // F5.2 windowless target cache, reused PID, two targets, OpenGL
 void Test144();  // F4.2 memory tab model, thread-map selection and sidebar order
 
 } // namespace vftest

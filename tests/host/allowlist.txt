@@ -66,6 +66,7 @@ test tests/unit/dxgi_flip_unit_tests.cpp
 test tests/unit/equipment_screen_unit_tests.cpp
 test tests/unit/ffi_callback_guard_unit_tests.cpp
 test tests/unit/ffi_layout_unit_tests.cpp
+exclude tests/unit/f5_expansion_unit_tests.cpp link
 test tests/unit/fse_compat_unit_tests.cpp
 test tests/unit/gamedvr_restore_unit_tests.cpp
 test tests/unit/give_back_no_blind_write_unit_tests.cpp
