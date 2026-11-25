@@ -176,6 +176,7 @@ void Test142();  // F4.4: a broken config.json is the person's decision (factory
 void Test141();  // a standard-user token can join the session log lock an elevated process created
 void Test140();  // a filtered token cannot hard-link a protected file it cannot write (F3 hardlink investigation)
 void Test143();  // F4.1 the window's polling cadence: visible, hidden, with and without a game
+void Test150();  // F4.7 window size and minimum limited to the usable screen area (no Windows)
 void Test149();  // F4.3 --doctor reads the machine through a DoctorProbe (fake machine)
 void Test145();  // F4.3 the Juegos buttons ask the GameFiles port (fake that records the calls)
 void Test146();  // F4.3 PartitionCpuSets / BuildOptimizationPolicy / session cycle with a fake environment

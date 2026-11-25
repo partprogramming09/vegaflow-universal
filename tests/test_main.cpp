@@ -215,6 +215,7 @@ int main() {
         {147, vftest::Test147},  // F4.3 SystemInfo reads through SystemReads
         {148, vftest::Test148},  // F4.3 SettingsActions drives the switches through TweakControls
         {144, vftest::Test144},  // F4.2 memory tab model, thread-map keys, sidebar order
+        {150, vftest::Test150},  // F4.7 window size limited to the work area (175 % scale no longer hides the status bar)
         {149, vftest::Test149},  // F4.3 doctor reads through DoctorProbe (was 144 before merging F4.2)
     };
     for (const auto& [number, run] : tests) {
